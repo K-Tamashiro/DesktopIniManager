@@ -1,0 +1,6 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <SolidColorBrush x:Key="WindowBackground" Color="#FFFDFC"/><SolidColorBrush x:Key="CardBackground" Color="#FFFDFC"/><SolidColorBrush x:Key="HeaderBackground" Color="#FAF4F7"/>
+  <SolidColorBrush x:Key="Accent" Color="#8C0048"/><SolidColorBrush x:Key="AccentSoft" Color="#F7E9F0"/><SolidColorBrush x:Key="Ink" Color="#2E2030"/><SolidColorBrush x:Key="Muted" Color="#756773"/>
+  <SolidColorBrush x:Key="Line" Color="#DCCBD4"/><SolidColorBrush x:Key="InputLine" Color="#C8B5C0"/><SolidColorBrush x:Key="Secondary" Color="#756773"/>
+  <SolidColorBrush x:Key="ThemeToggle" Color="#F0E5EB"/><SolidColorBrush x:Key="ThemeSelected" Color="#DDC8D3"/><SolidColorBrush x:Key="SunGlyph" Color="#C45A12"/><SolidColorBrush x:Key="MoonGlyph" Color="#8B741D"/>
+</ResourceDictionary>

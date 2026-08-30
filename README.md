@@ -8,9 +8,9 @@ It discovers Git repositories, projects, source-language composition, and Visual
 
 ## Download
 
-[![Download DesktopIniManager](docs/images/download.png)](https://github.com/K-Tamashiro/DesktopIniManager/releases/latest/download/DesktopIniManager-win-x64.zip)
+[![Download DesktopIniManager](docs/images/download.png)](https://github.com/K-Tamashiro/DesktopIniManager/releases/latest/download/DesktopIniManager-v1.1.0-win-x64.zip)
 
-Download `DesktopIniManager-win-x64.zip`, extract it to a writable folder, and run `DesktopIniManager.exe`.
+Download `DesktopIniManager-v1.1.0-win-x64.zip`, extract it to a writable folder, and run `DesktopIniManager.exe`.
 
 ### Requirements
 

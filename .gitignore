@@ -6,3 +6,5 @@ obj/
 *.userosscache
 *.sln.docstates
 *.log
+desktop.ini
+/release/

@@ -35,7 +35,7 @@ namespace DesktopIniManager
             ResultsTree.ItemsSource = _treeRoots;
             string savedRoot = SettingsService.LoadSearchRoot();
             RootBox.Text = !string.IsNullOrWhiteSpace(savedRoot) ? savedRoot : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            const string defaultLibrary = @"F:\Pictures\icon\desktopmanager.icl";
+            string defaultLibrary = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "folder_set.icl");
             string savedLibrary = SettingsService.LoadIconLibraryPath();
             IconPathBox.Text = !string.IsNullOrWhiteSpace(savedLibrary) ? savedLibrary : defaultLibrary;
             string savedQuery = SettingsService.LoadSearchQuery();
@@ -149,7 +149,12 @@ namespace DesktopIniManager
             Search_Click(sender, e);
         }
         private void Cancel_Click(object sender, RoutedEventArgs e) => _searchCts?.Cancel();
-        private void SelectAll_Click(object sender, RoutedEventArgs e) { bool value = SelectAllBox.IsChecked == true; foreach (var item in CurrentItems().Where(item => item.IsActionable)) item.IsSelected = value; }
+        private void SelectAll_Click(object sender, RoutedEventArgs e)
+        {
+            bool value = SelectAllBox.IsChecked == true;
+            var targets = value ? VisibleItems() : CurrentItems();
+            foreach (var item in targets.Where(item => item.IsActionable)) item.IsSelected = value;
+        }
         private void ExpandAll_Click(object sender, RoutedEventArgs e) { foreach (var item in CurrentItems()) item.IsExpanded = true; }
         private void CollapseAll_Click(object sender, RoutedEventArgs e) { foreach (var item in CurrentItems()) item.IsExpanded = false; }
         private void PhysicalView_Click(object sender, RoutedEventArgs e) { _solutionView = false; ResultsTree.ItemsSource = _treeRoots; UpdateVisibleCount(); }
@@ -157,9 +162,18 @@ namespace DesktopIniManager
         private void ShowSolutionView() { ResultsTree.ItemsSource = _solutionRoots; UpdateVisibleCount(); StatusText.Text = _solutionRoots.Count + " solutions found"; }
         private void UpdateVisibleCount() { CountText.Text = CurrentItems().Count() + " folders"; }
         private System.Collections.Generic.IEnumerable<FolderMatch> CurrentItems() => Flatten(_solutionView ? _solutionRoots : _treeRoots);
+        private System.Collections.Generic.IEnumerable<FolderMatch> VisibleItems() => FlattenVisible(_solutionView ? _solutionRoots : _treeRoots);
         private static System.Collections.Generic.IEnumerable<FolderMatch> Flatten(System.Collections.Generic.IEnumerable<FolderMatch> roots)
         {
             foreach (FolderMatch item in roots) { yield return item; foreach (FolderMatch child in Flatten(item.Children)) yield return child; }
+        }
+        private static System.Collections.Generic.IEnumerable<FolderMatch> FlattenVisible(System.Collections.Generic.IEnumerable<FolderMatch> roots)
+        {
+            foreach (FolderMatch item in roots)
+            {
+                yield return item;
+                if (item.IsExpanded) foreach (FolderMatch child in FlattenVisible(item.Children)) yield return child;
+            }
         }
 
         private void AddTreeResult(FolderMatch item)
@@ -198,7 +212,7 @@ namespace DesktopIniManager
 
         private void Apply_Click(object sender, RoutedEventArgs e)
         {
-            var selected = CurrentItems().Where(item => item.IsActionable && item.IsSelected).GroupBy(item => item.Path, StringComparer.OrdinalIgnoreCase).Select(group => group.First()).ToList();
+            var selected = VisibleItems().Where(item => item.IsActionable && item.IsSelected).GroupBy(item => item.Path, StringComparer.OrdinalIgnoreCase).Select(group => group.First()).ToList();
             bool addToGitIgnore = AddToGitIgnoreBox.IsChecked == true;
             if (selected.Count == 0) { MessageBox.Show("Select at least one folder.", Title); return; }
             if (MessageBox.Show("Apply the selected icon to " + selected.Count + " folders?", Title, MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
@@ -214,7 +228,7 @@ namespace DesktopIniManager
 
         private void Remove_Click(object sender, RoutedEventArgs e)
         {
-            var selected = CurrentItems().Where(item => item.IsActionable && item.IsSelected).GroupBy(item => item.Path, StringComparer.OrdinalIgnoreCase).Select(group => group.First()).ToList();
+            var selected = VisibleItems().Where(item => item.IsActionable && item.IsSelected).GroupBy(item => item.Path, StringComparer.OrdinalIgnoreCase).Select(group => group.First()).ToList();
             if (selected.Count == 0) { MessageBox.Show("Select at least one folder.", Title); return; }
             if (MessageBox.Show("Delete desktop.ini and remove icon settings from " + selected.Count + " folders?", Title, MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK) return;
             int succeeded = 0;

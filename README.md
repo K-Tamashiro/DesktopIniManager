@@ -24,6 +24,7 @@ Large repositories often contain several solutions, many service projects, share
 ## Highlights
 
 - Dedicated `GIT Search` for finding repositories and projects
+- Optional NTFS MFT index search that can inventory very large volumes in milliseconds
 - Physical folder tree with expandable repository and project nodes
 - Visual Studio `.sln` parsing and logical Solution tree view
 - Detection of projects inside monorepos, even when child projects do not contain their own `.git`
@@ -38,6 +39,25 @@ Large repositories often contain several solutions, many service projects, share
 - Light and dark themes
 - Context-menu action for narrowing the search location
 - Visible-row-only batch selection for safe tree operations
+- Bundled `mftree` command-line tool for fast trees and development-structure analysis
+
+## Fast NTFS search
+
+`Use fast NTFS search` reads the local NTFS Master File Table instead of recursively opening every directory. It is intended for large development drives and very large solutions. Direct volume access requires administrator permission, so DesktopIniManager explains the request and can restart the search with elevation.
+
+Fast search supports local NTFS volumes. Network shares, Samba paths, and non-NTFS volumes automatically use the standard folder search.
+
+## mftree command-line tool
+
+The release also includes `mftree.exe`, a command-line interface powered by `FastVolumeIndex.Core`. Run it from an administrator terminal:
+
+```powershell
+mftree "E:\" --tree --depth 3
+mftree "E:\Develop" --analyze
+mftree "E:\Develop" --solutions
+```
+
+Add the extracted release directory to `PATH` to invoke `mftree` from any location.
 
 ## Application overview
 
@@ -75,12 +95,12 @@ For each selected folder, DesktopIniManager:
 
 1. Writes a `[.ShellClassInfo]` section with the selected `IconResource`.
 2. Marks `desktop.ini` as Hidden and System.
-3. Applies the System attribute to the folder.
+3. Applies the System and Read-only attributes required for folder customization.
 4. Notifies Windows Explorer of the icon change.
 
 The selected icon library stays at its current path. Moving or deleting it can make assigned folder icons unavailable.
 
-`Remove settings` deletes `desktop.ini`, clears the folder's System attribute, and refreshes Explorer.
+`Remove settings` deletes `desktop.ini`, clears the customization attributes, and refreshes Explorer.
 
 ## Build from source
 
@@ -96,12 +116,14 @@ Build with Visual Studio's MSBuild:
 MSBuild.exe DesktopIniManager.sln /t:Rebuild /p:Configuration=Release
 ```
 
-The project is a dependency-free WPF application targeting .NET Framework 4.8 and x64 Windows.
+The solution contains DesktopIniManager, the reusable `FastVolumeIndex.Core` API, and the `mftree` CLI. All projects target .NET Framework 4.8 and x64 Windows.
 
 ## Release package contents
 
 ```text
 DesktopIniManager.exe
+FastVolumeIndex.Core.dll
+mftree.exe
 Assets/
   folder_set.icl
 README.md

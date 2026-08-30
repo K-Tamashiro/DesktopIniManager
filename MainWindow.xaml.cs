@@ -4,8 +4,13 @@ using DesktopIniManager.Views;
 using Microsoft.Win32;
 using System;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
+using System.Globalization;
 using System.Linq;
+using System.Reflection;
+using System.Security.Principal;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -27,6 +32,10 @@ namespace DesktopIniManager
 
         public MainWindow()
         {
+            string[] commandLine = Environment.GetCommandLineArgs();
+            bool fastSearchRequested = commandLine.Any(argument => string.Equals(argument, "--fast-search", StringComparison.OrdinalIgnoreCase));
+            bool runGitSearch = commandLine.Any(argument => string.Equals(argument, "--run-git-search", StringComparison.OrdinalIgnoreCase));
+            bool runSearch = commandLine.Any(argument => string.Equals(argument, "--run-search", StringComparison.OrdinalIgnoreCase));
             bool darkMode = SettingsService.LoadDarkMode();
             ThemeService.Apply(darkMode);
             InitializeComponent();
@@ -40,7 +49,17 @@ namespace DesktopIniManager
             IconPathBox.Text = !string.IsNullOrWhiteSpace(savedLibrary) ? savedLibrary : defaultLibrary;
             string savedQuery = SettingsService.LoadSearchQuery();
             QueryBox.Text = string.Equals(savedQuery, ".git", StringComparison.OrdinalIgnoreCase) ? string.Empty : (savedQuery ?? string.Empty);
-            Loaded += (sender, args) => RefreshSelectedIconPreview();
+            // Reflect the actual process state as well as an elevation restart request.
+            // Users who always run the executable as administrator can still uncheck it
+            // to compare the standard search during the current session.
+            FastNtfsSearchBox.IsChecked = fastSearchRequested || IsAdministrator();
+            RestoreWindowPlacement(commandLine);
+            Loaded += (sender, args) =>
+            {
+                RefreshSelectedIconPreview();
+                if (runGitSearch) Dispatcher.BeginInvoke(new Action(() => GitSearch_Click(this, new RoutedEventArgs())));
+                else if (runSearch) Dispatcher.BeginInvoke(new Action(() => Search_Click(this, new RoutedEventArgs())));
+            };
         }
 
         private void ChooseRoot_Click(object sender, RoutedEventArgs e)
@@ -115,24 +134,71 @@ namespace DesktopIniManager
             string root = RootBox.Text.Trim();
             string visibleQuery = QueryBox.Text.Trim();
             string query = _pendingSearchQuery ?? visibleQuery;
+            bool gitSearchRequested = _pendingSearchQuery != null && string.Equals(query, ".git", StringComparison.OrdinalIgnoreCase);
             _pendingSearchQuery = null;
+            bool fastSearch = FastNtfsSearchBox.IsChecked == true;
             SettingsService.SaveSearchRoot(root);
             SettingsService.SaveSearchQuery(visibleQuery);
             if (!Directory.Exists(root)) { MessageBox.Show("The search location does not exist.", Title); return; }
             if (query.Length == 0) { MessageBox.Show("Enter at least one keyword.", Title); return; }
+            if (fastSearch && !IsAdministrator())
+            {
+                RestartForFastSearch(gitSearchRequested);
+                return;
+            }
             _searchCts?.Cancel();
             var searchCts = new CancellationTokenSource();
             _searchCts = searchCts;
-            _results.Clear(); _treeRoots.Clear(); _solutionRoots.Clear(); CountText.Text = "0 folders"; SetSearching(true);
+            _results.Clear(); _treeRoots.Clear(); _solutionRoots.Clear(); CountText.Text = "0 matches"; SetSearching(true);
             try
             {
-                await Task.Run(() => new FolderSearchService().Search(root, query,
-                    item => { item.IconPreview = FolderIconService.GetFolderIcon(item.Path); Dispatcher.BeginInvoke(new Action(() => AddTreeResult(item))); },
-                    count => Dispatcher.BeginInvoke(new Action(() => StatusText.Text = "Scanning " + count.ToString("N0") + " folders…")), searchCts.Token));
-                var solutionRoots = await Task.Run(() => SolutionTreeService.Build(root, searchCts.Token));
+                System.Collections.Generic.List<FolderMatch> solutionRoots;
+                if (fastSearch)
+                {
+                    FastSearchResult fastResult = null;
+                    try
+                    {
+                        fastResult = await Task.Run(() => new FastFolderSearchService().Search(root, query,
+                            count => Dispatcher.BeginInvoke(new Action(() => StatusText.Text = count == 0 ? "Reading the NTFS index…" : "Indexed " + count.ToString("N0") + " folders")), searchCts.Token));
+                    }
+                    catch (NotSupportedException)
+                    {
+                        StatusText.Text = "Fast NTFS search is unavailable here. Using standard search…";
+                    }
+                    catch (UnauthorizedAccessException)
+                    {
+                        StatusText.Text = "Fast NTFS search permission was unavailable. Using standard search…";
+                    }
+                    catch (Win32Exception)
+                    {
+                        StatusText.Text = "The drive index could not be read. Using standard search…";
+                    }
+
+                    if (fastResult != null)
+                    {
+                        foreach (FolderMatch item in fastResult.Matches)
+                        {
+                            searchCts.Token.ThrowIfCancellationRequested();
+                            item.IconPreview = FolderIconService.GetFolderIcon(item.Path);
+                            AddTreeResult(item);
+                        }
+                        solutionRoots = await Task.Run(() => new FastFolderSearchService().BuildSolutionTree(fastResult.Index, root, searchCts.Token));
+                    }
+                    else
+                    {
+                        await RunStandardSearch(root, query, searchCts.Token);
+                        solutionRoots = await Task.Run(() => SolutionTreeService.Build(root, searchCts.Token));
+                    }
+                }
+                else
+                {
+                    await RunStandardSearch(root, query, searchCts.Token);
+                    solutionRoots = await Task.Run(() => SolutionTreeService.Build(root, searchCts.Token));
+                }
+                SortPhysicalTree();
                 foreach (FolderMatch solution in solutionRoots) _solutionRoots.Add(solution);
                 if (_solutionView) ShowSolutionView();
-                StatusText.Text = _results.Count + " folders found";
+                StatusText.Text = _results.Count + " matches found";
             }
             catch (OperationCanceledException) { StatusText.Text = "Search cancelled"; }
             catch (Exception ex) { MessageBox.Show(ex.Message, Title); StatusText.Text = "Search failed"; }
@@ -141,6 +207,114 @@ namespace DesktopIniManager
                 if (ReferenceEquals(_searchCts, searchCts)) { _searchCts = null; SetSearching(false); }
                 searchCts.Dispose();
             }
+        }
+
+        private Task RunStandardSearch(string root, string query, CancellationToken token)
+        {
+            return Task.Run(() => new FolderSearchService().Search(root, query,
+                item => { item.IconPreview = FolderIconService.GetFolderIcon(item.Path); Dispatcher.BeginInvoke(new Action(() => AddTreeResult(item))); },
+                count => Dispatcher.BeginInvoke(new Action(() => StatusText.Text = "Scanning " + count.ToString("N0") + " folders…")), token));
+        }
+
+        private void SortPhysicalTree()
+        {
+            SortCollection(_treeRoots);
+        }
+
+        private static void SortCollection(ObservableCollection<FolderMatch> items)
+        {
+            foreach (FolderMatch item in items)
+                SortCollection(item.Children);
+
+            FolderMatch[] ordered = items
+                .OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(item => item.Path, StringComparer.CurrentCultureIgnoreCase)
+                .ToArray();
+            for (int target = 0; target < ordered.Length; target++)
+            {
+                int current = items.IndexOf(ordered[target]);
+                if (current != target) items.Move(current, target);
+            }
+        }
+
+        private static bool IsAdministrator()
+        {
+            using (WindowsIdentity identity = WindowsIdentity.GetCurrent())
+                return new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator);
+        }
+
+        private void RestartForFastSearch(bool gitSearchRequested)
+        {
+            string message = "Fast NTFS search reads the local drive index. Windows asks for administrator permission only because direct access to this index is protected.\n\nRestart DesktopIniManager with permission and continue the search?";
+            if (MessageBox.Show(message, Title, MessageBoxButton.OKCancel, MessageBoxImage.Information) != MessageBoxResult.OK)
+            {
+                StatusText.Text = "Fast NTFS search was not started";
+                return;
+            }
+
+            try
+            {
+                string executable = Assembly.GetExecutingAssembly().Location;
+                Rect bounds = WindowState == WindowState.Normal
+                    ? new Rect(Left, Top, ActualWidth, ActualHeight)
+                    : RestoreBounds;
+                string placement = string.Format(CultureInfo.InvariantCulture,
+                    " --window-left {0:R} --window-top {1:R} --window-width {2:R} --window-height {3:R}{4}",
+                    bounds.Left, bounds.Top, bounds.Width, bounds.Height,
+                    WindowState == WindowState.Maximized ? " --window-maximized" : string.Empty);
+                var startInfo = new ProcessStartInfo(executable)
+                {
+                    UseShellExecute = true,
+                    Verb = "runas",
+                    Arguments = "--fast-search " + (gitSearchRequested ? "--run-git-search" : "--run-search") + placement
+                };
+                Process.Start(startInfo);
+                Application.Current.Shutdown();
+            }
+            catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
+            {
+                StatusText.Text = "Administrator permission was cancelled";
+            }
+            catch (Exception ex)
+            {
+                ShowError("Could not restart for fast NTFS search.", ex);
+            }
+        }
+
+        private void RestoreWindowPlacement(string[] arguments)
+        {
+            if (!TryReadArgument(arguments, "--window-left", out double left)
+                || !TryReadArgument(arguments, "--window-top", out double top)
+                || !TryReadArgument(arguments, "--window-width", out double width)
+                || !TryReadArgument(arguments, "--window-height", out double height))
+                return;
+
+            if (width < MinWidth || height < MinHeight)
+                return;
+
+            var requested = new Rect(left, top, width, height);
+            var virtualDesktop = new Rect(SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenTop,
+                SystemParameters.VirtualScreenWidth, SystemParameters.VirtualScreenHeight);
+            if (!requested.IntersectsWith(virtualDesktop))
+                return;
+
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Left = left;
+            Top = top;
+            Width = width;
+            Height = height;
+            if (arguments.Any(argument => string.Equals(argument, "--window-maximized", StringComparison.OrdinalIgnoreCase)))
+                WindowState = WindowState.Maximized;
+        }
+
+        private static bool TryReadArgument(string[] arguments, string name, out double value)
+        {
+            value = 0;
+            for (int index = 0; index < arguments.Length - 1; index++)
+                if (string.Equals(arguments[index], name, StringComparison.OrdinalIgnoreCase))
+                    return double.TryParse(arguments[index + 1], NumberStyles.Float,
+                        CultureInfo.InvariantCulture, out value);
+            return false;
         }
 
         private void GitSearch_Click(object sender, RoutedEventArgs e)
@@ -157,10 +331,10 @@ namespace DesktopIniManager
         }
         private void ExpandAll_Click(object sender, RoutedEventArgs e) { foreach (var item in CurrentItems()) item.IsExpanded = true; }
         private void CollapseAll_Click(object sender, RoutedEventArgs e) { foreach (var item in CurrentItems()) item.IsExpanded = false; }
-        private void PhysicalView_Click(object sender, RoutedEventArgs e) { _solutionView = false; ResultsTree.ItemsSource = _treeRoots; UpdateVisibleCount(); }
+        private void PhysicalView_Click(object sender, RoutedEventArgs e) { _solutionView = false; ResultsTree.ItemsSource = _treeRoots; UpdateVisibleCount(); StatusText.Text = _results.Count + " matches found"; }
         private void SolutionView_Click(object sender, RoutedEventArgs e) { _solutionView = true; ShowSolutionView(); }
         private void ShowSolutionView() { ResultsTree.ItemsSource = _solutionRoots; UpdateVisibleCount(); StatusText.Text = _solutionRoots.Count + " solutions found"; }
-        private void UpdateVisibleCount() { CountText.Text = CurrentItems().Count() + " folders"; }
+        private void UpdateVisibleCount() { CountText.Text = CurrentItems().Count() + (_solutionView ? " items" : " matches"); }
         private System.Collections.Generic.IEnumerable<FolderMatch> CurrentItems() => Flatten(_solutionView ? _solutionRoots : _treeRoots);
         private System.Collections.Generic.IEnumerable<FolderMatch> VisibleItems() => FlattenVisible(_solutionView ? _solutionRoots : _treeRoots);
         private static System.Collections.Generic.IEnumerable<FolderMatch> Flatten(System.Collections.Generic.IEnumerable<FolderMatch> roots)
@@ -191,7 +365,7 @@ namespace DesktopIniManager
                 _treeRoots.Remove(root);
                 item.Children.Add(root);
             }
-            CountText.Text = _results.Count + " folders";
+            CountText.Text = _results.Count + " matches";
         }
 
         private static bool IsAncestorPath(string parent, string child)
@@ -241,7 +415,7 @@ namespace DesktopIniManager
             MessageBox.Show(errors.Count == 0 ? "Icon settings removed." : succeeded + " succeeded, " + errors.Count + " failed\n\n" + string.Join("\n", errors.Take(5)), Title);
         }
 
-        private void SetSearching(bool value) { GitSearchButton.IsEnabled = !value; SearchButton.IsEnabled = !value; CancelButton.IsEnabled = value; ApplyButton.IsEnabled = !value; RemoveButton.IsEnabled = !value; SearchProgress.Visibility = value ? Visibility.Visible : Visibility.Collapsed; }
+        private void SetSearching(bool value) { GitSearchButton.IsEnabled = !value; SearchButton.IsEnabled = !value; CancelButton.IsEnabled = value; ApplyButton.IsEnabled = !value; RemoveButton.IsEnabled = !value; FastNtfsSearchBox.IsEnabled = !value; SearchProgress.Visibility = value ? Visibility.Visible : Visibility.Collapsed; }
         private void LightTheme_Click(object sender, RoutedEventArgs e) => SetTheme(false);
         private void DarkTheme_Click(object sender, RoutedEventArgs e) => SetTheme(true);
         private void SetTheme(bool dark)

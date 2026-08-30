@@ -17,11 +17,16 @@ namespace DesktopIniManager.Services
                 FileAttributes existing = File.GetAttributes(ini);
                 File.SetAttributes(ini, existing & ~(FileAttributes.Hidden | FileAttributes.System | FileAttributes.ReadOnly));
             }
-            File.WriteAllText(ini, content, new UTF8Encoding(true));
+            // The Windows shell does not reliably decode non-ASCII IconResource paths
+            // from UTF-8 desktop.ini files. UTF-16 LE is the native desktop.ini format.
+            File.WriteAllText(ini, content, Encoding.Unicode);
             File.SetAttributes(ini, File.GetAttributes(ini) | FileAttributes.Hidden | FileAttributes.System);
-            File.SetAttributes(folder, File.GetAttributes(folder) | FileAttributes.System);
+            // Explorer recognizes a folder as customized when either the read-only or
+            // system bit is set. Set both so the behavior is consistent across Windows
+            // versions and folder locations.
+            File.SetAttributes(folder, File.GetAttributes(folder) | FileAttributes.ReadOnly | FileAttributes.System);
             if (addToGitIgnore) EnsureGitIgnore(folder);
-            NotifyExplorer();
+            NotifyExplorer(folder);
         }
 
         private static void EnsureGitIgnore(string folder)
@@ -53,11 +58,27 @@ namespace DesktopIniManager.Services
                 File.Delete(ini);
             }
             FileAttributes folderAttributes = File.GetAttributes(folder);
-            File.SetAttributes(folder, folderAttributes & ~FileAttributes.System);
-            NotifyExplorer();
+            File.SetAttributes(folder, folderAttributes & ~(FileAttributes.ReadOnly | FileAttributes.System));
+            NotifyExplorer(folder);
         }
 
-        private static void NotifyExplorer() => SHChangeNotify(0x08000000, 0x0005, IntPtr.Zero, IntPtr.Zero);
-        [DllImport("shell32.dll")] private static extern void SHChangeNotify(uint eventId, uint flags, IntPtr item1, IntPtr item2);
+        private static void NotifyExplorer(string folder)
+        {
+            const uint ShcneUpdateItem = 0x00002000;
+            const uint ShcneUpdateDir = 0x00001000;
+            const uint ShcneAssocChanged = 0x08000000;
+            const uint ShcnfPathW = 0x0005;
+            const uint ShcnfFlush = 0x1000;
+            const uint ShcnfIdList = 0x0000;
+
+            SHChangeNotify(ShcneUpdateItem, ShcnfPathW | ShcnfFlush, folder, null);
+            string parent = Path.GetDirectoryName(folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (!string.IsNullOrEmpty(parent))
+                SHChangeNotify(ShcneUpdateDir, ShcnfPathW | ShcnfFlush, parent, null);
+            SHChangeNotify(ShcneAssocChanged, ShcnfIdList | ShcnfFlush, null, null);
+        }
+
+        [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+        private static extern void SHChangeNotify(uint eventId, uint flags, string item1, string item2);
     }
 }

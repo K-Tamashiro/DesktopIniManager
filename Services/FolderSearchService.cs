@@ -7,11 +7,11 @@ namespace DesktopIniManager.Services
         {
             ".git", ".vs", ".vscode"
         };
-        private static readonly HashSet<string> IgnoredDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        internal static readonly HashSet<string> IgnoredDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             ".git", ".vs", ".vscode", ".idea", ".gradle", "bin", "obj", "node_modules", "vendor", "packages", "dist", "build", "target", "coverage"
         };
-        private static readonly Dictionary<string, string> LanguageByExtension = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        internal static readonly Dictionary<string, string> LanguageByExtension = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             { "cs", "C#" }, { "cshtml", "Razor" }, { "razor", "Razor" }, { "xaml", "XAML" },
             { "c", "C / C++" }, { "cc", "C / C++" }, { "cpp", "C / C++" }, { "cxx", "C / C++" }, { "h", "C / C++" }, { "hpp", "C / C++" }, { "hxx", "C / C++" },
@@ -49,7 +49,7 @@ namespace DesktopIniManager.Services
                 bool insideRepository = node.InsideRepository || hasGit;
                 string reason = null;
                 if (developerMode && hasGit) reason = AnalyzeDevelopmentFolder(folder, token, "Repository");
-                else if (developerMode && node.InsideRepository && IsProjectFolder(folder)) reason = AnalyzeDevelopmentFolder(folder, token, "Project");
+                else if (developerMode && IsProjectFolder(folder)) reason = AnalyzeDevelopmentFolder(folder, token, "Project");
                 if (reason == null) reason = Match(folder, keys, token);
                 if (reason != null) found(new FolderMatch { Path = folder, Reason = reason });
                 try

@@ -2,14 +2,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
 VisualStudioVersion = 18.9.12120.119 stable
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DesktopIniManager", "DesktopIniManager.csproj", "{91097EF8-6B8C-492A-AC5C-F85A0BD979F4}"
-	ProjectSection(ProjectDependencies) = postProject
-		{A67C59A1-8E4E-4F44-9A88-D2D1BE56DD81} = {A67C59A1-8E4E-4F44-9A88-D2D1BE56DD81}
-	EndProjectSection
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FastVolumeIndex.Core", "FastVolumeIndex.Core\FastVolumeIndex.Core.csproj", "{A67C59A1-8E4E-4F44-9A88-D2D1BE56DD81}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FastVolumeIndex.Core", "FastVolumeIndex\FastVolumeIndex.Core\FastVolumeIndex.Core.csproj", "{A67C59A1-8E4E-4F44-9A88-D2D1BE56DD81}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "mftree", "FastVolumeIndex\FastVolumeIndex.Cli\FastVolumeIndex.Cli.csproj", "{018A03AC-6BC3-4404-AC71-3B81D27B2019}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FastVolumeIndex.Cli", "FastVolumeIndex.Cli\FastVolumeIndex.Cli.csproj", "{018A03AC-6BC3-4404-AC71-3B81D27B2019}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -17,10 +12,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{91097EF8-6B8C-492A-AC5C-F85A0BD979F4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{91097EF8-6B8C-492A-AC5C-F85A0BD979F4}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{91097EF8-6B8C-492A-AC5C-F85A0BD979F4}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{91097EF8-6B8C-492A-AC5C-F85A0BD979F4}.Release|Any CPU.Build.0 = Release|Any CPU
 		{A67C59A1-8E4E-4F44-9A88-D2D1BE56DD81}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A67C59A1-8E4E-4F44-9A88-D2D1BE56DD81}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A67C59A1-8E4E-4F44-9A88-D2D1BE56DD81}.Release|Any CPU.ActiveCfg = Release|Any CPU

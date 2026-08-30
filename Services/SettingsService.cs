@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Globalization;
 using System.Text;
 
 namespace DesktopIniManager.Services
@@ -11,6 +12,11 @@ namespace DesktopIniManager.Services
         private static readonly string SearchQueryPath = Path.Combine(SettingsDirectory, "search-query.txt");
         private static readonly string SearchRootPath = Path.Combine(SettingsDirectory, "search-root.txt");
         private static readonly string ThemePath = Path.Combine(SettingsDirectory, "theme.txt");
+        private static readonly string EditorPath = Path.Combine(SettingsDirectory, "editor.txt");
+        private static readonly string EditorArgumentsPath = Path.Combine(SettingsDirectory, "editor-arguments.txt");
+        private static readonly string GrepProfilePath = Path.Combine(SettingsDirectory, "grep-profile.txt");
+        private static readonly string GrepColumnWidthsPath = Path.Combine(SettingsDirectory, "grep-column-widths.txt");
+        private static readonly string GrepFreeExtensionsPath = Path.Combine(SettingsDirectory, "grep-free-extensions.txt");
 
         public static string LoadIconLibraryPath()
         {
@@ -71,6 +77,49 @@ namespace DesktopIniManager.Services
         public static void SaveDarkMode(bool dark)
         {
             try { Directory.CreateDirectory(SettingsDirectory); File.WriteAllText(ThemePath, dark ? "dark" : "light", new UTF8Encoding(false)); }
+            catch { }
+        }
+
+        public static string LoadEditorPath() => ReadSetting(EditorPath, "code");
+        public static string LoadEditorArguments() => ReadSetting(EditorArgumentsPath, "--goto \"{file}:{line}:{column}\"");
+        public static void SaveEditor(string executable, string arguments)
+        {
+            WriteSetting(EditorPath, executable);
+            WriteSetting(EditorArgumentsPath, arguments);
+        }
+
+        public static string LoadGrepProfile() => ReadSetting(GrepProfilePath, null);
+        public static void SaveGrepProfile(string profile) => WriteSetting(GrepProfilePath, profile);
+        public static string LoadGrepFreeExtensions() => ReadSetting(GrepFreeExtensionsPath, ".txt .log .ini .json .xml .html .htm .eml");
+        public static void SaveGrepFreeExtensions(string extensions) => WriteSetting(GrepFreeExtensionsPath, extensions);
+
+        public static double[] LoadGrepColumnWidths()
+        {
+            string value = ReadSetting(GrepColumnWidthsPath, null);
+            if (string.IsNullOrWhiteSpace(value)) return null;
+            string[] parts = value.Split(',');
+            var result = new double[parts.Length];
+            for (int index = 0; index < parts.Length; index++)
+                if (!double.TryParse(parts[index], NumberStyles.Float, CultureInfo.InvariantCulture, out result[index])) return null;
+            return result;
+        }
+
+        public static void SaveGrepColumnWidths(double[] widths)
+        {
+            if (widths == null) return;
+            WriteSetting(GrepColumnWidthsPath, string.Join(",", Array.ConvertAll(widths,
+                width => width.ToString("R", CultureInfo.InvariantCulture))));
+        }
+
+        private static string ReadSetting(string path, string fallback)
+        {
+            try { return File.Exists(path) ? File.ReadAllText(path, Encoding.UTF8).Trim() : fallback; }
+            catch { return fallback; }
+        }
+
+        private static void WriteSetting(string path, string value)
+        {
+            try { Directory.CreateDirectory(SettingsDirectory); File.WriteAllText(path, value ?? string.Empty, new UTF8Encoding(false)); }
             catch { }
         }
     }

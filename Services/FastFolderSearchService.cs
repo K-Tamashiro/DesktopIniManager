@@ -20,7 +20,25 @@ namespace DesktopIniManager.Services
                 .Select(value => value.Trim().TrimStart('*')).Where(value => value.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
             bool gitMode = keys.Any(key => string.Equals(key.TrimStart('.'), "git", StringComparison.OrdinalIgnoreCase));
 
-            if (gitMode)
+            if (keys.Length == 0)
+            {
+                string fullRoot = Path.GetFullPath(root);
+                string volumeRoot = Path.GetPathRoot(fullRoot);
+                string normalizedRoot = string.Equals(fullRoot.TrimEnd(Path.DirectorySeparatorChar), volumeRoot.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase)
+                    ? volumeRoot
+                    : fullRoot.TrimEnd(Path.DirectorySeparatorChar);
+                Add(matches, normalizedRoot, "Folder");
+                foreach (MftEntry entry in index.Entries.Where(item => item.IsDirectory))
+                {
+                    token.ThrowIfCancellationRequested();
+                    string path = index.GetFullPath(entry).TrimEnd(Path.DirectorySeparatorChar);
+                    if (!string.Equals(path, normalizedRoot, StringComparison.OrdinalIgnoreCase)
+                        && IsUnderPath(path, normalizedRoot)
+                        && !ContainsIgnoredDirectory(path, normalizedRoot))
+                        Add(matches, path, "Folder");
+                }
+            }
+            else if (gitMode)
             {
                 DevelopmentInventory inventory = DevelopmentScanner.Analyze(index, root);
                 foreach (MftEntry repository in inventory.Repositories)

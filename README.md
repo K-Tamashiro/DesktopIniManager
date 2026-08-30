@@ -8,9 +8,9 @@ It discovers Git repositories, projects, source-language composition, and Visual
 
 ## Download
 
-[![Download DesktopIniManager](docs/images/download.png)](https://github.com/K-Tamashiro/DesktopIniManager/releases/latest/download/DesktopIniManager-v1.1.0-win-x64.zip)
+[![Download DesktopIniManager](docs/images/download.png)](https://github.com/K-Tamashiro/DesktopIniManager/releases/latest/download/DesktopIniManager-v1.2.0-win-x64.zip)
 
-Download `DesktopIniManager-v1.1.0-win-x64.zip`, extract it to a writable folder, and run `DesktopIniManager.exe`.
+Download `DesktopIniManager-v1.2.0-win-x64.zip`, extract it to a writable folder, and run `DesktopIniManager.exe`.
 
 ### Requirements
 
@@ -40,6 +40,14 @@ Large repositories often contain several solutions, many service projects, share
 - Context-menu action for narrowing the search location
 - Visible-row-only batch selection for safe tree operations
 - Bundled `mftree` command-line tool for fast trees and development-structure analysis
+- Non-modal Scoped Code Search for grepping only selected project folders
+- Language profiles, regular expressions, configurable extensions, and external-editor navigation
+
+## Scoped Code Search
+
+Select one or more project folders in the Physical or Solution tree and choose `Grep selected folders`. The non-modal search window limits results to those projects, removes overlapping parent/child scopes, and opens matches in a configurable external editor at the matching line and column.
+
+Built-in profiles cover C#, VB.NET, VB6, C/C++, JavaScript, TypeScript, PHP, Java, Delphi, and SQL. The `Free / Plain text` profile stores a separate editable extension list for logs, mail data, configuration files, and other text formats. String, regular-expression, case-sensitive, and whole-word searches are supported.
 
 ## Fast NTFS search
 

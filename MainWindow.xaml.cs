@@ -4,6 +4,7 @@ using DesktopIniManager.Views;
 using Microsoft.Win32;
 using System;
 using System.Collections.ObjectModel;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -29,6 +30,7 @@ namespace DesktopIniManager
         private bool _solutionView;
         private int _selectedIconIndex;
         private ImageSource _selectedIconPreview;
+        private GrepWindow _grepWindow;
 
         public MainWindow()
         {
@@ -134,14 +136,14 @@ namespace DesktopIniManager
             string root = RootBox.Text.Trim();
             string visibleQuery = QueryBox.Text.Trim();
             string query = _pendingSearchQuery ?? visibleQuery;
+            bool folderListMode = string.IsNullOrWhiteSpace(query);
             bool gitSearchRequested = _pendingSearchQuery != null && string.Equals(query, ".git", StringComparison.OrdinalIgnoreCase);
             _pendingSearchQuery = null;
             bool fastSearch = FastNtfsSearchBox.IsChecked == true;
             SettingsService.SaveSearchRoot(root);
             SettingsService.SaveSearchQuery(visibleQuery);
             if (!Directory.Exists(root)) { MessageBox.Show("The search location does not exist.", Title); return; }
-            if (query.Length == 0) { MessageBox.Show("Enter at least one keyword.", Title); return; }
-            if (fastSearch && !IsAdministrator())
+            if (!folderListMode && fastSearch && !IsAdministrator())
             {
                 RestartForFastSearch(gitSearchRequested);
                 return;
@@ -153,7 +155,15 @@ namespace DesktopIniManager
             try
             {
                 System.Collections.Generic.List<FolderMatch> solutionRoots;
-                if (fastSearch)
+                if (folderListMode)
+                {
+                    AddTreeResults(await RunFolderList(root, searchCts.Token));
+                    _solutionView = false;
+                    ResultsTree.ItemsSource = _treeRoots;
+                    CountText.Text = _results.Count + " folders";
+                    solutionRoots = new List<FolderMatch>();
+                }
+                else if (fastSearch)
                 {
                     FastSearchResult fastResult = null;
                     try
@@ -176,29 +186,32 @@ namespace DesktopIniManager
 
                     if (fastResult != null)
                     {
+                        ImageSource defaultFolderIcon = FolderIconService.GetDefaultFolderIcon();
                         foreach (FolderMatch item in fastResult.Matches)
                         {
                             searchCts.Token.ThrowIfCancellationRequested();
-                            item.IconPreview = FolderIconService.GetFolderIcon(item.Path);
-                            AddTreeResult(item);
+                            item.IconPreview = string.Equals(item.Reason, "Folder", StringComparison.Ordinal)
+                                ? defaultFolderIcon
+                                : FolderIconService.GetFolderIcon(item.Path);
                         }
+                        AddTreeResults(fastResult.Matches);
                         solutionRoots = await Task.Run(() => new FastFolderSearchService().BuildSolutionTree(fastResult.Index, root, searchCts.Token));
                     }
                     else
                     {
-                        await RunStandardSearch(root, query, searchCts.Token);
+                        AddTreeResults(await RunStandardSearch(root, query, searchCts.Token));
                         solutionRoots = await Task.Run(() => SolutionTreeService.Build(root, searchCts.Token));
                     }
                 }
                 else
                 {
-                    await RunStandardSearch(root, query, searchCts.Token);
+                    AddTreeResults(await RunStandardSearch(root, query, searchCts.Token));
                     solutionRoots = await Task.Run(() => SolutionTreeService.Build(root, searchCts.Token));
                 }
                 SortPhysicalTree();
                 foreach (FolderMatch solution in solutionRoots) _solutionRoots.Add(solution);
                 if (_solutionView) ShowSolutionView();
-                StatusText.Text = _results.Count + " matches found";
+                StatusText.Text = folderListMode ? _results.Count + " folders found" : _results.Count + " matches found";
             }
             catch (OperationCanceledException) { StatusText.Text = "Search cancelled"; }
             catch (Exception ex) { MessageBox.Show(ex.Message, Title); StatusText.Text = "Search failed"; }
@@ -209,11 +222,33 @@ namespace DesktopIniManager
             }
         }
 
-        private Task RunStandardSearch(string root, string query, CancellationToken token)
+        private Task<List<FolderMatch>> RunStandardSearch(string root, string query, CancellationToken token)
         {
-            return Task.Run(() => new FolderSearchService().Search(root, query,
-                item => { item.IconPreview = FolderIconService.GetFolderIcon(item.Path); Dispatcher.BeginInvoke(new Action(() => AddTreeResult(item))); },
-                count => Dispatcher.BeginInvoke(new Action(() => StatusText.Text = "Scanning " + count.ToString("N0") + " folders…")), token));
+            ImageSource defaultFolderIcon = FolderIconService.GetDefaultFolderIcon();
+            return Task.Run(() =>
+            {
+                var matches = new List<FolderMatch>();
+                new FolderSearchService().Search(root, query,
+                    item => { item.IconPreview = string.Equals(item.Reason, "Folder", StringComparison.Ordinal) ? defaultFolderIcon : FolderIconService.GetFolderIcon(item.Path); matches.Add(item); },
+                    count => Dispatcher.BeginInvoke(new Action(() => StatusText.Text = "Scanning " + count.ToString("N0") + " folders…")), token);
+                token.ThrowIfCancellationRequested();
+                return matches;
+            });
+        }
+
+        private Task<List<FolderMatch>> RunFolderList(string root, CancellationToken token)
+        {
+            ImageSource defaultFolderIcon = FolderIconService.GetDefaultFolderIcon();
+            return Task.Run(() =>
+            {
+                var folders = new List<FolderMatch>();
+                foreach (string folder in Directory.EnumerateDirectories(root))
+                {
+                    token.ThrowIfCancellationRequested();
+                    folders.Add(new FolderMatch { Path = folder, Reason = "Folder", IconPreview = defaultFolderIcon });
+                }
+                return folders;
+            });
         }
 
         private void SortPhysicalTree()
@@ -319,7 +354,7 @@ namespace DesktopIniManager
 
         private void GitSearch_Click(object sender, RoutedEventArgs e)
         {
-            _pendingSearchQuery = string.IsNullOrWhiteSpace(QueryBox.Text) ? ".git" : QueryBox.Text.Trim();
+            _pendingSearchQuery = ".git";
             Search_Click(sender, e);
         }
         private void Cancel_Click(object sender, RoutedEventArgs e) => _searchCts?.Cancel();
@@ -365,6 +400,31 @@ namespace DesktopIniManager
                 _treeRoots.Remove(root);
                 item.Children.Add(root);
             }
+            CountText.Text = _results.Count + " matches";
+        }
+
+        private void AddTreeResults(IEnumerable<FolderMatch> items)
+        {
+            bool physicalViewVisible = ReferenceEquals(ResultsTree.ItemsSource, _treeRoots);
+            if (physicalViewVisible) ResultsTree.ItemsSource = null;
+            var byPath = new Dictionary<string, FolderMatch>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                foreach (FolderMatch item in items.OrderBy(item => item.Path.Length).ThenBy(item => item.Path, StringComparer.CurrentCultureIgnoreCase))
+                {
+                    _results.Add(item);
+                    byPath[item.Path.TrimEnd(Path.DirectorySeparatorChar)] = item;
+                    string parentPath = Path.GetDirectoryName(item.Path.TrimEnd(Path.DirectorySeparatorChar));
+                    FolderMatch parent = null;
+                    while (!string.IsNullOrEmpty(parentPath))
+                    {
+                        if (byPath.TryGetValue(parentPath.TrimEnd(Path.DirectorySeparatorChar), out parent)) break;
+                        parentPath = Path.GetDirectoryName(parentPath);
+                    }
+                    if (parent == null) _treeRoots.Add(item); else parent.Children.Add(item);
+                }
+            }
+            finally { if (physicalViewVisible) ResultsTree.ItemsSource = _treeRoots; }
             CountText.Text = _results.Count + " matches";
         }
 
@@ -415,7 +475,36 @@ namespace DesktopIniManager
             MessageBox.Show(errors.Count == 0 ? "Icon settings removed." : succeeded + " succeeded, " + errors.Count + " failed\n\n" + string.Join("\n", errors.Take(5)), Title);
         }
 
-        private void SetSearching(bool value) { GitSearchButton.IsEnabled = !value; SearchButton.IsEnabled = !value; CancelButton.IsEnabled = value; ApplyButton.IsEnabled = !value; RemoveButton.IsEnabled = !value; FastNtfsSearchBox.IsEnabled = !value; SearchProgress.Visibility = value ? Visibility.Visible : Visibility.Collapsed; }
+        private void Grep_Click(object sender, RoutedEventArgs e)
+        {
+            IReadOnlyList<string> scopes = GetSelectedGrepScopes();
+            if (scopes.Count == 0) { MessageBox.Show("Select at least one project folder.", Title); return; }
+            if (_grepWindow == null)
+            {
+                _grepWindow = new GrepWindow(GetSelectedGrepScopes, scopes) { Owner = this };
+                _grepWindow.Closed += (closedSender, args) => _grepWindow = null;
+                _grepWindow.Show();
+            }
+            else
+            {
+                _grepWindow.ReloadFromMainWindow();
+                if (_grepWindow.WindowState == WindowState.Minimized) _grepWindow.WindowState = WindowState.Normal;
+                _grepWindow.Activate();
+            }
+        }
+
+        private IReadOnlyList<string> GetSelectedGrepScopes()
+        {
+            return CurrentItems().Where(item => item.IsActionable && item.IsSelected && Directory.Exists(item.Path))
+                .Select(item => Path.GetFullPath(item.Path).TrimEnd(Path.DirectorySeparatorChar))
+                .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(path => path.Length)
+                .Where(path => !CurrentItems().Where(item => item.IsActionable && item.IsSelected)
+                    .Select(item => item.Path.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar)
+                    .Any(parent => path.StartsWith(parent, StringComparison.OrdinalIgnoreCase)))
+                .OrderBy(path => path, StringComparer.CurrentCultureIgnoreCase).ToList();
+        }
+
+        private void SetSearching(bool value) { GitSearchButton.IsEnabled = !value; SearchButton.IsEnabled = !value; CancelButton.IsEnabled = value; ApplyButton.IsEnabled = !value; RemoveButton.IsEnabled = !value; GrepButton.IsEnabled = !value; FastNtfsSearchBox.IsEnabled = !value; SearchProgress.Visibility = value ? Visibility.Visible : Visibility.Collapsed; }
         private void LightTheme_Click(object sender, RoutedEventArgs e) => SetTheme(false);
         private void DarkTheme_Click(object sender, RoutedEventArgs e) => SetTheme(true);
         private void SetTheme(bool dark)
@@ -427,7 +516,7 @@ namespace DesktopIniManager
         }
         private void Close_Click(object sender, RoutedEventArgs e) => Close();
         private void ShowError(string message, Exception ex) { StatusText.Text = message; MessageBox.Show(message + "\n\n" + ex.Message, Title, MessageBoxButton.OK, MessageBoxImage.Error); }
-        protected override void OnClosed(EventArgs e) { _searchCts?.Cancel(); SettingsService.SaveIconLibraryPath(IconPathBox.Text); SettingsService.SaveSearchQuery(QueryBox.Text); SettingsService.SaveSearchRoot(RootBox.Text); base.OnClosed(e); }
+        protected override void OnClosed(EventArgs e) { _searchCts?.Cancel(); _grepWindow?.Close(); SettingsService.SaveIconLibraryPath(IconPathBox.Text); SettingsService.SaveSearchQuery(QueryBox.Text); SettingsService.SaveSearchRoot(RootBox.Text); base.OnClosed(e); }
 
     }
 }

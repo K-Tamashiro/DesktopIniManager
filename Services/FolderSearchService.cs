@@ -39,7 +39,7 @@ namespace DesktopIniManager.Services
         public void Search(string root, string query, Action<FolderMatch> found, Action<int> progress, CancellationToken token)
         {
             var keys = query.Split((char[])null, StringSplitOptions.RemoveEmptyEntries).Select(x => x.Trim().TrimStart('*').ToLowerInvariant()).Distinct().ToArray();
-            if (keys.Length == 0) return;
+            bool folderListMode = keys.Length == 0;
             bool developerMode = keys.Any(key => MarkerMatches(".git", key));
             var pending = new Stack<SearchNode>(); pending.Push(new SearchNode(root, false)); int scanned = 0;
             while (pending.Count > 0)
@@ -47,8 +47,8 @@ namespace DesktopIniManager.Services
                 token.ThrowIfCancellationRequested(); SearchNode node = pending.Pop(); string folder = node.Path;
                 bool hasGit = HasGitMarker(folder);
                 bool insideRepository = node.InsideRepository || hasGit;
-                string reason = null;
-                if (developerMode && hasGit) reason = AnalyzeDevelopmentFolder(folder, token, "Repository");
+                string reason = folderListMode ? "Folder" : null;
+                if (!folderListMode && developerMode && hasGit) reason = AnalyzeDevelopmentFolder(folder, token, "Repository");
                 else if (developerMode && IsProjectFolder(folder)) reason = AnalyzeDevelopmentFolder(folder, token, "Project");
                 if (reason == null) reason = Match(folder, keys, token);
                 if (reason != null) found(new FolderMatch { Path = folder, Reason = reason });

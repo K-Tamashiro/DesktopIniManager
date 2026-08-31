@@ -9,6 +9,11 @@
         <ListBox.ItemTemplate><DataTemplate><Grid><Grid.RowDefinitions><RowDefinition Height="105"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Border Background="{DynamicResource HeaderBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="1"><Image Source="{Binding Preview}" Stretch="Uniform" Margin="8" RenderOptions.BitmapScalingMode="HighQuality"/></Border><TextBlock Grid.Row="1" Text="{Binding DisplayName}" Foreground="{DynamicResource Ink}" Margin="1,6,1,0" FontWeight="SemiBold" TextAlignment="Center" TextTrimming="CharacterEllipsis"/><TextBlock Grid.Row="2" Text="{Binding ImageCountText}" FontSize="11" TextAlignment="Center" Foreground="{DynamicResource Muted}"/></Grid></DataTemplate></ListBox.ItemTemplate>
       </ListBox>
     </Border>
-    <Grid Grid.Row="2" Margin="0,14,0,0"><TextBlock Text="Double-click an icon to select it" VerticalAlignment="Center" Foreground="{DynamicResource Muted}"/><StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Button Content="Cancel" Width="110" Margin="0,0,8,0" IsCancel="True" Background="{DynamicResource Secondary}"/><Button Content="Select" Width="110" IsDefault="True" Click="Select_Click"/></StackPanel></Grid>
+    <Grid Grid.Row="2" Margin="0,14,0,0"><TextBlock Text="Double-click an icon to select it" VerticalAlignment="Center" Foreground="{DynamicResource Muted}"/><StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Button Style="{StaticResource IconTextButton}" Margin="0,0,8,0" IsCancel="True" Background="{DynamicResource Secondary}" ToolTip="Cancel">
+          <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE711;" FontSize="15" VerticalAlignment="Center"/><TextBlock Text=" Cancel" Margin="6,0,0,0" VerticalAlignment="Center"/></StackPanel>
+        </Button>
+        <Button Style="{StaticResource IconTextButton}" IsDefault="True" Click="Select_Click" ToolTip="Select">
+          <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE73E;" FontSize="15" VerticalAlignment="Center"/><TextBlock Text=" Select" Margin="6,0,0,0" VerticalAlignment="Center"/></StackPanel>
+        </Button></StackPanel></Grid>
   </Grid>
 </Window>

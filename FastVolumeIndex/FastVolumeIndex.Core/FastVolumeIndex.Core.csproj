@@ -35,9 +35,11 @@
   <ItemGroup>
     <Compile Include="MftEntry.cs" />
     <Compile Include="NtfsVolumeIndex.cs" />
+    <Compile Include="VolumePathIndex.cs" />
     <Compile Include="DevelopmentInventory.cs" />
     <Compile Include="DevelopmentScanner.cs" />
     <Compile Include="SolutionMap.cs" />
+    <Compile Include="SolutionCatalog.cs" />
     <Compile Include="SolutionMapService.cs" />
     <Compile Include="SolutionCoverage.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

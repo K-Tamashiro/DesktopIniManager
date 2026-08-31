@@ -10,276 +10,63 @@ namespace FastVolumeIndex.Cli
         private static int Main(string[] args)
         {
             Console.OutputEncoding = new UTF8Encoding(false);
-
-            if (args.Length == 0 || args[0] == "--help" || args[0] == "-h")
-            {
-                PrintUsage();
-                return args.Length == 0 ? 1 : 0;
-            }
-
-            string root = args[0];
-            string command = args.Length == 1 ? "--git" : args[1];
-
+            string root; bool includeFiles;
+            if (!TryParse(args, out root, out includeFiles)) { PrintUsage(); return 1; }
             try
             {
-                Console.WriteLine($"Reading NTFS MFT for {root} ...");
-                NtfsVolumeIndex index = NtfsVolumeIndex.Create(root);
-                Console.WriteLine($"Indexed {index.EntryCount:N0} entries " +
-                    $"({index.DirectoryCount:N0} folders, {index.FileCount:N0} files) " +
-                    $"in {index.EnumerationTime.TotalMilliseconds:N0} ms.");
-
-                var searchTimer = Stopwatch.StartNew();
-                if (string.Equals(command, "--git", StringComparison.OrdinalIgnoreCase))
-                {
-                    var repositories = index.FindGitRepositoryRoots(root);
-                    searchTimer.Stop();
-                    foreach (MftEntry repository in repositories)
-                        Console.WriteLine(index.GetFullPath(repository));
-                    Console.WriteLine($"Found {repositories.Count:N0} Git repositories in {searchTimer.Elapsed.TotalMilliseconds:N0} ms.");
-                }
-                else if (string.Equals(command, "--analyze", StringComparison.OrdinalIgnoreCase))
-                {
-                    DevelopmentInventory inventory = DevelopmentScanner.Analyze(index, root);
-                    searchTimer.Stop();
-                    PrintSection("Repositories", inventory.Repositories, index);
-                    PrintSection("Solutions", inventory.Solutions, index);
-                    PrintSection("Projects and build roots", inventory.Projects, index);
-                    Console.WriteLine($"Analyzed {inventory.Repositories.Count:N0} repositories, " +
-                        $"{inventory.Solutions.Count:N0} solutions and {inventory.Projects.Count:N0} projects " +
-                        $"in {searchTimer.Elapsed.TotalMilliseconds:N0} ms.");
-                }
-                else if (string.Equals(command, "--tree", StringComparison.OrdinalIgnoreCase))
-                {
-                    int depth = ReadDepth(args, 3);
-                    bool includeFiles = Array.Exists(args, value =>
-                        string.Equals(value, "--files", StringComparison.OrdinalIgnoreCase));
-                    MftEntry treeRoot = index.FindByPath(root);
-                    if (treeRoot == null)
-                        throw new InvalidOperationException($"The root '{root}' was not found in the MFT index.");
-                    searchTimer.Stop();
-                    Console.WriteLine(index.GetFullPath(treeRoot));
-                    PrintTree(index, treeRoot, string.Empty, 0, depth, includeFiles);
-                    Console.WriteLine($"Built tree in {searchTimer.Elapsed.TotalMilliseconds:N0} ms.");
-                }
-                else if (string.Equals(command, "--diagnose", StringComparison.OrdinalIgnoreCase))
-                {
-                    MftEntry diagnosticRoot = index.FindByPath(root);
-                    searchTimer.Stop();
-                    if (diagnosticRoot == null)
-                        throw new InvalidOperationException($"The root '{root}' was not found in the MFT index.");
-
-                    var children = index.GetChildren(diagnosticRoot, true);
-                    Console.WriteLine("MFT root diagnostic");
-                    Console.WriteLine($"  Name:       {diagnosticRoot.Name}");
-                    Console.WriteLine($"  ID:         0x{diagnosticRoot.Id:X}");
-                    Console.WriteLine($"  Parent ID:  0x{diagnosticRoot.ParentId:X}");
-                    Console.WriteLine($"  Path:       {index.GetFullPath(diagnosticRoot)}");
-                    Console.WriteLine($"  Attributes: {diagnosticRoot.Attributes}");
-                    Console.WriteLine($"  Children:   {children.Count:N0}");
-                    foreach (MftEntry child in children)
-                        Console.WriteLine($"    {(child.IsDirectory ? "[D]" : "[F]")} 0x{child.Id:X} {child.Name}");
-                    Console.WriteLine($"Diagnostic completed in {searchTimer.Elapsed.TotalMilliseconds:N0} ms.");
-                }
-                else if (string.Equals(command, "--solutions", StringComparison.OrdinalIgnoreCase))
-                {
-                    var maps = SolutionMapService.Build(index, root);
-                    searchTimer.Stop();
-                    int linked = 0;
-                    int missing = 0;
-                    int solutionFolders = 0;
-
-                    foreach (SolutionMap map in maps)
-                    {
-                        Console.WriteLine();
-                        Console.WriteLine(index.GetFullPath(map.Solution));
-                        PrintSolutionTree(map, out int mapLinked, out int mapMissing, out int mapFolders);
-                        linked += mapLinked;
-                        missing += mapMissing;
-                        solutionFolders += mapFolders;
-                    }
-
-                    Console.WriteLine();
-                    Console.WriteLine($"Mapped {maps.Count:N0} solutions: {linked:N0} linked projects, " +
-                        $"{solutionFolders:N0} solution folders and {missing:N0} missing projects " +
-                        $"in {searchTimer.Elapsed.TotalMilliseconds:N0} ms.");
-                }
-                else if (string.Equals(command, "--solution-diff", StringComparison.OrdinalIgnoreCase))
-                {
-                    SolutionCoverage coverage = SolutionMapService.BuildCoverage(index, root);
-                    searchTimer.Stop();
-
-                    Console.WriteLine();
-                    Console.WriteLine($"Physical projects not referenced by any solution ({coverage.UnreferencedProjects.Count:N0})");
-                    foreach (MftEntry project in coverage.UnreferencedProjects)
-                        Console.WriteLine("  " + index.GetFullPath(project));
-
-                    Console.WriteLine();
-                    Console.WriteLine($"Broken project references ({coverage.MissingProjects.Count:N0})");
-                    foreach (SolutionProject project in coverage.MissingProjects)
-                        Console.WriteLine($"  {project.Name}: {project.FullPath ?? project.RelativePath}");
-
-                    Console.WriteLine();
-                    Console.WriteLine($"Compared {coverage.Solutions.Count:N0} solutions in " +
-                        $"{searchTimer.Elapsed.TotalMilliseconds:N0} ms.");
-                }
-                else
-                {
-                    var matches = index.SearchNames(root, command);
-                    searchTimer.Stop();
-                    foreach (MftEntry match in matches)
-                        Console.WriteLine(index.GetFullPath(match));
-                    Console.WriteLine($"Found {matches.Count:N0} matches for '{command}' in {searchTimer.Elapsed.TotalMilliseconds:N0} ms.");
-                }
-
+                Console.WriteLine("Reading NTFS MFT for " + root + " ...");
+                NtfsVolumeIndex mft = NtfsVolumeIndex.Create(root);
+                var timer = Stopwatch.StartNew();
+                VolumePathIndex index = VolumePathIndex.Build(mft, root);
+                timer.Stop();
+                Console.WriteLine("Indexed " + mft.EntryCount.ToString("N0") + " MFT entries and built " +
+                    index.Nodes.Count.ToString("N0") + " normalized paths in " +
+                    (mft.EnumerationTime + timer.Elapsed).TotalMilliseconds.ToString("N0") + " ms.");
+                Console.WriteLine(index.RootPath);
+                PrintTree(index.Root, string.Empty, includeFiles);
                 return 0;
             }
-            catch (Exception ex)
+            catch (Exception ex) { Console.Error.WriteLine("MFT search failed: " + ex.Message); return 2; }
+        }
+        private static bool TryParse(string[] args, out string root, out bool includeFiles)
+        {
+            root = Environment.CurrentDirectory;
+            includeFiles = false;
+            if (args.Length == 0) return true;
+            if (args.Length == 1)
             {
-                Console.Error.WriteLine("MFT search failed: " + ex.Message);
-                return 2;
+                if (IsHelp(args[0])) return false;
+                if (IsFilesOption(args[0])) { includeFiles = true; return true; }
+                root = args[0];
+                return true;
             }
-        }
-
-        private static int ReadDepth(string[] args, int defaultDepth)
-        {
-            for (int index = 2; index < args.Length - 1; index++)
+            if (args.Length == 2)
             {
-                if (string.Equals(args[index], "--depth", StringComparison.OrdinalIgnoreCase))
-                {
-                    if (int.TryParse(args[index + 1], out int depth) && depth >= 0)
-                        return depth;
-                    throw new ArgumentException("--depth requires a non-negative integer.");
-                }
+                if (IsFilesOption(args[0])) { includeFiles = true; root = args[1]; return true; }
+                if (IsFilesOption(args[1])) { includeFiles = true; root = args[0]; return true; }
             }
-            return defaultDepth;
+            return false;
         }
 
-        private static void PrintSection(string title, System.Collections.Generic.IReadOnlyList<MftEntry> entries,
-            NtfsVolumeIndex index)
+        private static bool IsFilesOption(string value) => string.Equals(value, "/f", StringComparison.OrdinalIgnoreCase);
+        private static bool IsHelp(string value) => value == "/?" || value == "-h" || value == "--help";
+        private static void PrintTree(VolumePathNode parent, string prefix, bool includeFiles)
         {
-            Console.WriteLine();
-            Console.WriteLine($"{title} ({entries.Count:N0})");
-            foreach (MftEntry entry in entries)
-                Console.WriteLine("  " + index.GetFullPath(entry));
-        }
-
-        private static void PrintTree(NtfsVolumeIndex index, MftEntry parent, string prefix, int currentDepth,
-            int maxDepth, bool includeFiles)
-        {
-            if (currentDepth >= maxDepth)
-                return;
-
-            var children = index.GetChildren(parent, includeFiles);
-            for (int childIndex = 0; childIndex < children.Count; childIndex++)
+            int count = parent.Directories.Count + (includeFiles ? parent.Files.Count : 0); int position = 0;
+            foreach (VolumePathNode child in parent.Directories)
             {
-                MftEntry child = children[childIndex];
-                bool last = childIndex == children.Count - 1;
+                bool last = ++position == count;
                 Console.WriteLine(prefix + (last ? "└─ " : "├─ ") + child.Name);
-                if (child.IsDirectory)
-                    PrintTree(index, child, prefix + (last ? "   " : "│  "), currentDepth + 1,
-                        maxDepth, includeFiles);
+                PrintTree(child, prefix + (last ? "   " : "│  "), includeFiles);
             }
+            if (!includeFiles) return;
+            foreach (VolumePathNode file in parent.Files)
+            { bool last = ++position == count; Console.WriteLine(prefix + (last ? "└─ " : "├─ ") + file.Name); }
         }
-
-        private static void PrintSolutionTree(SolutionMap map, out int linked, out int missing,
-            out int solutionFolders)
-        {
-            linked = 0;
-            missing = 0;
-            solutionFolders = 0;
-            var byParent = new System.Collections.Generic.Dictionary<string,
-                System.Collections.Generic.List<SolutionProject>>(StringComparer.OrdinalIgnoreCase);
-            var projectIds = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (SolutionProject project in map.Projects)
-                projectIds.Add(project.ProjectId);
-
-            foreach (SolutionProject project in map.Projects)
-            {
-                string parentId = !string.IsNullOrEmpty(project.ParentProjectId)
-                    && projectIds.Contains(project.ParentProjectId)
-                    ? project.ParentProjectId
-                    : string.Empty;
-                if (!byParent.TryGetValue(parentId, out System.Collections.Generic.List<SolutionProject> children))
-                {
-                    children = new System.Collections.Generic.List<SolutionProject>();
-                    byParent[parentId] = children;
-                }
-                children.Add(project);
-            }
-
-            var visited = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            PrintSolutionChildren(string.Empty, string.Empty, byParent, visited, ref linked, ref missing,
-                ref solutionFolders);
-        }
-
-        private static void PrintSolutionChildren(string parentId, string prefix,
-            System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<SolutionProject>> byParent,
-            System.Collections.Generic.HashSet<string> visited, ref int linked, ref int missing,
-            ref int solutionFolders)
-        {
-            if (!byParent.TryGetValue(parentId, out System.Collections.Generic.List<SolutionProject> children))
-                return;
-
-            children.Sort((left, right) =>
-            {
-                int folderOrder = right.IsSolutionFolder.CompareTo(left.IsSolutionFolder);
-                return folderOrder != 0
-                    ? folderOrder
-                    : StringComparer.OrdinalIgnoreCase.Compare(left.Name, right.Name);
-            });
-
-            for (int index = 0; index < children.Count; index++)
-            {
-                SolutionProject project = children[index];
-                bool last = index == children.Count - 1;
-                string connector = last ? "└─ " : "├─ ";
-
-                if (project.IsSolutionFolder)
-                {
-                    solutionFolders++;
-                    Console.WriteLine($"{prefix}{connector}[Folder]  {project.Name}");
-                }
-                else if (project.Exists)
-                {
-                    linked++;
-                    Console.WriteLine($"{prefix}{connector}[Project] {project.Name}");
-                    Console.WriteLine($"{prefix}{(last ? "   " : "│  ")}           {project.FullPath}");
-                }
-                else
-                {
-                    missing++;
-                    Console.WriteLine($"{prefix}{connector}[Missing] {project.Name}");
-                    Console.WriteLine($"{prefix}{(last ? "   " : "│  ")}           {project.RelativePath}");
-                }
-
-                if (visited.Add(project.ProjectId))
-                    PrintSolutionChildren(project.ProjectId, prefix + (last ? "   " : "│  "), byParent,
-                        visited, ref linked, ref missing, ref solutionFolders);
-            }
-        }
-
         private static void PrintUsage()
         {
-            Console.WriteLine("FastVolumeIndex MFT search prototype");
-            Console.WriteLine();
-            Console.WriteLine("Usage:");
-            Console.WriteLine("  mftree <search-root> --git");
-            Console.WriteLine("  mftree <search-root> --analyze");
-            Console.WriteLine("  mftree <search-root> --tree [--depth N] [--files]");
-            Console.WriteLine("  mftree <search-root> --diagnose");
-            Console.WriteLine("  mftree <search-root> --solutions");
-            Console.WriteLine("  mftree <search-root> --solution-diff");
-            Console.WriteLine("  mftree <search-root> <name-query>");
-            Console.WriteLine();
-            Console.WriteLine("Examples:");
-            Console.WriteLine(@"  mftree F:\Documents\Playground --git");
-            Console.WriteLine(@"  mftree F:\Documents\Playground --analyze");
-            Console.WriteLine(@"  mftree F:\Documents\Playground --solutions");
-            Console.WriteLine(@"  mftree F:\Documents\Playground --solution-diff");
-            Console.WriteLine(@"  mftree F:\Documents\Playground --tree --depth 3");
-            Console.WriteLine(@"  mftree F:\Documents\Playground .sln");
-            Console.WriteLine();
+            Console.WriteLine("mftree - fast NTFS directory tree\n");
+            Console.WriteLine("Usage:\n  mftree                    Show folders under the current directory\n  mftree /f                 Show folders and files under the current directory\n  mftree <folder-path>      Show folders under a path\n  mftree <folder-path> /f   Show folders and files under a path\n");
             Console.WriteLine("Run as administrator. Local NTFS volumes only.");
         }
     }

@@ -32,6 +32,17 @@ namespace FastVolumeIndex
             return result;
         }
 
+        public static IReadOnlyList<SolutionMap> Build(NtfsVolumeIndex index, VolumePathIndex paths)
+        {
+            if (index == null) throw new ArgumentNullException(nameof(index));
+            if (paths == null) throw new ArgumentNullException(nameof(paths));
+            var result = new List<SolutionMap>();
+            foreach (VolumePathNode node in paths.FindFiles(new[] { ".sln" })
+                .OrderBy(node => node.Path, StringComparer.OrdinalIgnoreCase))
+                if (node.Entry != null) result.Add(Parse(index, node.Entry));
+            return result;
+        }
+
         public static SolutionCoverage BuildCoverage(NtfsVolumeIndex index, string searchRoot)
         {
             IReadOnlyList<SolutionMap> solutions = Build(index, searchRoot);

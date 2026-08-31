@@ -18,7 +18,8 @@ namespace DesktopIniManager.Services
         { ".git", ".vs", ".idea", "bin", "obj", "node_modules", "packages", "vendor", "dist", "build", "target", "coverage" };
 
         public GrepSearchResult Search(IReadOnlyList<string> scopes, LanguageProfile profile, string query,
-            bool regex, bool matchCase, bool wholeWord, Action<int, int> progress, CancellationToken token)
+            bool regex, bool matchCase, bool wholeWord, Action<int, int> progress, CancellationToken token,
+            Action<GrepMatch> matchFound = null)
         {
             var files = CollectFiles(scopes, profile.Extensions, token);
             var matches = new ConcurrentBag<GrepMatch>();
@@ -40,7 +41,7 @@ namespace DesktopIniManager.Services
                         lineNumber++;
                         Match match = matcher.Match(line);
                         if (!match.Success) continue;
-                        matches.Add(new GrepMatch
+                        var found = new GrepMatch
                         {
                             ScopeName = Path.GetFileName((scope ?? string.Empty).TrimEnd(Path.DirectorySeparatorChar)) ?? scope,
                             FilePath = file,
@@ -48,7 +49,9 @@ namespace DesktopIniManager.Services
                             LineNumber = lineNumber,
                             ColumnNumber = match.Index + 1,
                             LineText = line.Trim()
-                        });
+                        };
+                        matches.Add(found);
+                        matchFound?.Invoke(found);
                     }
                 }
                 catch (IOException) { Interlocked.Increment(ref skipped); }

@@ -8,9 +8,9 @@ It discovers Git repositories, projects, source-language composition, and Visual
 
 ## Download
 
-[![Download DesktopIniManager](docs/images/download.png)](https://github.com/K-Tamashiro/DesktopIniManager/releases/latest/download/DesktopIniManager-v1.2.0-win-x64.zip)
+[![Download DesktopIniManager](docs/images/download.png)](https://github.com/K-Tamashiro/DesktopIniManager/releases/latest/download/DesktopIniManager-v1.3.0-win-x64.zip)
 
-Download `DesktopIniManager-v1.2.0-win-x64.zip`, extract it to a writable folder, and run `DesktopIniManager.exe`.
+Download `DesktopIniManager-v1.3.0-win-x64.zip`, extract it to a writable folder, and run `DesktopIniManager.exe`.
 
 ### Requirements
 
@@ -25,7 +25,8 @@ Large repositories often contain several solutions, many service projects, share
 
 - Dedicated `GIT Search` for finding repositories and projects
 - Optional NTFS MFT index search that can inventory very large volumes in milliseconds
-- Physical folder tree with expandable repository and project nodes
+- Path-normalized physical folder tree built once from a single MFT snapshot
+- File list for the selected folder, with external-editor launch on double-click
 - Visual Studio `.sln` parsing and logical Solution tree view
 - Detection of projects inside monorepos, even when child projects do not contain their own `.git`
 - Source-language and technology analysis with counts and percentages
@@ -37,7 +38,8 @@ Large repositories often contain several solutions, many service projects, share
 - Optional `desktop.ini` entry in `.gitignore`
 - Physical and Solution views
 - Light and dark themes
-- Context-menu action for narrowing the search location
+- Context-menu actions for narrowing the search location, opening Explorer, or grepping one folder
+- Hide and unhide selected tree folders
 - Visible-row-only batch selection for safe tree operations
 - Bundled `mftree` command-line tool for fast trees and development-structure analysis
 - Non-modal Scoped Code Search for grepping only selected project folders
@@ -60,10 +62,13 @@ Fast search supports local NTFS volumes. Network shares, Samba paths, and non-NT
 The release also includes `mftree.exe`, a command-line interface powered by `FastVolumeIndex.Core`. Run it from an administrator terminal:
 
 ```powershell
-mftree "E:\" --tree --depth 3
-mftree "E:\Develop" --analyze
-mftree "E:\Develop" --solutions
+mftree
+mftree /f
+mftree "E:\Develop"
+mftree "E:\Develop" /f
 ```
+
+The first form prints folders only, like `tree`. The `/f` form includes files, like `tree /f`.
 
 Add the extracted release directory to `PATH` to invoke `mftree` from any location.
 

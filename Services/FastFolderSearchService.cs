@@ -14,6 +14,7 @@ namespace DesktopIniManager.Services
         {
             progress(0);
             NtfsVolumeIndex index = NtfsVolumeIndex.Create(root);
+            VolumePathIndex paths = VolumePathIndex.Build(index, root);
             token.ThrowIfCancellationRequested();
             var matches = new Dictionary<string, FolderMatch>(StringComparer.OrdinalIgnoreCase);
             string[] keys = query.Split((char[])null, StringSplitOptions.RemoveEmptyEntries)
@@ -22,76 +23,140 @@ namespace DesktopIniManager.Services
 
             if (keys.Length == 0)
             {
-                string fullRoot = Path.GetFullPath(root);
-                string volumeRoot = Path.GetPathRoot(fullRoot);
-                string normalizedRoot = string.Equals(fullRoot.TrimEnd(Path.DirectorySeparatorChar), volumeRoot.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase)
-                    ? volumeRoot
-                    : fullRoot.TrimEnd(Path.DirectorySeparatorChar);
-                Add(matches, normalizedRoot, "Folder");
-                foreach (MftEntry entry in index.Entries.Where(item => item.IsDirectory))
+                foreach (VolumePathNode node in paths.Directories)
                 {
                     token.ThrowIfCancellationRequested();
-                    string path = index.GetFullPath(entry).TrimEnd(Path.DirectorySeparatorChar);
-                    if (!string.Equals(path, normalizedRoot, StringComparison.OrdinalIgnoreCase)
-                        && IsUnderPath(path, normalizedRoot)
-                        && !ContainsIgnoredDirectory(path, normalizedRoot))
-                        Add(matches, path, "Folder");
+                    if (IsDisplayable(node)) Add(matches, node.Path, "Folder");
                 }
             }
             else if (gitMode)
             {
-                DevelopmentInventory inventory = DevelopmentScanner.Analyze(index, root);
-                foreach (MftEntry repository in inventory.Repositories)
-                    Add(matches, index.GetFullPath(repository), "Repository · Fast NTFS index");
-
-                foreach (MftEntry solutionFile in inventory.Solutions)
-                {
-                    string solutionPath = index.GetFullPath(solutionFile);
-                    string folder = Path.GetDirectoryName(solutionPath);
-                    if (!string.IsNullOrEmpty(folder))
-                        Add(matches, folder, "Solution · " + solutionFile.Name);
-                }
-
-                foreach (MftEntry projectFile in inventory.Projects)
-                {
-                    string projectFilePath = index.GetFullPath(projectFile);
-                    string folder = Path.GetDirectoryName(projectFilePath);
-                    if (!string.IsNullOrEmpty(folder))
-                        Add(matches, folder, "Project · " + projectFile.Name);
-                }
-
-                AddSourceFolders(index, inventory.Repositories, matches, token);
+                // Show the completed physical tree first. Repository/project analysis
+                // is deliberately performed by AnalyzeDevelopment after the UI binds.
+                foreach (VolumePathNode node in paths.Directories)
+                    if (IsDisplayable(node)) Add(matches, node.Path, "Folder");
             }
             else
             {
                 foreach (string key in keys)
                 {
                     token.ThrowIfCancellationRequested();
-                    foreach (MftEntry entry in index.SearchNames(root, key))
+                    foreach (VolumePathNode entry in paths.Search(key))
                     {
-                        string path = index.GetFullPath(entry);
-                        string folder = entry.IsDirectory ? path : Path.GetDirectoryName(path);
-                        if (!string.IsNullOrEmpty(folder)) Add(matches, folder, "Name: " + key);
+                        string folder = entry.IsDirectory ? entry.Path : entry.Parent?.Path;
+                        VolumePathNode folderNode = !string.IsNullOrEmpty(folder) ? paths.Find(folder) : null;
+                        if (folderNode != null && IsDisplayable(folderNode)) Add(matches, folder, "Name: " + key);
                     }
 
                     string extension = "." + key.TrimStart('.');
-                    foreach (var group in index.FindFiles(root, new[] { extension })
-                        .GroupBy(entry => Path.GetDirectoryName(index.GetFullPath(entry)), StringComparer.OrdinalIgnoreCase))
+                    foreach (var group in paths.FindFiles(new[] { extension })
+                        .GroupBy(entry => entry.Parent?.Path, StringComparer.OrdinalIgnoreCase))
                     {
-                        if (!string.IsNullOrEmpty(group.Key))
+                        if (!string.IsNullOrEmpty(group.Key) && IsDisplayable(paths.Find(group.Key)))
                             Add(matches, group.Key, "Contents: " + extension + " × " + group.Count());
                     }
                 }
             }
 
+            // Include the real ancestors so the presentation never invents or compresses hierarchy.
+            foreach (string path in matches.Keys.ToArray())
+            {
+                VolumePathNode node = paths.Find(path)?.Parent;
+                while (node != null) { if (IsDisplayable(node)) Add(matches, node.Path, "Folder"); node = node.Parent; }
+            }
+
             progress(index.DirectoryCount);
-            return new FastSearchResult(index, matches.Values.OrderBy(item => item.Path, StringComparer.OrdinalIgnoreCase).ToList());
+            return new FastSearchResult(index, paths, matches.Values.OrderBy(item => item.Path, StringComparer.OrdinalIgnoreCase).ToList());
+        }
+
+        public List<FolderMatch> Search(VolumePathIndex paths, string query, CancellationToken token)
+        {
+            var matches = new Dictionary<string, FolderMatch>(StringComparer.OrdinalIgnoreCase);
+            string[] keys = (query ?? string.Empty).Split((char[])null, StringSplitOptions.RemoveEmptyEntries)
+                .Select(value => value.Trim().TrimStart('*')).Where(value => value.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            bool gitMode = keys.Any(key => string.Equals(key.TrimStart('.'), "git", StringComparison.OrdinalIgnoreCase));
+            if (keys.Length == 0 || gitMode)
+            {
+                foreach (VolumePathNode node in paths.Directories)
+                { token.ThrowIfCancellationRequested(); if (IsDisplayable(node)) Add(matches, node.Path, "Folder"); }
+            }
+            else
+            {
+                foreach (string key in keys)
+                {
+                    token.ThrowIfCancellationRequested();
+                    foreach (VolumePathNode entry in paths.Search(key))
+                    {
+                        string folder = entry.IsDirectory ? entry.Path : entry.Parent?.Path;
+                        VolumePathNode folderNode = !string.IsNullOrEmpty(folder) ? paths.Find(folder) : null;
+                        if (folderNode != null && IsDisplayable(folderNode)) Add(matches, folder, "Name: " + key);
+                    }
+                    string extension = "." + key.TrimStart('.');
+                    foreach (var group in paths.FindFiles(new[] { extension }).GroupBy(entry => entry.Parent?.Path, StringComparer.OrdinalIgnoreCase))
+                        if (!string.IsNullOrEmpty(group.Key) && IsDisplayable(paths.Find(group.Key))) Add(matches, group.Key, "Contents: " + extension + " × " + group.Count());
+                }
+            }
+            foreach (string path in matches.Keys.ToArray())
+            {
+                VolumePathNode node = paths.Find(path)?.Parent;
+                while (node != null) { if (IsDisplayable(node)) Add(matches, node.Path, "Folder"); node = node.Parent; }
+            }
+            return matches.Values.OrderBy(item => item.Path, StringComparer.OrdinalIgnoreCase).ToList();
+        }
+
+        private static bool IsDisplayable(VolumePathNode node)
+        {
+            while (node != null)
+            {
+                if (string.Equals(node.Name, ".git", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(node.Name, ".vs", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(node.Name, ".vscode", StringComparison.OrdinalIgnoreCase)) return false;
+                node = node.Parent;
+            }
+            return true;
+        }
+
+        public SolutionCatalog AnalyzeSolutions(NtfsVolumeIndex index, VolumePathIndex paths, CancellationToken token)
+        { token.ThrowIfCancellationRequested(); return SolutionCatalog.Build(index, paths); }
+
+        public Dictionary<string, string> AnalyzeDevelopment(VolumePathIndex paths, CancellationToken token)
+        {
+            var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var projectExtensions = new HashSet<string>(new[] { ".csproj", ".vbproj", ".vcxproj", ".fsproj", ".vbp", ".dproj" }, StringComparer.OrdinalIgnoreCase);
+            int inspected = 0;
+            foreach (VolumePathNode folder in paths.Directories)
+            {
+                if ((++inspected & 2047) == 0) token.ThrowIfCancellationRequested();
+                var parts = new List<string>();
+                if (folder.Directories.Any(child => string.Equals(child.Name, ".git", StringComparison.OrdinalIgnoreCase)) ||
+                    folder.Files.Any(file => string.Equals(file.Name, ".git", StringComparison.OrdinalIgnoreCase)))
+                    parts.Add("Repository");
+                int solutions = folder.Files.Count(file => string.Equals(Path.GetExtension(file.Name), ".sln", StringComparison.OrdinalIgnoreCase));
+                int projects = folder.Files.Count(file => projectExtensions.Contains(Path.GetExtension(file.Name)));
+                if (solutions > 0) parts.Add("SLN ×" + solutions);
+                if (projects > 0) parts.Add("Project ×" + projects);
+
+                foreach (var extension in folder.Files
+                    .Where(file => !string.Equals(file.Name, "desktop.ini", StringComparison.OrdinalIgnoreCase))
+                    .GroupBy(file => Path.GetExtension(file.Name).TrimStart('.'), StringComparer.OrdinalIgnoreCase)
+                    .OrderByDescending(group => group.Count()).ThenBy(group => group.Key, StringComparer.OrdinalIgnoreCase).Take(12))
+                    parts.Add((string.IsNullOrEmpty(extension.Key) ? "(no extension)" : extension.Key.ToLowerInvariant()) + " ×" + extension.Count());
+
+                result[folder.Path] = parts.Count == 0 ? "Empty folder" : string.Join(" · ", parts);
+            }
+            return result;
         }
 
         public List<FolderMatch> BuildSolutionTree(NtfsVolumeIndex index, string root, CancellationToken token)
         {
+            return BuildSolutionTree(index, SolutionMapService.Build(index, root), token);
+        }
+
+        public List<FolderMatch> BuildSolutionTree(NtfsVolumeIndex index, IReadOnlyList<SolutionMap> maps, CancellationToken token)
+        {
             var result = new List<FolderMatch>();
-            foreach (SolutionMap map in SolutionMapService.Build(index, root))
+            foreach (SolutionMap map in maps)
             {
                 token.ThrowIfCancellationRequested();
                 string solutionPath = index.GetFullPath(map.Solution);
@@ -134,22 +199,22 @@ namespace DesktopIniManager.Services
             if (!matches.ContainsKey(path)) matches[path] = new FolderMatch { Path = path, Reason = reason };
         }
 
-        private static void AddSourceFolders(NtfsVolumeIndex index, IReadOnlyList<MftEntry> repositories,
+        private static void AddSourceFolders(VolumePathIndex index, IReadOnlyList<VolumePathNode> repositories,
             Dictionary<string, FolderMatch> matches, CancellationToken token)
         {
-            string[] repositoryPaths = repositories.Select(index.GetFullPath)
+            string[] repositoryPaths = repositories.Select(item => item.Path)
                 .OrderByDescending(path => path.Length).ToArray();
             var folders = new Dictionary<string, SourceFolderAggregate>(StringComparer.OrdinalIgnoreCase);
             int inspected = 0;
 
-            foreach (MftEntry entry in index.Entries)
+            foreach (VolumePathNode entry in index.Files)
             {
                 if ((++inspected & 4095) == 0) token.ThrowIfCancellationRequested();
                 if (entry.IsDirectory) continue;
                 string extension = Path.GetExtension(entry.Name).TrimStart('.');
                 if (!FolderSearchService.LanguageByExtension.TryGetValue(extension, out string language)) continue;
 
-                string filePath = index.GetFullPath(entry);
+                string filePath = entry.Path;
                 string repository = repositoryPaths.FirstOrDefault(path => IsUnderPath(filePath, path));
                 if (repository == null) continue;
                 string folder = Path.GetDirectoryName(filePath);
@@ -209,8 +274,10 @@ namespace DesktopIniManager.Services
 
     internal sealed class FastSearchResult
     {
-        public FastSearchResult(NtfsVolumeIndex index, List<FolderMatch> matches) { Index = index; Matches = matches; }
+        public FastSearchResult(NtfsVolumeIndex index, VolumePathIndex paths, List<FolderMatch> matches)
+        { Index = index; Paths = paths; Matches = matches; }
         public NtfsVolumeIndex Index { get; }
+        public VolumePathIndex Paths { get; }
         public List<FolderMatch> Matches { get; }
     }
 }

@@ -1,140 +1,254 @@
 # DesktopIniManager
 
-DesktopIniManager is a Windows developer tool for understanding real project layouts and organizing folders with custom icons through `desktop.ini`.
+DesktopIniManager is a Windows developer tool for exploring development
+folders, understanding project structure, searching source code, and
+applying custom folder icons through `desktop.ini`.
 
-It discovers Git repositories, projects, source-language composition, and Visual Studio solution relationships without changing the project files themselves. The same search engine can also classify ordinary media and document folders by extension.
+Version **1.5.0** expands the original folder-icon manager into a
+project-oriented workspace. Physical folders, Visual Studio solution
+structure, search results, file lists, scoped Grep, and icon resources
+can all be handled from one application.
 
-![Repository tree in dark mode](docs/images/repository-tree-dark.png)
+![Physical tree in dark mode](docs/images/physical-tree-dark.png)
 
 ## Download
 
-[![Download DesktopIniManager](docs/images/download.png)](https://github.com/K-Tamashiro/DesktopIniManager/releases/latest/download/DesktopIniManager-v1.5.0-win-x64.zip)
+[![Download
+DesktopIniManager](docs/images/download.png)](https://github.com/K-Tamashiro/DesktopIniManager/releases/latest/download/DesktopIniManager-v1.5.0-win-x64.zip)
 
-Download `DesktopIniManager-v1.5.0-win-x64.zip`, extract it to a writable folder, and run `DesktopIniManager.exe`.
+Download `DesktopIniManager-v1.5.0-win-x64.zip`, extract it to a
+writable folder, and run `DesktopIniManager.exe`.
 
 ### Requirements
 
-- Windows 10 or Windows 11, x64
-- .NET Framework 4.8
+-   Windows 10 or Windows 11, x64
+-   .NET Framework 4.8
+-   Administrator permission when `Use fast NTFS search` is enabled
 
-## Why DesktopIniManager?
+## What DesktopIniManager does
 
-Large repositories often contain several solutions, many service projects, shared output folders, and physical layouts that differ from Visual Studio's logical Solution Explorer. DesktopIniManager provides a quick view of both structures and lets developers make important folders recognizable in Explorer.
+Development work often requires several separate tools: Explorer for the
+physical layout, Visual Studio for the logical solution structure, a
+file-search tool, a Grep tool, and another utility for folder
+customization.
 
-## Highlights
+DesktopIniManager brings those views together around the development
+folder itself.
 
-- Dedicated `GIT Search` for finding repositories and projects
-- Optional NTFS MFT index search that can inventory very large volumes in milliseconds
-- Path-normalized physical folder tree that excludes folders with the Windows Hidden attribute
-- File list for the selected folder, with external-editor launch on double-click
-- Visual Studio `.sln` and `.csproj` parsing for a logical, folder-only Solution tree
-- Refactored solution, filesystem, icon, and search pipelines for lower allocation and faster large-tree processing
-- Detection of projects inside monorepos, even when child projects do not contain their own `.git`
-- Source-language and technology analysis with counts and percentages
-- Support for C#, C/C++, JavaScript, TypeScript, PHP, Java, Delphi, VB6, VB.NET, HTML, CSS, SQL, and many more
-- Multi-extension folder search such as `mp3 wav`
-- Batch folder-icon application and removal
-- ICO, ICL, DLL, and EXE icon-resource browser
-- Bundled folder icon set
-- Optional `desktop.ini` entry in `.gitignore`
-- Independent Physical, Solution, and Search tabs that preserve all three result sets
-- Light and dark themes
-- Context-menu actions for narrowing the search location, opening Explorer, or grepping one folder
-- Hide and unhide selected tree folders
-- Visible-row-only batch selection for safe tree operations
-- Bundled `mftree` command-line tool for fast trees and development-structure analysis
-- Non-modal Scoped Code Search for grepping only selected project folders
-- Language profiles, regular expressions, configurable extensions, and external-editor navigation
+The **Physical**, **Solution**, and **Search** tabs are independent.
+Running a search no longer destroys the folder or solution tree already
+acquired, so you can move between the actual disk structure, the Visual
+Studio-oriented structure, and temporary search results without
+rebuilding your working context.
 
-## Scoped Code Search
+## Version 1.5.0 highlights
 
-Select one or more project folders in the Physical or Solution tree and choose `Grep selected folders`. The non-modal search window limits results to those projects, removes overlapping parent/child scopes, and opens matches in a configurable external editor at the matching line and column.
+-   Physical, Solution, and Search views retained independently as tabs
+-   Visual Studio `.sln` / project analysis for a logical Solution tree
+-   NTFS MFT-based high-speed indexing through `FastVolumeIndex.Core`
+-   Refactored MFT and path-index pipelines to reduce repeated
+    filesystem traversal
+-   Hidden Windows folders excluded from the physical tree
+-   Project and source-language analysis
+-   Folder-name and extension-based search
+-   File list synchronized with the selected folder
+-   Small/large icon file views
+-   Non-modal **Scoped Code Search**
+-   Grep scopes selectable directly from the project/folder tree
+-   Regular expression, Match case, and Whole word Grep options
+-   Language profiles and editable extension sets
+-   External-editor navigation to matching line and column
+-   ICO / ICL / DLL / EXE icon-resource browser
+-   Batch `desktop.ini` apply/remove
+-   Optional `desktop.ini` registration in `.gitignore`
+-   Light and dark themes
+-   Bundled `mftree.exe` CLI
 
-Built-in profiles cover C#, VB.NET, VB6, C/C++, JavaScript, TypeScript, PHP, Java, Delphi, and SQL. The `Free / Plain text` profile stores a separate editable extension list for logs, mail data, configuration files, and other text formats. String, regular-expression, case-sensitive, and whole-word searches are supported.
+## Three retained project views
+
+### Physical
+
+The Physical tab shows the actual folder hierarchy on disk. It is the
+base view for understanding where projects, assets, output folders,
+documents, and other resources physically exist.
+
+Selecting a folder displays its files in the right pane.
+
+![Physical tree](docs/images/physical-tree-dark.png)
+
+### Solution
+
+The Solution tab reconstructs the logical structure from Visual Studio
+solution and project information. This makes it possible to compare the
+structure developers see in Visual Studio with the real physical folder
+layout.
+
+![Solution tree](docs/images/solution-tree-dark.png)
+
+### Search
+
+Search results have their own tab instead of replacing the current
+folder tree. Searches can therefore be repeated while the Physical and
+Solution views remain available.
+
+Multiple keywords/extensions can be used to narrow the result set.
+
+![Search results](docs/images/search-tree-dark.png)
 
 ## Fast NTFS search
 
-`Use fast NTFS search` reads the local NTFS Master File Table instead of recursively opening every directory. It is intended for large development drives and very large solutions. Direct volume access requires administrator permission, so DesktopIniManager explains the request and can restart the search with elevation.
+`Use fast NTFS search` reads the local NTFS Master File Table rather
+than recursively opening every directory.
 
-Fast search supports local NTFS volumes. Network shares, Samba paths, and non-NTFS volumes automatically use the standard folder search.
+DesktopIniManager uses `FastVolumeIndex.Core` to build an in-memory
+representation of the volume and then constructs the required
+folder/path indexes from that data. Version 1.5.0 further reduces
+unnecessary full-volume path processing and repeated traversal of the
+same search scope.
+
+This is particularly useful when the search root contains large
+repositories or many development projects.
+
+Direct NTFS volume access requires administrator permission. Standard
+filesystem traversal remains available when fast NTFS search cannot be
+used.
+
+## Project analysis
+
+`GIT` acquisition identifies development repositories and analyzes the
+folders below them.
+
+DesktopIniManager recognizes common development structures including:
+
+-   `.sln`, `.slnx`
+-   `.csproj`, `.vbproj`, `.fsproj`, `.vcxproj`
+-   `.vbp`, `.dproj`, `.dpr`
+-   `package.json`, `composer.json`, `pyproject.toml`
+-   `Cargo.toml`, `go.mod`, `pom.xml`
+-   Gradle, CMake, Make, and related project markers
+
+Generated and dependency folders such as `.git`, `.vs`, `bin`, `obj`,
+`node_modules`, `vendor`, `dist`, and `target` are excluded where
+appropriate.
+
+## Scoped Code Search
+
+DesktopIniManager includes a non-modal Grep window designed specifically
+for project work.
+
+Instead of searching an entire development drive and then filtering a
+large number of unrelated hits, select only the project folders you need
+and run Grep against those scopes.
+
+![Scoped Code Search](docs/images/scoped-code-search.png)
+
+Features include:
+
+-   Multiple selected project/folder scopes
+-   Parent/child scope de-duplication
+-   C# / WPF and other language profiles
+-   Editable included extensions
+-   Regular expressions
+-   Match case
+-   Whole word
+-   File, line, column, and matched-text display
+-   Configurable external editor
+-   Line/column arguments such as MIFES `/+{line}@{column} "{file}"`
+
+This allows DesktopIniManager to act as a project-aware front end to
+source-code search rather than a general whole-PC Grep utility.
+
+## File view
+
+Selecting a folder in the tree displays the files physically contained
+in that folder.
+
+The file pane supports list and icon layouts, and matching files can be
+visually identified when working from Search results. Files can be
+opened directly with their associated application.
+
+![Folder and file view](docs/images/folder-icon-apply-dark.png)
+
+## Folder icon management
+
+The original purpose of DesktopIniManager remains fully integrated.
+
+Choose an ICO, ICL, DLL, or EXE resource and apply the selected icon to
+one or more folders. The bundled `Assets/folder_set.icl` provides a
+ready-to-use development-oriented folder set.
+
+![Icon resource browser](docs/images/icon-picker-dark.png)
+
+For each selected folder, DesktopIniManager:
+
+1.  Writes `[.ShellClassInfo]` and `IconResource` to `desktop.ini`.
+2.  Marks `desktop.ini` as Hidden and System.
+3.  Applies the folder attributes required by Explorer customization.
+4.  Refreshes Explorer after the batch operation.
+5.  Optionally adds `desktop.ini` to `.gitignore`.
+
+`Remove` deletes the customization and restores the folder to its normal
+icon state.
+
+## Light and dark themes
+
+The complete workspace can be switched between dark and light themes.
+
+![Light theme](docs/images/physical-tree-light.png)
 
 ## mftree command-line tool
 
-The release also includes `mftree.exe`, a command-line interface powered by `FastVolumeIndex.Core`. Run it from an administrator terminal:
+Version 1.5.0 also includes `mftree.exe`, a command-line tool powered by
+`FastVolumeIndex.Core`.
 
-```powershell
+Run it from an administrator terminal:
+
+``` powershell
 mftree
 mftree /f
 mftree "E:\Develop"
 mftree "E:\Develop" /f
 ```
 
-The first form prints folders only, like `tree`. The `/f` form includes files, like `tree /f`.
+The default form prints folders. `/f` includes files, providing an
+MFT-backed alternative for quickly inspecting large directory trees.
 
-Add the extracted release directory to `PATH` to invoke `mftree` from any location.
+Add the extracted release directory to `PATH` if you want to invoke
+`mftree` from any location.
 
-## Application overview
+## Typical workflow
 
-![DesktopIniManager overview](docs/images/app-overview-dark.png)
-
-1. Choose a search location.
-2. Use `GIT Search`, or enter one or more custom keywords and select `Search`.
-3. Switch instantly between the retained Physical, Solution, and Search tabs.
-4. Expand only the folders you want to work with and select the visible rows.
-5. Choose an icon and apply it to the selected folders.
-
-Collapsed child nodes are excluded from Apply and Remove operations. Turning `Select all` off clears every node, including collapsed children; turning it on selects visible nodes only.
-
-## Repository and language analysis
-
-Developer mode recognizes common project definitions such as:
-
-- `.sln`, `.slnx`, `.csproj`, `.vbproj`, `.fsproj`, `.vcxproj`
-- `.vbp`, `.dproj`, `.dpr`
-- `package.json`, `composer.json`, `pyproject.toml`
-- `Cargo.toml`, `go.mod`, `pom.xml`
-- Gradle, CMake, Make, and Xcode projects
-
-Generated and dependency folders such as `.git`, `.vs`, `bin`, `obj`, `node_modules`, `vendor`, `dist`, and `target` are excluded from language statistics.
-
-## Icon browser
-
-DesktopIniManager includes `Assets/folder_set.icl` and uses it as the initial icon library. A different ICO, ICL, DLL, or EXE can be selected at any time, and the last path is restored on the next launch.
-
-![Icon resource browser](docs/images/icon-picker-dark.png)
-
-## How folder icons are applied
-
-For each selected folder, DesktopIniManager:
-
-1. Writes a `[.ShellClassInfo]` section with the selected `IconResource`.
-2. Marks `desktop.ini` as Hidden and System.
-3. Applies the System and Read-only attributes required for folder customization.
-4. Notifies Windows Explorer of the icon change.
-
-The selected icon library stays at its current path. Moving or deleting it can make assigned folder icons unavailable.
-
-`Remove settings` deletes `desktop.ini`, clears the customization attributes, and refreshes Explorer.
+1.  Choose the development root.
+2.  Enable fast NTFS search when working on a local NTFS volume.
+3.  Run `GIT` to acquire the Physical and Solution structures.
+4.  Switch between Physical and Solution without rebuilding either tree.
+5.  Use Search for temporary folder/file filtering.
+6.  Select only the required projects and run Scoped Code Search.
+7.  Inspect files in the right pane or open a match in the configured
+    editor.
+8.  Apply project-specific folder icons where visual identification in
+    Explorer is useful.
 
 ## Build from source
 
 Requirements:
 
-- Visual Studio 2022 or newer
-- .NET desktop development workload
-- .NET Framework 4.8 targeting pack
+-   Visual Studio 2022 or newer
+-   .NET desktop development workload
+-   .NET Framework 4.8 targeting pack
 
-Build with Visual Studio's MSBuild:
+Build with Visual Studio MSBuild:
 
-```powershell
+``` powershell
 MSBuild.exe DesktopIniManager.sln /t:Rebuild /p:Configuration=Release
 ```
 
-The solution contains DesktopIniManager, the reusable `FastVolumeIndex.Core` API, and the `mftree` CLI. All projects target .NET Framework 4.8 and x64 Windows.
+The solution contains the DesktopIniManager application, reusable
+`FastVolumeIndex.Core`, and the `mftree` command-line tool.
 
 ## Release package contents
 
-```text
+``` text
 DesktopIniManager.exe
 FastVolumeIndex.Core.dll
 mftree.exe
@@ -143,3 +257,7 @@ Assets/
 README.md
 RELEASE_NOTES_v1.5.0.md
 ```
+
+## Version
+
+Current release: **DesktopIniManager 1.5.0**

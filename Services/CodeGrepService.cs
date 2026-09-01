@@ -1,4 +1,4 @@
-using DesktopIniManager.Models;
+﻿using DesktopIniManager.Models;
 using FastVolumeIndex;
 using System;
 using System.Collections.Concurrent;
@@ -22,6 +22,10 @@ namespace DesktopIniManager.Services
             Action<GrepMatch> matchFound = null)
         {
             var files = CollectFiles(scopes, profile.Extensions, token);
+            var orderedScopes = scopes
+                .Where(root => !string.IsNullOrWhiteSpace(root))
+                .OrderByDescending(root => root.Length)
+                .ToArray();
             var matches = new ConcurrentBag<GrepMatch>();
             int processed = 0;
             int skipped = 0;
@@ -33,7 +37,7 @@ namespace DesktopIniManager.Services
                 try
                 {
                     if (new FileInfo(file).Length > 64L * 1024 * 1024) { Interlocked.Increment(ref skipped); return; }
-                    string scope = scopes.Where(root => IsUnderPath(file, root)).OrderByDescending(root => root.Length).FirstOrDefault();
+                    string scope = FindScope(file, orderedScopes);
                     int lineNumber = 0;
                     foreach (string line in ReadLines(file))
                     {
@@ -100,7 +104,7 @@ namespace DesktopIniManager.Services
                     else CollectFilesStandard(scope, new HashSet<string>(extensions, StringComparer.OrdinalIgnoreCase), files, token);
                 }
             }
-            return files.OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToList();
+            return files.ToList();
         }
 
         private static void CollectFilesStandard(string root, HashSet<string> extensions, HashSet<string> files, CancellationToken token)
@@ -115,7 +119,17 @@ namespace DesktopIniManager.Services
                     foreach (string file in Directory.EnumerateFiles(folder))
                         if (extensions.Contains(Path.GetExtension(file))) files.Add(file);
                     foreach (string child in Directory.EnumerateDirectories(folder))
-                        if (!IgnoredDirectories.Contains(Path.GetFileName(child))) pending.Push(child);
+                    {
+                        string name = Path.GetFileName(child);
+                        if (IgnoredDirectories.Contains(name)) continue;
+                        try
+                        {
+                            if ((File.GetAttributes(child) & FileAttributes.Hidden) != 0) continue;
+                        }
+                        catch (IOException) { continue; }
+                        catch (UnauthorizedAccessException) { continue; }
+                        pending.Push(child);
+                    }
                 }
                 catch (IOException) { }
                 catch (UnauthorizedAccessException) { }
@@ -149,6 +163,14 @@ namespace DesktopIniManager.Services
         {
             string relative = MakeRelativePath(root, file);
             return relative.Split(Path.DirectorySeparatorChar).Any(part => IgnoredDirectories.Contains(part));
+        }
+
+
+        private static string FindScope(string path, IReadOnlyList<string> orderedScopes)
+        {
+            for (int i = 0; i < orderedScopes.Count; i++)
+                if (IsUnderPath(path, orderedScopes[i])) return orderedScopes[i];
+            return null;
         }
 
         private static bool IsUnderPath(string path, string root)

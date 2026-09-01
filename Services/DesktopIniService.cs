@@ -1,9 +1,9 @@
-using System; using System.ComponentModel; using System.IO; using System.Runtime.InteropServices; using System.Text;
+﻿using System; using System.Collections.Generic; using System.ComponentModel; using System.IO; using System.Linq; using System.Runtime.InteropServices; using System.Text;
 namespace DesktopIniManager.Services
 {
     internal sealed class DesktopIniService
     {
-        public void Apply(string folder, string resourcePath, int index, bool addToGitIgnore)
+        public void Apply(string folder, string resourcePath, int index, bool addToGitIgnore, bool notifyExplorer = true)
         {
             if (!Directory.Exists(folder)) throw new DirectoryNotFoundException(folder);
             if (!File.Exists(resourcePath)) throw new FileNotFoundException("The icon resource was not found.", resourcePath);
@@ -26,7 +26,7 @@ namespace DesktopIniManager.Services
             // versions and folder locations.
             File.SetAttributes(folder, File.GetAttributes(folder) | FileAttributes.ReadOnly | FileAttributes.System);
             if (addToGitIgnore) EnsureGitIgnore(folder);
-            NotifyExplorer(folder);
+            if (notifyExplorer) NotifyExplorer(new[] { folder });
         }
 
         private static void EnsureGitIgnore(string folder)
@@ -47,7 +47,7 @@ namespace DesktopIniManager.Services
             File.AppendAllText(gitIgnore, separator + "desktop.ini" + Environment.NewLine, new UTF8Encoding(false));
         }
 
-        public void Remove(string folder)
+        public void Remove(string folder, bool notifyExplorer = true)
         {
             if (!Directory.Exists(folder)) throw new DirectoryNotFoundException(folder);
             string ini = Path.Combine(folder, "desktop.ini");
@@ -59,11 +59,13 @@ namespace DesktopIniManager.Services
             }
             FileAttributes folderAttributes = File.GetAttributes(folder);
             File.SetAttributes(folder, folderAttributes & ~(FileAttributes.ReadOnly | FileAttributes.System));
-            NotifyExplorer(folder);
+            if (notifyExplorer) NotifyExplorer(new[] { folder });
         }
 
-        private static void NotifyExplorer(string folder)
+        public void NotifyExplorer(IEnumerable<string> folders)
         {
+            if (folders == null) return;
+
             const uint ShcneUpdateItem = 0x00002000;
             const uint ShcneUpdateDir = 0x00001000;
             const uint ShcneAssocChanged = 0x08000000;
@@ -71,10 +73,25 @@ namespace DesktopIniManager.Services
             const uint ShcnfFlush = 0x1000;
             const uint ShcnfIdList = 0x0000;
 
-            SHChangeNotify(ShcneUpdateItem, ShcnfPathW | ShcnfFlush, folder, null);
-            string parent = Path.GetDirectoryName(folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            if (!string.IsNullOrEmpty(parent))
-                SHChangeNotify(ShcneUpdateDir, ShcnfPathW | ShcnfFlush, parent, null);
+            string[] changed = folders
+                .Where(folder => !string.IsNullOrWhiteSpace(folder))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            if (changed.Length == 0) return;
+
+            foreach (string folder in changed)
+                SHChangeNotify(ShcneUpdateItem, ShcnfPathW, folder, null);
+
+            foreach (string parent in changed
+                .Select(folder => Path.GetDirectoryName(folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)))
+                .Where(parent => !string.IsNullOrEmpty(parent))
+                .Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                SHChangeNotify(ShcneUpdateDir, ShcnfPathW, parent, null);
+            }
+
+            // Flush once after all changed folders have been queued.
             SHChangeNotify(ShcneAssocChanged, ShcnfIdList | ShcnfFlush, null, null);
         }
 

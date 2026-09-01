@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -22,7 +22,7 @@ namespace FastVolumeIndex
             if (source == null) throw new ArgumentNullException(nameof(source));
             string rootPath = Normalize(searchRoot);
             var nodes = new Dictionary<string, VolumePathNode>(StringComparer.OrdinalIgnoreCase);
-            foreach (MftEntry entry in source.Entries)
+            foreach (MftEntry entry in source.EnumerateDescendants(rootPath))
             {
                 if ((entry.Attributes & FileAttributes.Hidden) != 0) continue;
                 string path;

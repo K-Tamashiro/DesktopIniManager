@@ -1,4 +1,4 @@
-using DesktopIniManager.Models; using System; using System.Collections.Generic; using System.IO; using System.Linq; using System.Threading;
+﻿using DesktopIniManager.Models; using System; using System.Collections.Generic; using System.IO; using System.Linq; using System.Threading;
 namespace DesktopIniManager.Services
 {
     internal sealed class FolderSearchService
@@ -55,7 +55,18 @@ namespace DesktopIniManager.Services
                 try
                 {
                     foreach (var child in Directory.EnumerateDirectories(folder))
-                        if (!IgnoredDirectories.Contains(Path.GetFileName(child))) pending.Push(new SearchNode(child, insideRepository));
+                    {
+                        string childName = Path.GetFileName(child);
+                        if (IgnoredDirectories.Contains(childName)) continue;
+                        try
+                        {
+                            if ((File.GetAttributes(child) & FileAttributes.Hidden) != 0) continue;
+                        }
+                        catch (UnauthorizedAccessException) { continue; }
+                        catch (IOException) { continue; }
+
+                        pending.Push(new SearchNode(child, insideRepository));
+                    }
                 }
                 catch (UnauthorizedAccessException) { } catch (IOException) { }
                 if ((++scanned & 127) == 0) progress(scanned);
@@ -65,35 +76,47 @@ namespace DesktopIniManager.Services
         private static string Match(string folder, string[] keys, CancellationToken token)
         {
             string name = Path.GetFileName(folder.TrimEnd(Path.DirectorySeparatorChar)).ToLowerInvariant();
-            foreach (string key in keys) if (name.Contains(key)) return "Folder name: " + key;
+            foreach (string key in keys)
+                if (name.Contains(key)) return "Folder name: " + key;
+
             try
             {
-                // A marker directory is evidence about its parent. The marker itself
-                // is deliberately never returned or traversed.
                 foreach (string child in Directory.EnumerateDirectories(folder))
                 {
+                    token.ThrowIfCancellationRequested();
                     string childName = Path.GetFileName(child);
-                    if (string.Equals(childName, ".git", StringComparison.OrdinalIgnoreCase) && keys.Any(key => MarkerMatches(childName, key)))
+
+                    if (string.Equals(childName, ".git", StringComparison.OrdinalIgnoreCase) &&
+                        keys.Any(key => MarkerMatches(childName, key)))
                         return AnalyzeDevelopmentFolder(folder, token, "Repository");
-                    if (DevelopmentMarkers.Contains(childName) && keys.Any(key => MarkerMatches(childName, key))) return "Development folder: contains " + childName;
+
+                    if (DevelopmentMarkers.Contains(childName) &&
+                        keys.Any(key => MarkerMatches(childName, key)))
+                        return "Development folder: contains " + childName;
+
+                    string lower = childName.ToLowerInvariant();
+                    foreach (string key in keys)
+                        if (lower.Contains(key)) return "Contents: " + childName;
                 }
 
                 var extensionCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-                foreach (string entry in Directory.EnumerateFileSystemEntries(folder))
+                foreach (string file in Directory.EnumerateFiles(folder))
                 {
-                    string entryName = Path.GetFileName(entry).ToLowerInvariant();
+                    token.ThrowIfCancellationRequested();
+                    string entryName = Path.GetFileName(file).ToLowerInvariant();
                     string ext = Path.GetExtension(entryName).TrimStart('.');
+
                     foreach (string key in keys)
                     {
                         string normalizedKey = key.TrimStart('.');
-                        if (File.Exists(entry) && (entryName.Contains(key) || ext == normalizedKey))
+                        if (entryName.Contains(key) || ext == normalizedKey)
                         {
-                            if (!extensionCounts.ContainsKey(normalizedKey)) extensionCounts[normalizedKey] = 0;
-                            extensionCounts[normalizedKey]++;
+                            extensionCounts.TryGetValue(normalizedKey, out int count);
+                            extensionCounts[normalizedKey] = count + 1;
                         }
-                        else if (Directory.Exists(entry) && entryName.Contains(key)) return "Contents: " + Path.GetFileName(entry);
                     }
                 }
+
                 if (extensionCounts.Count > 0)
                 {
                     var counts = keys.Select(key => key.TrimStart('.'))
@@ -103,7 +126,9 @@ namespace DesktopIniManager.Services
                     return "Contents: " + string.Join(" · ", counts);
                 }
             }
-            catch (UnauthorizedAccessException) { } catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            catch (IOException) { }
+
             return null;
         }
 
@@ -137,7 +162,17 @@ namespace DesktopIniManager.Services
                         aggregate.Extensions.Add(extension.ToLowerInvariant());
                     }
                     foreach (string child in Directory.EnumerateDirectories(folder))
-                        if (!IgnoredDirectories.Contains(Path.GetFileName(child))) pending.Push(child);
+                    {
+                        string childName = Path.GetFileName(child);
+                        if (IgnoredDirectories.Contains(childName)) continue;
+                        try
+                        {
+                            if ((File.GetAttributes(child) & FileAttributes.Hidden) != 0) continue;
+                        }
+                        catch (UnauthorizedAccessException) { continue; }
+                        catch (IOException) { continue; }
+                        pending.Push(child);
+                    }
                 }
                 catch (UnauthorizedAccessException) { } catch (IOException) { }
             }

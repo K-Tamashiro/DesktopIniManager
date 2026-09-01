@@ -1,4 +1,4 @@
-using DesktopIniManager.Models;
+﻿using DesktopIniManager.Models;
 using FastVolumeIndex;
 using System;
 using System.Collections.Generic;
@@ -124,28 +124,68 @@ namespace DesktopIniManager.Services
         public Dictionary<string, string> AnalyzeDevelopment(VolumePathIndex paths, CancellationToken token)
         {
             var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            var projectExtensions = new HashSet<string>(new[] { ".csproj", ".vbproj", ".vcxproj", ".fsproj", ".vbp", ".dproj" }, StringComparer.OrdinalIgnoreCase);
+            var projectExtensions = new HashSet<string>(
+                new[] { ".csproj", ".vbproj", ".vcxproj", ".fsproj", ".vbp", ".dproj" },
+                StringComparer.OrdinalIgnoreCase);
+
             int inspected = 0;
             foreach (VolumePathNode folder in paths.Directories)
             {
                 if ((++inspected & 2047) == 0) token.ThrowIfCancellationRequested();
+
                 var parts = new List<string>();
-                if (folder.Directories.Any(child => string.Equals(child.Name, ".git", StringComparison.OrdinalIgnoreCase)) ||
-                    folder.Files.Any(file => string.Equals(file.Name, ".git", StringComparison.OrdinalIgnoreCase)))
-                    parts.Add("Repository");
-                int solutions = folder.Files.Count(file => string.Equals(Path.GetExtension(file.Name), ".sln", StringComparison.OrdinalIgnoreCase));
-                int projects = folder.Files.Count(file => projectExtensions.Contains(Path.GetExtension(file.Name)));
+                bool repository = false;
+                int solutions = 0;
+                int projects = 0;
+                var extensionCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (VolumePathNode child in folder.Directories)
+                {
+                    if (string.Equals(child.Name, ".git", StringComparison.OrdinalIgnoreCase))
+                    {
+                        repository = true;
+                        break;
+                    }
+                }
+
+                foreach (VolumePathNode file in folder.Files)
+                {
+                    string name = file.Name;
+                    if (string.Equals(name, ".git", StringComparison.OrdinalIgnoreCase))
+                        repository = true;
+
+                    string extensionWithDot = Path.GetExtension(name);
+                    if (string.Equals(extensionWithDot, ".sln", StringComparison.OrdinalIgnoreCase))
+                        solutions++;
+                    if (projectExtensions.Contains(extensionWithDot))
+                        projects++;
+
+                    if (string.Equals(name, "desktop.ini", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    string extension = extensionWithDot.TrimStart('.');
+                    extensionCounts.TryGetValue(extension, out int count);
+                    extensionCounts[extension] = count + 1;
+                }
+
+                if (repository) parts.Add("Repository");
                 if (solutions > 0) parts.Add("SLN ×" + solutions);
                 if (projects > 0) parts.Add("Project ×" + projects);
 
-                foreach (var extension in folder.Files
-                    .Where(file => !string.Equals(file.Name, "desktop.ini", StringComparison.OrdinalIgnoreCase))
-                    .GroupBy(file => Path.GetExtension(file.Name).TrimStart('.'), StringComparer.OrdinalIgnoreCase)
-                    .OrderByDescending(group => group.Count()).ThenBy(group => group.Key, StringComparer.OrdinalIgnoreCase).Take(12))
-                    parts.Add((string.IsNullOrEmpty(extension.Key) ? "(no extension)" : extension.Key.ToLowerInvariant()) + " ×" + extension.Count());
+                foreach (var extension in extensionCounts
+                    .OrderByDescending(pair => pair.Value)
+                    .ThenBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+                    .Take(12))
+                {
+                    string name = string.IsNullOrEmpty(extension.Key)
+                        ? "(no extension)"
+                        : extension.Key.ToLowerInvariant();
+                    parts.Add(name + " ×" + extension.Value);
+                }
 
                 result[folder.Path] = parts.Count == 0 ? "Empty folder" : string.Join(" · ", parts);
             }
+
             return result;
         }
 
@@ -203,8 +243,9 @@ namespace DesktopIniManager.Services
         private static void AddSourceFolders(VolumePathIndex index, IReadOnlyList<VolumePathNode> repositories,
             Dictionary<string, FolderMatch> matches, CancellationToken token)
         {
-            string[] repositoryPaths = repositories.Select(item => item.Path)
-                .OrderByDescending(path => path.Length).ToArray();
+            var repositoryPaths = new HashSet<string>(
+                repositories.Select(item => item.Path),
+                StringComparer.OrdinalIgnoreCase);
             var folders = new Dictionary<string, SourceFolderAggregate>(StringComparer.OrdinalIgnoreCase);
             int inspected = 0;
 
@@ -216,9 +257,9 @@ namespace DesktopIniManager.Services
                 if (!FolderSearchService.LanguageByExtension.TryGetValue(extension, out string language)) continue;
 
                 string filePath = entry.Path;
-                string repository = repositoryPaths.FirstOrDefault(path => IsUnderPath(filePath, path));
+                string repository = FindRepository(entry.Parent, repositoryPaths);
                 if (repository == null) continue;
-                string folder = Path.GetDirectoryName(filePath);
+                string folder = entry.Parent?.Path ?? Path.GetDirectoryName(filePath);
                 if (string.IsNullOrEmpty(folder) || ContainsIgnoredDirectory(folder, repository)) continue;
 
                 if (!folders.TryGetValue(folder, out SourceFolderAggregate aggregate))
@@ -232,6 +273,18 @@ namespace DesktopIniManager.Services
 
             foreach (var folder in folders.Where(pair => pair.Value.Total >= 2))
                 Add(matches, folder.Key, BuildSourceReason(folder.Value));
+        }
+
+
+        private static string FindRepository(VolumePathNode node, HashSet<string> repositoryPaths)
+        {
+            while (node != null)
+            {
+                if (repositoryPaths.Contains(node.Path))
+                    return node.Path;
+                node = node.Parent;
+            }
+            return null;
         }
 
         private static bool IsUnderPath(string path, string parent)

@@ -8,9 +8,9 @@ It discovers Git repositories, projects, source-language composition, and Visual
 
 ## Download
 
-[![Download DesktopIniManager](docs/images/download.png)](https://github.com/K-Tamashiro/DesktopIniManager/releases/latest/download/DesktopIniManager-v1.4.0-win-x64.zip)
+[![Download DesktopIniManager](docs/images/download.png)](https://github.com/K-Tamashiro/DesktopIniManager/releases/latest/download/DesktopIniManager-v1.5.0-win-x64.zip)
 
-Download `DesktopIniManager-v1.4.0-win-x64.zip`, extract it to a writable folder, and run `DesktopIniManager.exe`.
+Download `DesktopIniManager-v1.5.0-win-x64.zip`, extract it to a writable folder, and run `DesktopIniManager.exe`.
 
 ### Requirements
 
@@ -28,6 +28,7 @@ Large repositories often contain several solutions, many service projects, share
 - Path-normalized physical folder tree that excludes folders with the Windows Hidden attribute
 - File list for the selected folder, with external-editor launch on double-click
 - Visual Studio `.sln` and `.csproj` parsing for a logical, folder-only Solution tree
+- Refactored solution, filesystem, icon, and search pipelines for lower allocation and faster large-tree processing
 - Detection of projects inside monorepos, even when child projects do not contain their own `.git`
 - Source-language and technology analysis with counts and percentages
 - Support for C#, C/C++, JavaScript, TypeScript, PHP, Java, Delphi, VB6, VB.NET, HTML, CSS, SQL, and many more
@@ -140,5 +141,5 @@ mftree.exe
 Assets/
   folder_set.icl
 README.md
-RELEASE_NOTES_v1.4.0.md
+RELEASE_NOTES_v1.5.0.md
 ```

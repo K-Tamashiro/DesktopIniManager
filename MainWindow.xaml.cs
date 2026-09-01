@@ -1,4 +1,4 @@
-using DesktopIniManager.Models;
+﻿using DesktopIniManager.Models;
 using DesktopIniManager.Services;
 using DesktopIniManager.Views;
 using Microsoft.Win32;
@@ -37,7 +37,7 @@ namespace DesktopIniManager
         private ImageSource _selectedIconPreview;
         private GrepWindow _grepWindow;
         private VolumePathIndex _pathIndex;
-        private SolutionCatalog _solutionCatalog;
+        private int _searchResultCount;
         private readonly ObservableCollection<FileListItem> _files = new ObservableCollection<FileListItem>();
         private CancellationTokenSource _fileListCts;
         private CancellationTokenSource _filterCts;
@@ -187,8 +187,19 @@ namespace DesktopIniManager
             _searchCts?.Cancel();
             var searchCts = new CancellationTokenSource();
             _searchCts = searchCts;
-            if (searchOnly) _searchRoots.Clear();
-            else { _results.Clear(); _treeRoots.Clear(); _solutionRoots.Clear(); _searchRoots.Clear(); }
+            if (searchOnly)
+            {
+                _searchRoots.Clear();
+                _searchResultCount = 0;
+            }
+            else
+            {
+                _results.Clear();
+                _treeRoots.Clear();
+                _solutionRoots.Clear();
+                _searchRoots.Clear();
+                _searchResultCount = 0;
+            }
             if (gitSearchRequested) ShowTreeView(0);
             CountText.Text = "0 matches"; SetSearching(true);
             try
@@ -245,7 +256,8 @@ namespace DesktopIniManager
                                     await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
                             }
                         }
-                        if (!searchOnly) { _solutionCatalog = await Task.Run(() => fastService.AnalyzeSolutions(fastResult.Index, fastResult.Paths, searchCts.Token)); solutionRoots = await Task.Run(() => SolutionTreeService.Build(root, searchCts.Token)); }
+                        if (!searchOnly)
+                            solutionRoots = await Task.Run(() => SolutionTreeService.Build(root, searchCts.Token));
                     }
                     else
                     {
@@ -374,11 +386,10 @@ namespace DesktopIniManager
                 .OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
                 .ThenBy(item => item.Path, StringComparer.CurrentCultureIgnoreCase)
                 .ToArray();
-            for (int target = 0; target < ordered.Length; target++)
-            {
-                int current = items.IndexOf(ordered[target]);
-                if (current != target) items.Move(current, target);
-            }
+
+            items.Clear();
+            foreach (FolderMatch item in ordered)
+                items.Add(item);
         }
 
         private static bool IsAdministrator()
@@ -490,7 +501,7 @@ namespace DesktopIniManager
             var tabs = sender as TabControl;
             if (tabs != null && tabs.SelectedIndex >= 0) ShowTreeView(tabs.SelectedIndex);
         }
-        private void ShowTreeView(int view) { _treeView = view; _solutionView = view == 1; if (TreeTabs.SelectedIndex != view) TreeTabs.SelectedIndex = view; ResultsTree.ItemsSource = view == 0 ? _treeRoots : view == 1 ? _solutionRoots : _searchRoots; ApplyFolderFilter(); UpdateVisibleCount(); StatusText.Text = view == 0 ? _results.Count + " folders found" : view == 1 ? _solutionRoots.Count + " solutions found" : Flatten(_searchRoots).Count() + " search results"; }
+        private void ShowTreeView(int view) { _treeView = view; _solutionView = view == 1; if (TreeTabs.SelectedIndex != view) TreeTabs.SelectedIndex = view; ResultsTree.ItemsSource = view == 0 ? _treeRoots : view == 1 ? _solutionRoots : _searchRoots; ApplyFolderFilter(); UpdateVisibleCount(); StatusText.Text = view == 0 ? _results.Count + " folders found" : view == 1 ? _solutionRoots.Count + " solutions found" : _searchResultCount + " search results"; }
         private void RefreshTreeItemsSource() { ResultsTree.ItemsSource = _treeView == 0 ? _treeRoots : _treeView == 1 ? _solutionRoots : _searchRoots; }
         private void ShowSolutionView() => ShowTreeView(1);
         private void UpdateVisibleCount() { CountText.Text = CurrentItems().Count(item => !item.IsHidden && !item.IsFilterHidden) + (_solutionView ? " items" : " folders"); }
@@ -606,8 +617,9 @@ namespace DesktopIniManager
             {
                 _searchRoots.Clear();
                 foreach (FolderMatch root in built.Roots) _searchRoots.Add(root);
+                _searchResultCount = built.Items.Count;
                 RefreshTreeItemsSource();
-                CountText.Text = built.Items.Count + " search results";
+                CountText.Text = _searchResultCount + " search results";
                 await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
                 return;
             }
@@ -866,31 +878,73 @@ namespace DesktopIniManager
 
         private void Apply_Click(object sender, RoutedEventArgs e)
         {
-            var selected = VisibleItems().Where(item => item.IsActionable && item.IsSelected).GroupBy(item => item.Path, StringComparer.OrdinalIgnoreCase).Select(group => group.First()).ToList();
+            var selected = VisibleItems().Where(item => item.IsActionable && item.IsSelected)
+                .GroupBy(item => item.Path, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First()).ToList();
             bool addToGitIgnore = AddToGitIgnoreBox.IsChecked == true;
             if (selected.Count == 0) { MessageBox.Show("Select at least one folder.", Title); return; }
             if (MessageBox.Show("Apply the selected icon to " + selected.Count + " folders?", Title, MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+
             int succeeded = 0;
             var errors = new System.Collections.Generic.List<string>();
+            var changedFolders = new List<string>();
             var service = new DesktopIniService();
+
             foreach (var item in selected)
-                try { service.Apply(item.Path, IconPathBox.Text, _selectedIconIndex, addToGitIgnore); item.IconPreview = _selectedIconPreview ?? FolderIconService.GetFolderIcon(item.Path); succeeded++; }
-                catch (Exception ex) { errors.Add(item.Path + ": " + ex.Message); }
+            {
+                try
+                {
+                    service.Apply(item.Path, IconPathBox.Text, _selectedIconIndex, addToGitIgnore, false);
+                    FolderIconService.Invalidate(item.Path);
+                    item.IconPreview = _selectedIconPreview ?? FolderIconService.GetFolderIcon(item.Path);
+                    changedFolders.Add(item.Path);
+                    succeeded++;
+                }
+                catch (Exception ex)
+                {
+                    errors.Add(item.Path + ": " + ex.Message);
+                }
+            }
+
+            if (changedFolders.Count > 0)
+                service.NotifyExplorer(changedFolders);
+
             StatusText.Text = "Applied to " + succeeded + " folders";
             MessageBox.Show(errors.Count == 0 ? "Icon settings applied." : succeeded + " succeeded, " + errors.Count + " failed\n\n" + string.Join("\n", errors.Take(5)), Title);
         }
 
         private void Remove_Click(object sender, RoutedEventArgs e)
         {
-            var selected = VisibleItems().Where(item => item.IsActionable && item.IsSelected).GroupBy(item => item.Path, StringComparer.OrdinalIgnoreCase).Select(group => group.First()).ToList();
+            var selected = VisibleItems().Where(item => item.IsActionable && item.IsSelected)
+                .GroupBy(item => item.Path, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First()).ToList();
             if (selected.Count == 0) { MessageBox.Show("Select at least one folder.", Title); return; }
             if (MessageBox.Show("Delete desktop.ini and remove icon settings from " + selected.Count + " folders?", Title, MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK) return;
+
             int succeeded = 0;
             var errors = new System.Collections.Generic.List<string>();
+            var changedFolders = new List<string>();
             var service = new DesktopIniService();
+
             foreach (var item in selected)
-                try { service.Remove(item.Path); item.IconPreview = FolderIconService.GetDefaultFolderIcon(); succeeded++; }
-                catch (Exception ex) { errors.Add(item.Path + ": " + ex.Message); }
+            {
+                try
+                {
+                    service.Remove(item.Path, false);
+                    FolderIconService.Invalidate(item.Path);
+                    item.IconPreview = FolderIconService.GetDefaultFolderIcon();
+                    changedFolders.Add(item.Path);
+                    succeeded++;
+                }
+                catch (Exception ex)
+                {
+                    errors.Add(item.Path + ": " + ex.Message);
+                }
+            }
+
+            if (changedFolders.Count > 0)
+                service.NotifyExplorer(changedFolders);
+
             StatusText.Text = "Removed settings from " + succeeded + " folders";
             MessageBox.Show(errors.Count == 0 ? "Icon settings removed." : succeeded + " succeeded, " + errors.Count + " failed\n\n" + string.Join("\n", errors.Take(5)), Title);
         }
@@ -920,13 +974,36 @@ namespace DesktopIniManager
 
         private IReadOnlyList<string> GetSelectedGrepScopes()
         {
-            return CurrentItems().Where(item => item.IsActionable && item.IsSelected && Directory.Exists(item.Path))
-                .Select(item => Path.GetFullPath(item.Path).TrimEnd(Path.DirectorySeparatorChar))
-                .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(path => path.Length)
-                .Where(path => !CurrentItems().Where(item => item.IsActionable && item.IsSelected)
-                    .Select(item => item.Path.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar)
-                    .Any(parent => path.StartsWith(parent, StringComparison.OrdinalIgnoreCase)))
-                .OrderBy(path => path, StringComparer.CurrentCultureIgnoreCase).ToList();
+            List<string> selected = CurrentItems()
+                .Where(item => item.IsActionable && item.IsSelected && Directory.Exists(item.Path))
+                .Select(item => Path.GetFullPath(item.Path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var selectedSet = new HashSet<string>(selected, StringComparer.OrdinalIgnoreCase);
+            var scopes = new List<string>();
+
+            foreach (string path in selected)
+            {
+                bool hasSelectedAncestor = false;
+                string parent = Path.GetDirectoryName(path);
+
+                while (!string.IsNullOrEmpty(parent))
+                {
+                    if (selectedSet.Contains(parent.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)))
+                    {
+                        hasSelectedAncestor = true;
+                        break;
+                    }
+                    parent = Path.GetDirectoryName(parent);
+                }
+
+                if (!hasSelectedAncestor)
+                    scopes.Add(path);
+            }
+
+            scopes.Sort(StringComparer.CurrentCultureIgnoreCase);
+            return scopes;
         }
 
         private void SetSearching(bool value)

@@ -1,4 +1,4 @@
-using Microsoft.Win32.SafeHandles;
+﻿using Microsoft.Win32.SafeHandles;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -24,6 +24,10 @@ namespace FastVolumeIndex
         private readonly Dictionary<ulong, MftEntry> _entries;
         private readonly Dictionary<ulong, List<MftEntry>> _children;
         private readonly Dictionary<ulong, string> _pathCache;
+        private readonly Dictionary<string, HashSet<ulong>> _scopeCache;
+        private readonly Dictionary<string, MftEntry> _pathEntryCache;
+        private readonly int _fileCount;
+        private readonly int _directoryCount;
 
         private NtfsVolumeIndex(string volumeRoot, Dictionary<ulong, MftEntry> entries, TimeSpan elapsed)
         {
@@ -34,14 +38,21 @@ namespace FastVolumeIndex
                 .GroupBy(entry => entry.ParentId)
                 .ToDictionary(group => group.Key, group => group.ToList());
             _pathCache = new Dictionary<ulong, string>();
+            _scopeCache = new Dictionary<string, HashSet<ulong>>(StringComparer.OrdinalIgnoreCase);
+            _pathEntryCache = new Dictionary<string, MftEntry>(StringComparer.OrdinalIgnoreCase);
+            foreach (MftEntry entry in entries.Values)
+            {
+                if (entry.IsDirectory) _directoryCount++;
+                else _fileCount++;
+            }
             EnumerationTime = elapsed;
         }
 
         public string VolumeRoot { get; }
         public TimeSpan EnumerationTime { get; }
         public int EntryCount => _entries.Count;
-        public int FileCount => _entries.Values.Count(entry => !entry.IsDirectory);
-        public int DirectoryCount => _entries.Values.Count(entry => entry.IsDirectory);
+        public int FileCount => _fileCount;
+        public int DirectoryCount => _directoryCount;
         public IEnumerable<MftEntry> Entries => _entries.Values;
 
         public static NtfsVolumeIndex Create(string path)
@@ -72,6 +83,31 @@ namespace FastVolumeIndex
             if (entry == null)
                 throw new ArgumentNullException(nameof(entry));
             return ResolvePath(entry.Id, new HashSet<ulong>());
+        }
+
+        public IEnumerable<MftEntry> EnumerateDescendants(string searchRoot)
+        {
+            string normalizedPath = NormalizeSearchRoot(searchRoot);
+            if (string.Equals(normalizedPath.TrimEnd('\\'), VolumeRoot.TrimEnd('\\'),
+                StringComparison.OrdinalIgnoreCase))
+                return _entries.Values;
+
+            MftEntry root = FindByPath(normalizedPath);
+            if (root == null)
+                throw new DirectoryNotFoundException($"Search root was not found in the MFT index: {searchRoot}");
+
+            var result = new List<MftEntry>();
+            var pending = new Stack<ulong>();
+            pending.Push(root.Id);
+            while (pending.Count > 0)
+            {
+                ulong id = pending.Pop();
+                if (!_entries.TryGetValue(id, out MftEntry entry)) continue;
+                result.Add(entry);
+                if (_children.TryGetValue(id, out List<MftEntry> children))
+                    foreach (MftEntry child in children) pending.Push(child.Id);
+            }
+            return result;
         }
 
         public IReadOnlyList<MftEntry> SearchNames(string searchRoot, string query, bool directoriesOnly = false)
@@ -126,6 +162,9 @@ namespace FastVolumeIndex
         public MftEntry FindByPath(string path)
         {
             string normalizedPath = NormalizeSearchRoot(path);
+            string cacheKey = normalizedPath.TrimEnd('\\');
+            if (_pathEntryCache.TryGetValue(cacheKey, out MftEntry cachedEntry))
+                return cachedEntry;
             if (string.Equals(normalizedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
                 VolumeRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
                 StringComparison.OrdinalIgnoreCase))
@@ -140,11 +179,14 @@ namespace FastVolumeIndex
 
                 ulong fileId = ((ulong)info.FileIndexHigh << 32) | info.FileIndexLow;
                 if (_entries.TryGetValue(fileId, out MftEntry entry))
+                {
+                    _pathEntryCache[cacheKey] = entry;
                     return entry;
+                }
             }
 
             string comparisonPath = normalizedPath.TrimEnd('\\');
-            return _entries.Values
+            MftEntry fallback = _entries.Values
                 .Where(entry => entry.IsDirectory)
                 .Where(entry => string.Equals(GetFullPath(entry).TrimEnd('\\'), comparisonPath,
                     StringComparison.OrdinalIgnoreCase))
@@ -152,6 +194,8 @@ namespace FastVolumeIndex
                     ? children.Count
                     : 0)
                 .FirstOrDefault();
+            if (fallback != null) _pathEntryCache[cacheKey] = fallback;
+            return fallback;
         }
 
         private MftEntry FindVolumeRootEntry()
@@ -249,10 +293,15 @@ namespace FastVolumeIndex
                 StringComparison.OrdinalIgnoreCase))
                 return null;
 
+            if (_scopeCache.TryGetValue(normalizedPath, out HashSet<ulong> cached))
+                return cached;
+
             MftEntry entry = FindByPath(normalizedPath);
             if (entry == null)
                 throw new DirectoryNotFoundException($"Search root was not found in the MFT index: {searchRoot}");
-            return GetDescendantIds(entry);
+            HashSet<ulong> result = GetDescendantIds(entry);
+            _scopeCache[normalizedPath] = result;
+            return result;
         }
 
         private HashSet<ulong> GetDescendantIds(MftEntry root)

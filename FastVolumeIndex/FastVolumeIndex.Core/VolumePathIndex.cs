@@ -24,6 +24,7 @@ namespace FastVolumeIndex
             var nodes = new Dictionary<string, VolumePathNode>(StringComparer.OrdinalIgnoreCase);
             foreach (MftEntry entry in source.Entries)
             {
+                if ((entry.Attributes & FileAttributes.Hidden) != 0) continue;
                 string path;
                 try { path = Normalize(source.GetFullPath(entry)); } catch { continue; }
                 if (!IsWithin(path, rootPath) || nodes.ContainsKey(path)) continue;
@@ -85,6 +86,7 @@ namespace FastVolumeIndex
                         if (nodes.ContainsKey(path)) continue;
                         FileAttributes attributes;
                         try { attributes = File.GetAttributes(path); } catch { attributes = 0; }
+                        if ((attributes & FileAttributes.Hidden) != 0) continue;
                         nodes[path] = new VolumePathNode(path, null, true, (attributes & FileAttributes.ReparsePoint) != 0);
                         if ((attributes & FileAttributes.ReparsePoint) == 0) pending.Push(path);
                     }

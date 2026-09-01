@@ -8,9 +8,9 @@ It discovers Git repositories, projects, source-language composition, and Visual
 
 ## Download
 
-[![Download DesktopIniManager](docs/images/download.png)](https://github.com/K-Tamashiro/DesktopIniManager/releases/latest/download/DesktopIniManager-v1.3.0-win-x64.zip)
+[![Download DesktopIniManager](docs/images/download.png)](https://github.com/K-Tamashiro/DesktopIniManager/releases/latest/download/DesktopIniManager-v1.4.0-win-x64.zip)
 
-Download `DesktopIniManager-v1.3.0-win-x64.zip`, extract it to a writable folder, and run `DesktopIniManager.exe`.
+Download `DesktopIniManager-v1.4.0-win-x64.zip`, extract it to a writable folder, and run `DesktopIniManager.exe`.
 
 ### Requirements
 
@@ -25,9 +25,9 @@ Large repositories often contain several solutions, many service projects, share
 
 - Dedicated `GIT Search` for finding repositories and projects
 - Optional NTFS MFT index search that can inventory very large volumes in milliseconds
-- Path-normalized physical folder tree built once from a single MFT snapshot
+- Path-normalized physical folder tree that excludes folders with the Windows Hidden attribute
 - File list for the selected folder, with external-editor launch on double-click
-- Visual Studio `.sln` parsing and logical Solution tree view
+- Visual Studio `.sln` and `.csproj` parsing for a logical, folder-only Solution tree
 - Detection of projects inside monorepos, even when child projects do not contain their own `.git`
 - Source-language and technology analysis with counts and percentages
 - Support for C#, C/C++, JavaScript, TypeScript, PHP, Java, Delphi, VB6, VB.NET, HTML, CSS, SQL, and many more
@@ -36,7 +36,7 @@ Large repositories often contain several solutions, many service projects, share
 - ICO, ICL, DLL, and EXE icon-resource browser
 - Bundled folder icon set
 - Optional `desktop.ini` entry in `.gitignore`
-- Physical and Solution views
+- Independent Physical, Solution, and Search tabs that preserve all three result sets
 - Light and dark themes
 - Context-menu actions for narrowing the search location, opening Explorer, or grepping one folder
 - Hide and unhide selected tree folders
@@ -78,7 +78,7 @@ Add the extracted release directory to `PATH` to invoke `mftree` from any locati
 
 1. Choose a search location.
 2. Use `GIT Search`, or enter one or more custom keywords and select `Search`.
-3. Inspect the Physical or Solution tree.
+3. Switch instantly between the retained Physical, Solution, and Search tabs.
 4. Expand only the folders you want to work with and select the visible rows.
 5. Choose an icon and apply it to the selected folders.
 
@@ -140,4 +140,5 @@ mftree.exe
 Assets/
   folder_set.icl
 README.md
+RELEASE_NOTES_v1.4.0.md
 ```

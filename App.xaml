@@ -13,6 +13,10 @@
       <Setter Property="HorizontalContentAlignment" Value="Center"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
+    <Style x:Key="TypeSizeButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
+      <Setter Property="FontFamily" Value="Segoe UI"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
     <Style x:Key="IconTextButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
       <Setter Property="Padding" Value="10,7"/>
       <Setter Property="MinHeight" Value="36"/>
@@ -68,6 +72,74 @@
       </Setter>
     </Style>
     <Style x:Key="ThemeToggleStyle" TargetType="ToggleButton"><Setter Property="Width" Value="40"/><Setter Property="Height" Value="34"/><Setter Property="FontSize" Value="19"/><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToggleButton"><Border Background="{TemplateBinding Background}" CornerRadius="8"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}"/></Border></ControlTemplate></Setter.Value></Setter><Style.Triggers><Trigger Property="IsChecked" Value="True"><Setter Property="Background" Value="{DynamicResource ThemeSelected}"/></Trigger></Style.Triggers></Style>
+    <Style TargetType="TabControl">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="HorizontalContentAlignment" Value="Left"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="TabControl">
+            <Grid SnapsToDevicePixels="True">
+              <Grid.RowDefinitions>
+                <RowDefinition Height="0"/>
+                <RowDefinition Height="Auto"/>
+              </Grid.RowDefinitions>
+              <ContentPresenter x:Name="PART_SelectedContentHost" Grid.Row="0" ContentSource="SelectedContent" Visibility="Collapsed"/>
+              <Border Grid.Row="1" Background="{DynamicResource ThemeToggle}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="9" Padding="3" HorizontalAlignment="Left">
+                <UniformGrid x:Name="HeaderPanel" Rows="1" IsItemsHost="True" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.DirectionalNavigation="Cycle"/>
+              </Border>
+            </Grid>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style TargetType="TabItem">
+      <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Padding" Value="16,6"/>
+      <Setter Property="MinWidth" Value="108"/>
+      <Setter Property="MinHeight" Value="28"/>
+      <Setter Property="FontSize" Value="12.5"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="TabItem">
+            <Border x:Name="TabRoot" Background="{TemplateBinding Background}" CornerRadius="7" Padding="{TemplateBinding Padding}" Margin="1,0" SnapsToDevicePixels="True">
+              <Grid>
+                <ContentPresenter x:Name="HeaderHost" ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" TextElement.Foreground="{TemplateBinding Foreground}"/>
+                <Border x:Name="ActiveBar" Height="2" Width="22" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,-5,0,0" CornerRadius="1" Background="{DynamicResource Accent}" Opacity="0"/>
+              </Grid>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="TabRoot" Property="Background" Value="{DynamicResource AccentSoft}"/>
+                <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+              </Trigger>
+              <Trigger Property="IsSelected" Value="True">
+                <Setter TargetName="TabRoot" Property="Background" Value="{DynamicResource ThemeSelected}"/>
+                <Setter TargetName="ActiveBar" Property="Opacity" Value="1"/>
+                <Setter Property="Foreground" Value="{DynamicResource Accent}"/>
+              </Trigger>
+              <MultiTrigger>
+                <MultiTrigger.Conditions>
+                  <Condition Property="IsSelected" Value="True"/>
+                  <Condition Property="IsMouseOver" Value="True"/>
+                </MultiTrigger.Conditions>
+                <Setter TargetName="TabRoot" Property="Background" Value="{DynamicResource ThemeSelected}"/>
+                <Setter Property="Foreground" Value="{DynamicResource Accent}"/>
+              </MultiTrigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="TabRoot" Property="Opacity" Value="0.45"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
     </ResourceDictionary>
   </Application.Resources>
 </Application>

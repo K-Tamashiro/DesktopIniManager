@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Xml;
 
 namespace DesktopIniManager.Services
 {
@@ -24,7 +25,8 @@ namespace DesktopIniManager.Services
                 try
                 {
                     foreach (string solution in Directory.EnumerateFiles(folder, "*.sln")) solutions.Add(Parse(solution));
-                    foreach (string child in Directory.EnumerateDirectories(folder)) if (!Ignored.Contains(Path.GetFileName(child))) pending.Push(child);
+                    foreach (string child in Directory.EnumerateDirectories(folder))
+                        if (!Ignored.Contains(Path.GetFileName(child)) && (File.GetAttributes(child) & FileAttributes.Hidden) == 0) pending.Push(child);
                 }
                 catch (UnauthorizedAccessException) { } catch (IOException) { }
             }
@@ -58,6 +60,7 @@ namespace DesktopIniManager.Services
                 if (nested.TryGetValue(pair.Key, out string parentId) && nodes.TryGetValue(parentId, out FolderMatch parent)) parent.Children.Add(pair.Value);
                 else root.Children.Add(pair.Value);
             }
+            SortProjectChildren(root.Children);
             return root;
         }
 
@@ -66,7 +69,55 @@ namespace DesktopIniManager.Services
             bool folder = IsSolutionFolder(entry);
             string physicalPath = folder ? solutionDirectory : Path.GetFullPath(Path.Combine(solutionDirectory, entry.RelativePath.Replace('\\', Path.DirectorySeparatorChar)));
             if (!folder) physicalPath = Directory.Exists(physicalPath) ? physicalPath : Path.GetDirectoryName(physicalPath);
-            return new FolderMatch { DisplayName = entry.Name, Path = physicalPath, Reason = folder ? "Solution folder" : "Project · " + Path.GetFileName(entry.RelativePath), IsActionable = !folder && Directory.Exists(physicalPath), IconPreview = FolderIconService.GetFolderIcon(physicalPath) };
+            var node = new FolderMatch { DisplayName = entry.Name, Path = physicalPath, Reason = folder ? "Solution folder" : "Project · " + Path.GetFileName(entry.RelativePath), IsActionable = !folder && Directory.Exists(physicalPath), IconPreview = FolderIconService.GetFolderIcon(physicalPath) };
+            string projectFile = folder ? null : Path.GetFullPath(Path.Combine(solutionDirectory, entry.RelativePath));
+            if (File.Exists(projectFile)) PopulateProject(node, projectFile);
+            return node;
+        }
+        private static void PopulateProject(FolderMatch project, string projectFile)
+        {
+            string directory = Path.GetDirectoryName(projectFile); var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase); var removed = new HashSet<string>(StringComparer.OrdinalIgnoreCase); bool sdk = false;
+            try
+            {
+                var document = new XmlDocument(); document.Load(projectFile); sdk = document.DocumentElement != null && document.DocumentElement.HasAttribute("Sdk");
+                foreach (XmlNode item in document.SelectNodes("//*[local-name()='Compile' or local-name()='None' or local-name()='Content' or local-name()='EmbeddedResource']"))
+                {
+                    string include = item.Attributes?["Include"]?.Value; string remove = item.Attributes?["Remove"]?.Value; string link = item.SelectSingleNode("*[local-name()='Link']")?.InnerText;
+                    if (!string.IsNullOrWhiteSpace(remove)) removed.Add(NormalizeProjectPath(remove));
+                    if (string.IsNullOrWhiteSpace(include) || include.IndexOfAny(new[] { '*', '?' }) >= 0) continue;
+                    string full = Path.GetFullPath(Path.Combine(directory, NormalizeProjectPath(include)));
+                    if (File.Exists(full)) files.Add(string.IsNullOrWhiteSpace(link) ? full : Path.Combine(directory, NormalizeProjectPath(link)));
+                }
+            }
+            catch (XmlException) { return; } catch (IOException) { return; }
+            if (sdk) foreach (string file in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories))
+            {
+                string relative = NormalizeProjectPath(file.Substring(directory.Length).TrimStart(Path.DirectorySeparatorChar));
+                if (relative.Split(Path.DirectorySeparatorChar).Any(part => Ignored.Contains(part)) || removed.Contains(relative)) continue;
+                files.Add(file);
+            }
+            AddVirtual(project, "Properties", directory, "Project properties"); AddVirtual(project, "依存関係", directory, "Dependencies");
+            foreach (string file in files.OrderBy(value => value, StringComparer.CurrentCultureIgnoreCase))
+            {
+                string relative = file.StartsWith(directory, StringComparison.OrdinalIgnoreCase) ? file.Substring(directory.Length).TrimStart(Path.DirectorySeparatorChar) : Path.GetFileName(file);
+                if (!string.Equals(relative, Path.GetFileName(projectFile), StringComparison.OrdinalIgnoreCase)) AddProjectFile(project, directory, relative, file);
+            }
+            SortProjectChildren(project.Children);
+        }
+        private static string NormalizeProjectPath(string value) => value.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
+        private static void AddVirtual(FolderMatch parent, string name, string path, string reason) => parent.Children.Add(new FolderMatch { DisplayName = name, Path = path, Reason = reason, IsActionable = false, IconPreview = FolderIconService.GetFolderIcon(path) });
+        private static void AddProjectFile(FolderMatch root, string directory, string relative, string physicalFile)
+        {
+            string[] parts = relative.Split(new[] { Path.DirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries); FolderMatch parent = root; string current = directory;
+            for (int i = 0; i < parts.Length - 1; i++) { current = Path.Combine(current, parts[i]); FolderMatch child = parent.Children.FirstOrDefault(item => string.Equals(item.Name, parts[i], StringComparison.OrdinalIgnoreCase)); if (child == null) { child = new FolderMatch { DisplayName = parts[i], Path = current, Reason = "Folder", IsActionable = Directory.Exists(current), IconPreview = FolderIconService.GetFolderIcon(current) }; parent.Children.Add(child); } parent = child; }
+            // Files are intentionally omitted here. Selecting the logical folder already
+            // shows its physical files in the file list on the right.
+        }
+        private static void SortProjectChildren(System.Collections.ObjectModel.ObservableCollection<FolderMatch> items)
+        {
+            foreach (FolderMatch item in items) SortProjectChildren(item.Children);
+            FolderMatch[] ordered = items.OrderBy(item => item.Name == "Properties" ? 0 : item.Name == "依存関係" ? 1 : 2).ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase).ToArray();
+            for (int i = 0; i < ordered.Length; i++) { int old = items.IndexOf(ordered[i]); if (old != i) items.Move(old, i); }
         }
         private static bool IsSolutionFolder(Entry entry) => string.Equals(entry.Type, SolutionFolderType, StringComparison.OrdinalIgnoreCase);
         private sealed class Entry { public string Id; public string Type; public string Name; public string RelativePath; }

@@ -109,6 +109,7 @@ namespace DesktopIniManager.Services
         {
             while (node != null)
             {
+                if (node.Entry != null && (node.Entry.Attributes & FileAttributes.Hidden) != 0) return false;
                 if (string.Equals(node.Name, ".git", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(node.Name, ".vs", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(node.Name, ".vscode", StringComparison.OrdinalIgnoreCase)) return false;

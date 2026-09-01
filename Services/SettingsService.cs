@@ -17,6 +17,7 @@ namespace DesktopIniManager.Services
         private static readonly string GrepProfilePath = Path.Combine(SettingsDirectory, "grep-profile.txt");
         private static readonly string GrepColumnWidthsPath = Path.Combine(SettingsDirectory, "grep-column-widths.txt");
         private static readonly string GrepFreeExtensionsPath = Path.Combine(SettingsDirectory, "grep-free-extensions.txt");
+        private static readonly string TreeDensityPath = Path.Combine(SettingsDirectory, "tree-density.txt");
 
         public static string LoadIconLibraryPath()
         {
@@ -65,6 +66,18 @@ namespace DesktopIniManager.Services
                 Directory.CreateDirectory(SettingsDirectory);
                 File.WriteAllText(SearchRootPath, path.Trim(), new UTF8Encoding(false));
             }
+            catch { }
+        }
+
+        public static bool LoadTreeCompact()
+        {
+            try { return File.Exists(TreeDensityPath) && string.Equals(File.ReadAllText(TreeDensityPath).Trim(), "compact", StringComparison.OrdinalIgnoreCase); }
+            catch { return false; }
+        }
+
+        public static void SaveTreeCompact(bool compact)
+        {
+            try { Directory.CreateDirectory(SettingsDirectory); File.WriteAllText(TreeDensityPath, compact ? "compact" : "comfortable", new UTF8Encoding(false)); }
             catch { }
         }
 

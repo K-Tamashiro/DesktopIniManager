@@ -9,7 +9,7 @@
   <PropertyGroup><ApplicationIcon>DesktopIniManager.ico</ApplicationIcon></PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' "><PlatformTarget>x64</PlatformTarget><DebugSymbols>true</DebugSymbols><DebugType>full</DebugType><OutputPath>bin\Debug\</OutputPath><DefineConstants>DEBUG;TRACE</DefineConstants><WarningLevel>4</WarningLevel></PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' "><PlatformTarget>x64</PlatformTarget><Optimize>true</Optimize><DebugType>pdbonly</DebugType><OutputPath>bin\Release\</OutputPath><DefineConstants>TRACE</DefineConstants><WarningLevel>4</WarningLevel></PropertyGroup>
-  <ItemGroup><Reference Include="System"/><Reference Include="System.Core"/><Reference Include="System.Drawing"/><Reference Include="System.Xaml"/><Reference Include="WindowsBase"/><Reference Include="PresentationCore"/><Reference Include="PresentationFramework"/><Reference Include="System.Windows.Forms"/></ItemGroup>
+  <ItemGroup><Reference Include="System"/><Reference Include="System.Core"/><Reference Include="System.Drawing"/><Reference Include="System.Xml"/><Reference Include="System.Xaml"/><Reference Include="WindowsBase"/><Reference Include="PresentationCore"/><Reference Include="PresentationFramework"/><Reference Include="System.Windows.Forms"/></ItemGroup>
   <ItemGroup><ProjectReference Include="FastVolumeIndex\FastVolumeIndex.Core\FastVolumeIndex.Core.csproj"><Project>{A67C59A1-8E4E-4F44-9A88-D2D1BE56DD81}</Project><Name>FastVolumeIndex.Core</Name><Private>True</Private></ProjectReference></ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></ApplicationDefinition>

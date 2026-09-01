@@ -28,9 +28,11 @@ namespace DesktopIniManager
         private readonly ObservableCollection<FolderMatch> _results = new ObservableCollection<FolderMatch>();
         private readonly ObservableCollection<FolderMatch> _treeRoots = new ObservableCollection<FolderMatch>();
         private readonly ObservableCollection<FolderMatch> _solutionRoots = new ObservableCollection<FolderMatch>();
+        private readonly ObservableCollection<FolderMatch> _searchRoots = new ObservableCollection<FolderMatch>();
         private CancellationTokenSource _searchCts;
         private string _pendingSearchQuery;
         private bool _solutionView;
+        private int _treeView; // 0 Physical, 1 Solution, 2 Search
         private int _selectedIconIndex;
         private ImageSource _selectedIconPreview;
         private GrepWindow _grepWindow;
@@ -42,6 +44,15 @@ namespace DesktopIniManager
         private IReadOnlyList<FolderMatch> _filteredViewItems;
         private readonly System.Windows.Threading.DispatcherTimer _filterTimer;
         private bool _largeFileIcons;
+
+        public static readonly DependencyProperty TreeCompactProperty =
+            DependencyProperty.Register(nameof(TreeCompact), typeof(bool), typeof(MainWindow), new PropertyMetadata(false));
+
+        public bool TreeCompact
+        {
+            get { return (bool)GetValue(TreeCompactProperty); }
+            set { SetValue(TreeCompactProperty, value); }
+        }
 
         public MainWindow()
         {
@@ -73,6 +84,7 @@ namespace DesktopIniManager
             RestoreWindowPlacement(commandLine);
             HookPathBox(RootBox);
             HookPathBox(IconPathBox);
+            ApplyTreeDensity(SettingsService.LoadTreeCompact(), false);
             Loaded += (sender, args) =>
             {
                 RefreshSelectedIconPreview();
@@ -159,6 +171,9 @@ namespace DesktopIniManager
             string query = _pendingSearchQuery ?? visibleQuery;
             bool folderListMode = string.IsNullOrWhiteSpace(query);
             bool gitSearchRequested = _pendingSearchQuery != null && string.Equals(query, ".git", StringComparison.OrdinalIgnoreCase);
+            // The Search button always owns only the Search tab. Physical and Solution
+            // are populated exclusively by the Git acquisition workflow.
+            bool searchOnly = !gitSearchRequested;
             _pendingSearchQuery = null;
             bool fastSearch = FastNtfsSearchBox.IsChecked == true;
             SettingsService.SaveSearchRoot(root);
@@ -172,7 +187,10 @@ namespace DesktopIniManager
             _searchCts?.Cancel();
             var searchCts = new CancellationTokenSource();
             _searchCts = searchCts;
-            _results.Clear(); _treeRoots.Clear(); _solutionRoots.Clear(); CountText.Text = "0 matches"; SetSearching(true);
+            if (searchOnly) _searchRoots.Clear();
+            else { _results.Clear(); _treeRoots.Clear(); _solutionRoots.Clear(); _searchRoots.Clear(); }
+            if (gitSearchRequested) ShowTreeView(0);
+            CountText.Text = "0 matches"; SetSearching(true);
             try
             {
                 System.Collections.Generic.List<FolderMatch> solutionRoots = new List<FolderMatch>();
@@ -209,10 +227,9 @@ namespace DesktopIniManager
                                     ? defaultFolderIcon : FolderIconService.GetFolderIcon(item.Path);
                             }
                         }, searchCts.Token);
-                        await AddTreeResultsAsync(fastResult.Matches, searchCts.Token);
+                        await AddTreeResultsAsync(fastResult.Matches, searchCts.Token, searchOnly);
                         _pathIndex = fastResult.Paths;
-                        _solutionView = false;
-                        ResultsTree.ItemsSource = _treeRoots;
+                        RefreshTreeItemsSource();
                         StatusText.Text = _results.Count + (folderListMode ? " folders found · analyzing projects…" : " matches found · analyzing projects…");
                         await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
                         var fastService = new FastFolderSearchService();
@@ -228,43 +245,44 @@ namespace DesktopIniManager
                                     await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
                             }
                         }
-                        _solutionCatalog = await Task.Run(() => fastService.AnalyzeSolutions(fastResult.Index, fastResult.Paths, searchCts.Token));
-                        solutionRoots = await Task.Run(() => fastService.BuildSolutionTree(fastResult.Index, _solutionCatalog.Maps, searchCts.Token));
+                        if (!searchOnly) { _solutionCatalog = await Task.Run(() => fastService.AnalyzeSolutions(fastResult.Index, fastResult.Paths, searchCts.Token)); solutionRoots = await Task.Run(() => SolutionTreeService.Build(root, searchCts.Token)); }
                     }
                     else
                     {
                         StandardSearchResult standard = await RunStandardIndexedSearch(root, query, searchCts.Token);
-                        await AddTreeResultsAsync(standard.Matches, searchCts.Token);
+                        await AddTreeResultsAsync(standard.Matches, searchCts.Token, searchOnly);
                         _pathIndex = standard.Paths;
-                        ResultsTree.ItemsSource = _treeRoots;
+                        RefreshTreeItemsSource();
                         await ApplyStandardDevelopmentAnalysis(gitSearchRequested, standard.Paths, searchCts.Token);
-                        solutionRoots = await Task.Run(() => SolutionTreeService.Build(root, searchCts.Token));
+                        if (!searchOnly) solutionRoots = await Task.Run(() => SolutionTreeService.Build(root, searchCts.Token));
                     }
                 }
                 else if (folderListMode)
                 {
                     StandardSearchResult standard = await RunStandardIndexedSearch(root, string.Empty, searchCts.Token);
-                    await AddTreeResultsAsync(standard.Matches, searchCts.Token);
+                    await AddTreeResultsAsync(standard.Matches, searchCts.Token, searchOnly);
                     _pathIndex = standard.Paths;
-                    _solutionView = false;
-                    ResultsTree.ItemsSource = _treeRoots;
+                    RefreshTreeItemsSource();
                 }
                 else
                 {
                     StandardSearchResult standard = await RunStandardIndexedSearch(root, query, searchCts.Token);
-                    await AddTreeResultsAsync(standard.Matches, searchCts.Token);
+                    await AddTreeResultsAsync(standard.Matches, searchCts.Token, searchOnly);
                     _pathIndex = standard.Paths;
-                    ResultsTree.ItemsSource = _treeRoots;
+                    RefreshTreeItemsSource();
                     await ApplyStandardDevelopmentAnalysis(gitSearchRequested, standard.Paths, searchCts.Token);
-                    solutionRoots = await Task.Run(() => SolutionTreeService.Build(root, searchCts.Token));
+                    if (!searchOnly) solutionRoots = await Task.Run(() => SolutionTreeService.Build(root, searchCts.Token));
                 }
                 foreach (FolderMatch solution in solutionRoots)
                 {
                     AssignParents(solution);
                     _solutionRoots.Add(solution);
                 }
-                if (_solutionView) ShowSolutionView();
-                StatusText.Text = folderListMode ? _results.Count + " folders found" : _results.Count + " matches found";
+                if (searchOnly)
+                {
+                    ShowTreeView(2);
+                }
+                ShowTreeView(_treeView);
             }
             catch (OperationCanceledException) { StatusText.Text = "Search cancelled"; }
             catch (Exception ex) { MessageBox.Show(ex.Message, Title); StatusText.Text = "Search failed"; }
@@ -466,13 +484,19 @@ namespace DesktopIniManager
         }
         private void ExpandAll_Click(object sender, RoutedEventArgs e) { foreach (var item in CurrentItems()) item.IsExpanded = true; }
         private void CollapseAll_Click(object sender, RoutedEventArgs e) { foreach (var item in CurrentItems()) item.IsExpanded = false; }
-        private void PhysicalView_Click(object sender, RoutedEventArgs e) { _solutionView = false; ResultsTree.ItemsSource = _treeRoots; ApplyFolderFilter(); StatusText.Text = _results.Count + " folders found"; }
-        private void SolutionView_Click(object sender, RoutedEventArgs e) { _solutionView = true; ShowSolutionView(); ApplyFolderFilter(); }
-        private void ShowSolutionView() { ResultsTree.ItemsSource = _solutionRoots; UpdateVisibleCount(); StatusText.Text = _solutionRoots.Count + " solutions found"; }
+        private void TreeTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!IsInitialized || !ReferenceEquals(e.Source, sender)) return;
+            var tabs = sender as TabControl;
+            if (tabs != null && tabs.SelectedIndex >= 0) ShowTreeView(tabs.SelectedIndex);
+        }
+        private void ShowTreeView(int view) { _treeView = view; _solutionView = view == 1; if (TreeTabs.SelectedIndex != view) TreeTabs.SelectedIndex = view; ResultsTree.ItemsSource = view == 0 ? _treeRoots : view == 1 ? _solutionRoots : _searchRoots; ApplyFolderFilter(); UpdateVisibleCount(); StatusText.Text = view == 0 ? _results.Count + " folders found" : view == 1 ? _solutionRoots.Count + " solutions found" : Flatten(_searchRoots).Count() + " search results"; }
+        private void RefreshTreeItemsSource() { ResultsTree.ItemsSource = _treeView == 0 ? _treeRoots : _treeView == 1 ? _solutionRoots : _searchRoots; }
+        private void ShowSolutionView() => ShowTreeView(1);
         private void UpdateVisibleCount() { CountText.Text = CurrentItems().Count(item => !item.IsHidden && !item.IsFilterHidden) + (_solutionView ? " items" : " folders"); }
-        private System.Collections.Generic.IEnumerable<FolderMatch> CurrentItems() => _filteredViewItems ?? Flatten(_solutionView ? _solutionRoots : _treeRoots).ToList();
+        private System.Collections.Generic.IEnumerable<FolderMatch> CurrentItems() => _filteredViewItems ?? Flatten(_treeView == 0 ? _treeRoots : _treeView == 1 ? _solutionRoots : _searchRoots).ToList();
         private System.Collections.Generic.IEnumerable<FolderMatch> VisibleItems() => _filteredViewItems != null
-            ? _filteredViewItems.Where(item => !item.IsHidden) : FlattenVisible(_solutionView ? _solutionRoots : _treeRoots);
+            ? _filteredViewItems.Where(item => !item.IsHidden) : FlattenVisible(_treeView == 0 ? _treeRoots : _treeView == 1 ? _solutionRoots : _searchRoots);
         private static void AssignParents(FolderMatch node)
         {
             if (node == null) return;
@@ -543,7 +567,7 @@ namespace DesktopIniManager
             CountText.Text = _results.Count + " matches";
         }
 
-        private async Task AddTreeResultsAsync(IEnumerable<FolderMatch> items, CancellationToken token)
+        private async Task AddTreeResultsAsync(IEnumerable<FolderMatch> items, CancellationToken token, bool intoSearch = false)
         {
             List<FolderMatch> source = items.ToList();
             StatusText.Text = "Building " + source.Count.ToString("N0") + " folder rows…";
@@ -578,12 +602,20 @@ namespace DesktopIniManager
                 return new TreeBuildResult(source, roots);
             }, token);
             token.ThrowIfCancellationRequested();
-            ResultsTree.ItemsSource = null;
+            if (intoSearch)
+            {
+                _searchRoots.Clear();
+                foreach (FolderMatch root in built.Roots) _searchRoots.Add(root);
+                RefreshTreeItemsSource();
+                CountText.Text = built.Items.Count + " search results";
+                await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
+                return;
+            }
             _results.Clear();
             foreach (FolderMatch item in built.Items) _results.Add(item);
             _treeRoots.Clear();
             foreach (FolderMatch root in built.Roots) _treeRoots.Add(root);
-            ResultsTree.ItemsSource = _treeRoots;
+            RefreshTreeItemsSource();
             CountText.Text = _results.Count + " folders";
             await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
         }
@@ -703,6 +735,26 @@ namespace DesktopIniManager
             catch (Exception ex) { ShowError("Could not open the file.", ex); }
         }
 
+        private void CompactTree_Click(object sender, RoutedEventArgs e) => ApplyTreeDensity(true, true);
+
+        private void ComfortableTree_Click(object sender, RoutedEventArgs e) => ApplyTreeDensity(false, true);
+
+        private void ApplyTreeDensity(bool compact, bool announce)
+        {
+            TreeCompact = compact;
+            HighlightTreeDensityButtons();
+            SettingsService.SaveTreeCompact(compact);
+            if (announce) StatusText.Text = compact ? "Compact folder list" : "Comfortable folder list";
+        }
+
+        private void HighlightTreeDensityButtons()
+        {
+            System.Windows.Media.Brush selected = (System.Windows.Media.Brush)FindResource("ThemeSelected");
+            System.Windows.Media.Brush secondary = (System.Windows.Media.Brush)FindResource("Secondary");
+            if (CompactTreeButton != null) CompactTreeButton.Background = TreeCompact ? selected : secondary;
+            if (ComfortableTreeButton != null) ComfortableTreeButton.Background = TreeCompact ? secondary : selected;
+        }
+
         private void FileListView_Click(object sender, RoutedEventArgs e)
         {
             FileList.Visibility = Visibility.Visible;
@@ -765,7 +817,7 @@ namespace DesktopIniManager
             var filterCts = new CancellationTokenSource();
             _filterCts = filterCts;
             string[] terms = (FolderFilterBox.Text ?? string.Empty).Split((char[])null, StringSplitOptions.RemoveEmptyEntries);
-            List<FolderMatch> all = Flatten(_solutionView ? _solutionRoots : _treeRoots).ToList();
+            List<FolderMatch> all = Flatten(_treeView == 0 ? _treeRoots : _treeView == 1 ? _solutionRoots : _searchRoots).ToList();
             try
             {
                 List<FolderMatch> matches = terms.Length == 0 ? null : await Task.Run(() =>
@@ -785,7 +837,7 @@ namespace DesktopIniManager
                 if (matches != null) foreach (FolderMatch item in matches) item.IsExpanded = false;
                 _filteredViewItems = matches;
                 ResultsTree.ItemsSource = matches == null
-                    ? (IEnumerable<FolderMatch>)(_solutionView ? _solutionRoots : _treeRoots) : matches;
+                    ? (IEnumerable<FolderMatch>)(_treeView == 0 ? _treeRoots : _treeView == 1 ? _solutionRoots : _searchRoots) : matches;
                 UpdateVisibleCount();
             }
             catch (OperationCanceledException) { }
@@ -912,6 +964,8 @@ namespace DesktopIniManager
             LightThemeButton.IsChecked = !dark;
             DarkThemeButton.IsChecked = dark;
             SettingsService.SaveDarkMode(dark);
+            HighlightTreeDensityButtons();
+            HighlightFileViewButtons(FileList.Visibility == Visibility.Visible, _largeFileIcons);
         }
         private void Close_Click(object sender, RoutedEventArgs e) => Close();
         private void ShowError(string message, Exception ex) { StatusText.Text = message; MessageBox.Show(message + "\n\n" + ex.Message, Title, MessageBoxButton.OK, MessageBoxImage.Error); }

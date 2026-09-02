@@ -13,6 +13,8 @@ using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using System.Windows.Input;
+using System.Windows.Interop;
 
 namespace DesktopIniManager.Views
 {
@@ -33,6 +35,9 @@ namespace DesktopIniManager.Views
         private ListBox leftList, rightList;
         private ScrollViewer leftScroll, rightScroll;
         private Canvas map;
+        private Thumb viewportThumb;
+        private double viewportDragTop;
+        private HwndSource inputSource;
         private int current = -1;
         private bool scrolling, selecting;
 
@@ -111,6 +116,41 @@ namespace DesktopIniManager.Views
             body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(34) });
             body.ColumnDefinitions.Add(new ColumnDefinition());
             Loaded += async (s, e) => await LoadContent();
+            SourceInitialized += (s, e) =>
+            {
+                inputSource = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
+                inputSource?.AddHook(HorizontalWheelMessage);
+            };
+            Closed += (s, e) => { inputSource?.RemoveHook(HorizontalWheelMessage); inputSource = null; };
+            body.PreviewMouseWheel += (s, e) =>
+            {
+                if ((Keyboard.Modifiers & ModifierKeys.Shift) == 0) return;
+                if (ScrollHorizontally(-e.Delta)) e.Handled = true;
+            };
+        }
+
+        private bool ScrollHorizontally(int delta)
+        {
+            if (leftScroll == null) leftScroll = FindScroll(leftList);
+            if (rightScroll == null) rightScroll = FindScroll(rightList);
+            if (leftScroll == null || rightScroll == null) return false;
+            // Native horizontal wheel: positive is right; Shift+vertical wheel reverses that sign.
+            double offset = Math.Max(leftScroll.HorizontalOffset, rightScroll.HorizontalOffset) + delta * 48.0 / 120;
+            leftScroll.ScrollToHorizontalOffset(offset);
+            rightScroll.ScrollToHorizontalOffset(offset);
+            return true;
+        }
+
+        private IntPtr HorizontalWheelMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            const int MouseHorizontalWheel = 0x020E;
+            if (message != MouseHorizontalWheel) return IntPtr.Zero;
+            long coordinates = lParam.ToInt64();
+            var point = body.PointFromScreen(new Point(unchecked((short)(coordinates & 0xffff)), unchecked((short)((coordinates >> 16) & 0xffff))));
+            if (point.X < 0 || point.Y < 0 || point.X >= body.ActualWidth || point.Y >= body.ActualHeight) return IntPtr.Zero;
+            int delta = unchecked((short)((wParam.ToInt64() >> 16) & 0xffff));
+            handled = ScrollHorizontally(delta);
+            return IntPtr.Zero;
         }
 
         private static TextBlock HeaderBlock(string title, string info)
@@ -197,7 +237,7 @@ namespace DesktopIniManager.Views
             list.SetResourceReference(Control.ForegroundProperty, "Ink");
             list.SetResourceReference(Control.BorderBrushProperty, "Line");
             ScrollViewer.SetHorizontalScrollBarVisibility(list, ScrollBarVisibility.Auto);
-            ScrollViewer.SetVerticalScrollBarVisibility(list, ScrollBarVisibility.Auto);
+            ScrollViewer.SetVerticalScrollBarVisibility(list, ScrollBarVisibility.Hidden);
 
             var text = new FrameworkElementFactory(typeof(TextBlock));
             text.SetBinding(TextBlock.TextProperty, new Binding(property));
@@ -261,12 +301,38 @@ namespace DesktopIniManager.Views
 
         private void ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
-            if (scrolling || (e.VerticalChange == 0 && e.HorizontalChange == 0)) return;
+            if (scrolling) return;
             var from = e.OriginalSource as ScrollViewer; if (from == null) return;
             if (leftScroll == null) leftScroll = FindScroll(leftList);
             if (rightScroll == null) rightScroll = FindScroll(rightList);
+            if (from != leftScroll && from != rightScroll) return;
+            UpdateViewport(from);
+            if (e.VerticalChange == 0 && e.HorizontalChange == 0) return;
             var to = from == leftScroll ? rightScroll : leftScroll; if (to == null) return;
             scrolling = true; to.ScrollToVerticalOffset(from.VerticalOffset); to.ScrollToHorizontalOffset(from.HorizontalOffset); scrolling = false;
+        }
+
+        private void UpdateViewport(ScrollViewer scroll)
+        {
+            if (viewportThumb == null || map == null || scroll == null) return;
+            double height = map.ActualHeight;
+            double fraction = scroll.ExtentHeight <= 0 ? 1 : Math.Min(1, scroll.ViewportHeight / scroll.ExtentHeight);
+            viewportThumb.Height = Math.Min(height, Math.Max(12, height * fraction));
+            viewportThumb.Width = Math.Max(0, map.ActualWidth - 2);
+            double travel = Math.Max(0, height - viewportThumb.Height);
+            Canvas.SetTop(viewportThumb, scroll.ScrollableHeight <= 0 ? 0
+                : travel * Math.Max(0, Math.Min(1, scroll.VerticalOffset / scroll.ScrollableHeight)));
+        }
+
+        private void DragViewport(object sender, DragDeltaEventArgs e)
+        {
+            if (leftScroll == null || rightScroll == null) return;
+            double travel = Math.Max(0, map.ActualHeight - viewportThumb.Height);
+            viewportDragTop = Math.Max(0, Math.Min(travel, viewportDragTop + e.VerticalChange));
+            double fraction = travel <= 0 ? 0 : viewportDragTop / travel;
+            leftScroll.ScrollToVerticalOffset(fraction * leftScroll.ScrollableHeight);
+            rightScroll.ScrollToVerticalOffset(fraction * rightScroll.ScrollableHeight);
+            e.Handled = true;
         }
 
         private void DrawMap()
@@ -288,6 +354,23 @@ namespace DesktopIniManager.Views
                 marker.MouseLeftButtonDown += (s, e) => Jump(start);
                 map.Children.Add(marker);
             }
+            if (viewportThumb == null)
+            {
+                viewportThumb = new Thumb { Cursor = System.Windows.Input.Cursors.SizeNS, ToolTip = "Visible range — drag to scroll", Focusable = false };
+                var border = new FrameworkElementFactory(typeof(Border));
+                border.SetValue(Border.BorderBrushProperty, new DynamicResourceExtension("Accent"));
+                border.SetValue(Border.BorderThicknessProperty, new Thickness(2));
+                border.SetValue(Border.BackgroundProperty, Brushes.Transparent);
+                viewportThumb.Template = new ControlTemplate(typeof(Thumb)) { VisualTree = border };
+                viewportThumb.DragStarted += (s, e) => viewportDragTop = Canvas.GetTop(viewportThumb);
+                viewportThumb.DragDelta += DragViewport;
+            }
+            Canvas.SetLeft(viewportThumb, 1);
+            Panel.SetZIndex(viewportThumb, 1);
+            map.Children.Add(viewportThumb);
+            if (leftScroll == null) leftScroll = FindScroll(leftList);
+            if (rightScroll == null) rightScroll = FindScroll(rightList);
+            UpdateViewport(leftScroll);
         }
 
         private void Navigate(int direction)
@@ -326,7 +409,7 @@ namespace DesktopIniManager.Views
             {
                 Content = content,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
                 BorderThickness = new Thickness(1)
             };
             viewer.SetResourceReference(Control.BackgroundProperty, "CardBackground");

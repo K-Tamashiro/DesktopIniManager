@@ -31,7 +31,8 @@ writable folder, and run `DesktopIniManager.exe`.
 
 Open **MFT Diff** to compare two working trees, inspect readonly text/image
 diffs, and synchronize checked files in either direction. `.git` is excluded.
-Local NTFS and running DIM as administrator are required for comparison.
+MFT enumeration requires local NTFS and administrator permissions; when MFT
+enumeration is unavailable, comparison falls back to a file-system scan.
 See [usage, safeguards, and regression tests](docs/mft-differencer.md).
 
 Development work often requires several separate tools: Explorer for the
@@ -268,3 +269,67 @@ RELEASE_NOTES_v1.5.0.md
 ## Version
 
 Current release: **DesktopIniManager 1.5.0**
+
+## MFT Differencer
+
+Open **MFT Diff** from the main window to compare two folder trees, inspect
+their differences, and synchronize only the files you select. Source and
+Target identify the left and right roots; either side can be the source of
+a synchronization operation. Git history remains separate: `.git` files
+and directories are excluded from comparison and synchronization.
+
+### Compare and select files
+
+![MFT Differencer showing folder filters and a name-sorted file list](docs/images/mft-differencer.png)
+
+Choose **Source** and **Target**, then click **Compare**. Progress appears
+at the bottom of the window. Files are matched by their paths relative to
+each root and classified using size and, when **Compare dates** is enabled,
+last-write time. This is a metadata comparison, not a content or hash check.
+Turning off **Compare dates** treats equal-sized files as identical even
+when their timestamps differ.
+
+- **Same / Diff / Left / Right** can be combined to filter the folder tree
+  and file list. Initially, **Diff**, **Left**, and **Right** are enabled.
+  Relevant parent folders remain visible.
+- Select the root to see matching files from all levels in **Name** order.
+  Selecting a folder narrows that list while preserving its order. Files
+  with the same name are ordered by relative path.
+- Source and Target show timestamps, file sizes, and **NEW / OLD** where
+  applicable. Supported images also show thumbnails and image dimensions.
+- Check a folder to select the differences of the currently displayed
+  categories beneath it, or check individual files. Selections survive
+  filtering; identical files are available for viewing only.
+
+### Read-only Diff View
+
+![Read-only Diff View with highlighted changes and a draggable viewport frame in the central map](docs/images/mft-diff-view.png)
+
+Double-click a file to open **Diff View**. Text is displayed side by side
+with line numbers and colored additions, removals, and changes. **Prev**
+and **Next**, or a marker in the central difference map, navigate between
+changed sections.
+
+The frame in the central map shows the current visible range. Drag it up
+or down to scroll both panes together. The frame also follows ordinary
+scrolling and window resizing. Vertical scrollbars are hidden; the mouse
+wheel still scrolls vertically. A horizontal/side wheel or **Shift + wheel**
+scrolls horizontally, with both panes linked.
+
+Images use a side-by-side view with shared zoom and aligned positions.
+**Open Source** and **Open Target** send the corresponding file to the
+configured external editor. Diff View itself does not edit, save, or merge
+files.
+
+### Synchronize selected differences
+
+Choose **Source → Target** or **Target → Source**, then review the file count
+and the copy, overwrite, and delete totals before running synchronization.
+Only checked differences are processed, including checked files currently
+hidden by a filter.
+
+Files present only on the sending side are copied; files that differ on
+both sides are overwritten. **A checked file present only on the receiving
+side is deleted from that side.** Results and failures are recorded in the
+sync log, and comparison runs again afterward to refresh remaining
+differences.

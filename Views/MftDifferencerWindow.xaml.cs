@@ -368,7 +368,11 @@ namespace DesktopIniManager.Views
                 CompareProgress.IsIndeterminate = true;
                 StatusText.Text = "Updating the difference tree…";
                 snapshot = fresh; treeSource = source; treeTarget = target;
-                rows = snapshot.Files.Select(f => new DiffRow { File = f, SourceRoot = snapshot.SourceRoot, TargetRoot = snapshot.TargetRoot }).ToList();
+                // Sort the complete list once; folder/category filters preserve this order.
+                rows = snapshot.Files
+                    .OrderBy(f => f.Name, StringComparer.CurrentCultureIgnoreCase)
+                    .ThenBy(f => f.RelativePath, StringComparer.OrdinalIgnoreCase)
+                    .Select(f => new DiffRow { File = f, SourceRoot = snapshot.SourceRoot, TargetRoot = snapshot.TargetRoot }).ToList();
                 BuildTree(snapshot.Folders, expanded, selectedFolder);
                 StatusText.Text = folders[""].CountFor(DiffKind.Differences) + " differences / " + folders[""].CountFor(DiffKind.Same) + " identical. Check items to synchronize.";
                 SaveState();

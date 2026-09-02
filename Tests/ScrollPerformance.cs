@@ -33,7 +33,56 @@ internal static class ScrollPerformance
         timer.Tick += (s, e) => { timer.Stop(); frame.Continue = false; };
         timer.Start(); Dispatcher.PushFrame(frame);
     }
-    public static int Run(string appXaml)
+    private static int RunDiffMap()
+    {
+        string root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "diff-map-" + Guid.NewGuid().ToString("N"));
+        string left = Path.Combine(root, "left"), right = Path.Combine(root, "right");
+        Directory.CreateDirectory(left); Directory.CreateDirectory(right);
+        File.WriteAllLines(Path.Combine(left, "test.txt"), Enumerable.Range(0, 1000).Select(i => "Line " + i + new string('x', 300)));
+        File.WriteAllLines(Path.Combine(right, "test.txt"), Enumerable.Range(0, 1000).Select(i => "Line " + i + new string('x', 300) + (i % 100 == 0 ? " changed" : "")));
+        var snapshot = new DiffSnapshot { SourceRoot = left + "\\", TargetRoot = right + "\\" };
+        var file = new DiffFile { RelativePath = "test.txt", Source = DiffStamp.Read(Path.Combine(left, "test.txt")), Target = DiffStamp.Read(Path.Combine(right, "test.txt")) };
+        var window = new DiffViewWindow(snapshot, file) { WindowStartupLocation = WindowStartupLocation.Manual, Left = -20000, Top = -20000, ShowInTaskbar = false, ShowActivated = false };
+        window.Show();
+        Func<string, object> field = name => typeof(DiffViewWindow).GetField(name, Private).GetValue(window);
+        var wait = Stopwatch.StartNew();
+        while (field("leftScroll") == null && wait.ElapsedMilliseconds < 5000) Pump(50);
+        Pump(100);
+        var scroll = (ScrollViewer)field("leftScroll");
+        var other = (ScrollViewer)field("rightScroll");
+        var thumb = (System.Windows.Controls.Primitives.Thumb)field("viewportThumb");
+        var map = (Canvas)field("map");
+        if (scroll == null || thumb == null || thumb.Height <= 0 || thumb.Height >= map.ActualHeight) throw new Exception("Missing viewport range");
+        if (scroll.ComputedVerticalScrollBarVisibility == Visibility.Visible || other.ComputedVerticalScrollBarVisibility == Visibility.Visible)
+            throw new Exception("Vertical bars are still visible");
+        var body = (Grid)field("body");
+        Point wheelPoint = body.PointToScreen(new Point(10, 10));
+        int packedPoint = unchecked(((int)wheelPoint.Y << 16) | ((int)wheelPoint.X & 0xffff));
+        object[] message = { IntPtr.Zero, 0x020E, new IntPtr(120 << 16), new IntPtr(packedPoint), false };
+        typeof(DiffViewWindow).GetMethod("HorizontalWheelMessage", Private).Invoke(window, message); Pump(150);
+        if (!(bool)message[4] || scroll.HorizontalOffset <= 0 || Math.Abs(scroll.HorizontalOffset - other.HorizontalOffset) > 1)
+            throw new Exception("Native horizontal wheel did not synchronize lists");
+        typeof(DiffViewWindow).GetMethod("ScrollHorizontally", Private).Invoke(window, new object[] { -120 }); Pump(150);
+        if (scroll.HorizontalOffset != 0 || other.HorizontalOffset != 0) throw new Exception("Reverse horizontal wheel failed");
+        other.ScrollToVerticalOffset(other.ScrollableHeight / 2); Pump(150);
+        if (Math.Abs(scroll.VerticalOffset - other.VerticalOffset) > 1 || Canvas.GetTop(thumb) <= 0) throw new Exception("Right scroll did not update both view and map");
+        thumb.RaiseEvent(new System.Windows.Controls.Primitives.DragStartedEventArgs(0, 0) { RoutedEvent = System.Windows.Controls.Primitives.Thumb.DragStartedEvent });
+        thumb.RaiseEvent(new System.Windows.Controls.Primitives.DragDeltaEventArgs(0, map.ActualHeight * 2) { RoutedEvent = System.Windows.Controls.Primitives.Thumb.DragDeltaEvent });
+        Pump(150);
+        if (Math.Abs(scroll.VerticalOffset - scroll.ScrollableHeight) > 1 || Math.Abs(other.VerticalOffset - scroll.VerticalOffset) > 1) throw new Exception("Dragging range to bottom did not synchronize both lists");
+        window.Height = 600; Pump(150);
+        if (Canvas.GetTop(thumb) + thumb.Height > map.ActualHeight + 1) throw new Exception("Range escaped resized map");
+        thumb.RaiseEvent(new System.Windows.Controls.Primitives.DragStartedEventArgs(0, 0) { RoutedEvent = System.Windows.Controls.Primitives.Thumb.DragStartedEvent });
+        thumb.RaiseEvent(new System.Windows.Controls.Primitives.DragDeltaEventArgs(0, -map.ActualHeight * 2) { RoutedEvent = System.Windows.Controls.Primitives.Thumb.DragDeltaEvent });
+        Pump(150);
+        if (scroll.VerticalOffset != 0 || other.VerticalOffset != 0 || Canvas.GetTop(thumb) != 0) throw new Exception("Dragging to top failed");
+        window.Close();
+        Console.WriteLine("PASS diff map: range, drag, resize, hidden vertical bars, native horizontal wheel, reverse wheel, synchronized lists");
+        Application.Current.Shutdown();
+        return 0;
+    }
+
+    public static int Run(string appXaml, bool diffMap = false)
     {
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         var xml = new System.Xml.XmlDocument(); xml.Load(appXaml);
@@ -42,6 +91,7 @@ internal static class ScrollPerformance
         string resources = xml.SelectSingleNode("p:Application/p:Application.Resources/p:ResourceDictionary", namespaces).OuterXml;
         var context = new ParserContext(); context.XmlnsDictionary.Add("x", "http://schemas.microsoft.com/winfx/2006/xaml");
         app.Resources = (ResourceDictionary)XamlReader.Parse(resources.Replace("Source=\"Themes/", "Source=\"/DesktopIniManager;component/Themes/"), context);
+        if (diffMap) return RunDiffMap();
         string root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "scroll-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         File.WriteAllText(Path.Combine(root, "sample.txt"), "text");

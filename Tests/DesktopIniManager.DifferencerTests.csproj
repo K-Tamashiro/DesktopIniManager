@@ -1,0 +1,8 @@
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+ <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props"/>
+ <PropertyGroup><Configuration Condition="'$(Configuration)' == ''">Debug</Configuration><Platform Condition="'$(Platform)' == ''">AnyCPU</Platform><OutputType>Exe</OutputType><AssemblyName>DesktopIniManager.DifferencerTests</AssemblyName><TargetFrameworkVersion>v4.8</TargetFrameworkVersion><OutputPath>bin\$(Configuration)\</OutputPath><PlatformTarget>x64</PlatformTarget></PropertyGroup>
+ <ItemGroup><Reference Include="System"/><Reference Include="System.Core"/><Reference Include="System.Xml"/><Reference Include="System.Xaml"/><Reference Include="WindowsBase"/><Reference Include="PresentationCore"/><Reference Include="PresentationFramework"/></ItemGroup>
+ <ItemGroup><Compile Include="ScrollPerformance.cs"/></ItemGroup>
+ <ItemGroup><ProjectReference Include="..\DesktopIniManager.csproj"><Project>{91097EF8-6B8C-492A-AC5C-F85A0BD979F4}</Project><Name>DesktopIniManager</Name></ProjectReference><Compile Include="DifferencerTests.cs"/></ItemGroup>
+ <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
+</Project>

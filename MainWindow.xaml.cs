@@ -949,6 +949,18 @@ namespace DesktopIniManager
             MessageBox.Show(errors.Count == 0 ? "Icon settings removed." : succeeded + " succeeded, " + errors.Count + " failed\n\n" + string.Join("\n", errors.Take(5)), Title);
         }
 
+        private MftDifferencerWindow _differencerWindow;
+        private void MftDifferencer_Click(object sender, RoutedEventArgs e)
+        {
+            if (_differencerWindow == null)
+            {
+                _differencerWindow = new MftDifferencerWindow { Owner = this };
+                _differencerWindow.Closed += (s, args) => _differencerWindow = null;
+                _differencerWindow.Show();
+            }
+            else _differencerWindow.Activate();
+        }
+
         private void Grep_Click(object sender, RoutedEventArgs e)
         {
             IReadOnlyList<string> scopes = GetSelectedGrepScopes();
@@ -1044,6 +1056,16 @@ namespace DesktopIniManager
             HighlightTreeDensityButtons();
             HighlightFileViewButtons(FileList.Visibility == Visibility.Visible, _largeFileIcons);
         }
+        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+        {
+            if (_differencerWindow != null)
+            {
+                if (_differencerWindow.IsWorking) e.Cancel = true;
+                else _differencerWindow.SaveState();
+            }
+            base.OnClosing(e);
+        }
+
         private void Close_Click(object sender, RoutedEventArgs e) => Close();
         private void ShowError(string message, Exception ex) { StatusText.Text = message; MessageBox.Show(message + "\n\n" + ex.Message, Title, MessageBoxButton.OK, MessageBoxImage.Error); }
         protected override void OnClosed(EventArgs e) { _searchCts?.Cancel(); _grepWindow?.Close(); SettingsService.SaveIconLibraryPath(IconPathBox.Text); SettingsService.SaveSearchQuery(QueryBox.Text); SettingsService.SaveSearchRoot(RootBox.Text); base.OnClosed(e); }

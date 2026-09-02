@@ -15,6 +15,8 @@
     <ApplicationDefinition Include="App.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></ApplicationDefinition>
     <Page Include="MainWindow.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
     <Page Include="Views\IconGroupBrowserWindow.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
+    <Page Include="Views\MftDifferencerWindow.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
+    <Compile Include="Services\MftDifferencerService.cs"/><Compile Include="Services\DiffTextService.cs"/><Compile Include="Views\DiffViewWindow.cs"/><Compile Include="Views\MftDifferencerWindow.xaml.cs"><DependentUpon>MftDifferencerWindow.xaml</DependentUpon></Compile>
     <Page Include="Views\GrepWindow.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
     <Page Include="Themes\LightTheme.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page><Page Include="Themes\DarkTheme.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
     <Compile Include="App.xaml.cs"><DependentUpon>App.xaml</DependentUpon></Compile><Compile Include="MainWindow.xaml.cs"><DependentUpon>MainWindow.xaml</DependentUpon></Compile>

@@ -3,4 +3,11 @@
   <SolidColorBrush x:Key="Accent" Color="#8C0048"/><SolidColorBrush x:Key="ButtonHover" Color="#B62570"/><SolidColorBrush x:Key="AccentSoft" Color="#F7E9F0"/><SolidColorBrush x:Key="Ink" Color="#2E2030"/><SolidColorBrush x:Key="Muted" Color="#756773"/>
   <SolidColorBrush x:Key="Line" Color="#DCCBD4"/><SolidColorBrush x:Key="InputLine" Color="#C8B5C0"/><SolidColorBrush x:Key="Secondary" Color="#756773"/>
   <SolidColorBrush x:Key="ThemeToggle" Color="#F0E5EB"/><SolidColorBrush x:Key="ThemeSelected" Color="#DDC8D3"/><SolidColorBrush x:Key="SunGlyph" Color="#C45A12"/><SolidColorBrush x:Key="MoonGlyph" Color="#8B741D"/>
+  <SolidColorBrush x:Key="DiffRemoved" Color="#F7CFD4"/>
+  <SolidColorBrush x:Key="DiffAdded" Color="#C8EBD2"/>
+  <SolidColorBrush x:Key="DiffRemovedEmpty" Color="#F4E8EB"/>
+  <SolidColorBrush x:Key="DiffAddedEmpty" Color="#E4F3E9"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#FFFDFC"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#FFFDFC"/>
+  <SolidColorBrush x:Key="{x:Static SystemColors.WindowColorKey}" Color="#FFFDFC"/>
 </ResourceDictionary>

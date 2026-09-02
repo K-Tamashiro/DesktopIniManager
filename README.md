@@ -27,6 +27,13 @@ writable folder, and run `DesktopIniManager.exe`.
 
 ## What DesktopIniManager does
 
+### MFT Differencer
+
+Open **MFT Diff** to compare two working trees, inspect readonly text/image
+diffs, and synchronize checked files in either direction. `.git` is excluded.
+Local NTFS and running DIM as administrator are required for comparison.
+See [usage, safeguards, and regression tests](docs/mft-differencer.md).
+
 Development work often requires several separate tools: Explorer for the
 physical layout, Visual Studio for the logical solution structure, a
 file-search tool, a Grep tool, and another utility for folder

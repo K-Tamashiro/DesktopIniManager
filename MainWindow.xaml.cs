@@ -44,6 +44,10 @@ namespace DesktopIniManager
         private IReadOnlyList<FolderMatch> _filteredViewItems;
         private readonly System.Windows.Threading.DispatcherTimer _filterTimer;
         private bool _largeFileIcons;
+        private string _folderTreeRoot;
+        private int _baseTreeView;
+        private bool _rebuildingFolderTrees;
+        private FolderMatch _physicalCurrent, _solutionCurrent;
 
         public static readonly DependencyProperty TreeCompactProperty =
             DependencyProperty.Register(nameof(TreeCompact), typeof(bool), typeof(MainWindow), new PropertyMetadata(false));
@@ -85,6 +89,7 @@ namespace DesktopIniManager
             HookPathBox(RootBox);
             HookPathBox(IconPathBox);
             ApplyTreeDensity(SettingsService.LoadTreeCompact(), false);
+            RestoreFolderTrees();
             Loaded += (sender, args) =>
             {
                 RefreshSelectedIconPreview();
@@ -194,6 +199,8 @@ namespace DesktopIniManager
             }
             else
             {
+                SaveFolderTrees();
+                _rebuildingFolderTrees = true;
                 _results.Clear();
                 _treeRoots.Clear();
                 _solutionRoots.Clear();
@@ -289,6 +296,13 @@ namespace DesktopIniManager
                 {
                     AssignParents(solution);
                     _solutionRoots.Add(solution);
+                }
+                if (!searchOnly)
+                {
+                    _folderTreeRoot = root;
+                    _physicalCurrent = _solutionCurrent = null;
+                    _rebuildingFolderTrees = false;
+                    SaveFolderTrees();
                 }
                 if (searchOnly)
                 {
@@ -501,7 +515,7 @@ namespace DesktopIniManager
             var tabs = sender as TabControl;
             if (tabs != null && tabs.SelectedIndex >= 0) ShowTreeView(tabs.SelectedIndex);
         }
-        private void ShowTreeView(int view) { _treeView = view; _solutionView = view == 1; if (TreeTabs.SelectedIndex != view) TreeTabs.SelectedIndex = view; ResultsTree.ItemsSource = view == 0 ? _treeRoots : view == 1 ? _solutionRoots : _searchRoots; ApplyFolderFilter(); UpdateVisibleCount(); StatusText.Text = view == 0 ? _results.Count + " folders found" : view == 1 ? _solutionRoots.Count + " solutions found" : _searchResultCount + " search results"; }
+        private void ShowTreeView(int view) { if (view != 2) _baseTreeView = view; _treeView = view; _solutionView = view == 1; if (TreeTabs.SelectedIndex != view) TreeTabs.SelectedIndex = view; ResultsTree.ItemsSource = view == 0 ? _treeRoots : view == 1 ? _solutionRoots : _searchRoots; ApplyFolderFilter(); UpdateVisibleCount(); StatusText.Text = view == 0 ? _results.Count + " folders found" : view == 1 ? _solutionRoots.Count + " solutions found" : _searchResultCount + " search results"; }
         private void RefreshTreeItemsSource() { ResultsTree.ItemsSource = _treeView == 0 ? _treeRoots : _treeView == 1 ? _solutionRoots : _searchRoots; }
         private void ShowSolutionView() => ShowTreeView(1);
         private void UpdateVisibleCount() { CountText.Text = CurrentItems().Count(item => !item.IsHidden && !item.IsFilterHidden) + (_solutionView ? " items" : " folders"); }
@@ -688,6 +702,11 @@ namespace DesktopIniManager
             _fileListCts = fileListCts;
             _files.Clear();
             FolderMatch folder = e.NewValue as FolderMatch;
+            if (folder != null)
+            {
+                if (_treeView == 0) _physicalCurrent = folder;
+                else if (_treeView == 1) _solutionCurrent = folder;
+            }
             FilePanelTitle.Text = folder == null ? "Files" : "Files — " + folder.Name;
             FilePanelTitle.ToolTip = folder?.Path;
             if (folder == null || string.IsNullOrEmpty(folder.Path)) { SetFilePanelBusy(false); return; }
@@ -1064,6 +1083,47 @@ namespace DesktopIniManager
                 else _differencerWindow.SaveState();
             }
             base.OnClosing(e);
+            if (!e.Cancel) SaveFolderTrees();
+        }
+
+        private void RestoreFolderTrees()
+        {
+            try
+            {
+                var state = FolderTreeStateService.Load();
+                if (state == null) return;
+                var icons = FolderTreeStateService.RestoreIcons(state.Icons);
+                var physical = FolderTreeStateService.Restore(state.Physical, icons: icons);
+                var solution = FolderTreeStateService.Restore(state.Solution, icons: icons);
+                foreach (var node in physical) _treeRoots.Add(node);
+                foreach (var node in solution) _solutionRoots.Add(node);
+                foreach (var node in Flatten(_treeRoots)) _results.Add(node);
+                _physicalCurrent = _results.FirstOrDefault(node => node.IsCurrent);
+                _solutionCurrent = Flatten(_solutionRoots).FirstOrDefault(node => node.IsCurrent);
+                _folderTreeRoot = state.Root;
+                ShowTreeView(state.View == 1 ? 1 : 0);
+                StatusText.Text = "Folder trees restored. Use Git to refresh.";
+            }
+            catch (Exception ex) { StatusText.Text = "Failed to restore folder trees: " + ex.Message; }
+        }
+
+        private void SaveFolderTrees()
+        {
+            // A cancelled/in-progress rebuild must not replace the last complete trees.
+            if (_rebuildingFolderTrees || _folderTreeRoot == null) return;
+            try
+            {
+                var icons = new List<byte[]>();
+                var iconIds = new Dictionary<ImageSource, int>();
+                FolderTreeStateService.Save(new FolderTreeState
+                {
+                    Root = _folderTreeRoot, View = _baseTreeView,
+                    Icons = icons,
+                    Physical = FolderTreeStateService.Capture(_treeRoots, _physicalCurrent, icons, iconIds),
+                    Solution = FolderTreeStateService.Capture(_solutionRoots, _solutionCurrent, icons, iconIds)
+                });
+            }
+            catch (Exception ex) { StatusText.Text = "Failed to save folder trees: " + ex.Message; }
         }
 
         private void Close_Click(object sender, RoutedEventArgs e) => Close();

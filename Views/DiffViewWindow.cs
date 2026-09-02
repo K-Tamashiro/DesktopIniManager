@@ -42,7 +42,7 @@ namespace DesktopIniManager.Views
             this.file = file;
             Title = "Diff view — " + file.RelativePath + " — read only";
             Width = 1280;
-            Height = 820;
+            Height = 800;
             MinWidth = 700;
             MinHeight = 400;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;

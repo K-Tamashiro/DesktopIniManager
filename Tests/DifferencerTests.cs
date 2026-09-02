@@ -31,6 +31,7 @@ internal static class DifferencerTests
         try
         {
             if (args.Contains("--scroll")) return ScrollPerformance.Run(args[1]);
+            if (args.Contains("--folder-tree")) return FolderTreePersistenceTests.Run(args[1]);
             string artifacts = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "fixtures-" + Guid.NewGuid().ToString("N"));
             string source = Path.Combine(artifacts, "source"), target = Path.Combine(artifacts, "target");
             Directory.CreateDirectory(source); Directory.CreateDirectory(target);

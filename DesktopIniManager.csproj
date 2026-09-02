@@ -25,5 +25,6 @@
   </ItemGroup>
   <ItemGroup><Resource Include="DesktopIniManager.ico"/></ItemGroup>
   <ItemGroup><Content Include="Assets\folder_set.icl"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup>
+  <ItemGroup><Content Include="Assets\MftDifferencer_iconset.icl"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

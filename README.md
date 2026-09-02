@@ -4,7 +4,7 @@ DesktopIniManager is a Windows developer tool for exploring development
 folders, understanding project structure, searching source code, and
 applying custom folder icons through `desktop.ini`.
 
-Version **1.5.0** expands the original folder-icon manager into a
+Version **1.6.0** expands the original folder-icon manager into a
 project-oriented workspace. Physical folders, Visual Studio solution
 structure, search results, file lists, scoped Grep, and icon resources
 can all be handled from one application.
@@ -14,9 +14,9 @@ can all be handled from one application.
 ## Download
 
 [![Download
-DesktopIniManager](docs/images/download.png)](https://github.com/K-Tamashiro/DesktopIniManager/releases/latest/download/DesktopIniManager-v1.5.0-win-x64.zip)
+DesktopIniManager](docs/images/download.png)](https://github.com/K-Tamashiro/DesktopIniManager/releases/latest/download/DesktopIniManager-v1.6.0-win-x64.zip)
 
-Download `DesktopIniManager-v1.5.0-win-x64.zip`, extract it to a
+Download `DesktopIniManager-v1.6.0-win-x64.zip`, extract it to a
 writable folder, and run `DesktopIniManager.exe`.
 
 ### Requirements
@@ -262,13 +262,15 @@ FastVolumeIndex.Core.dll
 mftree.exe
 Assets/
   folder_set.icl
+  MftDifferencer_iconset.icl
 README.md
-RELEASE_NOTES_v1.5.0.md
+RELEASE_NOTES_v1.6.0.md
+docs/
 ```
 
 ## Version
 
-Current release: **DesktopIniManager 1.5.0**
+Current release: **DesktopIniManager 1.6.0**
 
 ## MFT Differencer
 

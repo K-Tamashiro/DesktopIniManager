@@ -47,7 +47,7 @@ internal static class DifferencerTests
             var right = new Dictionary<string, DiffStamp>(StringComparer.OrdinalIgnoreCase) { { "SAME", stamp }, { "delete", stamp }, { "size", new DiffStamp { Size = 2, ModifiedUtc = FixedTime } }, { "time", new DiffStamp { Size = 1, ModifiedUtc = FixedTime.AddSeconds(1) } } };
             var classified = MftDifferencerService.Classify(left, right);
             Check(classified.Count == 4, "relative paths, case-insensitive identity, .git exclusion");
-            Check(classified.Single(f => f.RelativePath == "size").SourceInfo.StartsWith("サイズ差異"), "equal timestamp size-only difference");
+            Check(classified.Single(f => f.RelativePath == "size").SourceInfo.StartsWith("Size differs"), "equal timestamp size-only difference");
             Check(classified.Single(f => f.RelativePath == "time").TargetInfo.StartsWith("NEW"), "NEW/OLD timestamps");
             foreach (bool forward in new[] { true, false })
             {
@@ -116,11 +116,7 @@ internal static class DifferencerTests
             typeof(MftDifferencerWindow).GetMethod("SaveState", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(window, null);
             var restored = new MftDifferencerWindow();
             Check(((TextBox)restored.FindName("SourceBox")).Text == source, "WPF window restores roots");
-            var tree = (TreeView)restored.FindName("FolderTree"); var restoredRoot = (DiffFolder)tree.Items[0];
-            var restoredNested = restoredRoot.DisplayChildren.Single(f => f.Path == "nested");
-            Check(restoredNested.Expanded && restoredNested.Active && restoredNested.DisplayChildren.Count() == 1, "tree hierarchy, expansion and selected folder persist");
-            Check(restoredRoot.Children.Any(f => f.Path == "identicalOnly") && restoredRoot.DisplayChildren.All(f => f.Path != "identicalOnly"), "filtered view persists without deleting the base tree");
-            Check(!((Button)restored.FindName("ForwardButton")).IsEnabled, "cached tree cannot authorize synchronization");
+            Check(((TreeView)restored.FindName("FolderTree")).Items.Count == 0 && !((Button)restored.FindName("ForwardButton")).IsEnabled, "comparison restores roots but requires a fresh comparison");
             int unrelatedNotifications = 0;
             filteredRoot.Children.Single(f => f.Path == "forward").PropertyChanged += (s, e) => unrelatedNotifications++;
             display.Files.Single(f => f.RelativePath == "nested\\child\\changed.txt").Selected = true;
@@ -162,7 +158,7 @@ internal static class DifferencerTests
             var filterFiles = MftDifferencerService.Classify(
                 new Dictionary<string, DiffStamp>(StringComparer.OrdinalIgnoreCase) { { "parent\\same\\file.txt", stamp }, { "parent\\different\\file.txt", stamp }, { "parent\\left\\file.txt", stamp } },
                 new Dictionary<string, DiffStamp>(StringComparer.OrdinalIgnoreCase) { { "parent\\same\\file.txt", stamp }, { "parent\\different\\file.txt", new DiffStamp { Size = 2, ModifiedUtc = FixedTime } }, { "parent\\right\\file.txt", stamp } }, true);
-            Check(filterFiles.Count == 4 && filterFiles.Single(f => f.Kind == DiffKind.Same).State == "同一", "comparison retains identical metadata as a separate category");
+            Check(filterFiles.Count == 4 && filterFiles.Single(f => f.Kind == DiffKind.Same).State == "Same", "comparison retains identical metadata as a separate category");
             var filterSnapshot = new DiffSnapshot { SourceRoot = display.SourceRoot, TargetRoot = display.TargetRoot, Files = filterFiles };
             typeof(MftDifferencerWindow).GetField("snapshot", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(filterWindow, filterSnapshot);
             typeof(MftDifferencerWindow).GetField("rows", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(filterWindow, filterFiles.Select(f => new DiffRow { File = f, SourceRoot = display.SourceRoot, TargetRoot = display.TargetRoot }).ToList());
@@ -185,7 +181,7 @@ internal static class DifferencerTests
             setMask((int)DiffKind.Same);
             var sameRoot = (DiffFolder)((TreeView)filterWindow.FindName("FolderTree")).Items[0];
             var sameFile = filterFiles.Single(f => f.Kind == DiffKind.Same); sameFile.Selected = true;
-            Check(!sameFile.Selected && !sameRoot.CanSelect && ((TextBlock)filterWindow.FindName("CountText")).Text.Contains("非表示 1"), "identical files cannot be selected for sync; hidden selections remain visible in the count");
+            Check(!sameFile.Selected && !sameRoot.CanSelect && ((TextBlock)filterWindow.FindName("CountText")).Text.Contains("1 hidden"), "identical files cannot be selected for sync; hidden selections remain visible in the count");
             setMask((int)(DiffKind.SourceOnly | DiffKind.TargetOnly)); sameRoot.Checked = true;
             setMask((int)DiffKind.SourceOnly); sameRoot.Checked = false;
             Check(!leftOnly.Selected && filterFiles.Single(f => f.Kind == DiffKind.TargetOnly).Selected, "folder checkbox changes only currently enabled categories");

@@ -32,6 +32,8 @@ internal static class DifferencerTests
         {
             if (args.Contains("--scroll")) return ScrollPerformance.Run(args[1]);
             if (args.Contains("--diff-map")) return ScrollPerformance.Run(args[1], true);
+            if (args.Contains("--grep-cancel")) return ScrollPerformance.Run(args[1], grepCancel: true);
+            if (args.Contains("--startup")) return ScrollPerformance.Run(args[1], startup: true);
             if (args.Contains("--folder-tree")) return FolderTreePersistenceTests.Run(args[1]);
             string artifacts = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "fixtures-" + Guid.NewGuid().ToString("N"));
             string source = Path.Combine(artifacts, "source"), target = Path.Combine(artifacts, "target");
@@ -186,6 +188,26 @@ internal static class DifferencerTests
             setMask((int)DiffKind.SourceOnly); sameRoot.Checked = false;
             Check(!leftOnly.Selected && filterFiles.Single(f => f.Kind == DiffKind.TargetOnly).Selected, "folder checkbox changes only currently enabled categories");
             filterWindow.Close();
+            var cancelWindow = new MftDifferencerWindow();
+            ((TextBox)cancelWindow.FindName("SourceBox")).Text = source;
+            ((TextBox)cancelWindow.FindName("TargetBox")).Text = target;
+            System.Threading.SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
+            var compareTask = (System.Threading.Tasks.Task)typeof(MftDifferencerWindow).GetMethod("Compare", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(cancelWindow, null);
+            Check(((Button)cancelWindow.FindName("CancelCompareButton")).IsEnabled, "comparison enables its cancel button");
+            ((Button)cancelWindow.FindName("CancelCompareButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var cancelWait = System.Diagnostics.Stopwatch.StartNew();
+            while (!compareTask.IsCompleted && cancelWait.ElapsedMilliseconds < 5000)
+            {
+                var frame = new DispatcherFrame();
+                Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() => frame.Continue = false));
+                Dispatcher.PushFrame(frame);
+            }
+            Check(compareTask.IsCompleted && !cancelWindow.IsWorking && ((TextBlock)cancelWindow.FindName("StatusText")).Text == "Comparison cancelled",
+                "cancel button stops comparison and returns to idle");
+            Check(((TreeView)cancelWindow.FindName("FolderTree")).Items.Count == 0 && ((ListView)cancelWindow.FindName("FilesGrid")).Items.Count == 0
+                && !((Button)cancelWindow.FindName("ForwardButton")).IsEnabled && !((Button)cancelWindow.FindName("CancelCompareButton")).IsEnabled
+                && ((Button)cancelWindow.FindName("CompareButton")).IsEnabled, "cancelled results cannot sync; comparison can restart");
+            cancelWindow.Close();
             window.Close(); restored.Close();
             Console.WriteLine("PASS " + checks + " checks. Artifacts: " + artifacts); return 0;
         }

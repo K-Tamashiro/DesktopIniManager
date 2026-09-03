@@ -21,6 +21,7 @@ namespace DesktopIniManager.Services
             bool regex, bool matchCase, bool wholeWord, Action<int, int> progress, CancellationToken token,
             Action<GrepMatch> matchFound = null)
         {
+            token.ThrowIfCancellationRequested();
             var files = CollectFiles(scopes, profile.Extensions, token);
             var orderedScopes = scopes
                 .Where(root => !string.IsNullOrWhiteSpace(root))
@@ -67,6 +68,7 @@ namespace DesktopIniManager.Services
                 }
             });
 
+            token.ThrowIfCancellationRequested();
             return new GrepSearchResult(matches.OrderBy(item => item.ScopeName, StringComparer.CurrentCultureIgnoreCase)
                 .ThenBy(item => item.RelativePath, StringComparer.CurrentCultureIgnoreCase)
                 .ThenBy(item => item.LineNumber).ToList(), files.Count, skipped);
@@ -87,7 +89,8 @@ namespace DesktopIniManager.Services
             foreach (var volumeGroup in scopes.GroupBy(Path.GetPathRoot, StringComparer.OrdinalIgnoreCase))
             {
                 NtfsVolumeIndex index = null;
-                try { index = NtfsVolumeIndex.Create(volumeGroup.First()); }
+                token.ThrowIfCancellationRequested();
+                try { index = NtfsVolumeIndex.Create(volumeGroup.First(), token); }
                 catch (Exception ex) when (ex is UnauthorizedAccessException || ex is NotSupportedException || ex is IOException) { }
 
                 foreach (string scope in volumeGroup)
@@ -95,8 +98,9 @@ namespace DesktopIniManager.Services
                     token.ThrowIfCancellationRequested();
                     if (index != null)
                     {
-                        foreach (MftEntry entry in index.FindFiles(scope, extensions))
+                        foreach (MftEntry entry in index.FindFiles(scope, extensions, null, token))
                         {
+                            token.ThrowIfCancellationRequested();
                             string path = index.GetFullPath(entry);
                             if (!ContainsIgnoredDirectory(path, scope)) files.Add(path);
                         }
@@ -117,9 +121,13 @@ namespace DesktopIniManager.Services
                 try
                 {
                     foreach (string file in Directory.EnumerateFiles(folder))
+                    {
+                        token.ThrowIfCancellationRequested();
                         if (extensions.Contains(Path.GetExtension(file))) files.Add(file);
+                    }
                     foreach (string child in Directory.EnumerateDirectories(folder))
                     {
+                        token.ThrowIfCancellationRequested();
                         string name = Path.GetFileName(child);
                         if (IgnoredDirectories.Contains(name)) continue;
                         try

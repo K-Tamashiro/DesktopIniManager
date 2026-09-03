@@ -1,5 +1,6 @@
-﻿using FastVolumeIndex;
+using FastVolumeIndex;
 using System;
+using System.Threading;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -123,8 +124,9 @@ namespace DesktopIniManager.Services
                 catch (DirectoryNotFoundException) { }
             }
         }
-        public static DiffSnapshot Compare(string source, string target, IProgress<DiffProgress> progress = null, bool compareTimestamp = true)
+        public static DiffSnapshot Compare(string source, string target, IProgress<DiffProgress> progress = null, bool compareTimestamp = true, CancellationToken token = default(CancellationToken))
         {
+            token.ThrowIfCancellationRequested();
             source = Root(source); target = Root(target); ValidateRoots(source, target);
             var result = new DiffSnapshot { SourceRoot = source, TargetRoot = target, CompareTimestamp = compareTimestamp };
             var indexes = new Dictionary<string, NtfsVolumeIndex>(StringComparer.OrdinalIgnoreCase);
@@ -139,9 +141,10 @@ namespace DesktopIniManager.Services
 
             try
             {
-                sourceIndex = GetIndex(source, indexes, progress);
-                sourceEntries = sourceIndex.EnumerateDescendants(source).ToList();
+                sourceIndex = GetIndex(source, indexes, progress, token);
+                sourceEntries = sourceIndex.EnumerateDescendants(source, token).Select(entry => { token.ThrowIfCancellationRequested(); return entry; }).ToList();
             }
+            catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
                 sourceMftError = ex;
@@ -149,9 +152,10 @@ namespace DesktopIniManager.Services
 
             try
             {
-                targetIndex = GetIndex(target, indexes, progress);
-                targetEntries = targetIndex.EnumerateDescendants(target).ToList();
+                targetIndex = GetIndex(target, indexes, progress, token);
+                targetEntries = targetIndex.EnumerateDescendants(target, token).Select(entry => { token.ThrowIfCancellationRequested(); return entry; }).ToList();
             }
+            catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
                 targetMftError = ex;
@@ -176,10 +180,10 @@ namespace DesktopIniManager.Services
                 });
 
                 left = Scan(source, sourceIndex, sourceEntries, result.Folders,
-                    ref completed, total, timer, progress);
+                    ref completed, total, timer, progress, token);
 
                 right = Scan(target, targetIndex, targetEntries, result.Folders,
-                    ref completed, total, timer, progress);
+                    ref completed, total, timer, progress, token);
             }
             else
             {
@@ -189,7 +193,7 @@ namespace DesktopIniManager.Services
                     int total = sourceEntries.Count;
                     var timer = System.Diagnostics.Stopwatch.StartNew();
                     progress?.Report(new DiffProgress { Stage = "Reading timestamps and sizes…", Completed = 0, Total = total });
-                    left = Scan(source, sourceIndex, sourceEntries, result.Folders, ref completed, total, timer, progress);
+                    left = Scan(source, sourceIndex, sourceEntries, result.Folders, ref completed, total, timer, progress, token);
                 }
                 else
                 {
@@ -197,7 +201,7 @@ namespace DesktopIniManager.Services
                     {
                         Stage = "MFT unavailable for " + source + ". Falling back to file-system scan: " + sourceMftError?.Message
                     });
-                    left = ScanFileSystem(source, result.Folders, progress);
+                    left = ScanFileSystem(source, result.Folders, progress, token);
                 }
 
                 if (targetEntries != null)
@@ -206,7 +210,7 @@ namespace DesktopIniManager.Services
                     int total = targetEntries.Count;
                     var timer = System.Diagnostics.Stopwatch.StartNew();
                     progress?.Report(new DiffProgress { Stage = "Reading timestamps and sizes…", Completed = 0, Total = total });
-                    right = Scan(target, targetIndex, targetEntries, result.Folders, ref completed, total, timer, progress);
+                    right = Scan(target, targetIndex, targetEntries, result.Folders, ref completed, total, timer, progress, token);
                 }
                 else
                 {
@@ -214,29 +218,29 @@ namespace DesktopIniManager.Services
                     {
                         Stage = "MFT unavailable for " + target + ". Falling back to file-system scan: " + targetMftError?.Message
                     });
-                    right = ScanFileSystem(target, result.Folders, progress);
+                    right = ScanFileSystem(target, result.Folders, progress, token);
                 }
             }
 
             progress?.Report(new DiffProgress { Stage = "Classifying differences by relative path…" });
-            result.Files = Classify(left, right, true, compareTimestamp);
+            result.Files = Classify(left, right, true, compareTimestamp, token);
             return result;
         }
 
-        private static NtfsVolumeIndex GetIndex(string root, Dictionary<string, NtfsVolumeIndex> indexes, IProgress<DiffProgress> progress)
+        private static NtfsVolumeIndex GetIndex(string root, Dictionary<string, NtfsVolumeIndex> indexes, IProgress<DiffProgress> progress, CancellationToken token)
         {
             string volume = Path.GetPathRoot(root);
             NtfsVolumeIndex index;
             if (!indexes.TryGetValue(volume, out index))
             {
                 progress?.Report(new DiffProgress { Stage = "Reading MFT for " + volume + "…" });
-                indexes.Add(volume, index = NtfsVolumeIndex.Create(root));
+                indexes.Add(volume, index = NtfsVolumeIndex.Create(root, token));
             }
             return index;
         }
 
         private static Dictionary<string, DiffStamp> ScanFileSystem(string root, HashSet<string> folders,
-            IProgress<DiffProgress> progress)
+            IProgress<DiffProgress> progress, CancellationToken token)
         {
             var files = new Dictionary<string, DiffStamp>(StringComparer.OrdinalIgnoreCase);
             var pending = new Stack<string>();
@@ -246,10 +250,12 @@ namespace DesktopIniManager.Services
 
             while (pending.Count > 0)
             {
+                token.ThrowIfCancellationRequested();
                 string directory = pending.Pop();
 
                 foreach (string childDirectory in Directory.EnumerateDirectories(directory))
                 {
+                    token.ThrowIfCancellationRequested();
                     string relative = childDirectory.Substring(root.Length);
                     if (relative.Length == 0 || Protected(relative)) continue;
 
@@ -263,6 +269,7 @@ namespace DesktopIniManager.Services
 
                 foreach (string file in Directory.EnumerateFiles(directory))
                 {
+                    token.ThrowIfCancellationRequested();
                     string relative = file.Substring(root.Length);
                     if (relative.Length == 0 || Protected(relative)) continue;
 
@@ -297,11 +304,12 @@ namespace DesktopIniManager.Services
             return files;
         }
 
-        internal static List<DiffFile> Classify(Dictionary<string, DiffStamp> left, Dictionary<string, DiffStamp> right, bool includeSame = false, bool compareTimestamp = true)
+        internal static List<DiffFile> Classify(Dictionary<string, DiffStamp> left, Dictionary<string, DiffStamp> right, bool includeSame = false, bool compareTimestamp = true, CancellationToken token = default(CancellationToken))
         {
             var files = new List<DiffFile>();
             foreach (string path in left.Keys.Union(right.Keys, StringComparer.OrdinalIgnoreCase).OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
             {
+                token.ThrowIfCancellationRequested();
                 if (Protected(path)) continue;
                 DiffStamp a, b; left.TryGetValue(path, out a); right.TryGetValue(path, out b);
                 if (includeSame || !DiffStamp.Same(a, b, compareTimestamp)) files.Add(new DiffFile { RelativePath = path, Source = a, Target = b, CompareTimestamp = compareTimestamp });
@@ -310,11 +318,12 @@ namespace DesktopIniManager.Services
         }
         private static Dictionary<string, DiffStamp> Scan(string root, NtfsVolumeIndex index, List<MftEntry> entries,
             HashSet<string> folders, ref int completed, int total, System.Diagnostics.Stopwatch timer,
-            IProgress<DiffProgress> progress)
+            IProgress<DiffProgress> progress, CancellationToken token)
         {
             var files = new Dictionary<string, DiffStamp>(StringComparer.OrdinalIgnoreCase);
             foreach (MftEntry entry in entries)
             {
+                token.ThrowIfCancellationRequested();
                 completed++;
                 if (completed == 1 || completed == total || timer.ElapsedMilliseconds >= 100)
                 {

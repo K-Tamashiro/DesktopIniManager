@@ -47,7 +47,9 @@ namespace DesktopIniManager
         private string _folderTreeRoot;
         private int _baseTreeView;
         private bool _rebuildingFolderTrees;
-        private FolderMatch _physicalCurrent, _solutionCurrent;
+        private FolderMatch _physicalCurrent, _solutionCurrent, _searchCurrent;
+        private bool _syncingTreeFromFile;
+        private readonly StartupState _startup;
 
         public static readonly DependencyProperty TreeCompactProperty =
             DependencyProperty.Register(nameof(TreeCompact), typeof(bool), typeof(MainWindow), new PropertyMetadata(false));
@@ -58,13 +60,17 @@ namespace DesktopIniManager
             set { SetValue(TreeCompactProperty, value); }
         }
 
-        public MainWindow()
+        public MainWindow() : this(null) { }
+
+        internal MainWindow(StartupState startup)
         {
+            _startup = startup;
             string[] commandLine = Environment.GetCommandLineArgs();
+            var resume = ElevationResumeState.Load(commandLine);
             bool fastSearchRequested = commandLine.Any(argument => string.Equals(argument, "--fast-search", StringComparison.OrdinalIgnoreCase));
             bool runGitSearch = commandLine.Any(argument => string.Equals(argument, "--run-git-search", StringComparison.OrdinalIgnoreCase));
             bool runSearch = commandLine.Any(argument => string.Equals(argument, "--run-search", StringComparison.OrdinalIgnoreCase));
-            bool darkMode = SettingsService.LoadDarkMode();
+            bool darkMode = startup != null ? startup.DarkMode : SettingsService.LoadDarkMode();
             ThemeService.Apply(darkMode);
             InitializeComponent();
             LightThemeButton.IsChecked = !darkMode;
@@ -74,28 +80,37 @@ namespace DesktopIniManager
             FileIconList.ItemsSource = _files;
             _filterTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
             _filterTimer.Tick += (sender, args) => { _filterTimer.Stop(); ApplyFolderFilter(); };
-            string savedRoot = SettingsService.LoadSearchRoot();
+            string savedRoot = startup != null ? startup.Root : SettingsService.LoadSearchRoot();
             RootBox.Text = !string.IsNullOrWhiteSpace(savedRoot) ? savedRoot : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             string defaultLibrary = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "folder_set.icl");
-            string savedLibrary = SettingsService.LoadIconLibraryPath();
+            string savedLibrary = startup != null ? startup.IconLibrary : SettingsService.LoadIconLibraryPath();
             IconPathBox.Text = !string.IsNullOrWhiteSpace(savedLibrary) ? savedLibrary : defaultLibrary;
-            string savedQuery = SettingsService.LoadSearchQuery();
+            string savedQuery = startup != null ? startup.Query : SettingsService.LoadSearchQuery();
             QueryBox.Text = string.Equals(savedQuery, ".git", StringComparison.OrdinalIgnoreCase) ? string.Empty : (savedQuery ?? string.Empty);
             // Reflect the actual process state as well as an elevation restart request.
             // Users who always run the executable as administrator can still uncheck it
             // to compare the standard search during the current session.
-            FastNtfsSearchBox.IsChecked = fastSearchRequested || IsAdministrator();
+            ElevationService.Shared.Initialize(fastSearchRequested);
+            ElevationService.Shared.Bind(FastNtfsSearchBox, this, "main");
             RestoreWindowPlacement(commandLine);
             HookPathBox(RootBox);
             HookPathBox(IconPathBox);
-            ApplyTreeDensity(SettingsService.LoadTreeCompact(), false);
+            ApplyTreeDensity(startup != null ? startup.TreeCompact : SettingsService.LoadTreeCompact(), false);
             RestoreFolderTrees();
+            if (startup != null) { startup.Tree = null; startup.Physical = null; startup.Solution = null; }
             Loaded += (sender, args) =>
             {
-                RefreshSelectedIconPreview();
+                if (startup == null) RefreshSelectedIconPreview();
+                else
+                {
+                    _selectedIconPreview = startup.SelectedIcon?.Preview;
+                    SelectedIconImage.Source = _selectedIconPreview;
+                    SelectedIconText.Text = startup.SelectedIcon == null ? "Preview unavailable" : "Index " + startup.SelectedIcon.ShellIndex;
+                }
                 ShowTextEnd(RootBox);
                 ShowTextEnd(IconPathBox);
                 Activate(); Topmost = true; Topmost = false; Focus();
+                if (resume != null) { RestoreElevation(resume); return; }
                 if (runGitSearch) Dispatcher.BeginInvoke(new Action(() => GitSearch_Click(this, new RoutedEventArgs())));
                 else if (runSearch) Dispatcher.BeginInvoke(new Action(() => Search_Click(this, new RoutedEventArgs())));
             };
@@ -307,6 +322,7 @@ namespace DesktopIniManager
                 if (searchOnly)
                 {
                     ShowTreeView(2);
+                    SelectSearchRootForFileList();
                 }
                 ShowTreeView(_treeView);
             }
@@ -413,43 +429,50 @@ namespace DesktopIniManager
         }
 
         private void RestartForFastSearch(bool gitSearchRequested)
-        {
-            string message = "Fast NTFS search reads the local drive index. Windows asks for administrator permission only because direct access to this index is protected.\n\nRestart DesktopIniManager with permission and continue the search?";
-            if (MessageBox.Show(message, Title, MessageBoxButton.OKCancel, MessageBoxImage.Information) != MessageBoxResult.OK)
-            {
-                StatusText.Text = "Fast NTFS search was not started";
-                return;
-            }
+        { RestartElevated("main", gitSearchRequested ? "git" : "search"); }
 
+        internal bool RestartElevated(string target, string mainAction = null)
+        {
+            if (!ElevationService.Shared.CanChange) return false;
+            string sessionPath = null;
             try
             {
-                string executable = Assembly.GetExecutingAssembly().Location;
-                Rect bounds = WindowState == WindowState.Normal
-                    ? new Rect(Left, Top, ActualWidth, ActualHeight)
-                    : RestoreBounds;
+                SaveFolderTrees();
+                SettingsService.SaveSearchRoot(RootBox.Text);
+                SettingsService.SaveSearchQuery(QueryBox.Text);
+                SettingsService.SaveIconLibraryPath(IconPathBox.Text);
+                var session = new ElevationResumeState { TargetWindow = target, MainAction = mainAction, MainRoot = RootBox.Text, MainQuery = QueryBox.Text };
+                if (target == "mft") _differencerWindow?.CaptureElevation(session);
+                if (target == "grep") _grepWindow?.CaptureElevation(session);
+                sessionPath = session.Save();
+                Rect bounds = WindowState == WindowState.Normal ? new Rect(Left, Top, ActualWidth, ActualHeight) : RestoreBounds;
                 string placement = string.Format(CultureInfo.InvariantCulture,
                     " --window-left {0:R} --window-top {1:R} --window-width {2:R} --window-height {3:R}{4}",
                     bounds.Left, bounds.Top, bounds.Width, bounds.Height,
                     WindowState == WindowState.Maximized ? " --window-maximized" : string.Empty);
-                var startInfo = new ProcessStartInfo(executable)
+                Process.Start(new ProcessStartInfo(Assembly.GetExecutingAssembly().Location)
                 {
-                    UseShellExecute = true,
-                    Verb = "runas",
-                    Arguments = "--fast-search " + (gitSearchRequested ? "--run-git-search" : "--run-search") + placement
-                };
-                Process.Start(startInfo);
+                    UseShellExecute = true, Verb = "runas",
+                    Arguments = "--fast-search --resume-session \"" + sessionPath + "\"" + placement
+                });
                 Application.Current.Shutdown();
+                return true;
             }
             catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
-            {
-                StatusText.Text = "Administrator permission was cancelled";
-            }
-            catch (Exception ex)
-            {
-                ShowError("Could not restart for fast NTFS search.", ex);
-            }
+            { StatusText.Text = "Administrator permission was cancelled"; }
+            catch (Exception ex) { ShowError("Could not restart with administrator permission.", ex); }
+            if (sessionPath != null) { try { File.Delete(sessionPath); } catch { } }
+            return false;
         }
 
+        private void RestoreElevation(ElevationResumeState session)
+        {
+            RootBox.Text = session.MainRoot; QueryBox.Text = session.MainQuery;
+            if (session.TargetWindow == "mft") { MftDifferencer_Click(this, new RoutedEventArgs()); _differencerWindow.RestoreElevation(session); }
+            else if (session.TargetWindow == "grep") { OpenGrep(session.GrepScopes); _grepWindow.RestoreElevation(session); }
+            else if (session.MainAction == "git") GitSearch_Click(this, new RoutedEventArgs());
+            else if (session.MainAction == "search") Search_Click(this, new RoutedEventArgs());
+        }
         private void RestoreWindowPlacement(string[] arguments)
         {
             if (!TryReadArgument(arguments, "--window-left", out double left)
@@ -697,6 +720,7 @@ namespace DesktopIniManager
 
         private async void ResultsTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
+            if (_syncingTreeFromFile) return;
             _fileListCts?.Cancel();
             var fileListCts = new CancellationTokenSource();
             _fileListCts = fileListCts;
@@ -706,21 +730,15 @@ namespace DesktopIniManager
             {
                 if (_treeView == 0) _physicalCurrent = folder;
                 else if (_treeView == 1) _solutionCurrent = folder;
+                else _searchCurrent = folder;
             }
             FilePanelTitle.Text = folder == null ? "Files" : "Files — " + folder.Name;
             FilePanelTitle.ToolTip = folder?.Path;
             if (folder == null || string.IsNullOrEmpty(folder.Path)) { SetFilePanelBusy(false); return; }
             SetFilePanelBusy(true);
-            VolumePathNode node = _pathIndex?.Find(folder.Path);
             string[] searchKeys = (QueryBox.Text ?? string.Empty).Split((char[])null, StringSplitOptions.RemoveEmptyEntries)
                 .Select(key => key.Trim().TrimStart('*')).Where(key => key.Length > 0).Distinct(StringComparer.CurrentCultureIgnoreCase).ToArray();
-            string[] paths;
-            if (node != null) paths = node.Files.Select(file => file.Path).ToArray();
-            else
-            {
-                try { paths = Directory.EnumerateFiles(folder.Path).OrderBy(path => path, StringComparer.CurrentCultureIgnoreCase).ToArray(); }
-                catch { paths = Array.Empty<string>(); }
-            }
+            string[] paths = _treeView == 2 ? CollectSearchTabFiles(folder) : FilesInFolder(folder.Path);
             try
             {
                 List<FileListItem> items = await Task.Run(() =>
@@ -753,6 +771,161 @@ namespace DesktopIniManager
                 if (ReferenceEquals(_fileListCts, fileListCts) && !fileListCts.IsCancellationRequested)
                     SetFilePanelBusy(false);
             }
+        }
+
+        private void SelectSearchRootForFileList()
+        {
+            if (_searchRoots.Count == 0) return;
+            FolderMatch root = _searchRoots[0];
+            root.IsExpanded = true;
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (_treeView != 2 || _searchRoots.Count == 0) return;
+                FolderMatch current = _searchRoots[0];
+                current.IsExpanded = true;
+                current.IsCurrent = true;
+            }), System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+
+        private string[] FilesInFolder(string path)
+        {
+            VolumePathNode node = _pathIndex?.Find(path);
+            if (node != null) return node.Files.Select(file => file.Path).ToArray();
+            try { return Directory.EnumerateFiles(path).OrderBy(item => item, StringComparer.CurrentCultureIgnoreCase).ToArray(); }
+            catch { return Array.Empty<string>(); }
+        }
+
+        private string[] CollectSearchTabFiles(FolderMatch folder)
+        {
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var paths = new List<string>();
+            var stack = new Stack<FolderMatch>();
+            stack.Push(folder);
+            while (stack.Count > 0)
+            {
+                FolderMatch node = stack.Pop();
+                foreach (string path in FilesInFolder(node.Path))
+                    if (seen.Add(path)) paths.Add(path);
+                for (int index = node.Children.Count - 1; index >= 0; index--)
+                    stack.Push(node.Children[index]);
+            }
+            paths.Sort(StringComparer.CurrentCultureIgnoreCase);
+            return paths.ToArray();
+        }
+
+        private void FileList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_syncingTreeFromFile || _treeView != 2) return;
+            FileListItem file = (sender as System.Windows.Controls.Primitives.Selector)?.SelectedItem as FileListItem;
+            if (file == null) return;
+            RevealSearchFolder(Path.GetDirectoryName(file.Path));
+        }
+
+        private void RevealSearchFolder(string directory)
+        {
+            if (string.IsNullOrEmpty(directory) || _searchRoots.Count == 0) return;
+            FolderMatch target = FindSearchFolder(directory);
+            if (target == null) return;
+            for (FolderMatch ancestor = target.Parent; ancestor != null; ancestor = ancestor.Parent)
+                ancestor.IsExpanded = true;
+            target.IsExpanded = true;
+            _syncingTreeFromFile = true;
+            foreach (FolderMatch item in Flatten(_searchRoots))
+                if (item.IsCurrent && item != target) item.IsCurrent = false;
+            target.IsCurrent = true;
+            ResultsTree.UpdateLayout();
+            ScheduleFolderIntoView(target);
+        }
+
+        private void ScheduleFolderIntoView(FolderMatch target)
+        {
+            Action bring = () => BringFolderIntoView(ResultsTree, target);
+            bring();
+            Dispatcher.BeginInvoke(bring, System.Windows.Threading.DispatcherPriority.Loaded);
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                try { bring(); }
+                finally { _syncingTreeFromFile = false; }
+            }), System.Windows.Threading.DispatcherPriority.ContextIdle);
+        }
+
+        private FolderMatch FindSearchFolder(string directory)
+        {
+            string current = directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            while (!string.IsNullOrEmpty(current))
+            {
+                foreach (FolderMatch item in Flatten(_searchRoots))
+                {
+                    string path = (item.Path ?? string.Empty).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    if (string.Equals(path, current, StringComparison.OrdinalIgnoreCase)) return item;
+                }
+                current = Path.GetDirectoryName(current);
+            }
+            return _searchRoots.Count > 0 ? _searchRoots[0] : null;
+        }
+
+        private static void BringFolderIntoView(TreeView tree, FolderMatch target)
+        {
+            if (tree == null || target == null) return;
+            var path = new List<FolderMatch>();
+            for (FolderMatch node = target; node != null; node = node.Parent)
+                path.Add(node);
+            path.Reverse();
+            TreeViewItem item = ContainerAlongPath(tree, path);
+            ScrollTreeItemIntoView(tree, item);
+        }
+
+        private static TreeViewItem ContainerAlongPath(ItemsControl parent, List<FolderMatch> path)
+        {
+            TreeViewItem current = null;
+            ItemsControl host = parent;
+            foreach (FolderMatch node in path)
+            {
+                if (host == null) return current;
+                host.ApplyTemplate();
+                host.UpdateLayout();
+                var item = host.ItemContainerGenerator.ContainerFromItem(node) as TreeViewItem;
+                if (item == null)
+                {
+                    int index = host.Items.IndexOf(node);
+                    if (index >= 0) item = host.ItemContainerGenerator.ContainerFromIndex(index) as TreeViewItem;
+                }
+                if (item == null) return current;
+                item.IsExpanded = true;
+                item.UpdateLayout();
+                current = item;
+                host = item;
+            }
+            return current;
+        }
+
+        private static void ScrollTreeItemIntoView(TreeView tree, TreeViewItem item)
+        {
+            if (tree == null || item == null) return;
+            item.BringIntoView();
+            ScrollViewer viewer = FindScrollViewer(tree);
+            if (viewer == null || !item.IsVisible) return;
+            try
+            {
+                Point pos = item.TransformToAncestor(viewer).Transform(new Point(0, 0));
+                double top = pos.Y;
+                double bottom = top + item.ActualHeight;
+                if (top < 0) viewer.ScrollToVerticalOffset(viewer.VerticalOffset + top - 8);
+                else if (bottom > viewer.ViewportHeight)
+                    viewer.ScrollToVerticalOffset(viewer.VerticalOffset + bottom - viewer.ViewportHeight + 8);
+            }
+            catch (InvalidOperationException) { }
+        }
+
+        private static ScrollViewer FindScrollViewer(DependencyObject root)
+        {
+            if (root is ScrollViewer viewer) return viewer;
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+            {
+                ScrollViewer found = FindScrollViewer(VisualTreeHelper.GetChild(root, i));
+                if (found != null) return found;
+            }
+            return null;
         }
 
         private void FileList_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -982,8 +1155,35 @@ namespace DesktopIniManager
 
         private void Grep_Click(object sender, RoutedEventArgs e)
         {
+            var visible = CurrentItems()
+                .Where(item => item.IsActionable && !item.IsHidden && !item.IsFilterHidden && Directory.Exists(item.Path))
+                .ToList();
+
+            if (visible.Count == 0)
+            {
+                MessageBox.Show("No folders are available for Grep.", Title, MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
             IReadOnlyList<string> scopes = GetSelectedGrepScopes();
-            if (scopes.Count == 0) { MessageBox.Show("Select at least one project folder.", Title); return; }
+            if (scopes.Count == 0)
+            {
+                var candidates = new HashSet<FolderMatch>(visible);
+                foreach (var item in visible)
+                {
+                    var ancestor = item.Parent;
+                    while (ancestor != null && !candidates.Contains(ancestor)) ancestor = ancestor.Parent;
+                    if (ancestor == null) item.SetSelectedFromUi(true);
+                }
+                scopes = GetSelectedGrepScopes();
+            }
+
+            if (scopes.Count == 0)
+            {
+                MessageBox.Show("No folders are available for Grep.", Title, MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
             OpenGrep(scopes);
         }
 
@@ -1041,7 +1241,7 @@ namespace DesktopIniManager
         {
             GitSearchButton.IsEnabled = !value; SearchButton.IsEnabled = !value; CancelButton.IsEnabled = value;
             ApplyButton.IsEnabled = !value; RemoveButton.IsEnabled = !value; GrepButton.IsEnabled = !value;
-            FastNtfsSearchBox.IsEnabled = !value; SearchProgress.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
+            ElevationService.Shared.SetBusy(this, value); SearchProgress.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
             if (value)
             {
                 Dispatcher.BeginInvoke(new Action(() => AnimateSearchProgress(true)), System.Windows.Threading.DispatcherPriority.Loaded);
@@ -1090,11 +1290,12 @@ namespace DesktopIniManager
         {
             try
             {
-                var state = FolderTreeStateService.Load();
+                if (_startup?.TreeError != null) { StatusText.Text = "Failed to restore folder trees: " + _startup.TreeError; return; }
+                var state = _startup != null ? _startup.Tree : FolderTreeStateService.Load();
                 if (state == null) return;
-                var icons = FolderTreeStateService.RestoreIcons(state.Icons);
-                var physical = FolderTreeStateService.Restore(state.Physical, icons: icons);
-                var solution = FolderTreeStateService.Restore(state.Solution, icons: icons);
+                var icons = _startup == null ? FolderTreeStateService.RestoreIcons(state.Icons) : null;
+                var physical = _startup != null ? _startup.Physical : FolderTreeStateService.Restore(state.Physical, icons: icons);
+                var solution = _startup != null ? _startup.Solution : FolderTreeStateService.Restore(state.Solution, icons: icons);
                 foreach (var node in physical) _treeRoots.Add(node);
                 foreach (var node in solution) _solutionRoots.Add(node);
                 foreach (var node in Flatten(_treeRoots)) _results.Add(node);

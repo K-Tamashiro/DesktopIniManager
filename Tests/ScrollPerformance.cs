@@ -82,8 +82,83 @@ internal static class ScrollPerformance
         return 0;
     }
 
-    public static int Run(string appXaml, bool diffMap = false)
+    private static int RunGrepCancellation()
     {
+        var cancelled = new System.Threading.CancellationTokenSource(); cancelled.Cancel();
+        try { FastVolumeIndex.NtfsVolumeIndex.Create("not-a-real-path", cancelled.Token); throw new Exception("MFT ignored cancellation"); }
+        catch (OperationCanceledException) { }
+        string root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "grep-cancel-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        File.WriteAllLines(Path.Combine(root, "test.txt"), Enumerable.Repeat("match", 10000));
+        var cts = new System.Threading.CancellationTokenSource(); int found = 0;
+        try
+        {
+            new CodeGrepService().Search(new[] { root }, new DesktopIniManager.Models.LanguageProfile("Test", new[] { ".txt" }),
+                "match", false, false, false, null, cts.Token, match => { found++; cts.Cancel(); });
+            throw new Exception("Search ignored cancellation");
+        }
+        catch (OperationCanceledException) { }
+        if (found != 1) throw new Exception("Cancelled search kept emitting matches");
+        var window = new GrepWindow(() => new[] { root }, new[] { root });
+        var pending = (System.Collections.Concurrent.ConcurrentQueue<DesktopIniManager.Models.GrepMatch>)typeof(GrepWindow).GetField("_pendingMatches", Private).GetValue(window);
+        for (int i = 0; i < 10000; i++) pending.Enqueue(new DesktopIniManager.Models.GrepMatch { FilePath = Path.Combine(root, "test.txt"), ScopeName = "Test", RelativePath = "test.txt", LineNumber = i + 1, LineText = "match" });
+        var draining = new System.Threading.CancellationTokenSource();
+        Field(window, "_searchCts", draining);
+        var task = (System.Threading.Tasks.Task)typeof(GrepWindow).GetMethod("DrainAllPendingMatchesAsync", Private).Invoke(window, new object[] { draining.Token });
+        typeof(GrepWindow).GetMethod("Cancel_Click", Private).Invoke(window, new object[] { window, new RoutedEventArgs() });
+        Pump(100);
+        // Search_Click checks cancellation after draining, even if replacing the queue ended the loop.
+        if (!task.IsCompleted || !draining.IsCancellationRequested) throw new Exception("Pending result drain did not stop");
+        var matches = (System.Collections.ObjectModel.ObservableCollection<DesktopIniManager.Models.GrepMatch>)typeof(GrepWindow).GetField("_matches", Private).GetValue(window);
+        var remaining = (System.Collections.Concurrent.ConcurrentQueue<DesktopIniManager.Models.GrepMatch>)typeof(GrepWindow).GetField("_pendingMatches", Private).GetValue(window);
+        if (matches.Count > 30 || !remaining.IsEmpty || ((Button)window.FindName("CancelButton")).IsEnabled) throw new Exception("Cancel continued displaying queued results");
+        var clean = new CodeGrepService().Search(new[] { root }, new DesktopIniManager.Models.LanguageProfile("Test", new[] { ".txt" }), "match", false, false, false, null, System.Threading.CancellationToken.None);
+        if (clean.Matches.Count != 10000) throw new Exception("Subsequent search failed");
+        Console.WriteLine("PASS grep cancellation: MFT pre-cancel, active scan, queued UI results stop, subsequent search succeeds");
+        cancelled.Dispose(); cts.Dispose(); draining.Dispose();
+        Application.Current.Shutdown();
+        return 0;
+    }
+
+    private static int RunStartup()
+    {
+        typeof(Application).GetField("_resourceAssembly", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, typeof(DesktopIniManager.MainWindow).Assembly);
+        string root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "startup-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        FolderTreeStateService.StatePath = Path.Combine(root, "state.xml");
+        var saved = new FolderTreeState { Root = root };
+        saved.Physical.Add(new FolderTreeNodeState { Path = root, Expanded = true, Actionable = true });
+        saved.Solution.Add(new FolderTreeNodeState { Path = root, DisplayName = "Saved solution" });
+        FolderTreeStateService.Save(saved);
+        var steps = new List<int>();
+        var prepared = System.Threading.Tasks.Task.Run(() => StartupState.Load((message, completed) => steps.Add(completed))).GetAwaiter().GetResult();
+        if (!steps.SequenceEqual(new[] { 0, 1, 2 }) || prepared.Physical.Count != 1 || prepared.Solution.Count != 1)
+            throw new Exception("Startup preparation did not restore trees or report real stages");
+        if (prepared.Physical[0].IconPreview != null && !prepared.Physical[0].IconPreview.IsFrozen)
+            throw new Exception("Startup icon is not transferable to the UI thread");
+        var splash = new SplashWindow { WindowStartupLocation = WindowStartupLocation.Manual, Left = -20000, Top = -20000, ShowActivated = false };
+        splash.Show(); splash.Report("Restoring saved folder trees…", 1); Pump(100);
+        var content = (FrameworkElement)splash.Content;
+        var bitmap = new RenderTargetBitmap((int)content.ActualWidth, (int)content.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(content);
+        var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        string preview = Path.Combine(root, "splash-preview.png");
+        using (var stream = File.Create(preview)) encoder.Save(stream);
+        var main = new DesktopIniManager.MainWindow(prepared);
+        var trees = (System.Collections.ObjectModel.ObservableCollection<DesktopIniManager.Models.FolderMatch>)typeof(DesktopIniManager.MainWindow).GetField("_treeRoots", Private).GetValue(main);
+        if (trees.Count != 1 || trees[0].Path != root) throw new Exception("Prepared tree was not handed to the main window");
+        File.WriteAllText(FolderTreeStateService.StatePath, "invalid xml");
+        var invalid = StartupState.Load((message, completed) => { });
+        if (invalid.Tree != null || invalid.TreeError == null) throw new Exception("Corrupt tree must allow startup with a diagnostic");
+        splash.Close();
+        Console.WriteLine("PASS startup: background preparation, saved trees/icons, progress stages, embedded image rendering, main-window handoff, corrupt cache fallback");
+        Console.WriteLine("PREVIEW " + preview);
+        return 0;
+    }
+
+    public static int Run(string appXaml, bool diffMap = false, bool grepCancel = false, bool startup = false)
+    {
+        if (startup) typeof(Application).GetField("_resourceAssembly", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, typeof(DesktopIniManager.MainWindow).Assembly);
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         var xml = new System.Xml.XmlDocument(); xml.Load(appXaml);
         var namespaces = new System.Xml.XmlNamespaceManager(xml.NameTable);
@@ -92,6 +167,8 @@ internal static class ScrollPerformance
         var context = new ParserContext(); context.XmlnsDictionary.Add("x", "http://schemas.microsoft.com/winfx/2006/xaml");
         app.Resources = (ResourceDictionary)XamlReader.Parse(resources.Replace("Source=\"Themes/", "Source=\"/DesktopIniManager;component/Themes/"), context);
         if (diffMap) return RunDiffMap();
+        if (grepCancel) return RunGrepCancellation();
+        if (startup) return RunStartup();
         string root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "scroll-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         File.WriteAllText(Path.Combine(root, "sample.txt"), "text");

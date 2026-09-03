@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace FastVolumeIndex
 {
@@ -29,19 +30,23 @@ namespace FastVolumeIndex
         private readonly int _fileCount;
         private readonly int _directoryCount;
 
-        private NtfsVolumeIndex(string volumeRoot, Dictionary<ulong, MftEntry> entries, TimeSpan elapsed)
+        private NtfsVolumeIndex(string volumeRoot, Dictionary<ulong, MftEntry> entries, TimeSpan elapsed, CancellationToken token)
         {
             VolumeRoot = volumeRoot;
             _entries = entries;
-            _children = entries.Values
-                .Where(entry => entry.ParentId != entry.Id)
-                .GroupBy(entry => entry.ParentId)
-                .ToDictionary(group => group.Key, group => group.ToList());
+            _children = new Dictionary<ulong, List<MftEntry>>();
             _pathCache = new Dictionary<ulong, string>();
             _scopeCache = new Dictionary<string, HashSet<ulong>>(StringComparer.OrdinalIgnoreCase);
             _pathEntryCache = new Dictionary<string, MftEntry>(StringComparer.OrdinalIgnoreCase);
             foreach (MftEntry entry in entries.Values)
             {
+                token.ThrowIfCancellationRequested();
+                if (entry.ParentId != entry.Id)
+                {
+                    if (!_children.TryGetValue(entry.ParentId, out var children))
+                        _children[entry.ParentId] = children = new List<MftEntry>();
+                    children.Add(entry);
+                }
                 if (entry.IsDirectory) _directoryCount++;
                 else _fileCount++;
             }
@@ -56,7 +61,11 @@ namespace FastVolumeIndex
         public IEnumerable<MftEntry> Entries => _entries.Values;
 
         public static NtfsVolumeIndex Create(string path)
+        { return Create(path, CancellationToken.None); }
+
+        public static NtfsVolumeIndex Create(string path, CancellationToken token)
         {
+            token.ThrowIfCancellationRequested();
             if (string.IsNullOrWhiteSpace(path))
                 throw new ArgumentException("A path on an NTFS volume is required.", nameof(path));
 
@@ -73,9 +82,9 @@ namespace FastVolumeIndex
 
             string volumePath = @"\\.\" + root.TrimEnd('\\');
             var stopwatch = Stopwatch.StartNew();
-            var entries = EnumerateVolume(volumePath);
+            var entries = EnumerateVolume(volumePath, token);
             stopwatch.Stop();
-            return new NtfsVolumeIndex(root, entries, stopwatch.Elapsed);
+            return new NtfsVolumeIndex(root, entries, stopwatch.Elapsed, token);
         }
 
         public string GetFullPath(MftEntry entry)
@@ -86,7 +95,11 @@ namespace FastVolumeIndex
         }
 
         public IEnumerable<MftEntry> EnumerateDescendants(string searchRoot)
+        { return EnumerateDescendants(searchRoot, CancellationToken.None); }
+
+        public IEnumerable<MftEntry> EnumerateDescendants(string searchRoot, CancellationToken token)
         {
+            token.ThrowIfCancellationRequested();
             string normalizedPath = NormalizeSearchRoot(searchRoot);
             if (string.Equals(normalizedPath.TrimEnd('\\'), VolumeRoot.TrimEnd('\\'),
                 StringComparison.OrdinalIgnoreCase))
@@ -102,6 +115,7 @@ namespace FastVolumeIndex
             while (pending.Count > 0)
             {
                 ulong id = pending.Pop();
+                token.ThrowIfCancellationRequested();
                 if (!_entries.TryGetValue(id, out MftEntry entry)) continue;
                 result.Add(entry);
                 if (_children.TryGetValue(id, out List<MftEntry> children))
@@ -230,14 +244,19 @@ namespace FastVolumeIndex
 
         public IReadOnlyList<MftEntry> FindFiles(string searchRoot, IEnumerable<string> extensions,
             IEnumerable<string> exactNames = null)
+        { return FindFiles(searchRoot, extensions, exactNames, CancellationToken.None); }
+
+        public IReadOnlyList<MftEntry> FindFiles(string searchRoot, IEnumerable<string> extensions,
+            IEnumerable<string> exactNames, CancellationToken token)
         {
-            HashSet<ulong> descendantIds = GetSearchScopeIds(searchRoot);
+            token.ThrowIfCancellationRequested();
+            HashSet<ulong> descendantIds = GetSearchScopeIds(searchRoot, token);
             var extensionSet = new HashSet<string>(extensions ?? Enumerable.Empty<string>(), StringComparer.OrdinalIgnoreCase);
             var nameSet = new HashSet<string>(exactNames ?? Enumerable.Empty<string>(), StringComparer.OrdinalIgnoreCase);
 
             return _entries.Values
                 .Where(entry => !entry.IsDirectory)
-                .Where(entry => extensionSet.Contains(Path.GetExtension(entry.Name)) || nameSet.Contains(entry.Name))
+                .Where(entry => { token.ThrowIfCancellationRequested(); return extensionSet.Contains(Path.GetExtension(entry.Name)) || nameSet.Contains(entry.Name); })
                 .Where(entry => descendantIds == null || descendantIds.Contains(entry.Id))
                 .OrderBy(GetFullPath, StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -286,7 +305,7 @@ namespace FastVolumeIndex
             return root + remainder;
         }
 
-        private HashSet<ulong> GetSearchScopeIds(string searchRoot)
+        private HashSet<ulong> GetSearchScopeIds(string searchRoot, CancellationToken token = default(CancellationToken))
         {
             string normalizedPath = NormalizeSearchRoot(searchRoot);
             if (string.Equals(normalizedPath.TrimEnd('\\'), VolumeRoot.TrimEnd('\\'),
@@ -299,18 +318,19 @@ namespace FastVolumeIndex
             MftEntry entry = FindByPath(normalizedPath);
             if (entry == null)
                 throw new DirectoryNotFoundException($"Search root was not found in the MFT index: {searchRoot}");
-            HashSet<ulong> result = GetDescendantIds(entry);
+            HashSet<ulong> result = GetDescendantIds(entry, token);
             _scopeCache[normalizedPath] = result;
             return result;
         }
 
-        private HashSet<ulong> GetDescendantIds(MftEntry root)
+        private HashSet<ulong> GetDescendantIds(MftEntry root, CancellationToken token = default(CancellationToken))
         {
             var result = new HashSet<ulong>();
             var pending = new Stack<ulong>();
             pending.Push(root.Id);
             while (pending.Count > 0)
             {
+                token.ThrowIfCancellationRequested();
                 ulong id = pending.Pop();
                 if (!result.Add(id))
                     continue;
@@ -356,7 +376,7 @@ namespace FastVolumeIndex
             return path;
         }
 
-        private static Dictionary<ulong, MftEntry> EnumerateVolume(string volumePath)
+        private static Dictionary<ulong, MftEntry> EnumerateVolume(string volumePath, CancellationToken token)
         {
             using (SafeFileHandle volume = CreateFile(volumePath, GenericRead,
                 FileShareRead | FileShareWrite | FileShareDelete, IntPtr.Zero, OpenExisting, 0, IntPtr.Zero))
@@ -374,6 +394,7 @@ namespace FastVolumeIndex
                 {
                     while (true)
                     {
+                        token.ThrowIfCancellationRequested();
                         Marshal.StructureToPtr(input, inputBuffer, false);
                         bool success = DeviceIoControl(volume, FsctlEnumUsnData, inputBuffer, (uint)inputSize,
                             outputBuffer, OutputBufferSize, out uint bytesReturned, IntPtr.Zero);
@@ -393,6 +414,7 @@ namespace FastVolumeIndex
                         int offset = sizeof(long);
                         while (offset + 60 <= bytesReturned)
                         {
+                            token.ThrowIfCancellationRequested();
                             IntPtr record = IntPtr.Add(outputBuffer, offset);
                             uint recordLength = unchecked((uint)Marshal.ReadInt32(record, 0));
                             if (recordLength < 60 || offset + recordLength > bytesReturned)

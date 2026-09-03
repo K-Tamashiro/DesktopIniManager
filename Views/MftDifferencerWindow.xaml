@@ -1,11 +1,37 @@
-﻿<Window x:Class="DesktopIniManager.Views.MftDifferencerWindow"
+<Window x:Class="DesktopIniManager.Views.MftDifferencerWindow"
  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
  Title="MFT Differencer" Width="1280" Height="800" MinWidth="960" MinHeight="540" WindowStartupLocation="CenterOwner"
  Background="{DynamicResource WindowBackground}" Foreground="{DynamicResource Ink}">
  <Window.Resources>
   <Style x:Key="KindFilterStyle" TargetType="CheckBox">
-   <Setter Property="Foreground" Value="{DynamicResource Ink}"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Margin" Value="0,3,10,3"/>
-   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox"><StackPanel Orientation="Horizontal" Background="Transparent"><Grid Width="14" Height="14" VerticalAlignment="Center"><Ellipse Stroke="{DynamicResource Muted}" Fill="{DynamicResource CardBackground}"/><Ellipse x:Name="Dot" Margin="3" Fill="{DynamicResource Accent}" Visibility="Collapsed"/></Grid><ContentPresenter Margin="5,0,0,0" VerticalAlignment="Center"/></StackPanel><ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="Dot" Property="Visibility" Value="Visible"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+   <Setter Property="Cursor" Value="Hand"/>
+   <Setter Property="Margin" Value="0,0,6,0"/>
+   <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+   <Setter Property="Template">
+    <Setter.Value>
+     <ControlTemplate TargetType="CheckBox">
+      <Border x:Name="Frame" Background="{DynamicResource Secondary}" CornerRadius="8" Padding="5,4" SnapsToDevicePixels="True">
+       <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+      </Border>
+      <ControlTemplate.Triggers>
+       <Trigger Property="IsChecked" Value="True">
+        <Setter TargetName="Frame" Property="Background" Value="{DynamicResource AccentSoft}"/>
+        <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource Accent}"/>
+        <Setter TargetName="Frame" Property="BorderThickness" Value="1"/>
+       </Trigger>
+       <Trigger Property="IsChecked" Value="False">
+        <Setter Property="Opacity" Value="0.55"/>
+       </Trigger>
+       <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Opacity" Value="1"/>
+       </Trigger>
+       <Trigger Property="IsEnabled" Value="False">
+        <Setter Property="Opacity" Value="0.35"/>
+       </Trigger>
+      </ControlTemplate.Triggers>
+     </ControlTemplate>
+    </Setter.Value>
+   </Setter>
   </Style>
   <Style x:Key="FileListItemStyle" TargetType="ListViewItem">
    <Setter Property="Height" Value="80"/>
@@ -37,8 +63,13 @@
  <DockPanel Margin="16">
   <StackPanel DockPanel.Dock="Top">
    <Grid Margin="0,0,0,10">
+    <Grid.ColumnDefinitions>
+     <ColumnDefinition Width="*"/>
+     <ColumnDefinition Width="Auto"/>
+     <ColumnDefinition Width="Auto"/>
+    </Grid.ColumnDefinitions>
     <TextBlock Text="MFT Differencer" FontSize="26" FontWeight="SemiBold" Foreground="{DynamicResource Accent}" VerticalAlignment="Center"/>
-    <Button Style="{StaticResource IconButton}" Content="&#xE711;" HorizontalAlignment="Right" VerticalAlignment="Center" Click="CloseClick" ToolTip="Close"/>
+    <Button x:Name="CloseButton" Grid.Column="2" Style="{StaticResource IconButton}" Content="&#xE711;" HorizontalAlignment="Right" VerticalAlignment="Center" Click="CloseClick" ToolTip="Close"/>
    </Grid>
    <Grid x:Name="RootControls"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
     <TextBlock Text="Source" VerticalAlignment="Center" Margin="0,0,12,6"/><TextBox x:Name="SourceBox" Grid.Column="1" Margin="0,0,8,6"/>
@@ -46,12 +77,16 @@
     <TextBlock Text="Target" Grid.Row="1" VerticalAlignment="Center"/><TextBox x:Name="TargetBox" Grid.Row="1" Grid.Column="1" Margin="0,0,8,0"/>
     <Button Content="&#xE8B7;" Style="{StaticResource IconButton}" Grid.Row="1" Grid.Column="2" Click="BrowseTarget" ToolTip="Browse"/>
    </Grid>
-   <WrapPanel Margin="0,10"><Button x:Name="CompareButton" Content="Compare" Click="CompareClick" Padding="14,7"/>
+   <Grid Margin="0,10"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+    <StackPanel Orientation="Horizontal"><Button x:Name="CompareButton" Content="Compare" Click="CompareClick" Padding="14,7"/>
+    <Button x:Name="CancelCompareButton" Content="&#xE711;" Style="{StaticResource IconButton}" Click="CancelCompareClick" Margin="8,0,0,0" Background="{DynamicResource Secondary}" ToolTip="Cancel comparison" IsEnabled="False"/>
     <CheckBox x:Name="CompareTimestampBox" Content="Compare dates" IsChecked="True" VerticalAlignment="Center" Margin="12,0,0,0" ToolTip="Include last-write timestamps when classifying differences"/>
+    </StackPanel><StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right">
+    <TextBlock x:Name="CountText" VerticalAlignment="Center" Margin="16,0,0,0"/>
     <Button x:Name="ForwardButton" Content="Source → Target" Click="ForwardClick" Margin="12,0,0,0" IsEnabled="False"/>
     <Button x:Name="ReverseButton" Content="Target → Source" Click="ReverseClick" Margin="8,0,0,0" IsEnabled="False"/>
-    <TextBlock x:Name="CountText" VerticalAlignment="Center" Margin="16,0,0,0"/>
-   </WrapPanel>
+    </StackPanel>
+   </Grid>
   </StackPanel>
   <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
    <ProgressBar x:Name="CompareProgress" Height="6" Visibility="Collapsed" Margin="0,0,0,6" Foreground="{DynamicResource Accent}" Background="{DynamicResource HeaderBackground}"/>
@@ -64,10 +99,18 @@
      <Button Style="{StaticResource TypeSizeButton}" Content="a" FontSize="13" Margin="10,0,0,0" Background="{DynamicResource Secondary}" Click="CompactTree_Click" ToolTip="Compact folder list"/><Button Style="{StaticResource TypeSizeButton}" Content="A" FontSize="17" Margin="5,0,0,0" Background="{DynamicResource Secondary}" Click="ComfortableTree_Click" ToolTip="Comfortable folder list"/>
     </StackPanel><TextBlock Text="Folders" FontWeight="SemiBold" VerticalAlignment="Center"/></DockPanel></Border>
     <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1" Padding="8,5"><WrapPanel x:Name="CategoryFilters" IsEnabled="False">
-     <CheckBox x:Name="SameFilter" Content="Same" Style="{StaticResource KindFilterStyle}" IsChecked="False" Click="KindFilter_Click" ToolTip="Same timestamp and size"/>
-     <CheckBox x:Name="DifferentFilter" Content="Diff" Style="{StaticResource KindFilterStyle}" IsChecked="True" Click="KindFilter_Click" ToolTip="Present on both sides with different timestamp or size"/>
-     <CheckBox x:Name="SourceOnlyFilter" Content="Left" Style="{StaticResource KindFilterStyle}" IsChecked="True" Click="KindFilter_Click" ToolTip="Present on Source only"/>
-     <CheckBox x:Name="TargetOnlyFilter" Content="Right" Style="{StaticResource KindFilterStyle}" IsChecked="True" Click="KindFilter_Click" ToolTip="Present on Target only"/>
+     <CheckBox x:Name="SameFilter" Style="{StaticResource KindFilterStyle}" IsChecked="False" Click="KindFilter_Click" ToolTip="Same timestamp and size">
+      <Image x:Name="SameFilterIcon" Width="22" Height="22" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+     </CheckBox>
+     <CheckBox x:Name="DifferentFilter" Style="{StaticResource KindFilterStyle}" IsChecked="True" Click="KindFilter_Click" ToolTip="Present on both sides with different timestamp or size">
+      <Image x:Name="DifferentFilterIcon" Width="22" Height="22" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+     </CheckBox>
+     <CheckBox x:Name="SourceOnlyFilter" Style="{StaticResource KindFilterStyle}" IsChecked="True" Click="KindFilter_Click" ToolTip="Present on Source only">
+      <Image x:Name="SourceOnlyFilterIcon" Width="22" Height="22" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+     </CheckBox>
+     <CheckBox x:Name="TargetOnlyFilter" Style="{StaticResource KindFilterStyle}" IsChecked="True" Click="KindFilter_Click" ToolTip="Present on Target only">
+      <Image x:Name="TargetOnlyFilterIcon" Width="22" Height="22" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+     </CheckBox>
     </WrapPanel></Border>
     <TreeView x:Name="FolderTree" SelectedItemChanged="FolderChanged" ItemContainerStyle="{StaticResource FolderItemStyle}" BorderThickness="0" HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.CanContentScroll="True" VirtualizingPanel.CacheLength="0" VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling" Background="{DynamicResource CardBackground}" Foreground="{DynamicResource Ink}">
      <TreeView.ItemTemplate><HierarchicalDataTemplate ItemsSource="{Binding DisplayChildren}"><Grid ToolTip="{Binding Path}"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition/></Grid.ColumnDefinitions>
@@ -80,7 +123,8 @@
    <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="{DynamicResource Line}"/>
    <Border Grid.Column="2" BorderBrush="{DynamicResource Line}" BorderThickness="1" Background="{DynamicResource CardBackground}"><DockPanel>
     <Border DockPanel.Dock="Top" Background="{DynamicResource HeaderBackground}" Padding="10,7"><TextBlock x:Name="FilePanelTitle" Text="Files" Height="36" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Padding="0,10,0,0"/></Border>
-    <ListView x:Name="FilesGrid" ItemContainerStyle="{StaticResource FileListItemStyle}" BorderThickness="0" Background="{DynamicResource CardBackground}" Foreground="{DynamicResource Ink}" SelectionMode="Single" ScrollViewer.CanContentScroll="True" VirtualizingPanel.CacheLength="0" VirtualizingPanel.ScrollUnit="Item" ScrollViewer.HorizontalScrollBarVisibility="Auto" VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling" MouseDoubleClick="OpenDiff"><ListView.View><GridView>
+    <Grid>
+    <ListView x:Name="FilesGrid" ItemContainerStyle="{StaticResource FileListItemStyle}" BorderThickness="0" Background="{DynamicResource CardBackground}" Foreground="{DynamicResource Ink}" SelectionMode="Single" ScrollViewer.CanContentScroll="True" VirtualizingPanel.CacheLength="0" VirtualizingPanel.ScrollUnit="Item" ScrollViewer.HorizontalScrollBarVisibility="Auto" VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling" SelectionChanged="FileListSelectionChanged" MouseDoubleClick="OpenDiff"><ListView.View><GridView>
      <GridViewColumn Header="Sync" Width="44"><GridViewColumn.CellTemplate><DataTemplate><CheckBox IsChecked="{Binding File.Selected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding File.CanSync}" HorizontalAlignment="Center" VerticalAlignment="Center"/></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
      <GridViewColumn Header="" Width="36"><GridViewColumn.CellTemplate><DataTemplate><Image Source="{Binding StatusIcon}" Width="24" Height="24" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
      <GridViewColumn Header="" Width="36"><GridViewColumn.CellTemplate><DataTemplate><Image Source="{Binding Icon}" Width="24" Height="24" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
@@ -90,6 +134,13 @@
      <GridViewColumn Header="Source" Width="210"><GridViewColumn.CellTemplate><DataTemplate><ContentControl Content="{Binding Source}" ContentTemplate="{StaticResource SideTemplate}"/></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
      <GridViewColumn Header="Target" Width="210"><GridViewColumn.CellTemplate><DataTemplate><ContentControl Content="{Binding Target}" ContentTemplate="{StaticResource SideTemplate}"/></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
     </GridView></ListView.View></ListView>
+    <Border x:Name="FilePanelBusy" Visibility="Collapsed" Background="#CC111821" IsHitTestVisible="True">
+     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+      <ProgressBar x:Name="FilePanelProgress" Width="160" Height="5" IsIndeterminate="True" Foreground="{DynamicResource Accent}" Background="{DynamicResource HeaderBackground}"/>
+      <TextBlock x:Name="FilePanelBusyText" Text="Please wait…" Margin="0,10,0,0" HorizontalAlignment="Center" Foreground="{DynamicResource Muted}"/>
+     </StackPanel>
+    </Border>
+    </Grid>
    </DockPanel></Border>
   </Grid>
  </DockPanel>

@@ -12,6 +12,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using System.Xml.Serialization;
 
 namespace DesktopIniManager.Views
@@ -107,7 +108,12 @@ namespace DesktopIniManager.Views
         public List<DiffFile> Files { get; } = new List<DiffFile>();
         private bool expanded;
         public bool Expanded { get { return expanded; } set { if (expanded == value) return; expanded = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Expanded")); } }
-        public bool Active { get; set; }
+        private bool active;
+        public bool Active
+        {
+            get { return active; }
+            set { if (active == value) return; active = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Active")); }
+        }
         public Action<DiffFolder, bool> Toggle;
         public DiffKind Mask { get; set; } = DiffKind.Differences;
         private readonly int[] counts = new int[9];
@@ -208,6 +214,7 @@ namespace DesktopIniManager.Views
         public System.Windows.Media.ImageSource Icon { get; private set; }
         private bool previewLoaded;
         private CancellationTokenSource previewCancellation;
+        public bool IsPreviewReady { get { return previewLoaded; } }
         public void CancelPreview() { previewCancellation?.Cancel(); }
         public void ReleasePreview()
         {
@@ -265,6 +272,11 @@ namespace DesktopIniManager.Views
         private string selectedFolder = "";
         private bool busy, bulk;
         private bool comparing;
+        private bool cancelCompareRequested;
+        private CancellationTokenSource compareCts;
+        private int filterGeneration;
+        private int previewInFlight;
+        private bool syncingTreeFromFile;
         private readonly SemaphoreSlim previewWorkers = new SemaphoreSlim(2);
         private CancellationTokenSource previewScope = new CancellationTokenSource();
         private HashSet<string> cachedVisibleFolders;
@@ -288,10 +300,15 @@ namespace DesktopIniManager.Views
         public MftDifferencerWindow()
         {
             InitializeComponent();
+            SameFilterIcon.Source = MftDiffStatusIcons.GetFileIcon(DiffKind.Same);
+            DifferentFilterIcon.Source = MftDiffStatusIcons.GetFileIcon(DiffKind.Different);
+            SourceOnlyFilterIcon.Source = MftDiffStatusIcons.GetFileIcon(DiffKind.SourceOnly);
+            TargetOnlyFilterIcon.Source = MftDiffStatusIcons.GetFileIcon(DiffKind.TargetOnly);
+            AttachElevationToggle();
             TreeCompact = SettingsService.LoadTreeCompact();
             SourceBox.TextChanged += RootsChanged; TargetBox.TextChanged += RootsChanged;
             Closing += (s, e) => { if (busy) { e.Cancel = true; return; } SaveState(); };
-            Closed += (s, e) => { previewScope.Cancel(); previewScope.Dispose(); DetachSelectionHandlers(); };
+            Closed += (s, e) => { compareCts?.Cancel(); compareCts?.Dispose(); previewScope.Cancel(); previewScope.Dispose(); DetachSelectionHandlers(); };
             try
             {
                 if (File.Exists(StatePath))
@@ -307,6 +324,49 @@ namespace DesktopIniManager.Views
             }
             catch (Exception ex) { StatusText.Text = "Failed to restore tree: " + ex.Message; }
         }
+        private void AttachElevationToggle()
+        {
+            var dock = Content as DockPanel;
+            var top = dock?.Children.OfType<StackPanel>().FirstOrDefault();
+            var header = top?.Children.OfType<Grid>().FirstOrDefault();
+            if (header == null) return;
+
+            while (header.ColumnDefinitions.Count < 3)
+                header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            header.ColumnDefinitions[0].Width = new GridLength(1, GridUnitType.Star);
+            header.ColumnDefinitions[1].Width = GridLength.Auto;
+            header.ColumnDefinitions[2].Width = GridLength.Auto;
+
+            var title = header.Children.OfType<TextBlock>().FirstOrDefault();
+            var close = CloseButton ?? header.Children.OfType<Button>().FirstOrDefault();
+            if (title != null) Grid.SetColumn(title, 0);
+            if (close != null) Grid.SetColumn(close, 2);
+
+            var toggle = ElevationService.Shared.CreateToggle(this, "mft");
+            toggle.VerticalAlignment = VerticalAlignment.Center;
+            Grid.SetColumn(toggle, 1);
+            header.Children.Add(toggle);
+        }
+
+        internal void CaptureElevation(ElevationResumeState session)
+        {
+            session.Source = SourceBox.Text;
+            session.Target = TargetBox.Text;
+            session.CompareDates = CompareTimestampBox.IsChecked == true;
+        }
+
+        internal void RestoreElevation(ElevationResumeState session)
+        {
+            SourceBox.Text = session.Source ?? string.Empty;
+            TargetBox.Text = session.Target ?? string.Empty;
+            CompareTimestampBox.IsChecked = session.CompareDates;
+            treeSource = SourceBox.Text;
+            treeTarget = TargetBox.Text;
+            selectedFolder = string.Empty;
+            cachedVisibleFolders = null;
+            StatusText.Text = "Source and Target restored. Click Compare to build the difference tree.";
+        }
+
         private void RootsChanged(object sender, TextChangedEventArgs e)
         { ClearComparisonView(); }
         private void DetachSelectionHandlers()
@@ -342,7 +402,18 @@ namespace DesktopIniManager.Views
             if (ReferenceEquals(item.Tag, item.DataContext)) return;
             (item.Tag as DiffRow)?.ReleasePreview();
             var row = item.DataContext as DiffRow; item.Tag = row;
-            if (row != null && snapshot != null) await row.LoadPreviewAsync(previewWorkers, previewScope.Token);
+            if (row == null || snapshot == null) return;
+            bool wait = !row.IsPreviewReady;
+            if (wait) previewInFlight++;
+            try { await row.LoadPreviewAsync(previewWorkers, previewScope.Token); }
+            finally
+            {
+                if (wait)
+                {
+                    previewInFlight--;
+                    if (previewInFlight <= 0 && !busy) SetFilePanelBusy(false);
+                }
+            }
         }
         private void BrowseSource(object sender, RoutedEventArgs e) { Browse(SourceBox, "Source folder"); }
         private void BrowseTarget(object sender, RoutedEventArgs e) { Browse(TargetBox, "Target folder"); }
@@ -350,11 +421,23 @@ namespace DesktopIniManager.Views
         private void Browse(TextBox box, string title)
         { try { string path = NativeFolderPicker.Show(new WindowInteropHelper(this).Handle, box.Text, title); if (path != null) box.Text = path; } catch (Exception ex) { ShowError(ex); } }
         private async void CompareClick(object sender, RoutedEventArgs e) { await Compare(); }
+        private void CancelCompareClick(object sender, RoutedEventArgs e)
+        {
+            if (!comparing) return;
+            cancelCompareRequested = true;
+            try { compareCts?.Cancel(); } catch (ObjectDisposedException) { }
+            StatusText.Text = "Cancelling comparison…";
+            CancelCompareButton.IsEnabled = false;
+        }
         private async Task Compare()
         {
             var expanded = folders.Values.Where(f => f.Expanded).Select(f => f.Path).ToList();
             ClearComparisonView(); SetBusy(true);
+            cancelCompareRequested = false;
             comparing = true;
+            compareCts?.Dispose();
+            compareCts = new CancellationTokenSource();
+            var token = compareCts.Token;
             CompareProgress.Visibility = Visibility.Visible;
             CompareProgress.IsIndeterminate = true;
             StatusText.Text = "Enumerating MFT and comparing timestamps and sizes…";
@@ -363,30 +446,37 @@ namespace DesktopIniManager.Views
             {
                 var progress = new Progress<DiffProgress>(UpdateProgress);
                 bool compareTimestamp = CompareTimestampBox.IsChecked == true;
-                DiffSnapshot fresh = await Task.Run(() => MftDifferencerService.Compare(source, target, progress, compareTimestamp));
+                DiffSnapshot fresh = await Task.Run(() => MftDifferencerService.Compare(source, target, progress, compareTimestamp, token), token);
+                token.ThrowIfCancellationRequested();
                 comparing = false;
                 CompareProgress.IsIndeterminate = true;
                 StatusText.Text = "Updating the difference tree…";
                 snapshot = fresh; treeSource = source; treeTarget = target;
-                // Sort the complete list once; folder/category filters preserve this order.
-                rows = snapshot.Files
-                    .OrderBy(f => f.Name, StringComparer.CurrentCultureIgnoreCase)
-                    .ThenBy(f => f.RelativePath, StringComparer.OrdinalIgnoreCase)
-                    .Select(f => new DiffRow { File = f, SourceRoot = snapshot.SourceRoot, TargetRoot = snapshot.TargetRoot }).ToList();
+                rows = snapshot.Files.Select(f => new DiffRow { File = f, SourceRoot = snapshot.SourceRoot, TargetRoot = snapshot.TargetRoot }).ToList();
                 BuildTree(snapshot.Folders, expanded, selectedFolder);
                 StatusText.Text = folders[""].CountFor(DiffKind.Differences) + " differences / " + folders[""].CountFor(DiffKind.Same) + " identical. Check items to synchronize.";
                 SaveState();
             }
+            catch (OperationCanceledException) { StatusText.Text = "Compare cancelled"; }
             catch (Exception ex) { StatusText.Text = "Compare failed (sync disabled): " + ex.Message; ShowError(ex); }
             finally { comparing = false; CompareProgress.Visibility = Visibility.Collapsed; CompareProgress.IsIndeterminate = false; SetBusy(false); }
         }
         private void UpdateProgress(DiffProgress progress)
         {
             if (!comparing) return;
-            CompareProgress.IsIndeterminate = progress.Total == 0;
+            bool unknown = progress.Total == 0;
+            CompareProgress.IsIndeterminate = unknown;
             CompareProgress.Maximum = Math.Max(1, progress.Total);
             CompareProgress.Value = progress.Completed;
-            StatusText.Text = progress.Stage + (progress.Total == 0 ? "" : " — " + progress.Completed.ToString("N0") + " / " + progress.Total.ToString("N0") + " items");
+            if (FilePanelProgress != null)
+            {
+                FilePanelProgress.IsIndeterminate = unknown;
+                FilePanelProgress.Maximum = Math.Max(1, progress.Total);
+                FilePanelProgress.Value = progress.Completed;
+            }
+            string detail = unknown ? progress.Stage : progress.Stage + " — " + progress.Completed.ToString("N0") + " / " + progress.Total.ToString("N0");
+            if (FilePanelBusyText != null) FilePanelBusyText.Text = string.IsNullOrEmpty(detail) ? "Please wait…" : detail;
+            StatusText.Text = progress.Stage + (unknown ? "" : " — " + progress.Completed.ToString("N0") + " / " + progress.Total.ToString("N0") + " items");
         }
         private void BuildTree(IEnumerable<string> paths, IEnumerable<string> expanded, string selected)
         {
@@ -478,21 +568,163 @@ namespace DesktopIniManager.Views
         private string RootLabel()
         { return string.IsNullOrWhiteSpace(treeSource) ? "All folders" : Path.GetFileName(treeSource.TrimEnd('\\', '/')) is string name && name.Length > 0 ? name : treeSource; }
         private void FolderChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
-        { var folder = e.NewValue as DiffFolder; if (folder == null) return; selectedFolder = folder.Path; Filter(); }
+        {
+            if (syncingTreeFromFile) return;
+            var folder = e.NewValue as DiffFolder; if (folder == null) return; selectedFolder = folder.Path; Filter();
+        }
+        private void FileListSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (syncingTreeFromFile || busy || snapshot == null) return;
+            var row = FilesGrid.SelectedItem as DiffRow;
+            if (row == null) return;
+            RevealContainingFolder(Path.GetDirectoryName(row.File.RelativePath) ?? "");
+        }
+        private void RevealContainingFolder(string path)
+        {
+            if (folders.Count == 0) return;
+            DiffFolder target = null;
+            string current = path ?? "";
+            while (true)
+            {
+                if (folders.TryGetValue(current, out target) && target.Visible) break;
+                if (current.Length == 0) { target = folders.ContainsKey("") ? folders[""] : null; break; }
+                current = Path.GetDirectoryName(current) ?? "";
+            }
+            if (target == null) return;
+
+            string ancestor = target.Path;
+            while (ancestor.Length > 0)
+            {
+                ancestor = Path.GetDirectoryName(ancestor) ?? "";
+                DiffFolder parent;
+                if (folders.TryGetValue(ancestor, out parent)) parent.Expanded = true;
+            }
+
+            syncingTreeFromFile = true;
+            foreach (DiffFolder folder in folders.Values)
+                if (folder.Active && folder != target) folder.Active = false;
+            target.Active = true;
+            ScheduleFolderIntoView(target);
+        }
+        private void ScheduleFolderIntoView(DiffFolder target)
+        {
+            Action bring = () => BringFolderIntoView(target);
+            bring();
+            Dispatcher.BeginInvoke(bring, DispatcherPriority.Loaded);
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                try { bring(); }
+                finally { syncingTreeFromFile = false; }
+            }), DispatcherPriority.ContextIdle);
+        }
+        private void BringFolderIntoView(DiffFolder target)
+        {
+            if (target == null) return;
+            var path = new List<DiffFolder>();
+            string current = target.Path ?? "";
+            while (true)
+            {
+                DiffFolder node;
+                if (folders.TryGetValue(current, out node)) path.Add(node);
+                if (current.Length == 0) break;
+                current = Path.GetDirectoryName(current) ?? "";
+            }
+            path.Reverse();
+            TreeViewItem item = ContainerAlongPath(FolderTree, path);
+            ScrollTreeItemIntoView(FolderTree, item);
+        }
+        private static TreeViewItem ContainerAlongPath(ItemsControl parent, List<DiffFolder> path)
+        {
+            TreeViewItem current = null;
+            ItemsControl host = parent;
+            foreach (DiffFolder node in path)
+            {
+                if (host == null) return current;
+                host.ApplyTemplate();
+                host.UpdateLayout();
+                var item = host.ItemContainerGenerator.ContainerFromItem(node) as TreeViewItem;
+                if (item == null)
+                {
+                    int index = host.Items.IndexOf(node);
+                    if (index >= 0) item = host.ItemContainerGenerator.ContainerFromIndex(index) as TreeViewItem;
+                }
+                if (item == null) return current;
+                item.IsExpanded = true;
+                item.UpdateLayout();
+                current = item;
+                host = item;
+            }
+            return current;
+        }
+        private static void ScrollTreeItemIntoView(TreeView tree, TreeViewItem item)
+        {
+            if (tree == null || item == null) return;
+            item.BringIntoView();
+            ScrollViewer viewer = FindScrollViewer(tree);
+            if (viewer == null || !item.IsVisible) return;
+            try
+            {
+                Point pos = item.TransformToAncestor(viewer).Transform(new Point(0, 0));
+                double top = pos.Y;
+                double bottom = top + item.ActualHeight;
+                if (top < 0) viewer.ScrollToVerticalOffset(viewer.VerticalOffset + top - 8);
+                else if (bottom > viewer.ViewportHeight)
+                    viewer.ScrollToVerticalOffset(viewer.VerticalOffset + bottom - viewer.ViewportHeight + 8);
+            }
+            catch (InvalidOperationException) { }
+        }
+        private static ScrollViewer FindScrollViewer(DependencyObject root)
+        {
+            if (root is ScrollViewer viewer) return viewer;
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+            {
+                ScrollViewer found = FindScrollViewer(VisualTreeHelper.GetChild(root, i));
+                if (found != null) return found;
+            }
+            return null;
+        }
         private void Filter()
         {
             var visible = rows.Where(r => (r.File.Kind & kindMask) != 0 && (selectedFolder.Length == 0 || r.File.RelativePath.StartsWith(selectedFolder + "\\", StringComparison.OrdinalIgnoreCase))).ToList();
             FilesGrid.ItemsSource = visible;
             FilePanelTitle.Text = "Files — " + (selectedFolder.Length == 0 ? "all levels" : selectedFolder) + " (" + visible.Count + ")";
+            ShowFolderListBusy(visible);
+        }
+        private void ShowFolderListBusy(List<DiffRow> visible)
+        {
+            int generation = ++filterGeneration;
+            if (busy) return;
+            SetFilePanelBusy(true, "Please wait…");
+            Dispatcher.BeginInvoke(new Action(() => FinishFolderListBusy(generation)), DispatcherPriority.ContextIdle);
+        }
+        private void FinishFolderListBusy(int generation)
+        {
+            if (generation != filterGeneration || busy) return;
+            if (previewInFlight <= 0) SetFilePanelBusy(false);
+            else Dispatcher.BeginInvoke(new Action(() => FinishFolderListBusy(generation)), DispatcherPriority.Background);
         }
         private void SetBusy(bool value)
         {
             busy = value;
+            ElevationService.Shared.SetBusy(this, value);
             RootControls.IsEnabled = CompareButton.IsEnabled = CompareTimestampBox.IsEnabled = !value;
+            CancelCompareButton.IsEnabled = value;
             CategoryFilters.IsEnabled = !value && snapshot != null;
             FolderTree.IsHitTestVisible = FilesGrid.IsHitTestVisible = !value;
             FolderTree.Focusable = FilesGrid.Focusable = !value;
+            SetFilePanelBusy(value, value ? "Please wait…" : null);
             UpdateSelectionSummary();
+        }
+        private void SetFilePanelBusy(bool busyPanel, string message = null)
+        {
+            if (FilePanelBusy == null) return;
+            FilePanelBusy.Visibility = busyPanel ? Visibility.Visible : Visibility.Collapsed;
+            if (FilePanelBusyText != null && message != null) FilePanelBusyText.Text = message;
+            if (!busyPanel && FilePanelProgress != null)
+            {
+                FilePanelProgress.IsIndeterminate = true;
+                FilePanelProgress.Value = 0;
+            }
         }
         private async void ForwardClick(object sender, RoutedEventArgs e) { await Sync(true); }
         private async void ReverseClick(object sender, RoutedEventArgs e) { await Sync(false); }

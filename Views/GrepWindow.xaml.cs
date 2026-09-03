@@ -1,4 +1,4 @@
-using DesktopIniManager.Models;
+﻿using DesktopIniManager.Models;
 using DesktopIniManager.Services;
 using Microsoft.Win32;
 using System;
@@ -25,13 +25,14 @@ namespace DesktopIniManager.Views
         private readonly ObservableCollection<string> _scopes = new ObservableCollection<string>();
         private readonly ObservableCollection<GrepMatch> _matches = new ObservableCollection<GrepMatch>();
         private CancellationTokenSource _searchCts;
-        private readonly ConcurrentQueue<GrepMatch> _pendingMatches = new ConcurrentQueue<GrepMatch>();
+        private ConcurrentQueue<GrepMatch> _pendingMatches = new ConcurrentQueue<GrepMatch>();
         private readonly DispatcherTimer _resultTimer;
 
         public GrepWindow(Func<IReadOnlyList<string>> scopeProvider, IReadOnlyList<string> initialScopes)
         {
             _scopeProvider = scopeProvider;
             InitializeComponent();
+            AttachElevationToggle();
             ScopeList.ItemsSource = _scopes;
             ICollectionView resultView = CollectionViewSource.GetDefaultView(_matches);
             resultView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(GrepMatch.GroupPath)));
@@ -64,6 +65,58 @@ namespace DesktopIniManager.Views
                 ShowTextEnd(EditorBox);
                 ShowTextEnd(EditorArgumentsBox);
             };
+        }
+
+        private void AttachElevationToggle()
+        {
+            var header = TitleBar;
+            if (header == null) return;
+
+            while (header.ColumnDefinitions.Count < 3)
+                header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            header.ColumnDefinitions[0].Width = new GridLength(1, GridUnitType.Star);
+            header.ColumnDefinitions[1].Width = GridLength.Auto;
+            header.ColumnDefinitions[2].Width = GridLength.Auto;
+
+            var close = CloseButton ?? header.Children.OfType<Button>().FirstOrDefault();
+            if (close != null)
+            {
+                Grid.SetColumn(close, 2);
+                close.VerticalAlignment = VerticalAlignment.Center;
+            }
+
+            var toggle = ElevationService.Shared.CreateToggle(this, "grep");
+            toggle.VerticalAlignment = VerticalAlignment.Center;
+            toggle.Margin = new Thickness(0, 0, 4, 0);
+            Grid.SetColumn(toggle, 1);
+            header.Children.Add(toggle);
+        }
+
+        internal void CaptureElevation(ElevationResumeState session)
+        {
+            session.GrepScopes = _scopes.ToList();
+            session.GrepQuery = QueryBox.Text;
+            session.GrepProfile = (ProfileBox.SelectedItem as LanguageProfile)?.Name;
+            session.GrepExtensions = ExtensionsText.Text;
+            session.Regex = RegexBox.IsChecked == true;
+            session.MatchCase = MatchCaseBox.IsChecked == true;
+            session.WholeWord = WholeWordBox.IsChecked == true;
+        }
+
+        internal void RestoreElevation(ElevationResumeState session)
+        {
+            SetScopes(session.GrepScopes ?? new List<string>());
+            QueryBox.Text = session.GrepQuery ?? string.Empty;
+
+            var profile = LanguageProfile.All.FirstOrDefault(item =>
+                string.Equals(item.Name, session.GrepProfile, StringComparison.OrdinalIgnoreCase));
+            if (profile != null) ProfileBox.SelectedItem = profile;
+            if (profile?.IsFree == true) ExtensionsText.Text = session.GrepExtensions ?? string.Empty;
+
+            RegexBox.IsChecked = session.Regex;
+            MatchCaseBox.IsChecked = session.MatchCase;
+            WholeWordBox.IsChecked = session.WholeWord;
+            QueryBox.Focus();
         }
 
         private void HookPathBox(TextBox box)
@@ -116,6 +169,7 @@ namespace DesktopIniManager.Views
 
         private async void Search_Click(object sender, RoutedEventArgs e)
         {
+            if (_searchCts != null) return;
             string query = QueryBox.Text;
             var profile = ProfileBox.SelectedItem as LanguageProfile;
             string[] scopes = _scopes.ToArray();
@@ -136,19 +190,25 @@ namespace DesktopIniManager.Views
             var cts = new CancellationTokenSource();
             _searchCts = cts;
             _matches.Clear();
-            while (_pendingMatches.TryDequeue(out GrepMatch ignored)) { }
+            var pending = new ConcurrentQueue<GrepMatch>();
+            _pendingMatches = pending;
             _resultTimer.Start();
             SetSearching(true);
             try
             {
                 GrepSearchResult result = await Task.Run(() => new CodeGrepService().Search(scopes, profile, query,
                     useRegex, matchCase, wholeWord,
-                    (done, total) => Dispatcher.BeginInvoke(new Action(() => StatusText.Text = "Searching " + done.ToString("N0") + " / " + total.ToString("N0") + " files…")), cts.Token,
-                    match => _pendingMatches.Enqueue(match)));
-                await DrainAllPendingMatchesAsync();
+                    (done, total) => Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+                    {
+                        if (ReferenceEquals(_searchCts, cts) && !cts.IsCancellationRequested)
+                            StatusText.Text = "Searching " + done.ToString("N0") + " / " + total.ToString("N0") + " files…";
+                    })), cts.Token,
+                    match => { if (!cts.IsCancellationRequested) pending.Enqueue(match); }));
+                await DrainAllPendingMatchesAsync(cts.Token);
+                cts.Token.ThrowIfCancellationRequested();
                 StatusText.Text = result.Matches.Count.ToString("N0") + " matches in " + result.FileCount.ToString("N0") + " files" + (result.SkippedCount == 0 ? string.Empty : " · " + result.SkippedCount + " skipped");
             }
-            catch (OperationCanceledException) { await DrainAllPendingMatchesAsync(); StatusText.Text = "Search cancelled"; }
+            catch (OperationCanceledException) { _pendingMatches = new ConcurrentQueue<GrepMatch>(); StatusText.Text = "Search cancelled"; }
             catch (ArgumentException ex) { MessageBox.Show("The search expression is invalid.\n\n" + ex.Message, Title, MessageBoxButton.OK, MessageBoxImage.Warning); StatusText.Text = "Invalid expression"; }
             catch (Exception ex) { MessageBox.Show(ex.Message, Title, MessageBoxButton.OK, MessageBoxImage.Error); StatusText.Text = "Search failed"; }
             finally { _resultTimer.Stop(); if (ReferenceEquals(_searchCts, cts)) _searchCts = null; SetSearching(false); cts.Dispose(); }
@@ -161,10 +221,11 @@ namespace DesktopIniManager.Views
             if (last != null) ResultsGrid.ScrollIntoView(last);
         }
 
-        private async Task DrainAllPendingMatchesAsync()
+        private async Task DrainAllPendingMatchesAsync(CancellationToken token)
         {
             while (!_pendingMatches.IsEmpty)
             {
+                token.ThrowIfCancellationRequested();
                 DrainPendingMatches(30);
                 await System.Windows.Threading.Dispatcher.Yield(DispatcherPriority.Background);
             }
@@ -185,6 +246,7 @@ namespace DesktopIniManager.Views
         {
             SearchButton.IsEnabled = !searching; CancelButton.IsEnabled = searching; ProfileBox.IsEnabled = !searching;
             SearchProgress.Visibility = searching ? Visibility.Visible : Visibility.Collapsed;
+            ElevationService.Shared.SetBusy(this, searching);
         }
 
         private void ResultsGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
@@ -228,11 +290,19 @@ namespace DesktopIniManager.Views
                 .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         }
         private void ReloadScopes_Click(object sender, RoutedEventArgs e) => ReloadFromMainWindow();
-        private void Cancel_Click(object sender, RoutedEventArgs e) => _searchCts?.Cancel();
+        private void Cancel_Click(object sender, RoutedEventArgs e)
+        {
+            if (_searchCts == null) return;
+            _searchCts.Cancel();
+            _resultTimer.Stop();
+            _pendingMatches = new ConcurrentQueue<GrepMatch>();
+            CancelButton.IsEnabled = false;
+            StatusText.Text = "Cancelling…";
+        }
         private void Close_Click(object sender, RoutedEventArgs e) => Close();
         protected override void OnClosing(CancelEventArgs e)
         {
-            _searchCts?.Cancel();
+            Cancel_Click(this, new RoutedEventArgs());
             _resultTimer.Stop();
             SettingsService.SaveEditor(EditorBox.Text.Trim(), EditorArgumentsBox.Text);
             SettingsService.SaveGrepProfile((ProfileBox.SelectedItem as LanguageProfile)?.Name);

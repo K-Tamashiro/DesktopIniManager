@@ -4,5 +4,6 @@
  <ItemGroup><Reference Include="System"/><Reference Include="System.Core"/><Reference Include="System.Xml"/><Reference Include="System.Xaml"/><Reference Include="WindowsBase"/><Reference Include="PresentationCore"/><Reference Include="PresentationFramework"/></ItemGroup>
  <ItemGroup><Compile Include="ScrollPerformance.cs"/><Compile Include="FolderTreePersistenceTests.cs"/></ItemGroup>
  <ItemGroup><ProjectReference Include="..\DesktopIniManager.csproj"><Project>{91097EF8-6B8C-492A-AC5C-F85A0BD979F4}</Project><Name>DesktopIniManager</Name></ProjectReference><Compile Include="DifferencerTests.cs"/></ItemGroup>
+ <ItemGroup><ProjectReference Include="..\FastVolumeIndex\FastVolumeIndex.Core\FastVolumeIndex.Core.csproj"><Project>{A67C59A1-8E4E-4F44-9A88-D2D1BE56DD81}</Project><Name>FastVolumeIndex.Core</Name></ProjectReference></ItemGroup>
  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
 </Project>

@@ -199,7 +199,7 @@ namespace DesktopIniManager.Services
                 {
                     progress?.Report(new DiffProgress
                     {
-                        Stage = "MFT unavailable for " + source + ". Falling back to file-system scan: " + sourceMftError?.Message
+                        Stage = "MFT unavailable for " + source + ". Falling back to file-system scan: " + (sourceMftError == null ? "" : ErrorMessages.English(sourceMftError))
                     });
                     left = ScanFileSystem(source, result.Folders, progress, token);
                 }
@@ -216,7 +216,7 @@ namespace DesktopIniManager.Services
                 {
                     progress?.Report(new DiffProgress
                     {
-                        Stage = "MFT unavailable for " + target + ". Falling back to file-system scan: " + targetMftError?.Message
+                        Stage = "MFT unavailable for " + target + ". Falling back to file-system scan: " + (targetMftError == null ? "" : ErrorMessages.English(targetMftError))
                     });
                     right = ScanFileSystem(target, result.Folders, progress, token);
                 }
@@ -411,6 +411,11 @@ namespace DesktopIniManager.Services
                                 throw new IOException("Changed during copy. Compare again.");
                             if (File.Exists(to)) { RejectHardLinks(to); File.Replace(temporary, to, null); }
                             else File.Move(temporary, to);
+                            // Apply the timestamp to the final file, after replacement/rename.
+                            // The temporary file's metadata alone does not guarantee the final state.
+                            SafePath(destinationRoot, file.RelativePath);
+                            RejectHardLinks(to);
+                            File.SetLastWriteTimeUtc(to, (toTarget ? file.Source : file.Target).ModifiedUtc);
                         }
                         finally
                         {
@@ -418,6 +423,9 @@ namespace DesktopIniManager.Services
                             if (File.Exists(temporary)) File.Delete(temporary);
                         }
                     }
+                    SafePath(snapshot.SourceRoot, file.RelativePath); SafePath(snapshot.TargetRoot, file.RelativePath);
+                    if (!DiffStamp.Same(toTarget ? file.Source : file.Target, DiffStamp.Read(to)))
+                        throw new IOException("Synchronization verification failed: destination timestamp, size or existence differs. Compare again.");
                     writeLog("OK " + operation + " " + file.RelativePath);
                 }
                 catch (Exception ex)
@@ -428,9 +436,9 @@ namespace DesktopIniManager.Services
                     bool locked = IsFileLocked(to) || IsFileLocked(from);
 
                     if (locked)
-                        writeLog("LOCKED " + operation + " " + file.RelativePath + " : " + ex.Message);
+                        writeLog("LOCKED " + operation + " " + file.RelativePath + " : " + ErrorMessages.English(ex));
                     else
-                        writeLog("FAIL " + operation + " " + file.RelativePath + " : " + ex.Message);
+                        writeLog("FAIL " + operation + " " + file.RelativePath + " : " + ErrorMessages.English(ex));
                 }
             }
             return log;

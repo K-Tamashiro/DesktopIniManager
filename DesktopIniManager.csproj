@@ -20,6 +20,10 @@
     <Page Include="Views\GrepWindow.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
     <Page Include="Themes\LightTheme.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page><Page Include="Themes\DarkTheme.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
     <Compile Include="Services\FolderTreeStateService.cs"/>
+    <Compile Include="Services\SolutionCleanService.cs"/>
+    <Compile Include="Services\WindowActivationService.cs"/>
+    <Compile Include="Services\ErrorMessages.cs"/>
+    <Compile Include="Views\MftDifferencerWindow.Clean.cs"/>
     <Compile Include="Services\StartupState.cs"/><Compile Include="Views\SplashWindow.cs"/>
     <Compile Include="Services\ElevationService.cs"/><Compile Include="Services\ElevationResumeState.cs"/>
     <Compile Include="App.xaml.cs"><DependentUpon>App.xaml</DependentUpon></Compile><Compile Include="MainWindow.xaml.cs"><DependentUpon>MainWindow.xaml</DependentUpon></Compile>

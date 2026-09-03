@@ -31,6 +31,14 @@ DIM下部の **MFT Diff** から開きます。Source／Targetは左右のルー
 
 ## 開発時の検証
 
+v1.7.0ではOBJ／BINフィルターを追加しました。どちらも初期値はOFFで、任意の階層にある同名フォルダー配下をツリー・一覧から隠します。既存のチェックは保持され、非表示の選択件数に含まれます。
+
+**Clean solution** は選択したソリューションのMSBuild Cleanを実行し、完了後に再比較します。実行中のDIMを含むソリューションはクリーンできません。DIM自身をクリーンする場合は、比較対象外のフォルダーに展開した配布版から起動してください。
+
+対応対象はローカルNTFSです。Google Driveなどのクラウド仮想ドライブ、ネットワーク、NASは非対応です。仮想ドライブでは更新日時の精度差により同期検証が失敗する場合があります。
+
+Diff Viewはexe・dll・cacheなどの既知のバイナリを開く前に英語メッセージで除外します。画像は左右共通倍率で自動フィットし、Fit／100%で倍率を切り替えられます。
+
 Visual StudioのMSBuildで `Tests\DesktopIniManager.DifferencerTests.csproj` をビルドし、`Tests\bin\Debug\DesktopIniManager.DifferencerTests.exe` を実行します。テストは実行ファイルの隣に独立したfixtureを作成し、実リポジトリを同期しません。
 
 `--mft` を付けると実MFTの列挙も検証します。このオプションにはWindows管理者権限が必要です。通常テストでは双方向の同期、保護パス、変更検出、テキスト行対応、チェック連動、WPFの生成、保存と復元を検証します。

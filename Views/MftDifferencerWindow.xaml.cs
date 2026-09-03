@@ -1,4 +1,4 @@
-﻿using DesktopIniManager.Services;
+using DesktopIniManager.Services;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -33,7 +33,7 @@ namespace DesktopIniManager.Views
 
         private static ImageSource[] Load()
         {
-            var result = new ImageSource[8];
+            var result = new ImageSource[10];
             try
             {
                 string baseDir = AppDomain.CurrentDomain.BaseDirectory;
@@ -61,6 +61,7 @@ namespace DesktopIniManager.Views
 
         public static ImageSource GetFolderIcon(DiffKind kind) { return Get(Index(kind, 0)); }
         public static ImageSource GetFileIcon(DiffKind kind) { return Get(Index(kind, 4)); }
+        public static ImageSource GetBuildFolderIcon(bool obj) { return Get(obj ? 8 : 9); }
 
         private static int Index(DiffKind kind, int offset)
         {
@@ -124,6 +125,8 @@ namespace DesktopIniManager.Views
         public int SelectedFor(DiffKind mask) { return Sum(selectedCounts, mask); }
         public bool CanSelect { get { return CountFor(Mask & DiffKind.Differences) > 0; } }
         public int SelectedCount { get; private set; }
+        public int AllDifferenceCount { get; private set; }
+        public Func<DiffFile, bool> IncludeFile { get; set; }
         public bool? Checked
         {
             get { int selected = SelectedFor(Mask); return selected == 0 ? false : selected == CountFor(Mask & DiffKind.Differences) ? (bool?)true : null; }
@@ -132,15 +135,23 @@ namespace DesktopIniManager.Views
         public void Refresh()
         {
             Array.Clear(counts, 0, counts.Length); Array.Clear(selectedCounts, 0, selectedCounts.Length);
-            SelectedCount = 0;
-            foreach (var file in Files) { counts[(int)file.Kind]++; if (file.Selected) { selectedCounts[(int)file.Kind]++; SelectedCount++; } }
+            SelectedCount = 0; AllDifferenceCount = 0;
+            foreach (var file in Files)
+            {
+                if (file.CanSync) AllDifferenceCount++;
+                if (file.Selected) SelectedCount++;
+                if (IncludeFile != null && !IncludeFile(file)) continue;
+                counts[(int)file.Kind]++;
+                if (file.Selected) selectedCounts[(int)file.Kind]++;
+            }
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Checked"));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("IconPreview"));
         }
-        public void ChangeSelectionCount(int delta, DiffKind kind)
+        public void ChangeSelectionCount(int delta, DiffKind kind, bool included = true)
         {
             if (delta == 0) return;
             SelectedCount += delta;
+            if (!included) return;
             selectedCounts[(int)kind] += delta;
             if ((Mask & kind) != 0) PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Checked"));
         }
@@ -188,7 +199,7 @@ namespace DesktopIniManager.Views
                     image.StreamSource = stream; image.EndInit(); image.Freeze(); result.Thumbnail = image;
                 }
             }
-            catch (Exception ex) { result.Dimensions = "Preview unavailable: " + ex.Message; }
+            catch (Exception ex) { result.Dimensions = "Preview unavailable: " + ErrorMessages.English(ex); }
             return result;
         }
         internal void ApplyPreview(Preview preview)
@@ -272,7 +283,6 @@ namespace DesktopIniManager.Views
         private string selectedFolder = "";
         private bool busy, bulk;
         private bool comparing;
-        private bool cancelCompareRequested;
         private CancellationTokenSource compareCts;
         private int filterGeneration;
         private int previewInFlight;
@@ -281,6 +291,21 @@ namespace DesktopIniManager.Views
         private CancellationTokenSource previewScope = new CancellationTokenSource();
         private HashSet<string> cachedVisibleFolders;
         private DiffKind kindMask = DiffKind.Differences;
+        private bool showObj, showBin;
+        private bool IncludeBuildFolderFile(DiffFile file)
+        {
+            string directory = Path.GetDirectoryName(file.RelativePath) ?? "";
+            return directory.Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries)
+                .All(part => (showObj || !part.Equals("obj", StringComparison.OrdinalIgnoreCase)) &&
+                             (showBin || !part.Equals("bin", StringComparison.OrdinalIgnoreCase)));
+        }
+        private void BuildFolderFilter_Click(object sender, RoutedEventArgs e)
+        {
+            showObj = ObjFilter.IsChecked == true; showBin = BinFilter.IsChecked == true;
+            if (snapshot == null) return;
+            RefreshChecks(); ApplyKindFilter();
+            StatusText.Text = folders[""].CountFor(DiffKind.Differences) + " differences / " + folders[""].CountFor(DiffKind.Same) + " identical (OBJ/BIN filters applied). Check items to synchronize.";
+        }
         private void KindFilter_Click(object sender, RoutedEventArgs e)
         {
             kindMask = (SameFilter.IsChecked == true ? DiffKind.Same : 0) |
@@ -304,6 +329,8 @@ namespace DesktopIniManager.Views
             DifferentFilterIcon.Source = MftDiffStatusIcons.GetFileIcon(DiffKind.Different);
             SourceOnlyFilterIcon.Source = MftDiffStatusIcons.GetFileIcon(DiffKind.SourceOnly);
             TargetOnlyFilterIcon.Source = MftDiffStatusIcons.GetFileIcon(DiffKind.TargetOnly);
+            ObjFilterIcon.Source = MftDiffStatusIcons.GetBuildFolderIcon(true);
+            BinFilterIcon.Source = MftDiffStatusIcons.GetBuildFolderIcon(false);
             AttachElevationToggle();
             TreeCompact = SettingsService.LoadTreeCompact();
             SourceBox.TextChanged += RootsChanged; TargetBox.TextChanged += RootsChanged;
@@ -322,7 +349,7 @@ namespace DesktopIniManager.Views
                     StatusText.Text = "Source and Target restored. Click Compare to build the difference tree.";
                 }
             }
-            catch (Exception ex) { StatusText.Text = "Failed to restore tree: " + ex.Message; }
+            catch (Exception ex) { StatusText.Text = "Failed to restore tree: " + ErrorMessages.English(ex); }
         }
         private void AttachElevationToggle()
         {
@@ -424,7 +451,6 @@ namespace DesktopIniManager.Views
         private void CancelCompareClick(object sender, RoutedEventArgs e)
         {
             if (!comparing) return;
-            cancelCompareRequested = true;
             try { compareCts?.Cancel(); } catch (ObjectDisposedException) { }
             StatusText.Text = "Cancelling comparison…";
             CancelCompareButton.IsEnabled = false;
@@ -433,7 +459,6 @@ namespace DesktopIniManager.Views
         {
             var expanded = folders.Values.Where(f => f.Expanded).Select(f => f.Path).ToList();
             ClearComparisonView(); SetBusy(true);
-            cancelCompareRequested = false;
             comparing = true;
             compareCts?.Dispose();
             compareCts = new CancellationTokenSource();
@@ -458,7 +483,7 @@ namespace DesktopIniManager.Views
                 SaveState();
             }
             catch (OperationCanceledException) { StatusText.Text = "Compare cancelled"; }
-            catch (Exception ex) { StatusText.Text = "Compare failed (sync disabled): " + ex.Message; ShowError(ex); }
+            catch (Exception ex) { StatusText.Text = "Compare failed (sync disabled): " + ErrorMessages.English(ex); ShowError(ex); }
             finally { comparing = false; CompareProgress.Visibility = Visibility.Collapsed; CompareProgress.IsIndeterminate = false; SetBusy(false); }
         }
         private void UpdateProgress(DiffProgress progress)
@@ -505,7 +530,8 @@ namespace DesktopIniManager.Views
                     SourceEmpty = sourceEmpty,
                     TargetEmpty = targetEmpty
                 };
-                node.Toggle = (folder, value) => { bulk = true; foreach (DiffFile file in folder.Files) if (file.CanSync && (file.Kind & kindMask) != 0) file.Selected = value; bulk = false; RefreshChecks(); };
+                node.IncludeFile = IncludeBuildFolderFile;
+                node.Toggle = (folder, value) => { bulk = true; foreach (DiffFile file in folder.Files) if (file.CanSync && IncludeBuildFolderFile(file) && (file.Kind & kindMask) != 0) file.Selected = value; bulk = false; RefreshChecks(); };
                 folders.Add(path, node);
                 if (path.Length > 0) folders[Path.GetDirectoryName(path) ?? ""].Children.Add(node);
             }
@@ -550,7 +576,7 @@ namespace DesktopIniManager.Views
             string path = Path.GetDirectoryName(file.RelativePath) ?? "";
             while (true)
             {
-                DiffFolder folder; if (folders.TryGetValue(path, out folder)) folder.ChangeSelectionCount(delta, file.Kind);
+                DiffFolder folder; if (folders.TryGetValue(path, out folder)) folder.ChangeSelectionCount(delta, file.Kind, IncludeBuildFolderFile(file));
                 if (path.Length == 0) break;
                 path = Path.GetDirectoryName(path) ?? "";
             }
@@ -560,7 +586,7 @@ namespace DesktopIniManager.Views
         {
             DiffFolder root = null;
             int count = snapshot != null && folders.TryGetValue("", out root) ? root.SelectedCount : 0;
-            int total = root == null ? 0 : root.CountFor(DiffKind.Differences);
+            int total = root == null ? 0 : root.AllDifferenceCount;
             int hidden = root == null ? 0 : count - root.SelectedFor(kindMask);
             CountText.Text = "Selected " + count + " / " + total + (hidden > 0 ? " (includes " + hidden + " hidden)" : "");
             ForwardButton.IsEnabled = ReverseButton.IsEnabled = !busy && count > 0;
@@ -685,7 +711,7 @@ namespace DesktopIniManager.Views
         }
         private void Filter()
         {
-            var visible = rows.Where(r => (r.File.Kind & kindMask) != 0 && (selectedFolder.Length == 0 || r.File.RelativePath.StartsWith(selectedFolder + "\\", StringComparison.OrdinalIgnoreCase))).ToList();
+            var visible = rows.Where(r => IncludeBuildFolderFile(r.File) && (r.File.Kind & kindMask) != 0 && (selectedFolder.Length == 0 || r.File.RelativePath.StartsWith(selectedFolder + "\\", StringComparison.OrdinalIgnoreCase))).ToList();
             FilesGrid.ItemsSource = visible;
             FilePanelTitle.Text = "Files — " + (selectedFolder.Length == 0 ? "all levels" : selectedFolder) + " (" + visible.Count + ")";
             ShowFolderListBusy(visible);
@@ -707,7 +733,7 @@ namespace DesktopIniManager.Views
         {
             busy = value;
             ElevationService.Shared.SetBusy(this, value);
-            RootControls.IsEnabled = CompareButton.IsEnabled = CompareTimestampBox.IsEnabled = !value;
+            RootControls.IsEnabled = CompareButton.IsEnabled = CompareTimestampBox.IsEnabled = CleanSolutionButton.IsEnabled = !value;
             CancelCompareButton.IsEnabled = value;
             CategoryFilters.IsEnabled = !value && snapshot != null;
             FolderTree.IsHitTestVisible = FilesGrid.IsHitTestVisible = !value;
@@ -856,7 +882,8 @@ namespace DesktopIniManager.Views
 
             var cancel = new Button
             {
-                Content = "Cancel",
+                Content = ActionContent("\uE711", "Cancel"),
+                Style = (Style)FindResource("MftActionButton"),
                 MinWidth = 96,
                 Height = 34,
                 Margin = new Thickness(12, 0, 0, 0),
@@ -869,14 +896,15 @@ namespace DesktopIniManager.Views
 
             var sync = new Button
             {
-                Content = "Synchronize",
+                Content = ActionContent(toTarget ? "\uE74B" : "\uE74A", "Synchronize"),
+                Style = (Style)FindResource("MftActionButton"),
                 MinWidth = 118,
                 Height = 34,
                 Margin = new Thickness(8, 0, 0, 0),
                 IsDefault = true
             };
-            sync.SetResourceReference(Button.BackgroundProperty, "Accent");
-            sync.SetResourceReference(Button.ForegroundProperty, "ButtonForeground");
+            sync.Background = (Brush)FindResource(toTarget ? "SourceColor" : "TargetColor");
+            sync.Foreground = toTarget ? (Brush)new BrushConverter().ConvertFromString("#20252B") : Brushes.White;
             sync.Click += (s, e) =>
             {
                 accepted = true;
@@ -899,7 +927,7 @@ namespace DesktopIniManager.Views
             DiffFile[] files = snapshot.Files.Where(f => f.CanSync && f.Selected).ToArray();
             if (files.Length == 0) return;
 
-            string direction = toTarget ? "Source → Target" : "Target → Source";
+            string direction = toTarget ? "Source to Target" : "Target to Source";
             if (!ShowSyncConfirmation(direction, files, toTarget)) return;
 
             var liveLog = new TextBox
@@ -948,10 +976,10 @@ namespace DesktopIniManager.Views
             }
             catch (Exception ex)
             {
-                log = new List<string> { "FAIL " + ex.Message };
+                log = new List<string> { "FAIL " + ErrorMessages.English(ex) };
                 if (logWindow.IsVisible)
                 {
-                    liveLog.AppendText("FAIL " + ex.Message + Environment.NewLine);
+                    liveLog.AppendText("FAIL " + ErrorMessages.English(ex) + Environment.NewLine);
                     liveLog.ScrollToEnd();
                 }
             }
@@ -971,9 +999,9 @@ namespace DesktopIniManager.Views
             }
             catch (Exception ex)
             {
-                report = "Failed to save log: " + ex.Message + "\n\n" + report;
+                report = "Failed to save log: " + ErrorMessages.English(ex) + "\n\n" + report;
                 if (logWindow.IsVisible)
-                    liveLog.AppendText("Failed to save log: " + ex.Message + Environment.NewLine);
+                    liveLog.AppendText("Failed to save log: " + ErrorMessages.English(ex) + Environment.NewLine);
             }
 
             int ok = log.Count(l => l.StartsWith("OK "));
@@ -997,7 +1025,13 @@ namespace DesktopIniManager.Views
             if (busy || snapshot == null || !(FilesGrid.SelectedItem is DiffRow)) return;
             // Only data rows open a viewer; header/scrollbar double-clicks do not.
             if (!(ItemsControl.ContainerFromElement(FilesGrid, e.OriginalSource as DependencyObject) is ListViewItem)) return;
-            try { new DiffViewWindow(snapshot, ((DiffRow)FilesGrid.SelectedItem).File) { Owner = this }.Show(); } catch (Exception ex) { ShowError(ex); }
+            var selectedFile = ((DiffRow)FilesGrid.SelectedItem).File;
+            if (DiffMedia.IsBinary(selectedFile.RelativePath))
+            {
+                MessageBox.Show(this, DiffMedia.BinaryMessage, "Diff View", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            try { new DiffViewWindow(snapshot, selectedFile) { Owner = this }.Show(); } catch (Exception ex) { ShowError(ex); }
         }
         internal void SaveState()
         {
@@ -1009,8 +1043,8 @@ namespace DesktopIniManager.Views
                 using (var stream = File.Create(temporary)) new XmlSerializer(typeof(DifferencerState)).Serialize(stream, state);
                 if (File.Exists(StatePath)) File.Replace(temporary, StatePath, null); else File.Move(temporary, StatePath);
             }
-            catch (Exception ex) { StatusText.Text = "Failed to save tree: " + ex.Message; }
+            catch (Exception ex) { StatusText.Text = "Failed to save tree: " + ErrorMessages.English(ex); }
         }
-        private void ShowError(Exception ex) { MessageBox.Show(this, ex.Message, Title, MessageBoxButton.OK, MessageBoxImage.Error); }
+        private void ShowError(Exception ex) { MessageBox.Show(this, ErrorMessages.English(ex), Title, MessageBoxButton.OK, MessageBoxImage.Error); }
     }
 }

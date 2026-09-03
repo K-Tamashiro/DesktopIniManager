@@ -1,4 +1,4 @@
-﻿using DesktopIniManager.Services;
+using DesktopIniManager.Services;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -20,6 +20,9 @@ namespace DesktopIniManager.Views
 {
     internal static class DiffMedia
     {
+        internal const string BinaryMessage = "Binary and cache files are not supported in Diff View. Only text files and supported images can be displayed.";
+        public static bool IsBinary(string path)
+        { return new[] { ".exe", ".dll", ".pdb", ".obj", ".lib", ".zip", ".7z", ".rar", ".gz", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".db", ".sqlite", ".mp3", ".mp4", ".wav", ".msi", ".bin", ".icl", ".resources", ".baml", ".cache" }.Contains(System.IO.Path.GetExtension(path).ToLowerInvariant()); }
         public static bool IsImage(string path)
         { return new[] { ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".ico", ".tif", ".tiff", ".wdp", ".jxr" }.Contains(System.IO.Path.GetExtension(path).ToLowerInvariant()); }
     }
@@ -91,10 +94,13 @@ namespace DesktopIniManager.Views
 
             var actions = new WrapPanel();
             toolbar.Children.Add(actions);
-            AddButton(actions, "Prev", () => Navigate(-1));
-            AddButton(actions, "Next", () => Navigate(1));
-            AddButton(actions, "Open Source", () => OpenEditor(true));
-            AddButton(actions, "Open Target", () => OpenEditor(false));
+            if (!DiffMedia.IsImage(file.RelativePath))
+            {
+                AddButton(actions, "\uE70E", "Prev", () => Navigate(-1));
+                AddButton(actions, "\uE70D", "Next", () => Navigate(1));
+            }
+            AddButton(actions, "\uE8A7", "Open Source", () => OpenEditor(true));
+            AddButton(actions, "\uE8A7", "Open Target", () => OpenEditor(false));
 
             status.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
             DockPanel.SetDock(status, Dock.Bottom);
@@ -165,9 +171,13 @@ namespace DesktopIniManager.Views
             return block;
         }
 
-        private Button AddButton(Panel panel, string text, Action action)
+        private Button AddButton(Panel panel, string glyph, string text, Action action)
         {
-            var button = new Button { Content = text, Margin = new Thickness(0, 0, 8, 8), Padding = new Thickness(12, 6, 12, 6) };
+            var content = new StackPanel { Orientation = Orientation.Horizontal };
+            content.Children.Add(new TextBlock { Text = glyph, FontFamily = new FontFamily("Segoe MDL2 Assets"), FontSize = 15, VerticalAlignment = VerticalAlignment.Center });
+            content.Children.Add(new TextBlock { Text = text, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center });
+            var button = new Button { Content = content, Style = TryFindResource("IconTextButton") as Style, ToolTip = text, Margin = new Thickness(0, 0, 8, 8) };
+            System.Windows.Automation.AutomationProperties.SetName(button, text);
             button.Click += (s, e) => action();
             panel.Children.Add(button);
             return button;
@@ -181,7 +191,8 @@ namespace DesktopIniManager.Views
             status.Text = "Loading…";
             try
             {
-                if (DiffMedia.IsImage(file.RelativePath)) { LoadImages(); return; }
+                if (DiffMedia.IsBinary(file.RelativePath)) throw new InvalidDataException(DiffMedia.BinaryMessage);
+                if (DiffMedia.IsImage(file.RelativePath)) { await LoadImages(); return; }
                 string leftPath = GetPath(true), rightPath = GetPath(false);
                 lines = await Task.Run(() => DiffTextService.Compare(ReadText(leftPath), ReadText(rightPath)));
                 if (!IsLoaded) return;
@@ -204,7 +215,9 @@ namespace DesktopIniManager.Views
                 rightList.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(ScrollChanged));
                 status.Text = hunks.Count + " hunks | left red = removed  right green = added | UTF-8 / BOM / Shift-JIS | large files use a simplified match";
             }
-            catch (Exception ex) { status.Text = "Unable to display: " + ex.Message; }
+            catch (InvalidDataException) { MessageBox.Show(Owner ?? this, DiffMedia.BinaryMessage, "Diff View", MessageBoxButton.OK, MessageBoxImage.Information); Close(); }
+            catch (DecoderFallbackException) { MessageBox.Show(Owner ?? this, DiffMedia.BinaryMessage, "Diff View", MessageBoxButton.OK, MessageBoxImage.Information); Close(); }
+            catch (Exception ex) { status.Text = "Unable to display: " + ErrorMessages.English(ex); }
         }
 
         private static string[] ReadText(string path)
@@ -216,7 +229,7 @@ namespace DesktopIniManager.Views
             try { using (var reader = new StreamReader(new MemoryStream(bytes), new UTF8Encoding(false, true), true)) text = reader.ReadToEnd(); }
             catch (DecoderFallbackException) { text = Encoding.GetEncoding(932, EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback).GetString(bytes); }
             if (text.Any(c => c == '\0' || (char.IsControl(c) && c != '\r' && c != '\n' && c != '\t' && c != '\f')))
-                throw new IOException("Binary file. Open it in an external editor.");
+                throw new InvalidDataException(DiffMedia.BinaryMessage);
             if (text.Length == 0) return new string[0];
             var lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
             if (lines.Length > 100000) throw new IOException("Files over 100,000 lines should be opened in an external editor.");
@@ -379,9 +392,13 @@ namespace DesktopIniManager.Views
         private void Jump(int index)
         { leftList.SelectedIndex = rightList.SelectedIndex = index; leftList.ScrollIntoView(lines[index]); rightList.ScrollIntoView(lines[index]); current = hunks.IndexOf(index); }
 
-        private void LoadImages()
+        private async Task LoadImages()
         {
-            var left = LoadImage(GetPath(true)); var right = LoadImage(GetPath(false));
+            string leftPath = GetPath(true), rightPath = GetPath(false);
+            var images = await Task.Run(() => new[] { LoadImage(leftPath), LoadImage(rightPath) });
+            if (!IsLoaded) return;
+            var left = images[0]; var right = images[1];
+            body.ColumnDefinitions[1].Width = new GridLength(12);
             double width = Math.Max(left == null ? 0 : left.PixelWidth, right == null ? 0 : right.PixelWidth);
             double height = Math.Max(left == null ? 0 : left.PixelHeight, right == null ? 0 : right.PixelHeight);
             var leftCanvas = ImageCanvas(left, width, height); var rightCanvas = ImageCanvas(right, width, height);
@@ -392,7 +409,7 @@ namespace DesktopIniManager.Views
             body.Children.Add(rightScroll);
             leftScroll.ScrollChanged += ScrollChanged;
             rightScroll.ScrollChanged += ScrollChanged;
-            var zoom = new Slider { Minimum = 0.1, Maximum = 4, Value = 1, Width = 170, ToolTip = "共通倍率 10%–400%" };
+            var zoom = new Slider { Minimum = 0.001, Maximum = 16, Value = 1, Width = 170, ToolTip = "Shared zoom for Source and Target" };
             var wrapper = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 8) };
             wrapper.Children.Add(new TextBlock { Text = "Zoom", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
             wrapper.Children.Add(zoom);
@@ -400,6 +417,21 @@ namespace DesktopIniManager.Views
             DockPanel.SetDock(wrapper, Dock.Top);
             root.Children.Insert(1, wrapper);
             zoom.ValueChanged += (s, e) => { leftCanvas.LayoutTransform = new ScaleTransform(e.NewValue, e.NewValue); rightCanvas.LayoutTransform = new ScaleTransform(e.NewValue, e.NewValue); };
+            bool fitToWindow = true, fitting = false;
+            Action fit = () =>
+            {
+                if (!fitToWindow || width <= 0 || height <= 0) return;
+                double scale = Math.Min((body.ActualWidth - 20) / 2 / width, (body.ActualHeight - 20) / height);
+                if (scale <= 0) return;
+                fitting = true;
+                zoom.Value = Math.Max(zoom.Minimum, Math.Min(zoom.Maximum, scale));
+                fitting = false;
+            };
+            zoom.ValueChanged += (s, e) => { if (!fitting) fitToWindow = false; };
+            AddButton(wrapper, "\uE9A6", "Fit", () => { fitToWindow = true; fit(); });
+            AddButton(wrapper, "\uE91F", "100%", () => { fitToWindow = false; zoom.Value = 1; });
+            body.SizeChanged += (s, e) => fit();
+            await Dispatcher.InvokeAsync(fit, System.Windows.Threading.DispatcherPriority.Loaded);
             status.Text = "Source: " + ImageSize(left) + " | Target: " + ImageSize(right) + " | shared zoom, top-left aligned (GIF/ICO first frame)";
         }
 
@@ -430,6 +462,7 @@ namespace DesktopIniManager.Views
             var canvas = new Canvas { Width = width, Height = height };
             canvas.SetResourceReference(Panel.BackgroundProperty, "CardBackground");
             if (image != null) canvas.Children.Add(new Image { Source = image, Width = image.PixelWidth, Height = image.PixelHeight, Stretch = Stretch.Fill });
+            else canvas.Children.Add(new TextBlock { Text = "Missing", Margin = new Thickness(12) });
             return canvas;
         }
 
@@ -443,7 +476,7 @@ namespace DesktopIniManager.Views
                 string arguments = SettingsService.LoadEditorArguments().Replace("{file}", path).Replace("{line}", "1").Replace("{column}", "1");
                 Process.Start(new ProcessStartInfo(SettingsService.LoadEditorPath(), arguments) { UseShellExecute = true });
             }
-            catch (Exception ex) { MessageBox.Show(this, ex.Message, Title, MessageBoxButton.OK, MessageBoxImage.Error); }
+            catch (Exception ex) { MessageBox.Show(this, ErrorMessages.English(ex), Title, MessageBoxButton.OK, MessageBoxImage.Error); }
         }
     }
 }

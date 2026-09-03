@@ -12,6 +12,7 @@ namespace DesktopIniManager
         protected override async void OnStartup(StartupEventArgs e)
         {
             DispatcherUnhandledException += OnDispatcherUnhandledException;
+            WindowActivationService.Install();
             base.OnStartup(e);
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
             SplashWindow splash = null;
@@ -38,11 +39,12 @@ namespace DesktopIniManager
                 ready = true;
                 splash.Report("Ready", 4);
                 splash.Close();
+                WindowActivationService.BringToFront(main);
                 ShutdownMode = ShutdownMode.OnMainWindowClose;
             }
             catch (Exception ex)
             {
-                MessageBox.Show("DesktopIniManager could not start.\n\n" + ex.Message, "DesktopIniManager", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("DesktopIniManager could not start.\n\n" + ErrorMessages.English(ex), "DesktopIniManager", MessageBoxButton.OK, MessageBoxImage.Error);
                 ready = true;
                 splash?.Close();
                 Shutdown(1);
@@ -51,7 +53,7 @@ namespace DesktopIniManager
 
         private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
         {
-            MessageBox.Show("An error occurred. The application can continue.\n\n" + e.Exception.Message,
+            MessageBox.Show("An error occurred. The application can continue.\n\n" + ErrorMessages.English(e.Exception),
                 "desktop.ini Manager", MessageBoxButton.OK, MessageBoxImage.Error);
             e.Handled = true;
         }

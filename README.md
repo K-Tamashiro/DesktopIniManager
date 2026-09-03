@@ -4,7 +4,7 @@ DesktopIniManager is a Windows developer tool for exploring development
 folders, understanding project structure, searching source code, and
 applying custom folder icons through `desktop.ini`.
 
-Version **1.6.0** expands the original folder-icon manager into a
+Version **1.7.0** expands the original folder-icon manager into a
 project-oriented workspace. Physical folders, Visual Studio solution
 structure, search results, file lists, scoped Grep, and icon resources
 can all be handled from one application.
@@ -13,17 +13,21 @@ can all be handled from one application.
 
 ## Download
 
-[![Download
-DesktopIniManager](docs/images/download.png)](https://github.com/K-Tamashiro/DesktopIniManager/releases/latest/download/DesktopIniManager-v1.6.0-win-x64.zip)
+[<img src="docs/images/download.png" alt="Download DesktopIniManager v1.7.0" width="200" height="45">](https://github.com/K-Tamashiro/DesktopIniManager/releases/download/v1.7.0/DesktopIniManager-v1.7.0-win-x64.zip)
 
-Download `DesktopIniManager-v1.6.0-win-x64.zip`, extract it to a
+Download `DesktopIniManager-v1.7.0-win-x64.zip`, extract it to a
 writable folder, and run `DesktopIniManager.exe`.
+
+See the [v1.7.0 release notes](RELEASE_NOTES_v1.7.0.md).
 
 ### Requirements
 
 -   Windows 10 or Windows 11, x64
 -   .NET Framework 4.8
 -   Administrator permission when `Use fast NTFS search` is enabled
+-   Local NTFS folders for supported comparison and synchronization.
+    Cloud/virtual drives (including Google Drive), network paths, and NAS are
+    unsupported. Elevation does not make these equivalent to local NTFS.
 
 ## What DesktopIniManager does
 
@@ -264,13 +268,13 @@ Assets/
   folder_set.icl
   MftDifferencer_iconset.icl
 README.md
-RELEASE_NOTES_v1.6.0.md
+RELEASE_NOTES_v1.7.0.md
 docs/
 ```
 
 ## Version
 
-Current release: **DesktopIniManager 1.6.0**
+Current release: **DesktopIniManager 1.7.0**
 
 ## MFT Differencer
 
@@ -294,6 +298,11 @@ when their timestamps differ.
 - **Same / Diff / Left / Right** can be combined to filter the folder tree
   and file list. Initially, **Diff**, **Left**, and **Right** are enabled.
   Relevant parent folders remain visible.
+- **OBJ / BIN** use the added icon-library entries and are both off by default.
+  Folders named `obj` or `bin` at any depth and their contents stay hidden until
+  enabled. Folder selection excludes these hidden files; files explicitly
+  selected before hiding them retain their checks and appear in the hidden
+  selection count.
 - Select the root to see matching files from all levels in **Name** order.
   Selecting a folder narrows that list while preserving its order. Files
   with the same name are ordered by relative path.
@@ -319,13 +328,35 @@ wheel still scrolls vertically. A horizontal/side wheel or **Shift + wheel**
 scrolls horizontally, with both panes linked.
 
 Images use a side-by-side view with shared zoom and aligned positions.
+Images initially fit both panes; **Fit** and **100%** control their shared zoom.
+Executables, DLLs, `.cache`, and other recognized binary formats show an English
+unsupported-file message without opening Diff View. Unknown extensions are
+also checked for binary content when read.
 **Open Source** and **Open Target** send the corresponding file to the
 configured external editor. Diff View itself does not edit, save, or merge
 files.
 
+### Clean solutions before synchronization
+
+Click **Clean solution**, next to **Compare dates**, to choose solutions
+under Source and Target and the configurations to clean (initially
+`Debug;Release`). DIM runs MSBuild's **Clean** target, records the results,
+and compares the folders again afterward.
+
+**Warning: do not clean the solution from whose build output DIM is
+currently running.** Cleaning that solution can delete runtime dependencies
+such as `FastVolumeIndex.Core.dll`, causing an assembly-not-found error
+when DIM compares again. DIM disables solutions containing its running
+application folder and also refuses to clean them at execution time.
+
+To clean DIM's own solution, copy the complete release package, including
+its DLLs and `Assets` folder, to a separate folder outside both comparison
+roots and start DIM there. If a previous clean has already removed a DLL,
+restore the complete release package or rebuild DIM, then restart it.
+
 ### Synchronize selected differences
 
-Choose **Source → Target** or **Target → Source**, then review the file count
+Choose **Source to Target** (down arrow) or **Target to Source** (up arrow), then review the file count
 and the copy, overwrite, and delete totals before running synchronization.
 Only checked differences are processed, including checked files currently
 hidden by a filter.
@@ -335,3 +366,8 @@ both sides are overwritten. **A checked file present only on the receiving
 side is deleted from that side.** Results and failures are recorded in the
 sync log, and comparison runs again afterward to refresh remaining
 differences.
+
+After copying or replacing a file, DIM sets the destination timestamp and
+verifies its size, timestamp, or expected absence before logging success.
+Google Drive's virtual drive can round timestamps, so cloud copies can fail
+this verification even when the file contents were copied.

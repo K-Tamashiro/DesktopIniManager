@@ -1,4 +1,4 @@
-﻿using DesktopIniManager.Models;
+using DesktopIniManager.Models;
 using DesktopIniManager.Services;
 using Microsoft.Win32;
 using System;
@@ -209,8 +209,8 @@ namespace DesktopIniManager.Views
                 StatusText.Text = result.Matches.Count.ToString("N0") + " matches in " + result.FileCount.ToString("N0") + " files" + (result.SkippedCount == 0 ? string.Empty : " · " + result.SkippedCount + " skipped");
             }
             catch (OperationCanceledException) { _pendingMatches = new ConcurrentQueue<GrepMatch>(); StatusText.Text = "Search cancelled"; }
-            catch (ArgumentException ex) { MessageBox.Show("The search expression is invalid.\n\n" + ex.Message, Title, MessageBoxButton.OK, MessageBoxImage.Warning); StatusText.Text = "Invalid expression"; }
-            catch (Exception ex) { MessageBox.Show(ex.Message, Title, MessageBoxButton.OK, MessageBoxImage.Error); StatusText.Text = "Search failed"; }
+            catch (ArgumentException ex) { MessageBox.Show("The search expression is invalid.\n\n" + ErrorMessages.English(ex), Title, MessageBoxButton.OK, MessageBoxImage.Warning); StatusText.Text = "Invalid expression"; }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.English(ex), Title, MessageBoxButton.OK, MessageBoxImage.Error); StatusText.Text = "Search failed"; }
             finally { _resultTimer.Stop(); if (ReferenceEquals(_searchCts, cts)) _searchCts = null; SetSearching(false); cts.Dispose(); }
         }
 
@@ -260,7 +260,7 @@ namespace DesktopIniManager.Views
                     .Replace("{file}", match.FilePath).Replace("{line}", match.LineNumber.ToString()).Replace("{column}", match.ColumnNumber.ToString());
                 Process.Start(new ProcessStartInfo(EditorBox.Text.Trim(), arguments) { UseShellExecute = true });
             }
-            catch (Exception ex) { MessageBox.Show("Could not open the editor.\n\n" + ex.Message, Title, MessageBoxButton.OK, MessageBoxImage.Error); }
+            catch (Exception ex) { MessageBox.Show("Could not open the editor.\n\n" + ErrorMessages.English(ex), Title, MessageBoxButton.OK, MessageBoxImage.Error); }
         }
 
         private void BrowseEditor_Click(object sender, RoutedEventArgs e)

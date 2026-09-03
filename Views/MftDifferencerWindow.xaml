@@ -3,6 +3,23 @@
  Title="MFT Differencer" Width="1280" Height="800" MinWidth="960" MinHeight="540" WindowStartupLocation="CenterOwner"
  Background="{DynamicResource WindowBackground}" Foreground="{DynamicResource Ink}">
  <Window.Resources>
+  <SolidColorBrush x:Key="SourceColor" Color="#E8B949"/>
+  <SolidColorBrush x:Key="TargetColor" Color="#2878BF"/>
+  <SolidColorBrush x:Key="CleanColor" Color="#28784B"/>
+  <Style x:Key="MftActionButton" TargetType="Button" BasedOn="{StaticResource IconTextButton}">
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+    <Grid x:Name="Frame">
+     <Border Background="{TemplateBinding Background}" CornerRadius="10"/>
+     <Border x:Name="Highlight" Background="White" Opacity="0" CornerRadius="10"/>
+     <Border Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+    </Grid>
+    <ControlTemplate.Triggers>
+     <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Highlight" Property="Opacity" Value="0.12"/></Trigger>
+     <Trigger Property="IsPressed" Value="True"><Setter TargetName="Highlight" Property="Opacity" Value="0.22"/></Trigger>
+     <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Frame" Property="Opacity" Value="0.48"/></Trigger>
+    </ControlTemplate.Triggers>
+   </ControlTemplate></Setter.Value></Setter>
+  </Style>
   <Style x:Key="KindFilterStyle" TargetType="CheckBox">
    <Setter Property="Cursor" Value="Hand"/>
    <Setter Property="Margin" Value="0,0,6,0"/>
@@ -72,19 +89,20 @@
     <Button x:Name="CloseButton" Grid.Column="2" Style="{StaticResource IconButton}" Content="&#xE711;" HorizontalAlignment="Right" VerticalAlignment="Center" Click="CloseClick" ToolTip="Close"/>
    </Grid>
    <Grid x:Name="RootControls"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-    <TextBlock Text="Source" VerticalAlignment="Center" Margin="0,0,12,6"/><TextBox x:Name="SourceBox" Grid.Column="1" Margin="0,0,8,6"/>
+    <TextBlock Text="Source" VerticalAlignment="Center" Margin="0,0,12,6"/><TextBox x:Name="SourceBox" Grid.Column="1" Margin="0,0,8,6" BorderBrush="{StaticResource SourceColor}" BorderThickness="4,1,1,1"/>
     <Button Content="&#xE8B7;" Style="{StaticResource IconButton}" Grid.Column="2" Click="BrowseSource" ToolTip="Browse" Margin="0,0,0,6"/>
-    <TextBlock Text="Target" Grid.Row="1" VerticalAlignment="Center"/><TextBox x:Name="TargetBox" Grid.Row="1" Grid.Column="1" Margin="0,0,8,0"/>
+    <TextBlock Text="Target" Grid.Row="1" VerticalAlignment="Center"/><TextBox x:Name="TargetBox" Grid.Row="1" Grid.Column="1" Margin="0,0,8,0" BorderBrush="{StaticResource TargetColor}" BorderThickness="4,1,1,1"/>
     <Button Content="&#xE8B7;" Style="{StaticResource IconButton}" Grid.Row="1" Grid.Column="2" Click="BrowseTarget" ToolTip="Browse"/>
    </Grid>
    <Grid Margin="0,10"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-    <StackPanel Orientation="Horizontal"><Button x:Name="CompareButton" Content="Compare" Click="CompareClick" Padding="14,7"/>
+    <StackPanel Orientation="Horizontal"><Button x:Name="CompareButton" Style="{StaticResource MftActionButton}" Click="CompareClick"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE721;" FontSize="15" VerticalAlignment="Center"/><TextBlock Text="Compare" Margin="6,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
     <Button x:Name="CancelCompareButton" Content="&#xE711;" Style="{StaticResource IconButton}" Click="CancelCompareClick" Margin="8,0,0,0" Background="{DynamicResource Secondary}" ToolTip="Cancel comparison" IsEnabled="False"/>
     <CheckBox x:Name="CompareTimestampBox" Content="Compare dates" IsChecked="True" VerticalAlignment="Center" Margin="12,0,0,0" ToolTip="Include last-write timestamps when classifying differences"/>
+    <Button x:Name="CleanSolutionButton" Style="{StaticResource MftActionButton}" Background="{StaticResource CleanColor}" Click="CleanSolutionClick" Margin="12,0,0,0" ToolTip="Choose solutions and configurations to clean with MSBuild, then compare again"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE75C;" FontSize="15" VerticalAlignment="Center"/><TextBlock Text="Clean solution" Margin="6,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
     </StackPanel><StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right">
     <TextBlock x:Name="CountText" VerticalAlignment="Center" Margin="16,0,0,0"/>
-    <Button x:Name="ForwardButton" Content="Source → Target" Click="ForwardClick" Margin="12,0,0,0" IsEnabled="False"/>
-    <Button x:Name="ReverseButton" Content="Target → Source" Click="ReverseClick" Margin="8,0,0,0" IsEnabled="False"/>
+    <Button x:Name="ForwardButton" Style="{StaticResource MftActionButton}" Background="{StaticResource SourceColor}" Foreground="#20252B" Click="ForwardClick" Margin="12,0,0,0" IsEnabled="False"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE74B;" FontSize="15" VerticalAlignment="Center"/><TextBlock Text="Source to Target" Margin="6,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
+    <Button x:Name="ReverseButton" Style="{StaticResource MftActionButton}" Background="{StaticResource TargetColor}" Click="ReverseClick" Margin="8,0,0,0" IsEnabled="False"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE74A;" FontSize="15" VerticalAlignment="Center"/><TextBlock Text="Target to Source" Margin="6,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
     </StackPanel>
    </Grid>
   </StackPanel>
@@ -110,6 +128,12 @@
      </CheckBox>
      <CheckBox x:Name="TargetOnlyFilter" Style="{StaticResource KindFilterStyle}" IsChecked="True" Click="KindFilter_Click" ToolTip="Present on Target only">
       <Image x:Name="TargetOnlyFilterIcon" Width="22" Height="22" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+     </CheckBox>
+     <CheckBox x:Name="ObjFilter" Style="{StaticResource KindFilterStyle}" IsChecked="False" Click="BuildFolderFilter_Click" ToolTip="Show obj folders and their files" AutomationProperties.Name="Show OBJ">
+      <Image x:Name="ObjFilterIcon" Width="22" Height="22" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+     </CheckBox>
+     <CheckBox x:Name="BinFilter" Style="{StaticResource KindFilterStyle}" IsChecked="False" Click="BuildFolderFilter_Click" ToolTip="Show bin folders and their files" AutomationProperties.Name="Show BIN">
+      <Image x:Name="BinFilterIcon" Width="22" Height="22" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
      </CheckBox>
     </WrapPanel></Border>
     <TreeView x:Name="FolderTree" SelectedItemChanged="FolderChanged" ItemContainerStyle="{StaticResource FolderItemStyle}" BorderThickness="0" HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.CanContentScroll="True" VirtualizingPanel.CacheLength="0" VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling" Background="{DynamicResource CardBackground}" Foreground="{DynamicResource Ink}">

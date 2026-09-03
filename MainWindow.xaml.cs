@@ -1,4 +1,4 @@
-﻿using DesktopIniManager.Models;
+using DesktopIniManager.Models;
 using DesktopIniManager.Services;
 using DesktopIniManager.Views;
 using Microsoft.Win32;
@@ -109,7 +109,7 @@ namespace DesktopIniManager
                 }
                 ShowTextEnd(RootBox);
                 ShowTextEnd(IconPathBox);
-                Activate(); Topmost = true; Topmost = false; Focus();
+                WindowActivationService.BringToFront(this);
                 if (resume != null) { RestoreElevation(resume); return; }
                 if (runGitSearch) Dispatcher.BeginInvoke(new Action(() => GitSearch_Click(this, new RoutedEventArgs())));
                 else if (runSearch) Dispatcher.BeginInvoke(new Action(() => Search_Click(this, new RoutedEventArgs())));
@@ -327,7 +327,7 @@ namespace DesktopIniManager
                 ShowTreeView(_treeView);
             }
             catch (OperationCanceledException) { StatusText.Text = "Search cancelled"; }
-            catch (Exception ex) { MessageBox.Show(ex.Message, Title); StatusText.Text = "Search failed"; }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.English(ex), Title); StatusText.Text = "Search failed"; }
             finally
             {
                 if (ReferenceEquals(_searchCts, searchCts)) { _searchCts = null; SetSearching(false); }
@@ -1094,7 +1094,7 @@ namespace DesktopIniManager
                 }
                 catch (Exception ex)
                 {
-                    errors.Add(item.Path + ": " + ex.Message);
+                    errors.Add(item.Path + ": " + ErrorMessages.English(ex));
                 }
             }
 
@@ -1130,7 +1130,7 @@ namespace DesktopIniManager
                 }
                 catch (Exception ex)
                 {
-                    errors.Add(item.Path + ": " + ex.Message);
+                    errors.Add(item.Path + ": " + ErrorMessages.English(ex));
                 }
             }
 
@@ -1150,7 +1150,7 @@ namespace DesktopIniManager
                 _differencerWindow.Closed += (s, args) => _differencerWindow = null;
                 _differencerWindow.Show();
             }
-            else _differencerWindow.Activate();
+            else WindowActivationService.BringToFront(_differencerWindow);
         }
 
         private void Grep_Click(object sender, RoutedEventArgs e)
@@ -1199,7 +1199,7 @@ namespace DesktopIniManager
             {
                 _grepWindow.SetExplicitScopes(scopes);
                 if (_grepWindow.WindowState == WindowState.Minimized) _grepWindow.WindowState = WindowState.Normal;
-                _grepWindow.Activate();
+                WindowActivationService.BringToFront(_grepWindow);
             }
         }
 
@@ -1305,7 +1305,7 @@ namespace DesktopIniManager
                 ShowTreeView(state.View == 1 ? 1 : 0);
                 StatusText.Text = "Folder trees restored. Use Git to refresh.";
             }
-            catch (Exception ex) { StatusText.Text = "Failed to restore folder trees: " + ex.Message; }
+            catch (Exception ex) { StatusText.Text = "Failed to restore folder trees: " + ErrorMessages.English(ex); }
         }
 
         private void SaveFolderTrees()
@@ -1324,11 +1324,11 @@ namespace DesktopIniManager
                     Solution = FolderTreeStateService.Capture(_solutionRoots, _solutionCurrent, icons, iconIds)
                 });
             }
-            catch (Exception ex) { StatusText.Text = "Failed to save folder trees: " + ex.Message; }
+            catch (Exception ex) { StatusText.Text = "Failed to save folder trees: " + ErrorMessages.English(ex); }
         }
 
         private void Close_Click(object sender, RoutedEventArgs e) => Close();
-        private void ShowError(string message, Exception ex) { StatusText.Text = message; MessageBox.Show(message + "\n\n" + ex.Message, Title, MessageBoxButton.OK, MessageBoxImage.Error); }
+        private void ShowError(string message, Exception ex) { StatusText.Text = message; MessageBox.Show(message + "\n\n" + ErrorMessages.English(ex), Title, MessageBoxButton.OK, MessageBoxImage.Error); }
         protected override void OnClosed(EventArgs e) { _searchCts?.Cancel(); _grepWindow?.Close(); SettingsService.SaveIconLibraryPath(IconPathBox.Text); SettingsService.SaveSearchQuery(QueryBox.Text); SettingsService.SaveSearchRoot(RootBox.Text); base.OnClosed(e); }
 
         private sealed class StandardSearchResult

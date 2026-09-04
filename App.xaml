@@ -22,6 +22,75 @@
       <Setter Property="MinHeight" Value="36"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
+    <Style x:Key="LanguageComboStyle" TargetType="ComboBox">
+      <Setter Property="Height" Value="36"/>
+      <Setter Property="MinHeight" Value="36"/>
+      <Setter Property="MaxHeight" Value="36"/>
+      <Setter Property="MinWidth" Value="122"/>
+      <Setter Property="Margin" Value="0"/>
+      <Setter Property="Padding" Value="8,2"/>
+      <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+      <Setter Property="Background" Value="{DynamicResource CardBackground}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource InputLine}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+      <Setter Property="ItemContainerStyle">
+        <Setter.Value>
+          <Style TargetType="ComboBoxItem">
+            <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="ComboBoxItem">
+                  <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                    <ContentPresenter/>
+                  </Border>
+                  <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource AccentSoft}"/></Trigger>
+                    <Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="{DynamicResource ThemeSelected}"/></Trigger>
+                  </ControlTemplate.Triggers>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+        </Setter.Value>
+      </Setter>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ComboBox">
+            <Grid>
+              <Border x:Name="Border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="22"/>
+                  </Grid.ColumnDefinitions>
+                  <ContentPresenter Margin="{TemplateBinding Padding}" VerticalAlignment="Center" HorizontalAlignment="Left" Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding ItemTemplate}"/>
+                  <Path Grid.Column="1" Data="M 0 0 L 4 4 L 8 0" Stroke="{DynamicResource Ink}" StrokeThickness="1.5" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Grid>
+              </Border>
+              <ToggleButton Focusable="False" Background="Transparent" BorderThickness="0" ClickMode="Press" IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                <ToggleButton.Template>
+                  <ControlTemplate TargetType="ToggleButton">
+                    <Border Background="Transparent"/>
+                  </ControlTemplate>
+                </ToggleButton.Template>
+              </ToggleButton>
+              <Popup Placement="Bottom" AllowsTransparency="True" IsOpen="{TemplateBinding IsDropDownOpen}" PopupAnimation="Slide">
+                <Border Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource InputLine}" BorderThickness="1"
+                        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}">
+                  <ScrollViewer MaxHeight="200">
+                    <ItemsPresenter/>
+                  </ScrollViewer>
+                </Border>
+              </Popup>
+            </Grid>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
     <Style TargetType="TextBox"><Setter Property="Padding" Value="10,8"/><Setter Property="Foreground" Value="{DynamicResource Ink}"/><Setter Property="Background" Value="{DynamicResource CardBackground}"/><Setter Property="BorderBrush" Value="{DynamicResource InputLine}"/><Setter Property="BorderThickness" Value="1"/></Style>
     <Style TargetType="CheckBox"><Setter Property="Foreground" Value="{DynamicResource Ink}"/><Setter Property="VerticalAlignment" Value="Center"/></Style>
     <Style TargetType="ContextMenu">

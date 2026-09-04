@@ -16,8 +16,11 @@ namespace DesktopIniManager
         {
             DispatcherUnhandledException += OnDispatcherUnhandledException;
             WindowActivationService.Install();
-            Thread.CurrentThread.CurrentUICulture = CultureInfo.InstalledUICulture;
-            Thread.CurrentThread.CurrentCulture = CultureInfo.InstalledUICulture;
+            CultureInfo ui = StringOverlay.ResolveCulture();
+            StringOverlay.Load(ui);
+            Strings.Culture = ui;
+            Thread.CurrentThread.CurrentUICulture = ui;
+            Thread.CurrentThread.CurrentCulture = ui;
             base.OnStartup(e);
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
             SplashWindow splash = null;

@@ -12,6 +12,7 @@ namespace DesktopIniManager.Properties
         private static readonly object gate = new object();
         private static Dictionary<string, string> map = new Dictionary<string, string>(StringComparer.Ordinal);
         private static bool loaded;
+        internal static event EventHandler CultureChanged;
 
         internal static CultureInfo ResolveCulture()
         {
@@ -31,6 +32,41 @@ namespace DesktopIniManager.Properties
                 map = ReadMap(culture ?? CultureInfo.GetCultureInfo("ja"));
                 loaded = true;
             }
+        }
+
+        internal static void SetCulture(string cultureName)
+        {
+            CultureInfo culture;
+            try { culture = CultureInfo.GetCultureInfo((cultureName ?? "ja").Trim()); }
+            catch (CultureNotFoundException) { culture = CultureInfo.GetCultureInfo("ja"); }
+            Load(culture);
+            Strings.Culture = culture;
+            System.Threading.Thread.CurrentThread.CurrentUICulture = culture;
+            System.Threading.Thread.CurrentThread.CurrentCulture = culture;
+            WriteCulture(culture.Name);
+            EventHandler handler = CultureChanged;
+            if (handler != null) handler(null, EventArgs.Empty);
+        }
+
+        private static void WriteCulture(string name)
+        {
+            foreach (string dir in PersistDirs())
+            {
+                try
+                {
+                    Directory.CreateDirectory(dir);
+                    File.WriteAllText(Path.Combine(dir, "culture.txt"), name ?? "ja", new UTF8Encoding(false));
+                    return;
+                }
+                catch { }
+            }
+        }
+
+        private static IEnumerable<string> PersistDirs()
+        {
+            yield return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DesktopIniManager");
+            if (!string.IsNullOrEmpty(AppDomain.CurrentDomain.BaseDirectory))
+                yield return AppDomain.CurrentDomain.BaseDirectory;
         }
 
         internal static string Get(string key)
@@ -91,6 +127,7 @@ namespace DesktopIniManager.Properties
 
         private static IEnumerable<string> SearchDirs()
         {
+            yield return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DesktopIniManager");
             if (!string.IsNullOrEmpty(AppDomain.CurrentDomain.BaseDirectory))
                 yield return AppDomain.CurrentDomain.BaseDirectory;
             string asm = null;

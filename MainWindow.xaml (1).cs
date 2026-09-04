@@ -17,7 +17,6 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using System.Windows.Media.Animation;
 using System.Windows.Controls;
 using FastVolumeIndex;
@@ -1349,13 +1348,10 @@ namespace DesktopIniManager
         private static ImageSource[] LoadFlagIcons()
         {
             var flags = new ImageSource[4];
-            string path = PrepareFlagLibrary(FindFlagLibrary());
+            string path = FindFlagLibrary();
             if (path == null) return flags;
             for (int index = 0; index < flags.Length; index++)
-            {
                 flags[index] = ExtractFlagIcon(path, index);
-                if (flags[index] == null) flags[index] = ExtractFlagIconFromResources(path, index);
-            }
             return flags;
         }
 
@@ -1373,37 +1369,11 @@ namespace DesktopIniManager
             return candidates.FirstOrDefault(File.Exists);
         }
 
-        private static string PrepareFlagLibrary(string path)
-        {
-            if (string.IsNullOrEmpty(path) || !File.Exists(path)) return null;
-            UnblockInternetZone(path);
-            try
-            {
-                string cacheDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DesktopIniManager");
-                Directory.CreateDirectory(cacheDir);
-                string cache = Path.Combine(cacheDir, "Flag.icl");
-                if (!File.Exists(cache) || File.GetLastWriteTimeUtc(path) > File.GetLastWriteTimeUtc(cache))
-                    File.Copy(path, cache, true);
-                UnblockInternetZone(cache);
-                return File.Exists(cache) ? cache : path;
-            }
-            catch
-            {
-                return path;
-            }
-        }
-
-        private static void UnblockInternetZone(string path)
-        {
-            try { File.Delete(path + ":Zone.Identifier"); }
-            catch { }
-        }
-
         private static ImageSource ExtractFlagIcon(string path, int index)
         {
             var large = new IntPtr[1];
             var small = new IntPtr[1];
-            ExtractIconEx(path, index, large, small, 1);
+            if (ExtractIconEx(path, index, large, small, 1) == 0) return null;
             IntPtr handle = large[0] != IntPtr.Zero ? large[0] : small[0];
             if (handle == IntPtr.Zero) return null;
             try
@@ -1412,22 +1382,11 @@ namespace DesktopIniManager
                 bitmap.Freeze();
                 return bitmap;
             }
-            catch { return null; }
             finally
             {
                 if (large[0] != IntPtr.Zero) DestroyIcon(large[0]);
                 if (small[0] != IntPtr.Zero) DestroyIcon(small[0]);
             }
-        }
-
-        private static ImageSource ExtractFlagIconFromResources(string path, int index)
-        {
-            try
-            {
-                var group = IconResourceReader.Read(path).FirstOrDefault(item => item.ShellIndex == index);
-                return group != null ? group.Preview : null;
-            }
-            catch { return null; }
         }
 
         [System.Runtime.InteropServices.DllImport("shell32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
@@ -1470,88 +1429,6 @@ namespace DesktopIniManager
             if (choice == null) return;
             StringOverlay.SetCulture(choice.Code);
             Title = Strings.App_Title;
-            RelayoutChildWindows();
-        }
-
-        private async void RelayoutChildWindows()
-        {
-            bool reopenGrep = _grepWindow != null;
-            bool reopenMft = _differencerWindow != null;
-            IReadOnlyList<string> scopes = reopenGrep ? GetSelectedGrepScopes() : null;
-            Rect grepBounds = reopenGrep ? CaptureBounds(_grepWindow) : Rect.Empty;
-            WindowState grepState = reopenGrep ? _grepWindow.WindowState : WindowState.Normal;
-            Rect mftBounds = reopenMft ? CaptureBounds(_differencerWindow) : Rect.Empty;
-            WindowState mftState = reopenMft ? _differencerWindow.WindowState : WindowState.Normal;
-
-            var children = Application.Current.Windows.Cast<Window>().Where(window => !ReferenceEquals(window, this)).ToArray();
-            await FadeWindows(children, 1, 0, TimeSpan.FromMilliseconds(220));
-            foreach (Window window in children)
-            {
-                try { window.Close(); } catch { }
-            }
-
-            if (reopenMft)
-            {
-                MftDifferencer_Click(this, new RoutedEventArgs());
-                RestoreWindowPlacement(_differencerWindow, mftBounds, mftState);
-                PrepareFadeIn(_differencerWindow);
-            }
-            if (reopenGrep)
-            {
-                OpenGrep(scopes);
-                RestoreWindowPlacement(_grepWindow, grepBounds, grepState);
-                PrepareFadeIn(_grepWindow);
-            }
-
-            await FadeWindows(new Window[] { _differencerWindow, _grepWindow }.Where(window => window != null).ToArray(), 0, 1, TimeSpan.FromMilliseconds(280));
-        }
-
-        private static void PrepareFadeIn(Window window)
-        {
-            if (window == null) return;
-            window.BeginAnimation(OpacityProperty, null);
-            window.Opacity = 0;
-        }
-
-        private static Task FadeWindows(Window[] windows, double from, double to, TimeSpan duration)
-        {
-            if (windows == null || windows.Length == 0) return Task.CompletedTask;
-            var tasks = new List<Task>();
-            foreach (Window window in windows)
-            {
-                if (window == null) continue;
-                var done = new TaskCompletionSource<bool>();
-                var animation = new DoubleAnimation(from, to, duration)
-                {
-                    EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut }
-                };
-                animation.Completed += (sender, args) => done.TrySetResult(true);
-                window.BeginAnimation(OpacityProperty, null);
-                window.Opacity = from;
-                window.BeginAnimation(OpacityProperty, animation);
-                tasks.Add(done.Task);
-            }
-            return tasks.Count == 0 ? Task.CompletedTask : Task.WhenAll(tasks);
-        }
-
-        private static Rect CaptureBounds(Window window)
-        {
-            if (window == null) return Rect.Empty;
-            return window.WindowState == WindowState.Normal
-                ? new Rect(window.Left, window.Top, window.Width, window.Height)
-                : window.RestoreBounds;
-        }
-
-        private static void RestoreWindowPlacement(Window window, Rect bounds, WindowState state)
-        {
-            if (window == null || bounds.IsEmpty) return;
-            window.WindowStartupLocation = WindowStartupLocation.Manual;
-            window.WindowState = WindowState.Normal;
-            window.Left = bounds.Left;
-            window.Top = bounds.Top;
-            window.Width = Math.Max(window.MinWidth, bounds.Width);
-            window.Height = Math.Max(window.MinHeight, bounds.Height);
-            window.WindowState = state == WindowState.Minimized ? WindowState.Minimized : state;
         }
 
         private sealed class StandardSearchResult

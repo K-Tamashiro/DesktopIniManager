@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using DesktopIniManager.Properties;
 
 namespace DesktopIniManager.Services
 {
@@ -9,18 +10,18 @@ namespace DesktopIniManager.Services
         {
             var missing = error as FileNotFoundException;
             if (missing != null)
-                return "The file could not be found." + (string.IsNullOrEmpty(missing.FileName) ? "" : "\nFile: " + missing.FileName);
-            if (error is DirectoryNotFoundException) return "The folder or part of the path could not be found. Check Source and Target, then compare again.";
-            if (error is DriveNotFoundException) return "The drive could not be found or is unavailable.";
-            if (error is UnauthorizedAccessException) return "Access was denied. Check file permissions and read-only attributes.";
-            if (error is PathTooLongException) return "The file or folder path is too long.";
+                return Strings.Err_FileNotFound + (string.IsNullOrEmpty(missing.FileName) ? "" : "\n" + string.Format(Strings.Err_FileLabel, missing.FileName));
+            if (error is DirectoryNotFoundException) return Strings.Err_DirectoryNotFound;
+            if (error is DriveNotFoundException) return Strings.Err_DriveNotFound;
+            if (error is UnauthorizedAccessException) return Strings.Err_AccessDenied;
+            if (error is PathTooLongException) return Strings.Err_PathTooLong;
             int code = error.HResult & 0xffff;
-            if (error is IOException && (code == 32 || code == 33)) return "The file is locked by another process. Close the application using it and try again.";
+            if (error is IOException && (code == 32 || code == 33)) return Strings.Err_FileLocked;
             // Preserve our English diagnostics, including paths that contain Japanese characters.
             string message = error.Message;
             if (!string.IsNullOrEmpty(message) && ((message[0] >= 'A' && message[0] <= 'Z') || (message[0] >= 'a' && message[0] <= 'z')))
                 return message;
-            return "The operation could not be completed. Error code: 0x" + error.HResult.ToString("X8") + " (" + error.GetType().Name + ").";
+            return string.Format(Strings.Err_Generic, error.HResult.ToString("X8"), error.GetType().Name);
         }
     }
 }

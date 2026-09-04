@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using DesktopIniManager.Properties;
 
 namespace DesktopIniManager.Services
 {
@@ -42,20 +43,20 @@ namespace DesktopIniManager.Services
         internal static string FindMSBuild()
         {
             string vswhere = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Microsoft Visual Studio", "Installer", "vswhere.exe");
-            if (!File.Exists(vswhere)) throw new IOException("Visual Studio Installer / vswhere.exe was not found. Install Visual Studio or Build Tools with MSBuild.");
+            if (!File.Exists(vswhere)) throw new IOException(Strings.Clean_VswhereMissing);
             string output;
             int exit = Run(vswhere, "-latest -products * -requires Microsoft.Component.MSBuild -find MSBuild\\**\\Bin\\MSBuild.exe", Path.GetDirectoryName(vswhere), out output);
             string path = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault(File.Exists);
-            if (exit != 0 || path == null) throw new IOException("MSBuild was not found. Install Visual Studio or Build Tools with MSBuild.");
+            if (exit != 0 || path == null) throw new IOException(Strings.Clean_MsbuildMissing);
             return path;
         }
 
         internal static int Clean(string msbuild, string solution, string configuration, out string output)
         {
             if (ContainsRunningApplication(solution))
-                throw new IOException("Cannot clean the solution containing the running DIM application. Start DIM from a separate release folder outside this solution, then clean again.");
+                throw new IOException(Strings.Clean_RunningDim);
             if (string.IsNullOrWhiteSpace(configuration) || configuration.Any(c => !char.IsLetterOrDigit(c) && c != ' ' && c != '_' && c != '-'))
-                throw new ArgumentException("Use configuration names separated by semicolons (for example Debug;Release).");
+                throw new ArgumentException(Strings.Clean_BadConfiguration);
             MftDifferencerService.SafePath(Path.GetDirectoryName(solution) + Path.DirectorySeparatorChar, Path.GetFileName(solution));
             return Run(msbuild, "\"" + solution + "\" /t:Clean /p:Configuration=\"" + configuration + "\" /nologo /v:minimal /nr:false", Path.GetDirectoryName(solution), out output);
         }

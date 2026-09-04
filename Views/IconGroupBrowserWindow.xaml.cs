@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Input;
+using DesktopIniManager.Properties;
 
 namespace DesktopIniManager.Views
 {
@@ -13,7 +14,7 @@ namespace DesktopIniManager.Views
             InitializeComponent();
             var items = groups.ToList();
             FilePathText.Text = filePath;
-            CountText.Text = items.Count + " icons";
+            CountText.Text = string.Format(Strings.Icon_NIcons, items.Count);
             GroupList.ItemsSource = items;
             GroupList.SelectedItem = items.FirstOrDefault(item => item.ShellIndex == currentIndex) ?? items.FirstOrDefault();
             Loaded += (sender, args) => { if (GroupList.SelectedItem != null) GroupList.ScrollIntoView(GroupList.SelectedItem); };

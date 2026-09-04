@@ -1,0 +1,978 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="App_Title" xml:space="preserve">
+    <value>desktop.ini Manager</value>
+  </data>
+  <data name="App_ProductName" xml:space="preserve">
+    <value>DesktopIniManager</value>
+  </data>
+  <data name="App_StartFailed" xml:space="preserve">
+    <value>DesktopIniManager could not start.
+
+{0}</value>
+  </data>
+  <data name="App_Unhandled" xml:space="preserve">
+    <value>An error occurred. The application can continue.
+
+{0}</value>
+  </data>
+  <data name="Splash_Title" xml:space="preserve">
+    <value>DesktopIniManager — Starting</value>
+  </data>
+  <data name="Splash_Initializing" xml:space="preserve">
+    <value>Initializing…</value>
+  </data>
+  <data name="Splash_LoadingSettings" xml:space="preserve">
+    <value>Loading startup settings…</value>
+  </data>
+  <data name="Splash_RestoringTrees" xml:space="preserve">
+    <value>Restoring saved folder trees…</value>
+  </data>
+  <data name="Splash_PreparingIcons" xml:space="preserve">
+    <value>Preparing folder icons…</value>
+  </data>
+  <data name="Splash_BuildingWorkspace" xml:space="preserve">
+    <value>Building the workspace…</value>
+  </data>
+  <data name="Splash_Ready" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+  <data name="Splash_Copyright" xml:space="preserve">
+    <value>© {0} ZEBRASOFT Co.,Ltd.</value>
+  </data>
+  <data name="Splash_Author" xml:space="preserve">
+    <value>By Tamayan</value>
+  </data>
+  <data name="Common_Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="Common_Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Common_Browse" xml:space="preserve">
+    <value>Browse</value>
+  </data>
+  <data name="Common_Search" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="Common_Clear" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="Common_Ready" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+  <data name="Common_PleaseWait" xml:space="preserve">
+    <value>Please wait…</value>
+  </data>
+  <data name="Common_Expand" xml:space="preserve">
+    <value>Expand</value>
+  </data>
+  <data name="Common_Collapse" xml:space="preserve">
+    <value>Collapse</value>
+  </data>
+  <data name="Common_Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="Common_Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="Common_State" xml:space="preserve">
+    <value>State</value>
+  </data>
+  <data name="Common_Files" xml:space="preserve">
+    <value>Files</value>
+  </data>
+  <data name="Common_Folders" xml:space="preserve">
+    <value>Folders</value>
+  </data>
+  <data name="Common_Source" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="Common_Target" xml:space="preserve">
+    <value>Target</value>
+  </data>
+  <data name="Common_Select" xml:space="preserve">
+    <value>Select</value>
+  </data>
+  <data name="Common_Compare" xml:space="preserve">
+    <value>Compare</value>
+  </data>
+  <data name="Common_Clean" xml:space="preserve">
+    <value>Clean</value>
+  </data>
+  <data name="Common_Sync" xml:space="preserve">
+    <value>Sync</value>
+  </data>
+  <data name="Common_OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Common_Fail" xml:space="preserve">
+    <value>FAIL</value>
+  </data>
+  <data name="Common_Locked" xml:space="preserve">
+    <value>LOCKED</value>
+  </data>
+  <data name="Common_Items" xml:space="preserve">
+    <value>items</value>
+  </data>
+  <data name="Common_FileSingular" xml:space="preserve">
+    <value>file</value>
+  </data>
+  <data name="Common_FilePlural" xml:space="preserve">
+    <value>files</value>
+  </data>
+  <data name="Common_FolderSingular" xml:space="preserve">
+    <value>folder</value>
+  </data>
+  <data name="Common_FolderPlural" xml:space="preserve">
+    <value>folders</value>
+  </data>
+  <data name="Common_Language" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Common_LanguageAuto" xml:space="preserve">
+    <value>System language</value>
+  </data>
+  <data name="Common_LanguageEnglish" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="Common_LanguageJapanese" xml:space="preserve">
+    <value>日本語</value>
+  </data>
+  <data name="Common_LanguageChineseSimplified" xml:space="preserve">
+    <value>简体中文</value>
+  </data>
+  <data name="Common_LanguageKorean" xml:space="preserve">
+    <value>한국어</value>
+  </data>
+  <data name="Common_LanguageRestart" xml:space="preserve">
+    <value>The language will apply after DesktopIniManager restarts.</value>
+  </data>
+  <data name="Common_LanguageHint" xml:space="preserve">
+    <value>Add Languages\{culture}.txt beside the executable to supply a translation.</value>
+  </data>
+  <data name="Theme_Light" xml:space="preserve">
+    <value>Light mode</value>
+  </data>
+  <data name="Theme_Dark" xml:space="preserve">
+    <value>Dark mode</value>
+  </data>
+  <data name="Main_Subtitle" xml:space="preserve">
+    <value>Find folders by name or content and apply custom icons in batches</value>
+  </data>
+  <data name="Main_FastNtfs" xml:space="preserve">
+    <value>Use fast NTFS search</value>
+  </data>
+  <data name="Main_ElevationHint" xml:space="preserve">
+    <value>Windows may ask for permission</value>
+  </data>
+  <data name="Main_SearchLocation" xml:space="preserve">
+    <value>Search location</value>
+  </data>
+  <data name="Main_CloudUnsupported" xml:space="preserve">
+    <value>Cloud and network locations are not supported.</value>
+  </data>
+  <data name="Main_KeywordsOptional" xml:space="preserve">
+    <value>Keywords (optional)</value>
+  </data>
+  <data name="Main_GitSearch" xml:space="preserve">
+    <value>GIT Search</value>
+  </data>
+  <data name="Main_Git" xml:space="preserve">
+    <value>GIT</value>
+  </data>
+  <data name="Main_ReplacementIcon" xml:space="preserve">
+    <value>Replacement icon</value>
+  </data>
+  <data name="Main_IconFormats" xml:space="preserve">
+    <value>ICO / ICL / DLL / EXE</value>
+  </data>
+  <data name="Main_ChangeLibrary" xml:space="preserve">
+    <value>Change library</value>
+  </data>
+  <data name="Main_Library" xml:space="preserve">
+    <value>Library</value>
+  </data>
+  <data name="Main_ChooseIcon" xml:space="preserve">
+    <value>Choose icon</value>
+  </data>
+  <data name="Main_Icon" xml:space="preserve">
+    <value>Icon</value>
+  </data>
+  <data name="Main_SelectedIcon" xml:space="preserve">
+    <value>Selected icon</value>
+  </data>
+  <data name="Main_NotSelected" xml:space="preserve">
+    <value>Not selected</value>
+  </data>
+  <data name="Main_InvertSelection" xml:space="preserve">
+    <value>Invert selection</value>
+  </data>
+  <data name="Main_Invert" xml:space="preserve">
+    <value>Invert</value>
+  </data>
+  <data name="Main_HideUnchecked" xml:space="preserve">
+    <value>Hide unchecked folders</value>
+  </data>
+  <data name="Main_ShowHidden" xml:space="preserve">
+    <value>Show hidden folders</value>
+  </data>
+  <data name="Main_TreeCompact" xml:space="preserve">
+    <value>Compact folder list</value>
+  </data>
+  <data name="Main_TreeComfortable" xml:space="preserve">
+    <value>Comfortable folder list</value>
+  </data>
+  <data name="Main_AddGitignore" xml:space="preserve">
+    <value>Add desktop.ini to .gitignore</value>
+  </data>
+  <data name="Main_ZeroMatches" xml:space="preserve">
+    <value>0 matches</value>
+  </data>
+  <data name="Main_FilterFolders" xml:space="preserve">
+    <value>Filter folders</value>
+  </data>
+  <data name="Main_FilterTooltip" xml:space="preserve">
+    <value>Space-separated words; all words must match the folder path</value>
+  </data>
+  <data name="Main_UseAsSearchLocation" xml:space="preserve">
+    <value>Use as search location</value>
+  </data>
+  <data name="Main_OpenInExplorer" xml:space="preserve">
+    <value>Open in Explorer</value>
+  </data>
+  <data name="Main_GrepThisFolder" xml:space="preserve">
+    <value>Grep this folder</value>
+  </data>
+  <data name="Main_List" xml:space="preserve">
+    <value>List</value>
+  </data>
+  <data name="Main_LargeIcons" xml:space="preserve">
+    <value>Large icons</value>
+  </data>
+  <data name="Main_SmallIcons" xml:space="preserve">
+    <value>Small icons</value>
+  </data>
+  <data name="Main_Physical" xml:space="preserve">
+    <value>Physical</value>
+  </data>
+  <data name="Main_Solution" xml:space="preserve">
+    <value>Solution</value>
+  </data>
+  <data name="Main_RemoveSettings" xml:space="preserve">
+    <value>Remove settings</value>
+  </data>
+  <data name="Main_IconRemove" xml:space="preserve">
+    <value>Icon Remove</value>
+  </data>
+  <data name="Main_MftTooltip" xml:space="preserve">
+    <value>Compare and synchronize folders</value>
+  </data>
+  <data name="Main_Mft" xml:space="preserve">
+    <value>MFT Differencer</value>
+  </data>
+  <data name="Main_GrepTooltip" xml:space="preserve">
+    <value>Grep selected folders</value>
+  </data>
+  <data name="Main_Grep" xml:space="preserve">
+    <value>Scoped Code Grep</value>
+  </data>
+  <data name="Main_ApplyTooltip" xml:space="preserve">
+    <value>Apply to selected folders</value>
+  </data>
+  <data name="Main_IconApply" xml:space="preserve">
+    <value>Icon Apply</value>
+  </data>
+  <data name="Main_PreviewUnavailable" xml:space="preserve">
+    <value>Preview unavailable</value>
+  </data>
+  <data name="Main_IndexN" xml:space="preserve">
+    <value>Index {0}</value>
+  </data>
+  <data name="Main_SelectSearchFolder" xml:space="preserve">
+    <value>Select a search folder</value>
+  </data>
+  <data name="Main_FolderPickerFailed" xml:space="preserve">
+    <value>Could not open the folder picker.</value>
+  </data>
+  <data name="Main_IconFilter" xml:space="preserve">
+    <value>Icon resources|*.ico;*.icl;*.dll;*.exe|All files|*.*</value>
+  </data>
+  <data name="Main_SelectedSuffix" xml:space="preserve">
+    <value> selected</value>
+  </data>
+  <data name="Main_LibrarySelectFailed" xml:space="preserve">
+    <value>Could not select the icon library.</value>
+  </data>
+  <data name="Main_ChooseLibraryFirst" xml:space="preserve">
+    <value>Choose an icon library first.</value>
+  </data>
+  <data name="Main_LoadingIcons" xml:space="preserve">
+    <value>Loading icons…</value>
+  </data>
+  <data name="Main_NoIconGroups" xml:space="preserve">
+    <value>No icon groups were found.</value>
+  </data>
+  <data name="Main_IconNSelected" xml:space="preserve">
+    <value>Icon {0} selected</value>
+  </data>
+  <data name="Main_IconCancelled" xml:space="preserve">
+    <value>Icon selection cancelled</value>
+  </data>
+  <data name="Main_IconBrowserFailed" xml:space="preserve">
+    <value>Could not open the icon browser.</value>
+  </data>
+  <data name="Main_LocationMissing" xml:space="preserve">
+    <value>The search location does not exist.</value>
+  </data>
+  <data name="Main_ReadingNtfs" xml:space="preserve">
+    <value>Reading the NTFS index…</value>
+  </data>
+  <data name="Main_IndexedFolders" xml:space="preserve">
+    <value>Indexed {0} folders</value>
+  </data>
+  <data name="Main_FastUnavailable" xml:space="preserve">
+    <value>Fast NTFS search is unavailable here. Using standard search…</value>
+  </data>
+  <data name="Main_FastPermissionUnavailable" xml:space="preserve">
+    <value>Fast NTFS search permission was unavailable. Using standard search…</value>
+  </data>
+  <data name="Main_DriveIndexFailed" xml:space="preserve">
+    <value>The drive index could not be read. Using standard search…</value>
+  </data>
+  <data name="Main_FoldersAnalyzing" xml:space="preserve">
+    <value>{0} folders found · analyzing projects…</value>
+  </data>
+  <data name="Main_MatchesAnalyzing" xml:space="preserve">
+    <value>{0} matches found · analyzing projects…</value>
+  </data>
+  <data name="Main_SearchCancelled" xml:space="preserve">
+    <value>Search cancelled</value>
+  </data>
+  <data name="Main_SearchFailed" xml:space="preserve">
+    <value>Search failed</value>
+  </data>
+  <data name="Main_ScanningFolders" xml:space="preserve">
+    <value>Scanning {0} folders…</value>
+  </data>
+  <data name="Main_IndexedFoldersEllipsis" xml:space="preserve">
+    <value>Indexed {0} folders…</value>
+  </data>
+  <data name="Main_BuildingTree" xml:space="preserve">
+    <value>Building folder tree…</value>
+  </data>
+  <data name="Main_ElevationCancelled" xml:space="preserve">
+    <value>Administrator permission was cancelled</value>
+  </data>
+  <data name="Main_ElevationFailed" xml:space="preserve">
+    <value>Could not restart with administrator permission.</value>
+  </data>
+  <data name="Main_FoldersFound" xml:space="preserve">
+    <value>{0} folders found</value>
+  </data>
+  <data name="Main_SolutionsFound" xml:space="preserve">
+    <value>{0} solutions found</value>
+  </data>
+  <data name="Main_SearchResults" xml:space="preserve">
+    <value>{0} search results</value>
+  </data>
+  <data name="Main_NItems" xml:space="preserve">
+    <value>{0} items</value>
+  </data>
+  <data name="Main_NFolders" xml:space="preserve">
+    <value>{0} folders</value>
+  </data>
+  <data name="Main_NMatches" xml:space="preserve">
+    <value>{0} matches</value>
+  </data>
+  <data name="Main_BuildingRows" xml:space="preserve">
+    <value>Building {0} folder rows…</value>
+  </data>
+  <data name="Main_LocationSet" xml:space="preserve">
+    <value>Search location set to {0}</value>
+  </data>
+  <data name="Main_ExplorerFailed" xml:space="preserve">
+    <value>Could not open the folder in Explorer.</value>
+  </data>
+  <data name="Main_FilesHeader" xml:space="preserve">
+    <value>Files — {0}</value>
+  </data>
+  <data name="Main_OpenFileFailed" xml:space="preserve">
+    <value>Could not open the file.</value>
+  </data>
+  <data name="Main_SelectOneFolder" xml:space="preserve">
+    <value>Select at least one folder.</value>
+  </data>
+  <data name="Main_ConfirmApply" xml:space="preserve">
+    <value>Apply the selected icon to {0} folders?</value>
+  </data>
+  <data name="Main_AppliedTo" xml:space="preserve">
+    <value>Applied to {0} folders</value>
+  </data>
+  <data name="Main_ApplyResult" xml:space="preserve">
+    <value>Icon settings applied.
+{0} succeeded, {1} failed</value>
+  </data>
+  <data name="Main_ConfirmRemove" xml:space="preserve">
+    <value>Delete desktop.ini and remove icon settings from {0} folders?</value>
+  </data>
+  <data name="Main_RemovedFrom" xml:space="preserve">
+    <value>Removed settings from {0} folders</value>
+  </data>
+  <data name="Main_RemoveResult" xml:space="preserve">
+    <value>Icon settings removed.
+{0} succeeded, {1} failed</value>
+  </data>
+  <data name="Main_NoGrepFolders" xml:space="preserve">
+    <value>No folders are available for Grep.</value>
+  </data>
+  <data name="Main_RestoreTreesFailed" xml:space="preserve">
+    <value>Failed to restore folder trees: {0}</value>
+  </data>
+  <data name="Main_TreesRestored" xml:space="preserve">
+    <value>Folder trees restored. Use Git to refresh.</value>
+  </data>
+  <data name="Main_SaveTreesFailed" xml:space="preserve">
+    <value>Failed to save folder trees: {0}</value>
+  </data>
+  <data name="Grep_Title" xml:space="preserve">
+    <value>Scoped Code Grep</value>
+  </data>
+  <data name="Grep_ScopeHint" xml:space="preserve">
+    <value>Search only the projects selected in DesktopIniManager</value>
+  </data>
+  <data name="Grep_ReloadSelection" xml:space="preserve">
+    <value>Reload selection</value>
+  </data>
+  <data name="Grep_Reload" xml:space="preserve">
+    <value>Reload</value>
+  </data>
+  <data name="Grep_SearchText" xml:space="preserve">
+    <value>Search text</value>
+  </data>
+  <data name="Grep_LanguageProfile" xml:space="preserve">
+    <value>Language profile</value>
+  </data>
+  <data name="Grep_IncludedExtensions" xml:space="preserve">
+    <value>Included extensions</value>
+  </data>
+  <data name="Grep_Regex" xml:space="preserve">
+    <value>Regular expression</value>
+  </data>
+  <data name="Grep_MatchCase" xml:space="preserve">
+    <value>Match case</value>
+  </data>
+  <data name="Grep_WholeWord" xml:space="preserve">
+    <value>Whole word</value>
+  </data>
+  <data name="Grep_Project" xml:space="preserve">
+    <value>Project</value>
+  </data>
+  <data name="Grep_FileName" xml:space="preserve">
+    <value>File name</value>
+  </data>
+  <data name="Grep_Line" xml:space="preserve">
+    <value>Line</value>
+  </data>
+  <data name="Grep_Column" xml:space="preserve">
+    <value>Column</value>
+  </data>
+  <data name="Grep_Match" xml:space="preserve">
+    <value>Match</value>
+  </data>
+  <data name="Grep_Editor" xml:space="preserve">
+    <value>Editor</value>
+  </data>
+  <data name="Grep_EditorArguments" xml:space="preserve">
+    <value>Arguments ({file}, {line}, {column})</value>
+  </data>
+  <data name="Grep_EditorExecutable" xml:space="preserve">
+    <value>Editor executable or command</value>
+  </data>
+  <data name="Grep_BrowseEditor" xml:space="preserve">
+    <value>Browse editor</value>
+  </data>
+  <data name="Icon_Title" xml:space="preserve">
+    <value>Choose Icon</value>
+  </data>
+  <data name="Icon_Hint" xml:space="preserve">
+    <value>Double-click an icon to select it</value>
+  </data>
+  <data name="Mft_Title" xml:space="preserve">
+    <value>MFT Differencer</value>
+  </data>
+  <data name="Mft_CancelCompare" xml:space="preserve">
+    <value>Cancel comparison</value>
+  </data>
+  <data name="Mft_CompareDates" xml:space="preserve">
+    <value>Compare dates</value>
+  </data>
+  <data name="Mft_CompareDatesTip" xml:space="preserve">
+    <value>Include last-write timestamps when classifying differences</value>
+  </data>
+  <data name="Mft_CleanTip" xml:space="preserve">
+    <value>Choose solutions and configurations to clean with MSBuild, then compare again</value>
+  </data>
+  <data name="Mft_CleanSolution" xml:space="preserve">
+    <value>Clean solution</value>
+  </data>
+  <data name="Mft_SourceToTarget" xml:space="preserve">
+    <value>Source to Target</value>
+  </data>
+  <data name="Mft_TargetToSource" xml:space="preserve">
+    <value>Target to Source</value>
+  </data>
+  <data name="Mft_NeedRoots" xml:space="preserve">
+    <value>Choose Source and Target, then Compare. Local NTFS and an elevated DIM process are required.</value>
+  </data>
+  <data name="Mft_SameTimeSize" xml:space="preserve">
+    <value>Same timestamp and size</value>
+  </data>
+  <data name="Mft_DifferentMeta" xml:space="preserve">
+    <value>Present on both sides with different timestamp or size</value>
+  </data>
+  <data name="Mft_SourceOnly" xml:space="preserve">
+    <value>Present on Source only</value>
+  </data>
+  <data name="Mft_TargetOnly" xml:space="preserve">
+    <value>Present on Target only</value>
+  </data>
+  <data name="Mft_ShowObj" xml:space="preserve">
+    <value>Show obj folders and their files</value>
+  </data>
+  <data name="Mft_ShowBin" xml:space="preserve">
+    <value>Show bin folders and their files</value>
+  </data>
+  <data name="Mft_NotCompared" xml:space="preserve">
+    <value>(not compared)</value>
+  </data>
+  <data name="Mft_Selected" xml:space="preserve">
+    <value>Selected</value>
+  </data>
+  <data name="Mft_SelectedIncludesHidden" xml:space="preserve">
+    <value>Selected {0} (includes {1} hidden)</value>
+  </data>
+  <data name="Mft_AllFolders" xml:space="preserve">
+    <value>All folders</value>
+  </data>
+  <data name="Mft_FilesAllLevels" xml:space="preserve">
+    <value>Files — all levels</value>
+  </data>
+  <data name="Mft_SyncTitle" xml:space="preserve">
+    <value>Synchronize files</value>
+  </data>
+  <data name="Mft_SyncSelectedTitle" xml:space="preserve">
+    <value>Synchronize selected files</value>
+  </data>
+  <data name="Mft_OverwriteWarning" xml:space="preserve">
+    <value>Existing files may be overwritten or removed.</value>
+  </data>
+  <data name="Mft_Synchronize" xml:space="preserve">
+    <value>Synchronize</value>
+  </data>
+  <data name="Mft_Synchronizing" xml:space="preserve">
+    <value>Synchronizing — {0}</value>
+  </data>
+  <data name="Mft_SourceLabel" xml:space="preserve">
+    <value>Source: {0}</value>
+  </data>
+  <data name="Mft_TargetLabel" xml:space="preserve">
+    <value>Target: {0}</value>
+  </data>
+  <data name="Mft_Syncing" xml:space="preserve">
+    <value>{0} — syncing…</value>
+  </data>
+  <data name="Mft_FailPrefix" xml:space="preserve">
+    <value>FAIL {0}</value>
+  </data>
+  <data name="Mft_LogLabel" xml:space="preserve">
+    <value>Log: {0}</value>
+  </data>
+  <data name="Mft_SaveLogFailed" xml:space="preserve">
+    <value>Failed to save log: {0}</value>
+  </data>
+  <data name="Mft_CompleteCounts" xml:space="preserve">
+    <value>Complete  OK {0} / FAIL {1} / LOCKED {2}</value>
+  </data>
+  <data name="Mft_SyncResultTitle" xml:space="preserve">
+    <value>Sync result — OK {0} / FAIL {1} / LOCKED {2}</value>
+  </data>
+  <data name="Mft_DiffView" xml:space="preserve">
+    <value>Diff View</value>
+  </data>
+  <data name="Mft_SaveTreeFailed" xml:space="preserve">
+    <value>Failed to save tree: {0}</value>
+  </data>
+  <data name="Mft_CompareCancelled" xml:space="preserve">
+    <value>Compare cancelled</value>
+  </data>
+  <data name="Mft_CompareFailed" xml:space="preserve">
+    <value>Compare failed (sync disabled): {0}</value>
+  </data>
+  <data name="Mft_DifferencesSummary" xml:space="preserve">
+    <value>{0} differences / {1} identical. Check items to synchronize.</value>
+  </data>
+  <data name="Mft_ProgressItems" xml:space="preserve">
+    <value>{0} — {1} / {2} items</value>
+  </data>
+  <data name="Mft_UpdatingTree" xml:space="preserve">
+    <value>Updating the difference tree…</value>
+  </data>
+  <data name="Mft_ReadingMeta" xml:space="preserve">
+    <value>Reading timestamps and sizes…</value>
+  </data>
+  <data name="Mft_Classifying" xml:space="preserve">
+    <value>Classifying differences by relative path…</value>
+  </data>
+  <data name="Mft_ReadingMftFor" xml:space="preserve">
+    <value>Reading MFT for {0}</value>
+  </data>
+  <data name="Mft_MftUnavailableFor" xml:space="preserve">
+    <value>MFT unavailable for {0}</value>
+  </data>
+  <data name="Mft_ScanWithoutMft" xml:space="preserve">
+    <value>Scanning files without MFT…</value>
+  </data>
+  <data name="Mft_ScanComplete" xml:space="preserve">
+    <value>File-system scan complete.</value>
+  </data>
+  <data name="Mft_FileDisappeared" xml:space="preserve">
+    <value>A file disappeared during compare. Compare again: {0}</value>
+  </data>
+  <data name="Mft_SkipSame" xml:space="preserve">
+    <value>SKIP same {0}</value>
+  </data>
+  <data name="Mft_ChangedAfterCompare" xml:space="preserve">
+    <value>Changed after compare. Compare again.</value>
+  </data>
+  <data name="Mft_ChangedDuringCopy" xml:space="preserve">
+    <value>Changed during copy. Compare again.</value>
+  </data>
+  <data name="Mft_VerifyFailed" xml:space="preserve">
+    <value>Synchronization verification failed: destination timestamp, size or existence differs. Compare again.</value>
+  </data>
+  <data name="Mft_ChooseLocalRoot" xml:space="preserve">
+    <value>Choose a local root outside .git.</value>
+  </data>
+  <data name="Mft_RootsNested" xml:space="preserve">
+    <value>Roots must not be equal or nested.</value>
+  </data>
+  <data name="Mft_ProtectedPath" xml:space="preserve">
+    <value>Protected or invalid relative path: {0}</value>
+  </data>
+  <data name="Mft_RefusedPath" xml:space="preserve">
+    <value>Refused a path outside the root or inside .git.</value>
+  </data>
+  <data name="Mft_LinkExcluded" xml:space="preserve">
+    <value>Links and junctions are excluded: {0}</value>
+  </data>
+  <data name="Mft_NotRegularFile" xml:space="preserve">
+    <value>Not a regular file: {0}</value>
+  </data>
+  <data name="Mft_Bytes" xml:space="preserve">
+    <value>{0} bytes</value>
+  </data>
+  <data name="Mft_StateTargetOnly" xml:space="preserve">
+    <value>Target only</value>
+  </data>
+  <data name="Mft_StateSourceOnly" xml:space="preserve">
+    <value>Source only</value>
+  </data>
+  <data name="Mft_StateSizeDiffers" xml:space="preserve">
+    <value>Size differs</value>
+  </data>
+  <data name="Mft_StateTimeSizeDiffers" xml:space="preserve">
+    <value>Time / size differs</value>
+  </data>
+  <data name="Mft_StateSame" xml:space="preserve">
+    <value>Same</value>
+  </data>
+  <data name="Mft_StateNew" xml:space="preserve">
+    <value>NEW</value>
+  </data>
+  <data name="Mft_StateOld" xml:space="preserve">
+    <value>OLD</value>
+  </data>
+  <data name="Diff_Title" xml:space="preserve">
+    <value>Diff View</value>
+  </data>
+  <data name="Diff_Fit" xml:space="preserve">
+    <value>Fit</value>
+  </data>
+  <data name="Diff_ActualSize" xml:space="preserve">
+    <value>100%</value>
+  </data>
+  <data name="Diff_BinaryRejected" xml:space="preserve">
+    <value>This file type is not opened in Diff View.</value>
+  </data>
+  <data name="Err_FileNotFound" xml:space="preserve">
+    <value>The file could not be found.</value>
+  </data>
+  <data name="Err_FileLabel" xml:space="preserve">
+    <value>File: {0}</value>
+  </data>
+  <data name="Err_DirectoryNotFound" xml:space="preserve">
+    <value>The folder or part of the path could not be found. Check Source and Target, then compare again.</value>
+  </data>
+  <data name="Err_DriveNotFound" xml:space="preserve">
+    <value>The drive could not be found or is unavailable.</value>
+  </data>
+  <data name="Err_AccessDenied" xml:space="preserve">
+    <value>Access was denied. Check file permissions and read-only attributes.</value>
+  </data>
+  <data name="Err_PathTooLong" xml:space="preserve">
+    <value>The file or folder path is too long.</value>
+  </data>
+  <data name="Err_FileLocked" xml:space="preserve">
+    <value>The file is locked by another process. Close the application using it and try again.</value>
+  </data>
+  <data name="Err_Generic" xml:space="preserve">
+    <value>The operation could not be completed. Error code: 0x{0} ({1}).</value>
+  </data>
+  <data name="Grep_CancelBeforeChange" xml:space="preserve">
+    <value>Cancel the current search before changing scopes</value>
+  </data>
+  <data name="Grep_FolderSingular" xml:space="preserve">
+    <value>{0} folder</value>
+  </data>
+  <data name="Grep_FolderPlural" xml:space="preserve">
+    <value>{0} folders</value>
+  </data>
+  <data name="Grep_NoFoldersSelected" xml:space="preserve">
+    <value>No folders selected</value>
+  </data>
+  <data name="Grep_SelectFolders" xml:space="preserve">
+    <value>Select one or more project folders in DesktopIniManager.</value>
+  </data>
+  <data name="Grep_EnterText" xml:space="preserve">
+    <value>Enter search text.</value>
+  </data>
+  <data name="Grep_EnterExtensions" xml:space="preserve">
+    <value>Enter one or more file extensions for the Free profile.</value>
+  </data>
+  <data name="Grep_SearchingFiles" xml:space="preserve">
+    <value>Searching {0} / {1} files…</value>
+  </data>
+  <data name="Grep_Result" xml:space="preserve">
+    <value>{0} matches in {1} files</value>
+  </data>
+  <data name="Grep_ResultSkipped" xml:space="preserve">
+    <value>{0} matches in {1} files · {2} skipped</value>
+  </data>
+  <data name="Grep_SearchCancelled" xml:space="preserve">
+    <value>Search cancelled</value>
+  </data>
+  <data name="Grep_InvalidExpression" xml:space="preserve">
+    <value>The search expression is invalid.
+
+{0}</value>
+  </data>
+  <data name="Grep_InvalidExpressionStatus" xml:space="preserve">
+    <value>Invalid expression</value>
+  </data>
+  <data name="Grep_SearchFailed" xml:space="preserve">
+    <value>Search failed</value>
+  </data>
+  <data name="Grep_EditorFailed" xml:space="preserve">
+    <value>Could not open the editor.
+
+{0}</value>
+  </data>
+  <data name="Grep_EditorFilter" xml:space="preserve">
+    <value>Applications|*.exe|All files|*.*</value>
+  </data>
+  <data name="Grep_Cancelling" xml:space="preserve">
+    <value>Cancelling…</value>
+  </data>
+  <data name="Icon_NIcons" xml:space="preserve">
+    <value>{0} icons</value>
+  </data>
+  <data name="Diff_BinaryMessage" xml:space="preserve">
+    <value>Binary and cache files are not supported in Diff View. Only text files and supported images can be displayed.</value>
+  </data>
+  <data name="Diff_TitleFile" xml:space="preserve">
+    <value>Diff view — {0} — read only</value>
+  </data>
+  <data name="Diff_Heading" xml:space="preserve">
+    <value>Diff view</value>
+  </data>
+  <data name="Diff_Prev" xml:space="preserve">
+    <value>Prev</value>
+  </data>
+  <data name="Diff_Next" xml:space="preserve">
+    <value>Next</value>
+  </data>
+  <data name="Diff_OpenSource" xml:space="preserve">
+    <value>Open Source</value>
+  </data>
+  <data name="Diff_OpenTarget" xml:space="preserve">
+    <value>Open Target</value>
+  </data>
+  <data name="Diff_Loading" xml:space="preserve">
+    <value>Loading…</value>
+  </data>
+  <data name="Diff_HunkStatus" xml:space="preserve">
+    <value>{0} hunks | left red = removed  right green = added | UTF-8 / BOM / Shift-JIS | large files use a simplified match</value>
+  </data>
+  <data name="Diff_Unable" xml:space="preserve">
+    <value>Unable to display: {0}</value>
+  </data>
+  <data name="Diff_TooLargeBytes" xml:space="preserve">
+    <value>Files over 8 MB should be opened in an external editor.</value>
+  </data>
+  <data name="Diff_TooManyLines" xml:space="preserve">
+    <value>Files over 100,000 lines should be opened in an external editor.</value>
+  </data>
+  <data name="Diff_ZoomShared" xml:space="preserve">
+    <value>Shared zoom for Source and Target</value>
+  </data>
+  <data name="Diff_Zoom" xml:space="preserve">
+    <value>Zoom</value>
+  </data>
+  <data name="Diff_ImageStatus" xml:space="preserve">
+    <value>Source: {0} | Target: {1} | shared zoom, top-left aligned (GIF/ICO first frame)</value>
+  </data>
+  <data name="Diff_Missing" xml:space="preserve">
+    <value>Missing</value>
+  </data>
+  <data name="Diff_None" xml:space="preserve">
+    <value>none</value>
+  </data>
+  <data name="Diff_Pixels" xml:space="preserve">
+    <value>{0} × {1} px</value>
+  </data>
+  <data name="Diff_SourceMissing" xml:space="preserve">
+    <value>Source file does not exist.</value>
+  </data>
+  <data name="Diff_TargetMissing" xml:space="preserve">
+    <value>Target file does not exist.</value>
+  </data>
+  <data name="Diff_HunkN" xml:space="preserve">
+    <value>Hunk {0}</value>
+  </data>
+  <data name="Diff_VisibleRange" xml:space="preserve">
+    <value>Visible range — drag to scroll</value>
+  </data>
+  <data name="Mft_FindingSolutions" xml:space="preserve">
+    <value>Finding solutions…</value>
+  </data>
+  <data name="Mft_NoSolutions" xml:space="preserve">
+    <value>No solutions found under Source or Target.</value>
+  </data>
+  <data name="Mft_CleanSolutionsTitle" xml:space="preserve">
+    <value>Clean solutions</value>
+  </data>
+  <data name="Mft_CleanDialogHint" xml:space="preserve">
+    <value>Select solutions to clean with MSBuild. The list will be compared again after cleaning.
+Solutions containing this running DIM are disabled. To clean them, start DIM from a separate release folder outside the solution.</value>
+  </data>
+  <data name="Mft_ConfigurationsLabel" xml:space="preserve">
+    <value>Configurations (semicolon separated; solution default platform)</value>
+  </data>
+  <data name="Mft_DimLockedTip" xml:space="preserve">
+    <value>Contains the running DIM; start DIM from a separate release folder to clean this solution.</value>
+  </data>
+  <data name="Mft_SourceLeft" xml:space="preserve">
+    <value>Source (left)</value>
+  </data>
+  <data name="Mft_TargetRight" xml:space="preserve">
+    <value>Target (right)</value>
+  </data>
+  <data name="Mft_SelectSolutions" xml:space="preserve">
+    <value>Select at least one solution and enter configuration names such as Debug;Release.</value>
+  </data>
+  <data name="Mft_CleanCancelled" xml:space="preserve">
+    <value>Clean cancelled.</value>
+  </data>
+  <data name="Mft_Cleaning" xml:space="preserve">
+    <value>Cleaning {0}</value>
+  </data>
+  <data name="Mft_FailExit" xml:space="preserve">
+    <value>FAIL (exit {0})</value>
+  </data>
+  <data name="Mft_CleanComplete" xml:space="preserve">
+    <value>Clean complete: {0} succeeded / {1} failed.</value>
+  </data>
+  <data name="Mft_CleanFailed" xml:space="preserve">
+    <value>Clean failed: {0}</value>
+  </data>
+  <data name="Mft_PreviewUnavailable" xml:space="preserve">
+    <value>Preview unavailable: {0}</value>
+  </data>
+  <data name="Mft_FilterSummary" xml:space="preserve">
+    <value>{0} differences / {1} identical (OBJ/BIN filters applied). Check items to synchronize.</value>
+  </data>
+  <data name="Mft_RestoredClickCompare" xml:space="preserve">
+    <value>Source and Target restored. Click Compare to build the difference tree.</value>
+  </data>
+  <data name="Mft_RestoreTreeFailed" xml:space="preserve">
+    <value>Failed to restore tree: {0}</value>
+  </data>
+  <data name="Mft_SourceFolder" xml:space="preserve">
+    <value>Source folder</value>
+  </data>
+  <data name="Mft_TargetFolder" xml:space="preserve">
+    <value>Target folder</value>
+  </data>
+  <data name="Mft_CancellingCompare" xml:space="preserve">
+    <value>Cancelling comparison…</value>
+  </data>
+  <data name="Mft_Enumerating" xml:space="preserve">
+    <value>Enumerating MFT and comparing timestamps and sizes…</value>
+  </data>
+  <data name="Clean_VswhereMissing" xml:space="preserve">
+    <value>Visual Studio Installer / vswhere.exe was not found. Install Visual Studio or Build Tools with MSBuild.</value>
+  </data>
+  <data name="Clean_MsbuildMissing" xml:space="preserve">
+    <value>MSBuild was not found. Install Visual Studio or Build Tools with MSBuild.</value>
+  </data>
+  <data name="Clean_RunningDim" xml:space="preserve">
+    <value>Cannot clean the solution containing the running DIM application. Start DIM from a separate release folder outside this solution, then clean again.</value>
+  </data>
+  <data name="Clean_BadConfiguration" xml:space="preserve">
+    <value>Use configuration names separated by semicolons (for example Debug;Release).</value>
+  </data>
+  <data name="Mft_HardLinkExcluded" xml:space="preserve">
+    <value>Hard links are excluded: {0}</value>
+  </data>
+  <data name="Mft_OkPrefix" xml:space="preserve">
+    <value>OK {0}</value>
+  </data>
+  <data name="Mft_LockedPrefix" xml:space="preserve">
+    <value>LOCKED {0}</value>
+  </data>
+  <data name="Main_ApplyOk" xml:space="preserve">
+    <value>Icon settings applied.</value>
+  </data>
+  <data name="Main_RemoveOk" xml:space="preserve">
+    <value>Icon settings removed.</value>
+  </data>
+<data name="Common_History" xml:space="preserve"><value>Input history (Alt+Down / F4)</value></data></root>

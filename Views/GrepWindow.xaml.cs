@@ -16,6 +16,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Data;
 using System.Windows.Threading;
+using DesktopIniManager.Properties;
 
 namespace DesktopIniManager.Views
 {
@@ -54,10 +55,22 @@ namespace DesktopIniManager.Views
                 for (int index = 0; index < widths.Length && index < ResultsGrid.Columns.Count; index++)
                     if (widths[index] >= 40 && widths[index] <= 4000)
                         ResultsGrid.Columns[index].Width = new DataGridLength(widths[index]);
-            EditorBox.Text = SettingsService.LoadEditorPath();
-            EditorArgumentsBox.Text = SettingsService.LoadEditorArguments();
+            bool resetPresets = SeedEditorPresets();
             HookPathBox(EditorBox);
             HookPathBox(EditorArgumentsBox);
+            EditorBox.TextChanged += EditorBox_TextChanged;
+            EditorBox.HistoryItemApplied += EditorBox_TextChanged;
+            if (resetPresets)
+            {
+                EditorBox.Text = EditorPresets[0].Executable;
+                EditorArgumentsBox.Text = EditorPresets[0].Arguments;
+                SettingsService.SaveEditor(EditorPresets[0].Executable, EditorPresets[0].Arguments);
+            }
+            else
+            {
+                EditorBox.Text = SettingsService.LoadEditorPath();
+                EditorArgumentsBox.Text = SettingsService.LoadEditorArguments();
+            }
             SetScopes(initialScopes);
             Loaded += (sender, args) =>
             {
@@ -131,13 +144,13 @@ namespace DesktopIniManager.Views
 
         public void SetExplicitScopes(IReadOnlyList<string> scopes)
         {
-            if (_searchCts != null) { StatusText.Text = "Cancel the current search before changing scopes"; return; }
+            if (_searchCts != null) { StatusText.Text = Strings.Grep_CancelBeforeChange; return; }
             SetScopes(scopes);
         }
 
         public void ReloadFromMainWindow()
         {
-            if (_searchCts != null) { StatusText.Text = "Cancel the current search before changing scopes"; return; }
+            if (_searchCts != null) { StatusText.Text = Strings.Grep_CancelBeforeChange; return; }
             SetScopes(_scopeProvider());
         }
 
@@ -146,8 +159,8 @@ namespace DesktopIniManager.Views
             string[] normalized = NormalizeScopes(paths).ToArray();
             _scopes.Clear();
             foreach (string path in normalized) _scopes.Add(path);
-            ScopeCountText.Text = _scopes.Count + (_scopes.Count == 1 ? " folder" : " folders");
-            StatusText.Text = _scopes.Count == 0 ? "No folders selected" : "Ready";
+            ScopeCountText.Text = string.Format(_scopes.Count == 1 ? Strings.Grep_FolderSingular : Strings.Grep_FolderPlural, _scopes.Count);
+            StatusText.Text = _scopes.Count == 0 ? Strings.Grep_NoFoldersSelected : Strings.Common_Ready;
         }
 
         private static IEnumerable<string> NormalizeScopes(IEnumerable<string> paths)
@@ -170,16 +183,17 @@ namespace DesktopIniManager.Views
         private async void Search_Click(object sender, RoutedEventArgs e)
         {
             if (_searchCts != null) return;
+            QueryBox.CommitHistory(); ExtensionsText.CommitHistory();
             string query = QueryBox.Text;
             var profile = ProfileBox.SelectedItem as LanguageProfile;
             string[] scopes = _scopes.ToArray();
-            if (scopes.Length == 0) { MessageBox.Show("Select one or more project folders in DesktopIniManager.", Title); return; }
-            if (string.IsNullOrEmpty(query)) { MessageBox.Show("Enter search text.", Title); return; }
+            if (scopes.Length == 0) { MessageBox.Show(Strings.Grep_SelectFolders, Title); return; }
+            if (string.IsNullOrEmpty(query)) { MessageBox.Show(Strings.Grep_EnterText, Title); return; }
             if (profile == null) return;
             if (profile.IsFree)
             {
                 string[] extensions = ParseExtensions(ExtensionsText.Text);
-                if (extensions.Length == 0) { MessageBox.Show("Enter one or more file extensions for the Free profile.", Title); return; }
+                if (extensions.Length == 0) { MessageBox.Show(Strings.Grep_EnterExtensions, Title); return; }
                 SettingsService.SaveGrepFreeExtensions(ExtensionsText.Text.Trim());
                 profile = new LanguageProfile(profile.Name, extensions);
             }
@@ -201,16 +215,16 @@ namespace DesktopIniManager.Views
                     (done, total) => Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                     {
                         if (ReferenceEquals(_searchCts, cts) && !cts.IsCancellationRequested)
-                            StatusText.Text = "Searching " + done.ToString("N0") + " / " + total.ToString("N0") + " files…";
+                            StatusText.Text = string.Format(Strings.Grep_SearchingFiles, done.ToString("N0"), total.ToString("N0"));
                     })), cts.Token,
                     match => { if (!cts.IsCancellationRequested) pending.Enqueue(match); }));
                 await DrainAllPendingMatchesAsync(cts.Token);
                 cts.Token.ThrowIfCancellationRequested();
-                StatusText.Text = result.Matches.Count.ToString("N0") + " matches in " + result.FileCount.ToString("N0") + " files" + (result.SkippedCount == 0 ? string.Empty : " · " + result.SkippedCount + " skipped");
+                StatusText.Text = result.SkippedCount == 0 ? string.Format(Strings.Grep_Result, result.Matches.Count.ToString("N0"), result.FileCount.ToString("N0")) : string.Format(Strings.Grep_ResultSkipped, result.Matches.Count.ToString("N0"), result.FileCount.ToString("N0"), result.SkippedCount);
             }
-            catch (OperationCanceledException) { _pendingMatches = new ConcurrentQueue<GrepMatch>(); StatusText.Text = "Search cancelled"; }
-            catch (ArgumentException ex) { MessageBox.Show("The search expression is invalid.\n\n" + ErrorMessages.English(ex), Title, MessageBoxButton.OK, MessageBoxImage.Warning); StatusText.Text = "Invalid expression"; }
-            catch (Exception ex) { MessageBox.Show(ErrorMessages.English(ex), Title, MessageBoxButton.OK, MessageBoxImage.Error); StatusText.Text = "Search failed"; }
+            catch (OperationCanceledException) { _pendingMatches = new ConcurrentQueue<GrepMatch>(); StatusText.Text = Strings.Grep_SearchCancelled; }
+            catch (ArgumentException ex) { MessageBox.Show(string.Format(Strings.Grep_InvalidExpression, ErrorMessages.English(ex)), Title, MessageBoxButton.OK, MessageBoxImage.Warning); StatusText.Text = Strings.Grep_InvalidExpressionStatus; }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.English(ex), Title, MessageBoxButton.OK, MessageBoxImage.Error); StatusText.Text = Strings.Grep_SearchFailed; }
             finally { _resultTimer.Stop(); if (ReferenceEquals(_searchCts, cts)) _searchCts = null; SetSearching(false); cts.Dispose(); }
         }
 
@@ -258,17 +272,96 @@ namespace DesktopIniManager.Views
                 SettingsService.SaveEditor(EditorBox.Text.Trim(), EditorArgumentsBox.Text);
                 string arguments = (EditorArgumentsBox.Text ?? string.Empty)
                     .Replace("{file}", match.FilePath).Replace("{line}", match.LineNumber.ToString()).Replace("{column}", match.ColumnNumber.ToString());
-                Process.Start(new ProcessStartInfo(EditorBox.Text.Trim(), arguments) { UseShellExecute = true });
+                Process.Start(new ProcessStartInfo(ExpandEditorPath(EditorBox.Text), arguments) { UseShellExecute = true });
             }
-            catch (Exception ex) { MessageBox.Show("Could not open the editor.\n\n" + ErrorMessages.English(ex), Title, MessageBoxButton.OK, MessageBoxImage.Error); }
+            catch (Exception ex) { MessageBox.Show(string.Format(Strings.Grep_EditorFailed, ErrorMessages.English(ex)), Title, MessageBoxButton.OK, MessageBoxImage.Error); }
         }
 
         private void BrowseEditor_Click(object sender, RoutedEventArgs e)
         {
-            var dialog = new OpenFileDialog { Filter = "Applications|*.exe|All files|*.*", CheckFileExists = true };
+            var dialog = new OpenFileDialog { Filter = Strings.Grep_EditorFilter, CheckFileExists = true };
             if (dialog.ShowDialog(this) != true) return;
-            EditorBox.Text = dialog.FileName;
+            EditorBox.Text = dialog.FileName; EditorBox.CommitHistory();
             ShowTextEnd(EditorBox);
+        }
+
+        private static readonly EditorPreset[] EditorPresets =
+        {
+            new EditorPreset(@"C:\Program Files\MIFES11\MIW.exe", @"/+{line}@{column} ""{file}"""),
+            new EditorPreset(@"C:\Program Files\Hidemaru\Hidemaru.exe", @"/j{line},{column} ""{file}"""),
+            new EditorPreset(@"%LOCALAPPDATA%\Programs\Mery\Mery.exe", @"/l {line} /cl {column} ""{file}"""),
+            new EditorPreset("code", @"--goto ""{file}:{line}:{column}""")
+        };
+
+        private bool _applyingEditorArgs;
+
+        private sealed class EditorPreset
+        {
+            internal EditorPreset(string executable, string arguments)
+            {
+                Executable = executable;
+                Arguments = arguments;
+            }
+            internal string Executable { get; }
+            internal string Arguments { get; }
+            internal string FileName { get { return Path.GetFileName(Executable); } }
+        }
+
+        private bool SeedEditorPresets()
+        {
+            string settingsDirectory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "DesktopIniManager");
+            string markerPath = Path.Combine(settingsDirectory, "editor-presets-miw.txt");
+            var store = new InputHistoryStore(Path.Combine(settingsDirectory, "input-history"));
+            if (File.Exists(markerPath)) return false;
+            store.Replace("Grep-Editor", EditorPresets.Select(preset => preset.Executable));
+            store.Replace("Grep-EditorArguments", EditorPresets.Select(preset => preset.Arguments));
+            try
+            {
+                Directory.CreateDirectory(settingsDirectory);
+                File.WriteAllText(markerPath, "mifes");
+            }
+            catch { }
+            return true;
+        }
+
+        private void EditorBox_TextChanged(object sender, EventArgs e)
+        {
+            if (_applyingEditorArgs) return;
+            EditorPreset preset = MatchEditorPreset(EditorBox.Text);
+            if (preset == null) return;
+            _applyingEditorArgs = true;
+            try
+            {
+                EditorArgumentsBox.Text = preset.Arguments;
+                ShowTextEnd(EditorArgumentsBox);
+            }
+            finally { _applyingEditorArgs = false; }
+        }
+
+        private static string ExpandEditorPath(string editor)
+        {
+            if (string.IsNullOrWhiteSpace(editor)) return editor;
+            return Environment.ExpandEnvironmentVariables(editor.Trim().Trim('"'));
+        }
+
+        private static EditorPreset MatchEditorPreset(string editor)
+        {
+            if (string.IsNullOrWhiteSpace(editor)) return null;
+            string path = ExpandEditorPath(editor);
+            string name = Path.GetFileName(path);
+            foreach (EditorPreset preset in EditorPresets)
+            {
+                if (string.Equals(preset.Executable, path, StringComparison.OrdinalIgnoreCase)) return preset;
+                if (!string.IsNullOrEmpty(name) && string.Equals(preset.FileName, name, StringComparison.OrdinalIgnoreCase)) return preset;
+            }
+            if (string.Equals(path, "code", StringComparison.OrdinalIgnoreCase))
+                return EditorPresets[EditorPresets.Length - 1];
+            if (string.Equals(name, "MIW.exe", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, "Mifes.exe", StringComparison.OrdinalIgnoreCase))
+                return EditorPresets[0];
+            return null;
         }
 
         private void ProfileBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -297,7 +390,7 @@ namespace DesktopIniManager.Views
             _resultTimer.Stop();
             _pendingMatches = new ConcurrentQueue<GrepMatch>();
             CancelButton.IsEnabled = false;
-            StatusText.Text = "Cancelling…";
+            StatusText.Text = Strings.Grep_Cancelling;
         }
         private void Close_Click(object sender, RoutedEventArgs e) => Close();
         protected override void OnClosing(CancelEventArgs e)

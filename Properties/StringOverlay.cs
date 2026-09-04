@@ -1,0 +1,145 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Reflection;
+using System.Text;
+
+namespace DesktopIniManager.Properties
+{
+    internal static class StringOverlay
+    {
+        private static readonly object gate = new object();
+        private static Dictionary<string, string> map = new Dictionary<string, string>(StringComparer.Ordinal);
+        private static bool loaded;
+
+        internal static CultureInfo ResolveCulture()
+        {
+            string raw = ReadFirstLine(Find("culture.txt"));
+            if (string.IsNullOrWhiteSpace(raw) ||
+                string.Equals(raw, "auto", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(raw, "system", StringComparison.OrdinalIgnoreCase))
+                return CultureInfo.GetCultureInfo("ja");
+            try { return CultureInfo.GetCultureInfo(raw.Trim()); }
+            catch (CultureNotFoundException) { return CultureInfo.GetCultureInfo("ja"); }
+        }
+
+        internal static void Load(CultureInfo culture)
+        {
+            lock (gate)
+            {
+                map = ReadMap(culture ?? CultureInfo.GetCultureInfo("ja"));
+                loaded = true;
+            }
+        }
+
+        internal static string Get(string key)
+        {
+            Dictionary<string, string> current;
+            lock (gate)
+            {
+                if (!loaded)
+                {
+                    map = ReadMap(ResolveCulture());
+                    loaded = true;
+                }
+                current = map;
+            }
+
+            string value;
+            if (current.TryGetValue(key, out value) && !string.IsNullOrEmpty(value))
+                return Unescape(value);
+            value = Strings.ResourceManager.GetString(key, Strings.Culture);
+            if (!string.IsNullOrEmpty(value)) return value;
+            return Strings.ResourceManager.GetString(key, CultureInfo.InvariantCulture) ?? key;
+        }
+
+        private static Dictionary<string, string> ReadMap(CultureInfo culture)
+        {
+            var dest = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (string name in Names(culture))
+            {
+                string path = Find(name);
+                if (path != null) Merge(dest, path);
+            }
+            return dest;
+        }
+
+        private static IEnumerable<string> Names(CultureInfo culture)
+        {
+            if (!string.IsNullOrEmpty(culture.Name))
+                yield return culture.Name + ".txt";
+            if (!string.IsNullOrEmpty(culture.TwoLetterISOLanguageName))
+                yield return culture.TwoLetterISOLanguageName + ".txt";
+        }
+
+        private static string Find(string fileName)
+        {
+            foreach (string dir in SearchDirs())
+            {
+                try
+                {
+                    string path = Path.Combine(dir, fileName);
+                    if (File.Exists(path)) return path;
+                    path = Path.Combine(dir, "Languages", fileName);
+                    if (File.Exists(path)) return path;
+                }
+                catch { }
+            }
+            return null;
+        }
+
+        private static IEnumerable<string> SearchDirs()
+        {
+            if (!string.IsNullOrEmpty(AppDomain.CurrentDomain.BaseDirectory))
+                yield return AppDomain.CurrentDomain.BaseDirectory;
+            string asm = null;
+            try { asm = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location); }
+            catch { }
+            if (!string.IsNullOrEmpty(asm))
+                yield return asm;
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            if (!string.IsNullOrEmpty(baseDir))
+            {
+                yield return Path.GetFullPath(Path.Combine(baseDir, "..", ".."));
+                yield return Path.GetFullPath(Path.Combine(baseDir, "..", "..", "Languages"));
+            }
+        }
+
+        private static string ReadFirstLine(string path)
+        {
+            if (path == null) return null;
+            try
+            {
+                foreach (string raw in File.ReadAllLines(path, Encoding.UTF8))
+                {
+                    string line = raw.Trim().Trim('\uFEFF');
+                    if (line.Length == 0 || line[0] == '#') continue;
+                    return line;
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        private static void Merge(Dictionary<string, string> dest, string path)
+        {
+            string[] lines;
+            try { lines = File.ReadAllLines(path, Encoding.UTF8); }
+            catch { return; }
+            foreach (string raw in lines)
+            {
+                string line = raw.Trim().Trim('\uFEFF');
+                if (line.Length == 0 || line[0] == '#') continue;
+                int eq = line.IndexOf('=');
+                if (eq <= 0) continue;
+                dest[line.Substring(0, eq).Trim()] = line.Substring(eq + 1);
+            }
+        }
+
+        private static string Unescape(string value)
+        {
+            return value.Replace("\\n", "\n").Replace("\\r", "\r").Replace("\\t", "\t");
+        }
+    }
+}

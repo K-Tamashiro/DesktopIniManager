@@ -20,6 +20,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Controls;
 using FastVolumeIndex;
+using DesktopIniManager.Properties;
 
 namespace DesktopIniManager
 {
@@ -105,7 +106,7 @@ namespace DesktopIniManager
                 {
                     _selectedIconPreview = startup.SelectedIcon?.Preview;
                     SelectedIconImage.Source = _selectedIconPreview;
-                    SelectedIconText.Text = startup.SelectedIcon == null ? "Preview unavailable" : "Index " + startup.SelectedIcon.ShellIndex;
+                    SelectedIconText.Text = startup.SelectedIcon == null ? Strings.Main_PreviewUnavailable : string.Format(Strings.Main_IndexN, startup.SelectedIcon.ShellIndex);
                 }
                 ShowTextEnd(RootBox);
                 ShowTextEnd(IconPathBox);
@@ -121,28 +122,28 @@ namespace DesktopIniManager
             try
             {
                 string selectedPath = Directory.Exists(RootBox.Text) ? RootBox.Text : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-                string result = NativeFolderPicker.Show(new WindowInteropHelper(this).Handle, selectedPath, "Select a search folder");
-                if (!string.IsNullOrEmpty(result)) { RootBox.Text = result; SettingsService.SaveSearchRoot(result); ShowTextEnd(RootBox); }
+                string result = NativeFolderPicker.Show(new WindowInteropHelper(this).Handle, selectedPath, Strings.Main_SelectSearchFolder);
+                if (!string.IsNullOrEmpty(result)) { RootBox.Text = result; RootBox.CommitHistory(); SettingsService.SaveSearchRoot(result); ShowTextEnd(RootBox); }
             }
-            catch (Exception ex) { ShowError("Could not open the folder picker.", ex); }
+            catch (Exception ex) { ShowError(Strings.Main_FolderPickerFailed, ex); }
         }
 
         private void ChooseIconLibrary_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                var dialog = new OpenFileDialog { Filter = "Icon resources|*.ico;*.icl;*.dll;*.exe|All files|*.*", CheckFileExists = true };
+                var dialog = new OpenFileDialog { Filter = Strings.Main_IconFilter, CheckFileExists = true };
                 string currentPath = IconPathBox.Text.Trim();
                 if (File.Exists(currentPath)) { dialog.InitialDirectory = Path.GetDirectoryName(currentPath); dialog.FileName = Path.GetFileName(currentPath); }
                 if (dialog.ShowDialog(this) != true) return;
-                IconPathBox.Text = dialog.FileName;
+                IconPathBox.Text = dialog.FileName; IconPathBox.CommitHistory();
                 SettingsService.SaveIconLibraryPath(dialog.FileName);
                 ShowTextEnd(IconPathBox);
                 _selectedIconIndex = 0;
                 RefreshSelectedIconPreview();
-                StatusText.Text = Path.GetFileName(dialog.FileName) + " selected";
+                StatusText.Text = Path.GetFileName(dialog.FileName) + Strings.Main_SelectedSuffix;
             }
-            catch (Exception ex) { ShowError("Could not select the icon library.", ex); }
+            catch (Exception ex) { ShowError(Strings.Main_LibrarySelectFailed, ex); }
         }
 
         private void ChooseIcon_Click(object sender, RoutedEventArgs e)
@@ -150,22 +151,22 @@ namespace DesktopIniManager
             try
             {
                 string iconPath = IconPathBox.Text.Trim();
-                if (!File.Exists(iconPath)) { MessageBox.Show("Choose an icon library first.", Title); return; }
-                StatusText.Text = "Loading icons…";
+                if (!File.Exists(iconPath)) { MessageBox.Show(Strings.Main_ChooseLibraryFirst, Title); return; }
+                StatusText.Text = Strings.Main_LoadingIcons;
                 var groups = IconResourceReader.Read(iconPath);
-                if (groups.Count == 0) { MessageBox.Show("No icon groups were found.", Title); return; }
+                if (groups.Count == 0) { MessageBox.Show(Strings.Main_NoIconGroups, Title); return; }
                 var browser = new IconGroupBrowserWindow(iconPath, groups, _selectedIconIndex) { Owner = this };
                 if (browser.ShowDialog() == true && browser.SelectedGroup != null)
                 {
                     _selectedIconIndex = browser.SelectedGroup.ShellIndex;
                     SelectedIconImage.Source = browser.SelectedGroup.Preview;
                     _selectedIconPreview = browser.SelectedGroup.Preview;
-                    SelectedIconText.Text = "Index " + browser.SelectedGroup.ShellIndex;
-                    StatusText.Text = "Icon " + browser.SelectedGroup.ShellIndex + " selected";
+                    SelectedIconText.Text = string.Format(Strings.Main_IndexN, browser.SelectedGroup.ShellIndex);
+                    StatusText.Text = string.Format(Strings.Main_IconNSelected, browser.SelectedGroup.ShellIndex);
                 }
-                else StatusText.Text = "Icon selection cancelled";
+                else StatusText.Text = Strings.Main_IconCancelled;
             }
-            catch (Exception ex) { ShowError("Could not open the icon browser.", ex); }
+            catch (Exception ex) { ShowError(Strings.Main_IconBrowserFailed, ex); }
         }
 
         private void RefreshSelectedIconPreview()
@@ -177,15 +178,16 @@ namespace DesktopIniManager
                 var group = IconResourceReader.Read(iconPath).FirstOrDefault(item => item.ShellIndex == _selectedIconIndex);
                 SelectedIconImage.Source = group?.Preview;
                 _selectedIconPreview = group?.Preview;
-                SelectedIconText.Text = group == null ? "Not selected" : "Index " + group.ShellIndex;
+                SelectedIconText.Text = group == null ? Strings.Main_NotSelected : string.Format(Strings.Main_IndexN, group.ShellIndex);
             }
-            catch { SelectedIconImage.Source = null; _selectedIconPreview = null; SelectedIconText.Text = "Preview unavailable"; }
+            catch { SelectedIconImage.Source = null; _selectedIconPreview = null; SelectedIconText.Text = Strings.Main_PreviewUnavailable; }
         }
 
         private async void Search_Click(object sender, RoutedEventArgs e)
         {
             // WPF controls must only be read from the UI thread. Capture every value
             // before Task.Run so the worker never touches a DispatcherObject.
+            RootBox.CommitHistory(); QueryBox.CommitHistory(); IconPathBox.CommitHistory();
             string root = RootBox.Text.Trim();
             string visibleQuery = QueryBox.Text.Trim();
             string query = _pendingSearchQuery ?? visibleQuery;
@@ -198,7 +200,7 @@ namespace DesktopIniManager
             bool fastSearch = FastNtfsSearchBox.IsChecked == true;
             SettingsService.SaveSearchRoot(root);
             SettingsService.SaveSearchQuery(visibleQuery);
-            if (!Directory.Exists(root)) { MessageBox.Show("The search location does not exist.", Title); return; }
+            if (!Directory.Exists(root)) { MessageBox.Show(Strings.Main_LocationMissing, Title); return; }
             if (fastSearch && !IsAdministrator())
             {
                 RestartForFastSearch(gitSearchRequested);
@@ -223,7 +225,7 @@ namespace DesktopIniManager
                 _searchResultCount = 0;
             }
             if (gitSearchRequested) ShowTreeView(0);
-            CountText.Text = "0 matches"; SetSearching(true);
+            CountText.Text = Strings.Main_ZeroMatches; SetSearching(true);
             try
             {
                 System.Collections.Generic.List<FolderMatch> solutionRoots = new List<FolderMatch>();
@@ -233,19 +235,19 @@ namespace DesktopIniManager
                     try
                     {
                         fastResult = await Task.Run(() => new FastFolderSearchService().Search(root, query,
-                            count => Dispatcher.BeginInvoke(new Action(() => StatusText.Text = count == 0 ? "Reading the NTFS index…" : "Indexed " + count.ToString("N0") + " folders")), searchCts.Token));
+                            count => Dispatcher.BeginInvoke(new Action(() => StatusText.Text = count == 0 ? Strings.Main_ReadingNtfs : string.Format(Strings.Main_IndexedFolders, count.ToString("N0")))), searchCts.Token));
                     }
                     catch (NotSupportedException)
                     {
-                        StatusText.Text = "Fast NTFS search is unavailable here. Using standard search…";
+                        StatusText.Text = Strings.Main_FastUnavailable;
                     }
                     catch (UnauthorizedAccessException)
                     {
-                        StatusText.Text = "Fast NTFS search permission was unavailable. Using standard search…";
+                        StatusText.Text = Strings.Main_FastPermissionUnavailable;
                     }
                     catch (Win32Exception)
                     {
-                        StatusText.Text = "The drive index could not be read. Using standard search…";
+                        StatusText.Text = Strings.Main_DriveIndexFailed;
                     }
 
                     if (fastResult != null)
@@ -263,7 +265,7 @@ namespace DesktopIniManager
                         await AddTreeResultsAsync(fastResult.Matches, searchCts.Token, searchOnly);
                         _pathIndex = fastResult.Paths;
                         RefreshTreeItemsSource();
-                        StatusText.Text = _results.Count + (folderListMode ? " folders found · analyzing projects…" : " matches found · analyzing projects…");
+                        StatusText.Text = folderListMode ? string.Format(Strings.Main_FoldersAnalyzing, _results.Count) : string.Format(Strings.Main_MatchesAnalyzing, _results.Count);
                         await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
                         var fastService = new FastFolderSearchService();
                         if (gitSearchRequested)
@@ -326,8 +328,8 @@ namespace DesktopIniManager
                 }
                 ShowTreeView(_treeView);
             }
-            catch (OperationCanceledException) { StatusText.Text = "Search cancelled"; }
-            catch (Exception ex) { MessageBox.Show(ErrorMessages.English(ex), Title); StatusText.Text = "Search failed"; }
+            catch (OperationCanceledException) { StatusText.Text = Strings.Main_SearchCancelled; }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.English(ex), Title); StatusText.Text = Strings.Main_SearchFailed; }
             finally
             {
                 if (ReferenceEquals(_searchCts, searchCts)) { _searchCts = null; SetSearching(false); }
@@ -343,7 +345,7 @@ namespace DesktopIniManager
                 var matches = new List<FolderMatch>();
                 new FolderSearchService().Search(root, query,
                     item => { item.IconPreview = string.Equals(item.Reason, "Folder", StringComparison.Ordinal) ? defaultFolderIcon : FolderIconService.GetFolderIcon(item.Path); matches.Add(item); },
-                    count => Dispatcher.BeginInvoke(new Action(() => StatusText.Text = "Scanning " + count.ToString("N0") + " folders…")), token);
+                    count => Dispatcher.BeginInvoke(new Action(() => StatusText.Text = string.Format(Strings.Main_ScanningFolders, count.ToString("N0")))), token);
                 token.ThrowIfCancellationRequested();
                 return matches;
             });
@@ -361,10 +363,10 @@ namespace DesktopIniManager
                         int now = Environment.TickCount;
                         if (unchecked(now - lastReport) < 125) return;
                         lastReport = now;
-                        Dispatcher.BeginInvoke(new Action(() => StatusText.Text = "Indexed " + count.ToString("N0") + " folders…"), System.Windows.Threading.DispatcherPriority.Background);
+                        Dispatcher.BeginInvoke(new Action(() => StatusText.Text = string.Format(Strings.Main_IndexedFoldersEllipsis, count.ToString("N0"))), System.Windows.Threading.DispatcherPriority.Background);
                     }, token);
                 token.ThrowIfCancellationRequested();
-                Dispatcher.BeginInvoke(new Action(() => StatusText.Text = "Building folder tree…"));
+                Dispatcher.BeginInvoke(new Action(() => StatusText.Text = Strings.Main_BuildingTree));
                 List<FolderMatch> matches = new FastFolderSearchService().Search(paths, query, token);
                 foreach (FolderMatch item in matches) item.IconPreview = defaultFolderIcon;
                 return new StandardSearchResult(paths, matches);
@@ -374,7 +376,7 @@ namespace DesktopIniManager
         private async Task ApplyStandardDevelopmentAnalysis(bool enabled, VolumePathIndex paths, CancellationToken token)
         {
             if (!enabled) return;
-            StatusText.Text = _results.Count + " folders found · analyzing projects…";
+            StatusText.Text = string.Format(Strings.Main_FoldersAnalyzing, _results.Count);
             await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
             Dictionary<string, string> analysis = await Task.Run(() => new FastFolderSearchService().AnalyzeDevelopment(paths, token), token);
             int updated = 0;
@@ -459,8 +461,8 @@ namespace DesktopIniManager
                 return true;
             }
             catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
-            { StatusText.Text = "Administrator permission was cancelled"; }
-            catch (Exception ex) { ShowError("Could not restart with administrator permission.", ex); }
+            { StatusText.Text = Strings.Main_ElevationCancelled; }
+            catch (Exception ex) { ShowError(Strings.Main_ElevationFailed, ex); }
             if (sessionPath != null) { try { File.Delete(sessionPath); } catch { } }
             return false;
         }
@@ -517,10 +519,8 @@ namespace DesktopIniManager
         private void Cancel_Click(object sender, RoutedEventArgs e) => _searchCts?.Cancel();
         private void InvertSelection_Click(object sender, RoutedEventArgs e)
         {
-            List<FolderMatch> visible = VisibleItems().Where(item => item.IsActionable).ToList();
-            var visibleSet = new HashSet<FolderMatch>(visible);
-            foreach (FolderMatch item in visible.Where(item => item.Parent == null || !visibleSet.Contains(item.Parent)))
-                item.SetSelectedFromUi(!item.IsSelected);
+            foreach (FolderMatch item in VisibleItems().Where(item => item.IsActionable))
+                item.SetSelected(!item.IsSelected, false, false);
         }
 
         private void FolderCheck_Click(object sender, RoutedEventArgs e)
@@ -528,7 +528,7 @@ namespace DesktopIniManager
             var box = sender as System.Windows.Controls.CheckBox;
             var item = box?.DataContext as FolderMatch;
             if (item == null) return;
-            item.SetSelectedFromUi(box.IsChecked == true);
+            item.SetSelected(box.IsChecked == true, true, false);
         }
         private void ExpandAll_Click(object sender, RoutedEventArgs e) { foreach (var item in CurrentItems()) item.IsExpanded = true; }
         private void CollapseAll_Click(object sender, RoutedEventArgs e) { foreach (var item in CurrentItems()) item.IsExpanded = false; }
@@ -538,10 +538,10 @@ namespace DesktopIniManager
             var tabs = sender as TabControl;
             if (tabs != null && tabs.SelectedIndex >= 0) ShowTreeView(tabs.SelectedIndex);
         }
-        private void ShowTreeView(int view) { if (view != 2) _baseTreeView = view; _treeView = view; _solutionView = view == 1; if (TreeTabs.SelectedIndex != view) TreeTabs.SelectedIndex = view; ResultsTree.ItemsSource = view == 0 ? _treeRoots : view == 1 ? _solutionRoots : _searchRoots; ApplyFolderFilter(); UpdateVisibleCount(); StatusText.Text = view == 0 ? _results.Count + " folders found" : view == 1 ? _solutionRoots.Count + " solutions found" : _searchResultCount + " search results"; }
+        private void ShowTreeView(int view) { if (view != 2) _baseTreeView = view; _treeView = view; _solutionView = view == 1; if (TreeTabs.SelectedIndex != view) TreeTabs.SelectedIndex = view; ResultsTree.ItemsSource = view == 0 ? _treeRoots : view == 1 ? _solutionRoots : _searchRoots; ApplyFolderFilter(); UpdateVisibleCount(); StatusText.Text = view == 0 ? string.Format(Strings.Main_FoldersFound, _results.Count) : view == 1 ? string.Format(Strings.Main_SolutionsFound, _solutionRoots.Count) : string.Format(Strings.Main_SearchResults, _searchResultCount); }
         private void RefreshTreeItemsSource() { ResultsTree.ItemsSource = _treeView == 0 ? _treeRoots : _treeView == 1 ? _solutionRoots : _searchRoots; }
         private void ShowSolutionView() => ShowTreeView(1);
-        private void UpdateVisibleCount() { CountText.Text = CurrentItems().Count(item => !item.IsHidden && !item.IsFilterHidden) + (_solutionView ? " items" : " folders"); }
+        private void UpdateVisibleCount() { CountText.Text = string.Format(_solutionView ? Strings.Main_NItems : Strings.Main_NFolders, CurrentItems().Count(item => !item.IsHidden && !item.IsFilterHidden)); }
         private System.Collections.Generic.IEnumerable<FolderMatch> CurrentItems() => _filteredViewItems ?? Flatten(_treeView == 0 ? _treeRoots : _treeView == 1 ? _solutionRoots : _searchRoots).ToList();
         private System.Collections.Generic.IEnumerable<FolderMatch> VisibleItems() => _filteredViewItems != null
             ? _filteredViewItems.Where(item => !item.IsHidden) : FlattenVisible(_treeView == 0 ? _treeRoots : _treeView == 1 ? _solutionRoots : _searchRoots);
@@ -586,7 +586,7 @@ namespace DesktopIniManager
                 root.Parent = item;
                 item.Children.Add(root);
             }
-            CountText.Text = _results.Count + " matches";
+            CountText.Text = string.Format(Strings.Main_NMatches, _results.Count);
         }
 
         private void AddTreeResults(IEnumerable<FolderMatch> items)
@@ -612,13 +612,13 @@ namespace DesktopIniManager
                 }
             }
             finally { if (physicalViewVisible) ResultsTree.ItemsSource = _treeRoots; }
-            CountText.Text = _results.Count + " matches";
+            CountText.Text = string.Format(Strings.Main_NMatches, _results.Count);
         }
 
         private async Task AddTreeResultsAsync(IEnumerable<FolderMatch> items, CancellationToken token, bool intoSearch = false)
         {
             List<FolderMatch> source = items.ToList();
-            StatusText.Text = "Building " + source.Count.ToString("N0") + " folder rows…";
+            StatusText.Text = string.Format(Strings.Main_BuildingRows, source.Count.ToString("N0"));
             TreeBuildResult built = await Task.Run(() =>
             {
                 var roots = new List<FolderMatch>();
@@ -656,7 +656,7 @@ namespace DesktopIniManager
                 foreach (FolderMatch root in built.Roots) _searchRoots.Add(root);
                 _searchResultCount = built.Items.Count;
                 RefreshTreeItemsSource();
-                CountText.Text = _searchResultCount + " search results";
+                CountText.Text = string.Format(Strings.Main_SearchResults, _searchResultCount);
                 await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
                 return;
             }
@@ -665,7 +665,7 @@ namespace DesktopIniManager
             _treeRoots.Clear();
             foreach (FolderMatch root in built.Roots) _treeRoots.Add(root);
             RefreshTreeItemsSource();
-            CountText.Text = _results.Count + " folders";
+            CountText.Text = string.Format(Strings.Main_NFolders, _results.Count);
             await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
         }
 
@@ -680,9 +680,9 @@ namespace DesktopIniManager
             var menuItem = sender as System.Windows.Controls.MenuItem;
             var folder = menuItem?.CommandParameter as FolderMatch;
             if (folder == null) return;
-            RootBox.Text = folder.Path;
+            RootBox.Text = folder.Path; RootBox.CommitHistory();
             SettingsService.SaveSearchRoot(folder.Path);
-            StatusText.Text = "Search location set to " + folder.Path;
+            StatusText.Text = string.Format(Strings.Main_LocationSet, folder.Path);
         }
 
         private static FolderMatch ContextFolder(object sender)
@@ -693,7 +693,7 @@ namespace DesktopIniManager
             FolderMatch folder = ContextFolder(sender);
             if (folder == null || !Directory.Exists(folder.Path)) return;
             try { Process.Start(new ProcessStartInfo("explorer.exe", "\"" + folder.Path + "\"") { UseShellExecute = true }); }
-            catch (Exception ex) { ShowError("Could not open the folder in Explorer.", ex); }
+            catch (Exception ex) { ShowError(Strings.Main_ExplorerFailed, ex); }
         }
 
         private void GrepFolder_Click(object sender, RoutedEventArgs e)
@@ -732,7 +732,7 @@ namespace DesktopIniManager
                 else if (_treeView == 1) _solutionCurrent = folder;
                 else _searchCurrent = folder;
             }
-            FilePanelTitle.Text = folder == null ? "Files" : "Files — " + folder.Name;
+            FilePanelTitle.Text = folder == null ? Strings.Common_Files : string.Format(Strings.Main_FilesHeader, folder.Name);
             FilePanelTitle.ToolTip = folder?.Path;
             if (folder == null || string.IsNullOrEmpty(folder.Path)) { SetFilePanelBusy(false); return; }
             SetFilePanelBusy(true);
@@ -936,7 +936,7 @@ namespace DesktopIniManager
             {
                 Process.Start(new ProcessStartInfo(file.Path) { UseShellExecute = true });
             }
-            catch (Exception ex) { ShowError("Could not open the file.", ex); }
+            catch (Exception ex) { ShowError(Strings.Main_OpenFileFailed, ex); }
         }
 
         private void CompactTree_Click(object sender, RoutedEventArgs e) => ApplyTreeDensity(true, true);
@@ -948,7 +948,7 @@ namespace DesktopIniManager
             TreeCompact = compact;
             HighlightTreeDensityButtons();
             SettingsService.SaveTreeCompact(compact);
-            if (announce) StatusText.Text = compact ? "Compact folder list" : "Comfortable folder list";
+            if (announce) StatusText.Text = compact ? Strings.Main_TreeCompact : Strings.Main_TreeComfortable;
         }
 
         private void HighlightTreeDensityButtons()
@@ -1074,8 +1074,8 @@ namespace DesktopIniManager
                 .GroupBy(item => item.Path, StringComparer.OrdinalIgnoreCase)
                 .Select(group => group.First()).ToList();
             bool addToGitIgnore = AddToGitIgnoreBox.IsChecked == true;
-            if (selected.Count == 0) { MessageBox.Show("Select at least one folder.", Title); return; }
-            if (MessageBox.Show("Apply the selected icon to " + selected.Count + " folders?", Title, MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
+            if (selected.Count == 0) { MessageBox.Show(Strings.Main_SelectOneFolder, Title); return; }
+            if (MessageBox.Show(string.Format(Strings.Main_ConfirmApply, selected.Count), Title, MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
 
             int succeeded = 0;
             var errors = new System.Collections.Generic.List<string>();
@@ -1101,8 +1101,8 @@ namespace DesktopIniManager
             if (changedFolders.Count > 0)
                 service.NotifyExplorer(changedFolders);
 
-            StatusText.Text = "Applied to " + succeeded + " folders";
-            MessageBox.Show(errors.Count == 0 ? "Icon settings applied." : succeeded + " succeeded, " + errors.Count + " failed\n\n" + string.Join("\n", errors.Take(5)), Title);
+            StatusText.Text = string.Format(Strings.Main_AppliedTo, succeeded);
+            MessageBox.Show(errors.Count == 0 ? Strings.Main_ApplyOk : string.Format(Strings.Main_ApplyResult, succeeded, errors.Count) + "\n\n" + string.Join("\n", errors.Take(5)), Title);
         }
 
         private void Remove_Click(object sender, RoutedEventArgs e)
@@ -1110,8 +1110,8 @@ namespace DesktopIniManager
             var selected = VisibleItems().Where(item => item.IsActionable && item.IsSelected)
                 .GroupBy(item => item.Path, StringComparer.OrdinalIgnoreCase)
                 .Select(group => group.First()).ToList();
-            if (selected.Count == 0) { MessageBox.Show("Select at least one folder.", Title); return; }
-            if (MessageBox.Show("Delete desktop.ini and remove icon settings from " + selected.Count + " folders?", Title, MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK) return;
+            if (selected.Count == 0) { MessageBox.Show(Strings.Main_SelectOneFolder, Title); return; }
+            if (MessageBox.Show(string.Format(Strings.Main_ConfirmRemove, selected.Count), Title, MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK) return;
 
             int succeeded = 0;
             var errors = new System.Collections.Generic.List<string>();
@@ -1137,8 +1137,8 @@ namespace DesktopIniManager
             if (changedFolders.Count > 0)
                 service.NotifyExplorer(changedFolders);
 
-            StatusText.Text = "Removed settings from " + succeeded + " folders";
-            MessageBox.Show(errors.Count == 0 ? "Icon settings removed." : succeeded + " succeeded, " + errors.Count + " failed\n\n" + string.Join("\n", errors.Take(5)), Title);
+            StatusText.Text = string.Format(Strings.Main_RemovedFrom, succeeded);
+            MessageBox.Show(errors.Count == 0 ? Strings.Main_RemoveOk : string.Format(Strings.Main_RemoveResult, succeeded, errors.Count) + "\n\n" + string.Join("\n", errors.Take(5)), Title);
         }
 
         private MftDifferencerWindow _differencerWindow;
@@ -1161,7 +1161,7 @@ namespace DesktopIniManager
 
             if (visible.Count == 0)
             {
-                MessageBox.Show("No folders are available for Grep.", Title, MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(Strings.Main_NoGrepFolders, Title, MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
@@ -1173,14 +1173,14 @@ namespace DesktopIniManager
                 {
                     var ancestor = item.Parent;
                     while (ancestor != null && !candidates.Contains(ancestor)) ancestor = ancestor.Parent;
-                    if (ancestor == null) item.SetSelectedFromUi(true);
+                    if (ancestor == null) item.SetSelected(true, true, false);
                 }
                 scopes = GetSelectedGrepScopes();
             }
 
             if (scopes.Count == 0)
             {
-                MessageBox.Show("No folders are available for Grep.", Title, MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(Strings.Main_NoGrepFolders, Title, MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
@@ -1290,7 +1290,7 @@ namespace DesktopIniManager
         {
             try
             {
-                if (_startup?.TreeError != null) { StatusText.Text = "Failed to restore folder trees: " + _startup.TreeError; return; }
+                if (_startup?.TreeError != null) { StatusText.Text = string.Format(Strings.Main_RestoreTreesFailed, _startup.TreeError); return; }
                 var state = _startup != null ? _startup.Tree : FolderTreeStateService.Load();
                 if (state == null) return;
                 var icons = _startup == null ? FolderTreeStateService.RestoreIcons(state.Icons) : null;
@@ -1303,9 +1303,9 @@ namespace DesktopIniManager
                 _solutionCurrent = Flatten(_solutionRoots).FirstOrDefault(node => node.IsCurrent);
                 _folderTreeRoot = state.Root;
                 ShowTreeView(state.View == 1 ? 1 : 0);
-                StatusText.Text = "Folder trees restored. Use Git to refresh.";
+                StatusText.Text = Strings.Main_TreesRestored;
             }
-            catch (Exception ex) { StatusText.Text = "Failed to restore folder trees: " + ErrorMessages.English(ex); }
+            catch (Exception ex) { StatusText.Text = string.Format(Strings.Main_RestoreTreesFailed, ErrorMessages.English(ex)); }
         }
 
         private void SaveFolderTrees()
@@ -1324,7 +1324,7 @@ namespace DesktopIniManager
                     Solution = FolderTreeStateService.Capture(_solutionRoots, _solutionCurrent, icons, iconIds)
                 });
             }
-            catch (Exception ex) { StatusText.Text = "Failed to save folder trees: " + ErrorMessages.English(ex); }
+            catch (Exception ex) { StatusText.Text = string.Format(Strings.Main_SaveTreesFailed, ErrorMessages.English(ex)); }
         }
 
         private void Close_Click(object sender, RoutedEventArgs e) => Close();

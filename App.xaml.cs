@@ -1,9 +1,12 @@
 using System;
+using System.Globalization;
+using System.Threading;
 using System.Windows;
 using System.Windows.Threading;
 using System.Threading.Tasks;
 using DesktopIniManager.Services;
 using DesktopIniManager.Views;
+using DesktopIniManager.Properties;
 
 namespace DesktopIniManager
 {
@@ -13,6 +16,8 @@ namespace DesktopIniManager
         {
             DispatcherUnhandledException += OnDispatcherUnhandledException;
             WindowActivationService.Install();
+            Thread.CurrentThread.CurrentUICulture = CultureInfo.InstalledUICulture;
+            Thread.CurrentThread.CurrentCulture = CultureInfo.InstalledUICulture;
             base.OnStartup(e);
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
             SplashWindow splash = null;
@@ -26,7 +31,7 @@ namespace DesktopIniManager
                 var progress = new Progress<Tuple<string, int>>(step => splash.Report(step.Item1, step.Item2));
                 var state = await Task.Run(() => StartupState.Load((message, completed) =>
                     ((IProgress<Tuple<string, int>>)progress).Report(Tuple.Create(message, completed))));
-                splash.Report("Building the workspace…", 3);
+                splash.Report(Strings.Splash_BuildingWorkspace, 3);
                 await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
                 var main = new MainWindow(state);
                 MainWindow = main;
@@ -37,14 +42,14 @@ namespace DesktopIniManager
                 main.Show();
                 await rendered.Task;
                 ready = true;
-                splash.Report("Ready", 4);
+                splash.Report(Strings.Splash_Ready, 4);
                 splash.Close();
                 WindowActivationService.BringToFront(main);
                 ShutdownMode = ShutdownMode.OnMainWindowClose;
             }
             catch (Exception ex)
             {
-                MessageBox.Show("DesktopIniManager could not start.\n\n" + ErrorMessages.English(ex), "DesktopIniManager", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(string.Format(Strings.App_StartFailed, ErrorMessages.English(ex)), Strings.App_ProductName, MessageBoxButton.OK, MessageBoxImage.Error);
                 ready = true;
                 splash?.Close();
                 Shutdown(1);
@@ -53,8 +58,8 @@ namespace DesktopIniManager
 
         private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
         {
-            MessageBox.Show("An error occurred. The application can continue.\n\n" + ErrorMessages.English(e.Exception),
-                "desktop.ini Manager", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(string.Format(Strings.App_Unhandled, ErrorMessages.English(e.Exception)),
+                Strings.App_Title, MessageBoxButton.OK, MessageBoxImage.Error);
             e.Handled = true;
         }
     }

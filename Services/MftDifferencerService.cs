@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
+using DesktopIniManager.Properties;
 
 namespace DesktopIniManager.Services
 {
@@ -45,11 +46,11 @@ namespace DesktopIniManager.Services
         public bool CompareTimestamp { get; set; } = true;
         public DiffKind Kind { get { return Source == null ? DiffKind.TargetOnly : Target == null ? DiffKind.SourceOnly : DiffStamp.Same(Source, Target, CompareTimestamp) ? DiffKind.Same : DiffKind.Different; } }
         public bool CanSync { get { return Kind != DiffKind.Same; } }
-        public string State { get { return Kind == DiffKind.Same ? "Same" : Source == null ? "Target only" : Target == null ? "Source only" : Source.ModifiedUtc == Target.ModifiedUtc ? "Size differs" : "Time / size differs"; } }
+        public string State { get { return Kind == DiffKind.Same ? Strings.Mft_StateSame : Source == null ? Strings.Mft_StateTargetOnly : Target == null ? Strings.Mft_StateSourceOnly : Source.ModifiedUtc == Target.ModifiedUtc ? Strings.Mft_StateSizeDiffers : Strings.Mft_StateTimeSizeDiffers; } }
         public string SourceInfo { get { return Describe(Source, Target); } }
         public string TargetInfo { get { return Describe(Target, Source); } }
         private static string Describe(DiffStamp own, DiffStamp other)
-        { return own == null ? "missing" : (other == null ? "" : DiffStamp.Same(own, other, true) ? "Same\n" : own.ModifiedUtc == other.ModifiedUtc ? "Size differs\n" : own.ModifiedUtc > other.ModifiedUtc ? "NEW\n" : "OLD\n") + own.Describe(); }
+        { return own == null ? Strings.Diff_Missing : (other == null ? "" : DiffStamp.Same(own, other, true) ? Strings.Mft_StateSame + "\n" : own.ModifiedUtc == other.ModifiedUtc ? Strings.Mft_StateSizeDiffers + "\n" : own.ModifiedUtc > other.ModifiedUtc ? Strings.Mft_StateNew + "\n" : Strings.Mft_StateOld + "\n") + own.Describe(); }
         private bool selected;
         public bool Selected { get { return selected; } set { value = value && CanSync; if (selected == value) return; selected = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Selected")); } }
         public event PropertyChangedEventHandler PropertyChanged;
@@ -88,7 +89,7 @@ namespace DesktopIniManager.Services
         public static string Root(string path)
         {
             string root = Path.GetFullPath(path).TrimEnd('\\') + "\\";
-            if (root.StartsWith(@"\\") || Protected(root)) throw new IOException("Choose a local root outside .git.");
+            if (root.StartsWith(@"\\") || Protected(root)) throw new IOException(Strings.Mft_ChooseLocalRoot);
             CheckComponents(root);
             if (!Directory.Exists(root)) throw new DirectoryNotFoundException(root);
             return root;
@@ -96,16 +97,16 @@ namespace DesktopIniManager.Services
         public static void ValidateRoots(string source, string target)
         {
             if (source.StartsWith(target, StringComparison.OrdinalIgnoreCase) || target.StartsWith(source, StringComparison.OrdinalIgnoreCase))
-                throw new IOException("Roots must not be equal or nested.");
+                throw new IOException(Strings.Mft_RootsNested);
         }
         public static string SafePath(string root, string relative)
         {
             if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative) || relative.Contains(':') || Protected(relative) ||
                 relative.Replace('/', '\\').Split('\\').Any(p => p == ".." || p == "." || p.Length == 0 || p.EndsWith(" ") || p.EndsWith(".")))
-                throw new IOException("Protected or invalid relative path: " + relative);
+                throw new IOException(string.Format(Strings.Mft_ProtectedPath, relative));
             string path = Path.GetFullPath(Path.Combine(root, relative));
             if (!path.StartsWith(root.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase) || Protected(path))
-                throw new IOException("Refused a path outside the root or inside .git.");
+                throw new IOException(Strings.Mft_RefusedPath);
             CheckComponents(path);
             return path;
         }
@@ -118,7 +119,7 @@ namespace DesktopIniManager.Services
                 try
                 {
                     if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
-                        throw new IOException("Links and junctions are excluded: " + current);
+                        throw new IOException(string.Format(Strings.Mft_LinkExcluded, current));
                 }
                 catch (FileNotFoundException) { }
                 catch (DirectoryNotFoundException) { }
@@ -174,7 +175,7 @@ namespace DesktopIniManager.Services
 
                 progress?.Report(new DiffProgress
                 {
-                    Stage = "Reading timestamps and sizes…",
+                    Stage = Strings.Mft_ReadingMeta,
                     Completed = 0,
                     Total = total
                 });
@@ -192,14 +193,14 @@ namespace DesktopIniManager.Services
                     int completed = 0;
                     int total = sourceEntries.Count;
                     var timer = System.Diagnostics.Stopwatch.StartNew();
-                    progress?.Report(new DiffProgress { Stage = "Reading timestamps and sizes…", Completed = 0, Total = total });
+                    progress?.Report(new DiffProgress { Stage = Strings.Mft_ReadingMeta, Completed = 0, Total = total });
                     left = Scan(source, sourceIndex, sourceEntries, result.Folders, ref completed, total, timer, progress, token);
                 }
                 else
                 {
                     progress?.Report(new DiffProgress
                     {
-                        Stage = "MFT unavailable for " + source + ". Falling back to file-system scan: " + (sourceMftError == null ? "" : ErrorMessages.English(sourceMftError))
+                        Stage = string.Format(Strings.Mft_MftUnavailableFor, source) + " " + (sourceMftError == null ? "" : ErrorMessages.English(sourceMftError))
                     });
                     left = ScanFileSystem(source, result.Folders, progress, token);
                 }
@@ -209,20 +210,20 @@ namespace DesktopIniManager.Services
                     int completed = 0;
                     int total = targetEntries.Count;
                     var timer = System.Diagnostics.Stopwatch.StartNew();
-                    progress?.Report(new DiffProgress { Stage = "Reading timestamps and sizes…", Completed = 0, Total = total });
+                    progress?.Report(new DiffProgress { Stage = Strings.Mft_ReadingMeta, Completed = 0, Total = total });
                     right = Scan(target, targetIndex, targetEntries, result.Folders, ref completed, total, timer, progress, token);
                 }
                 else
                 {
                     progress?.Report(new DiffProgress
                     {
-                        Stage = "MFT unavailable for " + target + ". Falling back to file-system scan: " + (targetMftError == null ? "" : ErrorMessages.English(targetMftError))
+                        Stage = string.Format(Strings.Mft_MftUnavailableFor, target) + " " + (targetMftError == null ? "" : ErrorMessages.English(targetMftError))
                     });
                     right = ScanFileSystem(target, result.Folders, progress, token);
                 }
             }
 
-            progress?.Report(new DiffProgress { Stage = "Classifying differences by relative path…" });
+            progress?.Report(new DiffProgress { Stage = Strings.Mft_Classifying });
             result.Files = Classify(left, right, true, compareTimestamp, token);
             return result;
         }
@@ -233,7 +234,7 @@ namespace DesktopIniManager.Services
             NtfsVolumeIndex index;
             if (!indexes.TryGetValue(volume, out index))
             {
-                progress?.Report(new DiffProgress { Stage = "Reading MFT for " + volume + "…" });
+                progress?.Report(new DiffProgress { Stage = string.Format(Strings.Mft_ReadingMftFor, volume) });
                 indexes.Add(volume, index = NtfsVolumeIndex.Create(root, token));
             }
             return index;
@@ -278,7 +279,7 @@ namespace DesktopIniManager.Services
 
                     string path = ScanPath(root, relative);
                     DiffStamp stamp = DiffStamp.Read(path);
-                    if (stamp == null) throw new IOException("A file disappeared during compare. Compare again: " + path);
+                    if (stamp == null) throw new IOException(string.Format(Strings.Mft_FileDisappeared, path));
                     files.Add(relative, stamp);
 
                     completed++;
@@ -286,7 +287,7 @@ namespace DesktopIniManager.Services
                     {
                         progress?.Report(new DiffProgress
                         {
-                            Stage = "Scanning files without MFT…",
+                            Stage = Strings.Mft_ScanWithoutMft,
                             Completed = completed,
                             Total = 0
                         });
@@ -297,7 +298,7 @@ namespace DesktopIniManager.Services
 
             progress?.Report(new DiffProgress
             {
-                Stage = "File-system scan complete.",
+                Stage = Strings.Mft_ScanComplete,
                 Completed = completed,
                 Total = completed
             });
@@ -327,7 +328,7 @@ namespace DesktopIniManager.Services
                 completed++;
                 if (completed == 1 || completed == total || timer.ElapsedMilliseconds >= 100)
                 {
-                    progress?.Report(new DiffProgress { Stage = "Reading timestamps and sizes…", Completed = completed, Total = total });
+                    progress?.Report(new DiffProgress { Stage = Strings.Mft_ReadingMeta, Completed = completed, Total = total });
                     timer.Restart();
                 }
                 string path = index.GetFullPath(entry);
@@ -345,7 +346,7 @@ namespace DesktopIniManager.Services
                 else
                 {
                     DiffStamp stamp = DiffStamp.Read(path);
-                    if (stamp == null) throw new IOException("A file disappeared during compare. Compare again: " + path);
+                    if (stamp == null) throw new IOException(string.Format(Strings.Mft_FileDisappeared, path));
                     files.Add(relative, stamp);
                 }
             }
@@ -355,11 +356,11 @@ namespace DesktopIniManager.Services
         {
             if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative) || relative.Contains(':') || Protected(relative) ||
                 relative.Replace('/', '\\').Split('\\').Any(p => p == ".." || p == "." || p.Length == 0 || p.EndsWith(" ") || p.EndsWith(".")))
-                throw new IOException("Protected or invalid relative path: " + relative);
+                throw new IOException(string.Format(Strings.Mft_ProtectedPath, relative));
 
             string path = Path.GetFullPath(Path.Combine(root, relative));
             if (!path.StartsWith(root, StringComparison.OrdinalIgnoreCase) || Protected(path))
-                throw new IOException("Refused a path outside the root or inside .git.");
+                throw new IOException(Strings.Mft_RefusedPath);
             return path;
         }
         public static string Operation(DiffFile file, bool toTarget)
@@ -387,9 +388,9 @@ namespace DesktopIniManager.Services
                 {
                     left = SafePath(snapshot.SourceRoot, file.RelativePath);
                     right = SafePath(snapshot.TargetRoot, file.RelativePath);
-                    if (!file.CanSync) { writeLog("SKIP same " + file.RelativePath); continue; }
+                    if (!file.CanSync) { writeLog(string.Format(Strings.Mft_SkipSame, file.RelativePath)); continue; }
                     if (!DiffStamp.Same(file.Source, DiffStamp.Read(left), snapshot.CompareTimestamp) || !DiffStamp.Same(file.Target, DiffStamp.Read(right), snapshot.CompareTimestamp))
-                        throw new IOException("Changed after compare. Compare again.");
+                        throw new IOException(Strings.Mft_ChangedAfterCompare);
                     from = toTarget ? left : right;
                     to = toTarget ? right : left;
                     if (File.Exists(from)) RejectHardLinks(from);
@@ -408,7 +409,7 @@ namespace DesktopIniManager.Services
                             File.SetLastWriteTimeUtc(temporary, (toTarget ? file.Source : file.Target).ModifiedUtc);
                             SafePath(snapshot.SourceRoot, file.RelativePath); SafePath(snapshot.TargetRoot, file.RelativePath);
                             if (!DiffStamp.Same(file.Source, DiffStamp.Read(left), snapshot.CompareTimestamp) || !DiffStamp.Same(file.Target, DiffStamp.Read(right), snapshot.CompareTimestamp))
-                                throw new IOException("Changed during copy. Compare again.");
+                                throw new IOException(Strings.Mft_ChangedDuringCopy);
                             if (File.Exists(to)) { RejectHardLinks(to); File.Replace(temporary, to, null); }
                             else File.Move(temporary, to);
                             // Apply the timestamp to the final file, after replacement/rename.
@@ -425,8 +426,8 @@ namespace DesktopIniManager.Services
                     }
                     SafePath(snapshot.SourceRoot, file.RelativePath); SafePath(snapshot.TargetRoot, file.RelativePath);
                     if (!DiffStamp.Same(toTarget ? file.Source : file.Target, DiffStamp.Read(to)))
-                        throw new IOException("Synchronization verification failed: destination timestamp, size or existence differs. Compare again.");
-                    writeLog("OK " + operation + " " + file.RelativePath);
+                        throw new IOException(Strings.Mft_VerifyFailed);
+                    writeLog(Strings.Common_OK + " " + operation + " " + file.RelativePath);
                 }
                 catch (Exception ex)
                 {
@@ -436,9 +437,9 @@ namespace DesktopIniManager.Services
                     bool locked = IsFileLocked(to) || IsFileLocked(from);
 
                     if (locked)
-                        writeLog("LOCKED " + operation + " " + file.RelativePath + " : " + ErrorMessages.English(ex));
+                        writeLog(Strings.Common_Locked + " " + operation + " " + file.RelativePath + " : " + ErrorMessages.English(ex));
                     else
-                        writeLog("FAIL " + operation + " " + file.RelativePath + " : " + ErrorMessages.English(ex));
+                        writeLog(Strings.Common_Fail + " " + operation + " " + file.RelativePath + " : " + ErrorMessages.English(ex));
                 }
             }
             return log;
@@ -475,7 +476,7 @@ namespace DesktopIniManager.Services
             {
                 HandleInfo info;
                 if (!GetFileInformationByHandle(stream.SafeFileHandle, out info)) throw new Win32Exception(Marshal.GetLastWin32Error());
-                if (info.Links > 1) throw new IOException("Hard links are excluded: " + path);
+                if (info.Links > 1) throw new IOException(string.Format(Strings.Mft_HardLinkExcluded, path));
             }
         }
         [StructLayout(LayoutKind.Sequential)]

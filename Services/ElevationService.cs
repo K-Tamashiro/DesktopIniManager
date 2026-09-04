@@ -1,10 +1,11 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Security.Principal;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
+using DesktopIniManager.Properties;
 
 namespace DesktopIniManager.Services
 {
@@ -30,8 +31,8 @@ namespace DesktopIniManager.Services
         {
             var box = new CheckBox { VerticalContentAlignment = VerticalAlignment.Center };
             var text = new StackPanel { Margin = new Thickness(5, -1, 0, 0) };
-            var title = new TextBlock { Text = "Use fast NTFS search", FontWeight = FontWeights.SemiBold };
-            var note = new TextBlock { Text = "Windows may ask for permission", Margin = new Thickness(0, 2, 0, 0), FontSize = 10 };
+            var title = new TextBlock { Text = Strings.Main_FastNtfs, FontWeight = FontWeights.SemiBold };
+            var note = new TextBlock { Text = Strings.Main_ElevationHint, Margin = new Thickness(0, 2, 0, 0), FontSize = 10 };
             title.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
             note.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
             text.Children.Add(title);
@@ -57,7 +58,7 @@ namespace DesktopIniManager.Services
             Initialize(false);
             box.SetBinding(ToggleButton.IsCheckedProperty, new Binding(nameof(Enabled)) { Source = this, Mode = BindingMode.TwoWay });
             box.SetBinding(UIElement.IsEnabledProperty, new Binding(nameof(CanChange)) { Source = this });
-            box.ToolTip = "Use MFT in all windows. Enabling may restart DIM with administrator permission. Disabling uses normal scanning; it does not remove process privileges.";
+            box.ToolTip = Strings.Main_ElevationTooltip;
             box.Click += (sender, args) =>
             {
                 if (!Enabled || IsAdministrator()) return;

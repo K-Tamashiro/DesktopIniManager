@@ -30,6 +30,7 @@ internal static class DifferencerTests
     {
         try
         {
+            if (args.Contains("--input-history")) return InputHistoryTests.Run();
             if (args.Contains("--window-focus")) return TestWindowActivation();
             if (args.Contains("--scroll")) return ScrollPerformance.Run(args[1]);
             if (args.Contains("--diff-map")) return ScrollPerformance.Run(args[1], true);

@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using DesktopIniManager.Properties;
 
 namespace DesktopIniManager.Views
 {
@@ -14,7 +15,7 @@ namespace DesktopIniManager.Views
 
         internal SplashWindow()
         {
-            Title = "DesktopIniManager — Starting";
+            Title = Strings.Splash_Title;
             Width = Math.Min(940, SystemParameters.WorkArea.Width * 0.9);
             Height = Width / 2;
             if (Height > SystemParameters.WorkArea.Height * 0.9)
@@ -31,8 +32,8 @@ namespace DesktopIniManager.Views
                 Width = 1774, Height = 887, Stretch = Stretch.Fill,
                 Source = new BitmapImage(new Uri("pack://application:,,,/DesktopIniManager;component/Assets/splash-background.png"))
             });
-            AddText(canvas, "Initializing…", 377, 484, 36, "#339AFF", 820);
-            stage = AddText(canvas, "Loading startup settings…", 377, 548, 28, "#ECF2FA", 850);
+            AddText(canvas, Strings.Splash_Initializing, 377, 484, 36, "#339AFF", 820);
+            stage = AddText(canvas, Strings.Splash_LoadingSettings, 377, 548, 28, "#ECF2FA", 850);
             previous = AddText(canvas, "", 377, 603, 22, "#9CAFC5", 850);
             progress = new ProgressBar
             {
@@ -41,8 +42,8 @@ namespace DesktopIniManager.Views
                 Background = new SolidColorBrush(Color.FromRgb(25, 44, 65))
             };
             Canvas.SetLeft(progress, 377); Canvas.SetTop(progress, 676); canvas.Children.Add(progress);
-            AddText(canvas, "© " + DateTime.Now.Year + " ZEBRASOFT Co.,Ltd.", 1090, 786, 25, "#BCCADA", 630).TextAlignment = TextAlignment.Right;
-            AddText(canvas, "By Tamayan", 1090, 824, 22, "#8EA7C2", 630).TextAlignment = TextAlignment.Right;
+            AddText(canvas, string.Format(Strings.Splash_Copyright, DateTime.Now.Year), 1090, 786, 25, "#BCCADA", 630).TextAlignment = TextAlignment.Right;
+            AddText(canvas, Strings.Splash_Author, 1090, 824, 22, "#8EA7C2", 630).TextAlignment = TextAlignment.Right;
         }
 
         private static TextBlock AddText(Canvas canvas, string text, double left, double top, double size, string color, double width)

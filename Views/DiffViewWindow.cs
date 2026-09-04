@@ -15,12 +15,13 @@ using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Input;
 using System.Windows.Interop;
+using DesktopIniManager.Properties;
 
 namespace DesktopIniManager.Views
 {
     internal static class DiffMedia
     {
-        internal const string BinaryMessage = "Binary and cache files are not supported in Diff View. Only text files and supported images can be displayed.";
+        internal static string BinaryMessage { get { return Strings.Diff_BinaryMessage; } }
         public static bool IsBinary(string path)
         { return new[] { ".exe", ".dll", ".pdb", ".obj", ".lib", ".zip", ".7z", ".rar", ".gz", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".db", ".sqlite", ".mp3", ".mp4", ".wav", ".msi", ".bin", ".icl", ".resources", ".baml", ".cache" }.Contains(System.IO.Path.GetExtension(path).ToLowerInvariant()); }
         public static bool IsImage(string path)
@@ -48,7 +49,7 @@ namespace DesktopIniManager.Views
         {
             this.snapshot = snapshot;
             this.file = file;
-            Title = "Diff view — " + file.RelativePath + " — read only";
+            Title = string.Format(Strings.Diff_TitleFile, file.RelativePath);
             Width = 1280;
             Height = 800;
             MinWidth = 700;
@@ -65,7 +66,7 @@ namespace DesktopIniManager.Views
             titleBar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             var titleText = new TextBlock
             {
-                Text = "Diff view",
+                Text = Strings.Diff_Heading,
                 FontSize = 26,
                 FontWeight = FontWeights.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center
@@ -78,7 +79,7 @@ namespace DesktopIniManager.Views
                 Content = "\uE711",
                 FontFamily = new FontFamily("Segoe MDL2 Assets"),
                 Style = TryFindResource("IconButton") as Style,
-                ToolTip = "Close",
+                ToolTip = Strings.Common_Close,
                 VerticalAlignment = VerticalAlignment.Center
             };
             close.Click += (s, e) => Close();
@@ -96,11 +97,11 @@ namespace DesktopIniManager.Views
             toolbar.Children.Add(actions);
             if (!DiffMedia.IsImage(file.RelativePath))
             {
-                AddButton(actions, "\uE70E", "Prev", () => Navigate(-1));
-                AddButton(actions, "\uE70D", "Next", () => Navigate(1));
+                AddButton(actions, "\uE70E", Strings.Diff_Prev, () => Navigate(-1));
+                AddButton(actions, "\uE70D", Strings.Diff_Next, () => Navigate(1));
             }
-            AddButton(actions, "\uE8A7", "Open Source", () => OpenEditor(true));
-            AddButton(actions, "\uE8A7", "Open Target", () => OpenEditor(false));
+            AddButton(actions, "\uE8A7", Strings.Diff_OpenSource, () => OpenEditor(true));
+            AddButton(actions, "\uE8A7", Strings.Diff_OpenTarget, () => OpenEditor(false));
 
             status.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
             DockPanel.SetDock(status, Dock.Bottom);
@@ -110,8 +111,8 @@ namespace DesktopIniManager.Views
             headers.ColumnDefinitions.Add(new ColumnDefinition());
             headers.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(34) });
             headers.ColumnDefinitions.Add(new ColumnDefinition());
-            headers.Children.Add(HeaderBlock("Source", file.SourceInfo));
-            var rightHeader = HeaderBlock("Target", file.TargetInfo);
+            headers.Children.Add(HeaderBlock(Strings.Common_Source, file.SourceInfo));
+            var rightHeader = HeaderBlock(Strings.Common_Target, file.TargetInfo);
             Grid.SetColumn(rightHeader, 2);
             headers.Children.Add(rightHeader);
             DockPanel.SetDock(headers, Dock.Top);
@@ -188,7 +189,7 @@ namespace DesktopIniManager.Views
 
         private async Task LoadContent()
         {
-            status.Text = "Loading…";
+            status.Text = Strings.Diff_Loading;
             try
             {
                 if (DiffMedia.IsBinary(file.RelativePath)) throw new InvalidDataException(DiffMedia.BinaryMessage);
@@ -213,17 +214,17 @@ namespace DesktopIniManager.Views
                 rightList.SelectionChanged += (s, e) => SyncSelection(rightList, leftList);
                 leftList.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(ScrollChanged));
                 rightList.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(ScrollChanged));
-                status.Text = hunks.Count + " hunks | left red = removed  right green = added | UTF-8 / BOM / Shift-JIS | large files use a simplified match";
+                status.Text = string.Format(Strings.Diff_HunkStatus, hunks.Count);
             }
-            catch (InvalidDataException) { MessageBox.Show(Owner ?? this, DiffMedia.BinaryMessage, "Diff View", MessageBoxButton.OK, MessageBoxImage.Information); Close(); }
-            catch (DecoderFallbackException) { MessageBox.Show(Owner ?? this, DiffMedia.BinaryMessage, "Diff View", MessageBoxButton.OK, MessageBoxImage.Information); Close(); }
-            catch (Exception ex) { status.Text = "Unable to display: " + ErrorMessages.English(ex); }
+            catch (InvalidDataException) { MessageBox.Show(Owner ?? this, DiffMedia.BinaryMessage, Strings.Mft_DiffView, MessageBoxButton.OK, MessageBoxImage.Information); Close(); }
+            catch (DecoderFallbackException) { MessageBox.Show(Owner ?? this, DiffMedia.BinaryMessage, Strings.Mft_DiffView, MessageBoxButton.OK, MessageBoxImage.Information); Close(); }
+            catch (Exception ex) { status.Text = string.Format(Strings.Diff_Unable, ErrorMessages.English(ex)); }
         }
 
         private static string[] ReadText(string path)
         {
             DiffStamp stamp = DiffStamp.Read(path); if (stamp == null) return new string[0];
-            if (stamp.Size > 8 * 1024 * 1024) throw new IOException("Files over 8 MB should be opened in an external editor.");
+            if (stamp.Size > 8 * 1024 * 1024) throw new IOException(Strings.Diff_TooLargeBytes);
             byte[] bytes = File.ReadAllBytes(path);
             string text;
             try { using (var reader = new StreamReader(new MemoryStream(bytes), new UTF8Encoding(false, true), true)) text = reader.ReadToEnd(); }
@@ -232,7 +233,7 @@ namespace DesktopIniManager.Views
                 throw new InvalidDataException(DiffMedia.BinaryMessage);
             if (text.Length == 0) return new string[0];
             var lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
-            if (lines.Length > 100000) throw new IOException("Files over 100,000 lines should be opened in an external editor.");
+            if (lines.Length > 100000) throw new IOException(Strings.Diff_TooManyLines);
             return lines;
         }
 
@@ -360,7 +361,7 @@ namespace DesktopIniManager.Views
                     Width = 30,
                     Height = Math.Max(4, (end - start) * map.ActualHeight / Math.Max(1, lines.Count)),
                     Fill = MapBrush(lines[start].Kind),
-                    ToolTip = "Hunk " + (hunks.IndexOf(start) + 1),
+                    ToolTip = string.Format(Strings.Diff_HunkN, hunks.IndexOf(start) + 1),
                     Cursor = System.Windows.Input.Cursors.Hand
                 };
                 Canvas.SetTop(marker, start * map.ActualHeight / Math.Max(1, lines.Count));
@@ -369,7 +370,7 @@ namespace DesktopIniManager.Views
             }
             if (viewportThumb == null)
             {
-                viewportThumb = new Thumb { Cursor = System.Windows.Input.Cursors.SizeNS, ToolTip = "Visible range — drag to scroll", Focusable = false };
+                viewportThumb = new Thumb { Cursor = System.Windows.Input.Cursors.SizeNS, ToolTip = Strings.Diff_VisibleRange, Focusable = false };
                 var border = new FrameworkElementFactory(typeof(Border));
                 border.SetValue(Border.BorderBrushProperty, new DynamicResourceExtension("Accent"));
                 border.SetValue(Border.BorderThicknessProperty, new Thickness(2));
@@ -409,9 +410,9 @@ namespace DesktopIniManager.Views
             body.Children.Add(rightScroll);
             leftScroll.ScrollChanged += ScrollChanged;
             rightScroll.ScrollChanged += ScrollChanged;
-            var zoom = new Slider { Minimum = 0.001, Maximum = 16, Value = 1, Width = 170, ToolTip = "Shared zoom for Source and Target" };
+            var zoom = new Slider { Minimum = 0.001, Maximum = 16, Value = 1, Width = 170, ToolTip = Strings.Diff_ZoomShared };
             var wrapper = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 8) };
-            wrapper.Children.Add(new TextBlock { Text = "Zoom", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
+            wrapper.Children.Add(new TextBlock { Text = Strings.Diff_Zoom, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
             wrapper.Children.Add(zoom);
             var root = (DockPanel)Content;
             DockPanel.SetDock(wrapper, Dock.Top);
@@ -428,11 +429,11 @@ namespace DesktopIniManager.Views
                 fitting = false;
             };
             zoom.ValueChanged += (s, e) => { if (!fitting) fitToWindow = false; };
-            AddButton(wrapper, "\uE9A6", "Fit", () => { fitToWindow = true; fit(); });
-            AddButton(wrapper, "\uE91F", "100%", () => { fitToWindow = false; zoom.Value = 1; });
+            AddButton(wrapper, "\uE9A6", Strings.Diff_Fit, () => { fitToWindow = true; fit(); });
+            AddButton(wrapper, "\uE91F", Strings.Diff_ActualSize, () => { fitToWindow = false; zoom.Value = 1; });
             body.SizeChanged += (s, e) => fit();
             await Dispatcher.InvokeAsync(fit, System.Windows.Threading.DispatcherPriority.Loaded);
-            status.Text = "Source: " + ImageSize(left) + " | Target: " + ImageSize(right) + " | shared zoom, top-left aligned (GIF/ICO first frame)";
+            status.Text = string.Format(Strings.Diff_ImageStatus, ImageSize(left), ImageSize(right));
         }
 
         private static ScrollViewer ThemedViewer(object content)
@@ -462,17 +463,17 @@ namespace DesktopIniManager.Views
             var canvas = new Canvas { Width = width, Height = height };
             canvas.SetResourceReference(Panel.BackgroundProperty, "CardBackground");
             if (image != null) canvas.Children.Add(new Image { Source = image, Width = image.PixelWidth, Height = image.PixelHeight, Stretch = Stretch.Fill });
-            else canvas.Children.Add(new TextBlock { Text = "Missing", Margin = new Thickness(12) });
+            else canvas.Children.Add(new TextBlock { Text = Strings.Diff_Missing, Margin = new Thickness(12) });
             return canvas;
         }
 
-        private static string ImageSize(BitmapSource image) { return image == null ? "none" : image.PixelWidth + " × " + image.PixelHeight + " px"; }
+        private static string ImageSize(BitmapSource image) { return image == null ? Strings.Diff_None : string.Format(Strings.Diff_Pixels, image.PixelWidth, image.PixelHeight); }
 
         private void OpenEditor(bool source)
         {
             try
             {
-                string path = GetPath(source); if (!File.Exists(path)) throw new FileNotFoundException((source ? "Source" : "Target") + " file does not exist.");
+                string path = GetPath(source); if (!File.Exists(path)) throw new FileNotFoundException(source ? Strings.Diff_SourceMissing : Strings.Diff_TargetMissing);
                 string arguments = SettingsService.LoadEditorArguments().Replace("{file}", path).Replace("{line}", "1").Replace("{column}", "1");
                 Process.Start(new ProcessStartInfo(SettingsService.LoadEditorPath(), arguments) { UseShellExecute = true });
             }

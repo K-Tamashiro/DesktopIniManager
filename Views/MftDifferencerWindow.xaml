@@ -1,6 +1,6 @@
 <Window x:Class="DesktopIniManager.Views.MftDifferencerWindow"
- xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
- Title="MFT Differencer" Width="1280" Height="800" MinWidth="960" MinHeight="540" WindowStartupLocation="CenterOwner"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:history="clr-namespace:DesktopIniManager.Views" xmlns:res="clr-namespace:DesktopIniManager.Properties"
+ Title="{x:Static res:Strings.Mft_Title}" Width="1280" Height="800" MinWidth="960" MinHeight="540" WindowStartupLocation="CenterOwner"
  Background="{DynamicResource WindowBackground}" Foreground="{DynamicResource Ink}">
  <Window.Resources>
   <SolidColorBrush x:Key="SourceColor" Color="#E8B949"/>
@@ -85,54 +85,54 @@
      <ColumnDefinition Width="Auto"/>
      <ColumnDefinition Width="Auto"/>
     </Grid.ColumnDefinitions>
-    <TextBlock Text="MFT Differencer" FontSize="26" FontWeight="SemiBold" Foreground="{DynamicResource Accent}" VerticalAlignment="Center"/>
-    <Button x:Name="CloseButton" Grid.Column="2" Style="{StaticResource IconButton}" Content="&#xE711;" HorizontalAlignment="Right" VerticalAlignment="Center" Click="CloseClick" ToolTip="Close"/>
+    <TextBlock Text="{x:Static res:Strings.Mft_Title}" FontSize="26" FontWeight="SemiBold" Foreground="{DynamicResource Accent}" VerticalAlignment="Center"/>
+    <Button x:Name="CloseButton" Grid.Column="2" Style="{StaticResource IconButton}" Content="&#xE711;" HorizontalAlignment="Right" VerticalAlignment="Center" Click="CloseClick" ToolTip="{x:Static res:Strings.Common_Close}"/>
    </Grid>
    <Grid x:Name="RootControls"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-    <TextBlock Text="Source" VerticalAlignment="Center" Margin="0,0,12,6"/><TextBox x:Name="SourceBox" Grid.Column="1" Margin="0,0,8,6" BorderBrush="{StaticResource SourceColor}" BorderThickness="4,1,1,1"/>
-    <Button Content="&#xE8B7;" Style="{StaticResource IconButton}" Grid.Column="2" Click="BrowseSource" ToolTip="Browse" Margin="0,0,0,6"/>
-    <TextBlock Text="Target" Grid.Row="1" VerticalAlignment="Center"/><TextBox x:Name="TargetBox" Grid.Row="1" Grid.Column="1" Margin="0,0,8,0" BorderBrush="{StaticResource TargetColor}" BorderThickness="4,1,1,1"/>
-    <Button Content="&#xE8B7;" Style="{StaticResource IconButton}" Grid.Row="1" Grid.Column="2" Click="BrowseTarget" ToolTip="Browse"/>
+    <TextBlock Text="{x:Static res:Strings.Common_Source}" VerticalAlignment="Center" Margin="0,0,12,6"/><history:HistoryTextBox HistoryKey="Mft-Source" x:Name="SourceBox" Grid.Column="1" Margin="0,0,8,6" BorderBrush="{StaticResource SourceColor}" BorderThickness="4,1,1,1"/>
+    <Button Content="&#xE8B7;" Style="{StaticResource IconButton}" Grid.Column="2" Click="BrowseSource" ToolTip="{x:Static res:Strings.Common_Browse}" Margin="0,0,0,6"/>
+    <TextBlock Text="{x:Static res:Strings.Common_Target}" Grid.Row="1" VerticalAlignment="Center"/><history:HistoryTextBox HistoryKey="Mft-Target" x:Name="TargetBox" Grid.Row="1" Grid.Column="1" Margin="0,0,8,0" BorderBrush="{StaticResource TargetColor}" BorderThickness="4,1,1,1"/>
+    <Button Content="&#xE8B7;" Style="{StaticResource IconButton}" Grid.Row="1" Grid.Column="2" Click="BrowseTarget" ToolTip="{x:Static res:Strings.Common_Browse}"/>
    </Grid>
    <Grid Margin="0,10"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-    <StackPanel Orientation="Horizontal"><Button x:Name="CompareButton" Style="{StaticResource MftActionButton}" Click="CompareClick"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE721;" FontSize="15" VerticalAlignment="Center"/><TextBlock Text="Compare" Margin="6,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
-    <Button x:Name="CancelCompareButton" Content="&#xE711;" Style="{StaticResource IconButton}" Click="CancelCompareClick" Margin="8,0,0,0" Background="{DynamicResource Secondary}" ToolTip="Cancel comparison" IsEnabled="False"/>
-    <CheckBox x:Name="CompareTimestampBox" Content="Compare dates" IsChecked="True" VerticalAlignment="Center" Margin="12,0,0,0" ToolTip="Include last-write timestamps when classifying differences"/>
-    <Button x:Name="CleanSolutionButton" Style="{StaticResource MftActionButton}" Background="{StaticResource CleanColor}" Click="CleanSolutionClick" Margin="12,0,0,0" ToolTip="Choose solutions and configurations to clean with MSBuild, then compare again"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE75C;" FontSize="15" VerticalAlignment="Center"/><TextBlock Text="Clean solution" Margin="6,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
+    <StackPanel Orientation="Horizontal"><Button x:Name="CompareButton" Style="{StaticResource MftActionButton}" Click="CompareClick"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE721;" FontSize="15" VerticalAlignment="Center"/><TextBlock Text="{x:Static res:Strings.Common_Compare}" Margin="6,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
+    <Button x:Name="CancelCompareButton" Content="&#xE711;" Style="{StaticResource IconButton}" Click="CancelCompareClick" Margin="8,0,0,0" Background="{DynamicResource Secondary}" ToolTip="{x:Static res:Strings.Mft_CancelCompare}" IsEnabled="False"/>
+    <CheckBox x:Name="CompareTimestampBox" Content="{x:Static res:Strings.Mft_CompareDates}" IsChecked="True" VerticalAlignment="Center" Margin="12,0,0,0" ToolTip="{x:Static res:Strings.Mft_CompareDatesTip}"/>
+    <Button x:Name="CleanSolutionButton" Style="{StaticResource MftActionButton}" Background="{StaticResource CleanColor}" Click="CleanSolutionClick" Margin="12,0,0,0" ToolTip="{x:Static res:Strings.Mft_CleanTip}"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE75C;" FontSize="15" VerticalAlignment="Center"/><TextBlock Text="{x:Static res:Strings.Mft_CleanSolution}" Margin="6,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
     </StackPanel><StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right">
     <TextBlock x:Name="CountText" VerticalAlignment="Center" Margin="16,0,0,0"/>
-    <Button x:Name="ForwardButton" Style="{StaticResource MftActionButton}" Background="{StaticResource SourceColor}" Foreground="#20252B" Click="ForwardClick" Margin="12,0,0,0" IsEnabled="False"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE74B;" FontSize="15" VerticalAlignment="Center"/><TextBlock Text="Source to Target" Margin="6,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
-    <Button x:Name="ReverseButton" Style="{StaticResource MftActionButton}" Background="{StaticResource TargetColor}" Click="ReverseClick" Margin="8,0,0,0" IsEnabled="False"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE74A;" FontSize="15" VerticalAlignment="Center"/><TextBlock Text="Target to Source" Margin="6,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
+    <Button x:Name="ForwardButton" Style="{StaticResource MftActionButton}" Background="{StaticResource SourceColor}" Foreground="#20252B" Click="ForwardClick" Margin="12,0,0,0" IsEnabled="False"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE74B;" FontSize="15" VerticalAlignment="Center"/><TextBlock Text="{x:Static res:Strings.Mft_SourceToTarget}" Margin="6,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
+    <Button x:Name="ReverseButton" Style="{StaticResource MftActionButton}" Background="{StaticResource TargetColor}" Click="ReverseClick" Margin="8,0,0,0" IsEnabled="False"><StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE74A;" FontSize="15" VerticalAlignment="Center"/><TextBlock Text="{x:Static res:Strings.Mft_TargetToSource}" Margin="6,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
     </StackPanel>
    </Grid>
   </StackPanel>
   <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
    <ProgressBar x:Name="CompareProgress" Height="6" Visibility="Collapsed" Margin="0,0,0,6" Foreground="{DynamicResource Accent}" Background="{DynamicResource HeaderBackground}"/>
-   <TextBlock x:Name="StatusText" Text="Choose Source and Target, then Compare. Local NTFS and an elevated DIM process are required." TextWrapping="Wrap"/>
+   <TextBlock x:Name="StatusText" Text="{x:Static res:Strings.Mft_NeedRoots}" TextWrapping="Wrap"/>
   </StackPanel>
   <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="300" MinWidth="220"/><ColumnDefinition Width="5"/><ColumnDefinition MinWidth="400"/></Grid.ColumnDefinitions>
    <Border BorderBrush="{DynamicResource Line}" BorderThickness="1" Background="{DynamicResource CardBackground}"><DockPanel>
     <Border DockPanel.Dock="Top" Background="{DynamicResource HeaderBackground}" Padding="10,7"><DockPanel><StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-     <Button Style="{StaticResource IconButton}" Content="&#xE70D;" Click="ExpandAll_Click" ToolTip="Expand"/><Button Style="{StaticResource IconButton}" Content="&#xE70E;" Margin="5,0,0,0" Background="{DynamicResource Secondary}" Click="CollapseAll_Click" ToolTip="Collapse"/>
-     <Button Style="{StaticResource TypeSizeButton}" Content="a" FontSize="13" Margin="10,0,0,0" Background="{DynamicResource Secondary}" Click="CompactTree_Click" ToolTip="Compact folder list"/><Button Style="{StaticResource TypeSizeButton}" Content="A" FontSize="17" Margin="5,0,0,0" Background="{DynamicResource Secondary}" Click="ComfortableTree_Click" ToolTip="Comfortable folder list"/>
-    </StackPanel><TextBlock Text="Folders" FontWeight="SemiBold" VerticalAlignment="Center"/></DockPanel></Border>
+     <Button Style="{StaticResource IconButton}" Content="&#xE70D;" Click="ExpandAll_Click" ToolTip="{x:Static res:Strings.Common_Expand}"/><Button Style="{StaticResource IconButton}" Content="&#xE70E;" Margin="5,0,0,0" Background="{DynamicResource Secondary}" Click="CollapseAll_Click" ToolTip="{x:Static res:Strings.Common_Collapse}"/>
+     <Button Style="{StaticResource TypeSizeButton}" Content="a" FontSize="13" Margin="10,0,0,0" Background="{DynamicResource Secondary}" Click="CompactTree_Click" ToolTip="{x:Static res:Strings.Main_TreeCompact}"/><Button Style="{StaticResource TypeSizeButton}" Content="A" FontSize="17" Margin="5,0,0,0" Background="{DynamicResource Secondary}" Click="ComfortableTree_Click" ToolTip="{x:Static res:Strings.Main_TreeComfortable}"/>
+    </StackPanel><TextBlock Text="{x:Static res:Strings.Common_Folders}" FontWeight="SemiBold" VerticalAlignment="Center"/></DockPanel></Border>
     <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1" Padding="8,5"><WrapPanel x:Name="CategoryFilters" IsEnabled="False">
-     <CheckBox x:Name="SameFilter" Style="{StaticResource KindFilterStyle}" IsChecked="False" Click="KindFilter_Click" ToolTip="Same timestamp and size">
+     <CheckBox x:Name="SameFilter" Style="{StaticResource KindFilterStyle}" IsChecked="False" Click="KindFilter_Click" ToolTip="{x:Static res:Strings.Mft_SameTimeSize}">
       <Image x:Name="SameFilterIcon" Width="22" Height="22" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
      </CheckBox>
-     <CheckBox x:Name="DifferentFilter" Style="{StaticResource KindFilterStyle}" IsChecked="True" Click="KindFilter_Click" ToolTip="Present on both sides with different timestamp or size">
+     <CheckBox x:Name="DifferentFilter" Style="{StaticResource KindFilterStyle}" IsChecked="True" Click="KindFilter_Click" ToolTip="{x:Static res:Strings.Mft_DifferentMeta}">
       <Image x:Name="DifferentFilterIcon" Width="22" Height="22" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
      </CheckBox>
-     <CheckBox x:Name="SourceOnlyFilter" Style="{StaticResource KindFilterStyle}" IsChecked="True" Click="KindFilter_Click" ToolTip="Present on Source only">
+     <CheckBox x:Name="SourceOnlyFilter" Style="{StaticResource KindFilterStyle}" IsChecked="True" Click="KindFilter_Click" ToolTip="{x:Static res:Strings.Mft_SourceOnly}">
       <Image x:Name="SourceOnlyFilterIcon" Width="22" Height="22" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
      </CheckBox>
-     <CheckBox x:Name="TargetOnlyFilter" Style="{StaticResource KindFilterStyle}" IsChecked="True" Click="KindFilter_Click" ToolTip="Present on Target only">
+     <CheckBox x:Name="TargetOnlyFilter" Style="{StaticResource KindFilterStyle}" IsChecked="True" Click="KindFilter_Click" ToolTip="{x:Static res:Strings.Mft_TargetOnly}">
       <Image x:Name="TargetOnlyFilterIcon" Width="22" Height="22" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
      </CheckBox>
-     <CheckBox x:Name="ObjFilter" Style="{StaticResource KindFilterStyle}" IsChecked="False" Click="BuildFolderFilter_Click" ToolTip="Show obj folders and their files" AutomationProperties.Name="Show OBJ">
+     <CheckBox x:Name="ObjFilter" Style="{StaticResource KindFilterStyle}" IsChecked="False" Click="BuildFolderFilter_Click" ToolTip="{x:Static res:Strings.Mft_ShowObj}" AutomationProperties.Name="Show OBJ">
       <Image x:Name="ObjFilterIcon" Width="22" Height="22" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
      </CheckBox>
-     <CheckBox x:Name="BinFilter" Style="{StaticResource KindFilterStyle}" IsChecked="False" Click="BuildFolderFilter_Click" ToolTip="Show bin folders and their files" AutomationProperties.Name="Show BIN">
+     <CheckBox x:Name="BinFilter" Style="{StaticResource KindFilterStyle}" IsChecked="False" Click="BuildFolderFilter_Click" ToolTip="{x:Static res:Strings.Mft_ShowBin}" AutomationProperties.Name="Show BIN">
       <Image x:Name="BinFilterIcon" Width="22" Height="22" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
      </CheckBox>
     </WrapPanel></Border>
@@ -146,22 +146,22 @@
    </DockPanel></Border>
    <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="{DynamicResource Line}"/>
    <Border Grid.Column="2" BorderBrush="{DynamicResource Line}" BorderThickness="1" Background="{DynamicResource CardBackground}"><DockPanel>
-    <Border DockPanel.Dock="Top" Background="{DynamicResource HeaderBackground}" Padding="10,7"><TextBlock x:Name="FilePanelTitle" Text="Files" Height="36" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Padding="0,10,0,0"/></Border>
+    <Border DockPanel.Dock="Top" Background="{DynamicResource HeaderBackground}" Padding="10,7"><TextBlock x:Name="FilePanelTitle" Text="{x:Static res:Strings.Common_Files}" Height="36" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Padding="0,10,0,0"/></Border>
     <Grid>
     <ListView x:Name="FilesGrid" ItemContainerStyle="{StaticResource FileListItemStyle}" BorderThickness="0" Background="{DynamicResource CardBackground}" Foreground="{DynamicResource Ink}" SelectionMode="Single" ScrollViewer.CanContentScroll="True" VirtualizingPanel.CacheLength="0" VirtualizingPanel.ScrollUnit="Item" ScrollViewer.HorizontalScrollBarVisibility="Auto" VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling" SelectionChanged="FileListSelectionChanged" MouseDoubleClick="OpenDiff"><ListView.View><GridView>
-     <GridViewColumn Header="Sync" Width="44"><GridViewColumn.CellTemplate><DataTemplate><CheckBox IsChecked="{Binding File.Selected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding File.CanSync}" HorizontalAlignment="Center" VerticalAlignment="Center"/></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
+     <GridViewColumn Header="{x:Static res:Strings.Common_Sync}" Width="44"><GridViewColumn.CellTemplate><DataTemplate><CheckBox IsChecked="{Binding File.Selected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding File.CanSync}" HorizontalAlignment="Center" VerticalAlignment="Center"/></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
      <GridViewColumn Header="" Width="36"><GridViewColumn.CellTemplate><DataTemplate><Image Source="{Binding StatusIcon}" Width="24" Height="24" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
      <GridViewColumn Header="" Width="36"><GridViewColumn.CellTemplate><DataTemplate><Image Source="{Binding Icon}" Width="24" Height="24" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
-     <GridViewColumn Header="Name" Width="200"><GridViewColumn.CellTemplate><DataTemplate><StackPanel VerticalAlignment="Center" ToolTip="{Binding File.RelativePath}"><TextBlock Text="{Binding File.Name}" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding File.RelativePath}" FontSize="10" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/></StackPanel></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
-     <GridViewColumn Header="Type" Width="60" DisplayMemberBinding="{Binding Extension}"/>
-     <GridViewColumn Header="State" Width="110"><GridViewColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding File.State}" TextWrapping="Wrap" VerticalAlignment="Center"/></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
-     <GridViewColumn Header="Source" Width="210"><GridViewColumn.CellTemplate><DataTemplate><ContentControl Content="{Binding Source}" ContentTemplate="{StaticResource SideTemplate}"/></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
-     <GridViewColumn Header="Target" Width="210"><GridViewColumn.CellTemplate><DataTemplate><ContentControl Content="{Binding Target}" ContentTemplate="{StaticResource SideTemplate}"/></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
+     <GridViewColumn Header="{x:Static res:Strings.Common_Name}" Width="200"><GridViewColumn.CellTemplate><DataTemplate><StackPanel VerticalAlignment="Center" ToolTip="{Binding File.RelativePath}"><TextBlock Text="{Binding File.Name}" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding File.RelativePath}" FontSize="10" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/></StackPanel></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
+     <GridViewColumn Header="{x:Static res:Strings.Common_Type}" Width="60" DisplayMemberBinding="{Binding Extension}"/>
+     <GridViewColumn Header="{x:Static res:Strings.Common_State}" Width="110"><GridViewColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding File.State}" TextWrapping="Wrap" VerticalAlignment="Center"/></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
+     <GridViewColumn Header="{x:Static res:Strings.Common_Source}" Width="210"><GridViewColumn.CellTemplate><DataTemplate><ContentControl Content="{Binding Source}" ContentTemplate="{StaticResource SideTemplate}"/></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
+     <GridViewColumn Header="{x:Static res:Strings.Common_Target}" Width="210"><GridViewColumn.CellTemplate><DataTemplate><ContentControl Content="{Binding Target}" ContentTemplate="{StaticResource SideTemplate}"/></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
     </GridView></ListView.View></ListView>
     <Border x:Name="FilePanelBusy" Visibility="Collapsed" Background="#CC111821" IsHitTestVisible="True">
      <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
       <ProgressBar x:Name="FilePanelProgress" Width="160" Height="5" IsIndeterminate="True" Foreground="{DynamicResource Accent}" Background="{DynamicResource HeaderBackground}"/>
-      <TextBlock x:Name="FilePanelBusyText" Text="Please wait…" Margin="0,10,0,0" HorizontalAlignment="Center" Foreground="{DynamicResource Muted}"/>
+      <TextBlock x:Name="FilePanelBusyText" Text="{x:Static res:Strings.Common_PleaseWait}" Margin="0,10,0,0" HorizontalAlignment="Center" Foreground="{DynamicResource Muted}"/>
      </StackPanel>
     </Border>
     </Grid>

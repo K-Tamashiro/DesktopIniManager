@@ -2,36 +2,159 @@
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration><Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{91097EF8-6B8C-492A-AC5C-F85A0BD979F4}</ProjectGuid><ProjectTypeGuids>{60DC8134-EBA5-43B8-BCC9-BB4BC16C2548};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids><OutputType>WinExe</OutputType><RootNamespace>DesktopIniManager</RootNamespace><AssemblyName>DesktopIniManager</AssemblyName>
-    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion><FileAlignment>512</FileAlignment><AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects><Deterministic>true</Deterministic>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{91097EF8-6B8C-492A-AC5C-F85A0BD979F4}</ProjectGuid>
+    <ProjectTypeGuids>{60DC8134-EBA5-43B8-BCC9-BB4BC16C2548};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>DesktopIniManager</RootNamespace>
+    <AssemblyName>DesktopIniManager</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Deterministic>true</Deterministic>
   </PropertyGroup>
-  <PropertyGroup><ApplicationIcon>DesktopIniManager.ico</ApplicationIcon></PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' "><PlatformTarget>x64</PlatformTarget><DebugSymbols>true</DebugSymbols><DebugType>full</DebugType><OutputPath>bin\Debug\</OutputPath><DefineConstants>DEBUG;TRACE</DefineConstants><WarningLevel>4</WarningLevel></PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' "><PlatformTarget>x64</PlatformTarget><Optimize>true</Optimize><DebugType>pdbonly</DebugType><OutputPath>bin\Release\</OutputPath><DefineConstants>TRACE</DefineConstants><WarningLevel>4</WarningLevel></PropertyGroup>
-  <ItemGroup><Reference Include="System"/><Reference Include="System.Core"/><Reference Include="System.Drawing"/><Reference Include="System.Xml"/><Reference Include="System.Xaml"/><Reference Include="WindowsBase"/><Reference Include="PresentationCore"/><Reference Include="PresentationFramework"/><Reference Include="System.Windows.Forms"/></ItemGroup>
-  <ItemGroup><ProjectReference Include="FastVolumeIndex\FastVolumeIndex.Core\FastVolumeIndex.Core.csproj"><Project>{A67C59A1-8E4E-4F44-9A88-D2D1BE56DD81}</Project><Name>FastVolumeIndex.Core</Name><Private>True</Private></ProjectReference></ItemGroup>
+  <PropertyGroup>
+    <ApplicationIcon>DesktopIniManager.ico</ApplicationIcon>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>x64</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>x64</PlatformTarget>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
   <ItemGroup>
-    <ApplicationDefinition Include="App.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></ApplicationDefinition>
-    <Page Include="MainWindow.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
-    <Page Include="Views\IconGroupBrowserWindow.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
-    <Page Include="Views\MftDifferencerWindow.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
-    <Compile Include="Services\MftDifferencerService.cs"/><Compile Include="Services\DiffTextService.cs"/><Compile Include="Views\DiffViewWindow.cs"/><Compile Include="Views\MftDifferencerWindow.xaml.cs"><DependentUpon>MftDifferencerWindow.xaml</DependentUpon></Compile>
-    <Page Include="Views\GrepWindow.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
-    <Page Include="Themes\LightTheme.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page><Page Include="Themes\DarkTheme.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
-    <Compile Include="Services\FolderTreeStateService.cs"/>
-    <Compile Include="Services\SolutionCleanService.cs"/>
-    <Compile Include="Services\WindowActivationService.cs"/>
-    <Compile Include="Services\ErrorMessages.cs"/>
-    <Compile Include="Views\MftDifferencerWindow.Clean.cs"/>
-    <Compile Include="Services\StartupState.cs"/><Compile Include="Views\SplashWindow.cs"/>
-    <Compile Include="Services\ElevationService.cs"/><Compile Include="Services\ElevationResumeState.cs"/>
-    <Compile Include="App.xaml.cs"><DependentUpon>App.xaml</DependentUpon></Compile><Compile Include="MainWindow.xaml.cs"><DependentUpon>MainWindow.xaml</DependentUpon></Compile>
-    <Compile Include="Models\FolderMatch.cs"/><Compile Include="Models\FileListItem.cs"/><Compile Include="Models\IconGroupResource.cs"/><Compile Include="Models\GrepMatch.cs"/><Compile Include="Models\LanguageProfile.cs"/><Compile Include="Services\FolderSearchService.cs"/><Compile Include="Services\FastFolderSearchService.cs"/><Compile Include="Services\CodeGrepService.cs"/><Compile Include="Services\SolutionTreeService.cs"/><Compile Include="Services\DesktopIniService.cs"/><Compile Include="Services\FolderIconService.cs"/><Compile Include="Services\FileIconService.cs"/><Compile Include="Services\IconResourceReader.cs"/><Compile Include="Services\NativeFolderPicker.cs"/><Compile Include="Services\SettingsService.cs"/><Compile Include="Services\ThemeService.cs"/><Compile Include="Views\IconGroupBrowserWindow.xaml.cs"><DependentUpon>IconGroupBrowserWindow.xaml</DependentUpon></Compile><Compile Include="Views\GrepWindow.xaml.cs"><DependentUpon>GrepWindow.xaml</DependentUpon></Compile><Compile Include="Properties\AssemblyInfo.cs"/>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xaml" />
+    <Reference Include="WindowsBase" />
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="System.Windows.Forms" />
   </ItemGroup>
-  <ItemGroup><Resource Include="DesktopIniManager.ico"/></ItemGroup>
-  <ItemGroup><Resource Include="Assets\splash-background.png"/></ItemGroup>
-  <ItemGroup><Content Include="Assets\folder_set.icl"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup>
-  <ItemGroup><Content Include="Assets\MftDifferencer_iconset.icl"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="FastVolumeIndex\FastVolumeIndex.Core\FastVolumeIndex.Core.csproj">
+      <Project>{A67C59A1-8E4E-4F44-9A88-D2D1BE56DD81}</Project>
+      <Name>FastVolumeIndex.Core</Name>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ApplicationDefinition Include="App.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </ApplicationDefinition>
+    <Page Include="MainWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Views\IconGroupBrowserWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Views\MftDifferencerWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Compile Include="Properties\StringOverlay.cs" />
+    <Compile Include="Services\MftDifferencerService.cs" />
+    <Compile Include="Services\DiffTextService.cs" />
+    <Compile Include="Views\DiffViewWindow.cs" />
+    <Compile Include="Views\MftDifferencerWindow.xaml.cs">
+      <DependentUpon>MftDifferencerWindow.xaml</DependentUpon>
+    </Compile>
+    <Page Include="Views\GrepWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Themes\LightTheme.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Themes\DarkTheme.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Compile Include="Services\FolderTreeStateService.cs" />
+    <Compile Include="Services\SolutionCleanService.cs" />
+    <Compile Include="Services\WindowActivationService.cs" />
+    <Compile Include="Services\ErrorMessages.cs" />
+    <Compile Include="Views\MftDifferencerWindow.Clean.cs" />
+    <Compile Include="Services\StartupState.cs" />
+    <Compile Include="Views\SplashWindow.cs" />
+    <Compile Include="Services\ElevationService.cs" />
+    <Compile Include="Services\ElevationResumeState.cs" />
+    <Compile Include="App.xaml.cs">
+      <DependentUpon>App.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="MainWindow.xaml.cs">
+      <DependentUpon>MainWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Models\FolderMatch.cs" />
+    <Compile Include="Models\FileListItem.cs" />
+    <Compile Include="Models\IconGroupResource.cs" />
+    <Compile Include="Models\GrepMatch.cs" />
+    <Compile Include="Models\LanguageProfile.cs" />
+    <Compile Include="Services\FolderSearchService.cs" />
+    <Compile Include="Services\FastFolderSearchService.cs" />
+    <Compile Include="Services\CodeGrepService.cs" />
+    <Compile Include="Services\SolutionTreeService.cs" />
+    <Compile Include="Services\DesktopIniService.cs" />
+    <Compile Include="Services\FolderIconService.cs" />
+    <Compile Include="Services\FileIconService.cs" />
+    <Compile Include="Services\IconResourceReader.cs" />
+    <Compile Include="Services\NativeFolderPicker.cs" />
+    <Compile Include="Services\SettingsService.cs" />
+    <Compile Include="Services\InputHistoryStore.cs" />
+    <Compile Include="Views\HistoryTextBox.cs" />
+    <Compile Include="Views\InputHistory.cs" />
+    <Page Include="Views\HistoryTextBox.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
+    <Compile Include="Services\ThemeService.cs" />
+    <Compile Include="Views\IconGroupBrowserWindow.xaml.cs">
+      <DependentUpon>IconGroupBrowserWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Views\GrepWindow.xaml.cs">
+      <DependentUpon>GrepWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Properties\Strings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Strings.resx</DependentUpon>
+    </Compile>
+    <EmbeddedResource Include="Properties\Strings.resx">
+      <Generator>PublicResXFileCodeGenerator</Generator>
+      <LastGenOutput>Strings.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="DesktopIniManager.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Assets\splash-background.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Assets\folder_set.icl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Assets\MftDifferencer_iconset.icl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

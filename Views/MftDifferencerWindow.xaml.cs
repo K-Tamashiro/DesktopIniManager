@@ -14,6 +14,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using System.Xml.Serialization;
+using DesktopIniManager.Properties;
 
 namespace DesktopIniManager.Views
 {
@@ -199,7 +200,7 @@ namespace DesktopIniManager.Views
                     image.StreamSource = stream; image.EndInit(); image.Freeze(); result.Thumbnail = image;
                 }
             }
-            catch (Exception ex) { result.Dimensions = "Preview unavailable: " + ErrorMessages.English(ex); }
+            catch (Exception ex) { result.Dimensions = string.Format(Strings.Mft_PreviewUnavailable, ErrorMessages.English(ex)); }
             return result;
         }
         internal void ApplyPreview(Preview preview)
@@ -304,7 +305,7 @@ namespace DesktopIniManager.Views
             showObj = ObjFilter.IsChecked == true; showBin = BinFilter.IsChecked == true;
             if (snapshot == null) return;
             RefreshChecks(); ApplyKindFilter();
-            StatusText.Text = folders[""].CountFor(DiffKind.Differences) + " differences / " + folders[""].CountFor(DiffKind.Same) + " identical (OBJ/BIN filters applied). Check items to synchronize.";
+            StatusText.Text = string.Format(Strings.Mft_FilterSummary, folders[""].CountFor(DiffKind.Differences), folders[""].CountFor(DiffKind.Same));
         }
         private void KindFilter_Click(object sender, RoutedEventArgs e)
         {
@@ -346,10 +347,10 @@ namespace DesktopIniManager.Views
                     treeSource = state.Source; treeTarget = state.Target;
                     selectedFolder = "";
                     cachedVisibleFolders = null;
-                    StatusText.Text = "Source and Target restored. Click Compare to build the difference tree.";
+                    StatusText.Text = Strings.Mft_RestoredClickCompare;
                 }
             }
-            catch (Exception ex) { StatusText.Text = "Failed to restore tree: " + ErrorMessages.English(ex); }
+            catch (Exception ex) { StatusText.Text = string.Format(Strings.Mft_RestoreTreeFailed, ErrorMessages.English(ex)); }
         }
         private void AttachElevationToggle()
         {
@@ -391,7 +392,7 @@ namespace DesktopIniManager.Views
             treeTarget = TargetBox.Text;
             selectedFolder = string.Empty;
             cachedVisibleFolders = null;
-            StatusText.Text = "Source and Target restored. Click Compare to build the difference tree.";
+            StatusText.Text = Strings.Mft_RestoredClickCompare;
         }
 
         private void RootsChanged(object sender, TextChangedEventArgs e)
@@ -406,7 +407,7 @@ namespace DesktopIniManager.Views
             FilesGrid.ItemsSource = null;
             snapshot = null; rows.Clear();
             CategoryFilters.IsEnabled = false;
-            FilePanelTitle.Text = "Files";
+            FilePanelTitle.Text = Strings.Common_Files;
             UpdateSelectionSummary();
         }
         private void FileRowLoaded(object sender, RoutedEventArgs e)
@@ -442,21 +443,22 @@ namespace DesktopIniManager.Views
                 }
             }
         }
-        private void BrowseSource(object sender, RoutedEventArgs e) { Browse(SourceBox, "Source folder"); }
-        private void BrowseTarget(object sender, RoutedEventArgs e) { Browse(TargetBox, "Target folder"); }
+        private void BrowseSource(object sender, RoutedEventArgs e) { Browse(SourceBox, Strings.Mft_SourceFolder); }
+        private void BrowseTarget(object sender, RoutedEventArgs e) { Browse(TargetBox, Strings.Mft_TargetFolder); }
         private void CloseClick(object sender, RoutedEventArgs e) { Close(); }
         private void Browse(TextBox box, string title)
-        { try { string path = NativeFolderPicker.Show(new WindowInteropHelper(this).Handle, box.Text, title); if (path != null) box.Text = path; } catch (Exception ex) { ShowError(ex); } }
+        { try { string path = NativeFolderPicker.Show(new WindowInteropHelper(this).Handle, box.Text, title); if (path != null) { box.Text = path; box.CommitHistory(); } } catch (Exception ex) { ShowError(ex); } }
         private async void CompareClick(object sender, RoutedEventArgs e) { await Compare(); }
         private void CancelCompareClick(object sender, RoutedEventArgs e)
         {
             if (!comparing) return;
             try { compareCts?.Cancel(); } catch (ObjectDisposedException) { }
-            StatusText.Text = "Cancelling comparison…";
+            StatusText.Text = Strings.Mft_CancellingCompare;
             CancelCompareButton.IsEnabled = false;
         }
         private async Task Compare()
         {
+            SourceBox.CommitHistory(); TargetBox.CommitHistory();
             var expanded = folders.Values.Where(f => f.Expanded).Select(f => f.Path).ToList();
             ClearComparisonView(); SetBusy(true);
             comparing = true;
@@ -465,7 +467,7 @@ namespace DesktopIniManager.Views
             var token = compareCts.Token;
             CompareProgress.Visibility = Visibility.Visible;
             CompareProgress.IsIndeterminate = true;
-            StatusText.Text = "Enumerating MFT and comparing timestamps and sizes…";
+            StatusText.Text = Strings.Mft_Enumerating;
             string source = SourceBox.Text, target = TargetBox.Text;
             try
             {
@@ -475,15 +477,15 @@ namespace DesktopIniManager.Views
                 token.ThrowIfCancellationRequested();
                 comparing = false;
                 CompareProgress.IsIndeterminate = true;
-                StatusText.Text = "Updating the difference tree…";
+                StatusText.Text = Strings.Mft_UpdatingTree;
                 snapshot = fresh; treeSource = source; treeTarget = target;
                 rows = snapshot.Files.Select(f => new DiffRow { File = f, SourceRoot = snapshot.SourceRoot, TargetRoot = snapshot.TargetRoot }).ToList();
                 BuildTree(snapshot.Folders, expanded, selectedFolder);
-                StatusText.Text = folders[""].CountFor(DiffKind.Differences) + " differences / " + folders[""].CountFor(DiffKind.Same) + " identical. Check items to synchronize.";
+                StatusText.Text = string.Format(Strings.Mft_DifferencesSummary, folders[""].CountFor(DiffKind.Differences), folders[""].CountFor(DiffKind.Same));
                 SaveState();
             }
-            catch (OperationCanceledException) { StatusText.Text = "Compare cancelled"; }
-            catch (Exception ex) { StatusText.Text = "Compare failed (sync disabled): " + ErrorMessages.English(ex); ShowError(ex); }
+            catch (OperationCanceledException) { StatusText.Text = Strings.Mft_CompareCancelled; }
+            catch (Exception ex) { StatusText.Text = string.Format(Strings.Mft_CompareFailed, ErrorMessages.English(ex)); ShowError(ex); }
             finally { comparing = false; CompareProgress.Visibility = Visibility.Collapsed; CompareProgress.IsIndeterminate = false; SetBusy(false); }
         }
         private void UpdateProgress(DiffProgress progress)
@@ -500,8 +502,8 @@ namespace DesktopIniManager.Views
                 FilePanelProgress.Value = progress.Completed;
             }
             string detail = unknown ? progress.Stage : progress.Stage + " — " + progress.Completed.ToString("N0") + " / " + progress.Total.ToString("N0");
-            if (FilePanelBusyText != null) FilePanelBusyText.Text = string.IsNullOrEmpty(detail) ? "Please wait…" : detail;
-            StatusText.Text = progress.Stage + (unknown ? "" : " — " + progress.Completed.ToString("N0") + " / " + progress.Total.ToString("N0") + " items");
+            if (FilePanelBusyText != null) FilePanelBusyText.Text = string.IsNullOrEmpty(detail) ? Strings.Common_PleaseWait : detail;
+            StatusText.Text = unknown ? progress.Stage : string.Format(Strings.Mft_ProgressItems, progress.Stage, progress.Completed.ToString("N0"), progress.Total.ToString("N0"));
         }
         private void BuildTree(IEnumerable<string> paths, IEnumerable<string> expanded, string selected)
         {
@@ -554,7 +556,7 @@ namespace DesktopIniManager.Views
             {
                 folder.Mask = kindMask;
                 folder.Visible = folder.Path.Length == 0 || (snapshot != null ? folder.CountFor(kindMask) > 0 : cachedVisibleFolders == null || cachedVisibleFolders.Contains(folder.Path));
-                folder.Label = (folder.Path.Length == 0 ? RootLabel() : Path.GetFileName(folder.Path)) + (snapshot == null ? " (not compared)" : " (" + folder.CountFor(kindMask) + ")");
+                folder.Label = (folder.Path.Length == 0 ? RootLabel() : Path.GetFileName(folder.Path)) + (snapshot == null ? " " + Strings.Mft_NotCompared : " (" + folder.CountFor(kindMask) + ")");
             }
             if (!folders[selectedFolder].Visible)
             {
@@ -588,11 +590,11 @@ namespace DesktopIniManager.Views
             int count = snapshot != null && folders.TryGetValue("", out root) ? root.SelectedCount : 0;
             int total = root == null ? 0 : root.AllDifferenceCount;
             int hidden = root == null ? 0 : count - root.SelectedFor(kindMask);
-            CountText.Text = "Selected " + count + " / " + total + (hidden > 0 ? " (includes " + hidden + " hidden)" : "");
+            CountText.Text = hidden > 0 ? string.Format(Strings.Mft_SelectedIncludesHidden, count + " / " + total, hidden) : Strings.Mft_Selected + " " + count + " / " + total;
             ForwardButton.IsEnabled = ReverseButton.IsEnabled = !busy && count > 0;
         }
         private string RootLabel()
-        { return string.IsNullOrWhiteSpace(treeSource) ? "All folders" : Path.GetFileName(treeSource.TrimEnd('\\', '/')) is string name && name.Length > 0 ? name : treeSource; }
+        { return string.IsNullOrWhiteSpace(treeSource) ? Strings.Mft_AllFolders : Path.GetFileName(treeSource.TrimEnd('\\', '/')) is string name && name.Length > 0 ? name : treeSource; }
         private void FolderChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
             if (syncingTreeFromFile) return;
@@ -713,14 +715,14 @@ namespace DesktopIniManager.Views
         {
             var visible = rows.Where(r => IncludeBuildFolderFile(r.File) && (r.File.Kind & kindMask) != 0 && (selectedFolder.Length == 0 || r.File.RelativePath.StartsWith(selectedFolder + "\\", StringComparison.OrdinalIgnoreCase))).ToList();
             FilesGrid.ItemsSource = visible;
-            FilePanelTitle.Text = "Files — " + (selectedFolder.Length == 0 ? "all levels" : selectedFolder) + " (" + visible.Count + ")";
+            FilePanelTitle.Text = string.Format(Strings.Main_FilesHeader, (selectedFolder.Length == 0 ? Strings.Mft_FilesAllLevels.Replace("Files — ", "") : selectedFolder) + " (" + visible.Count + ")");
             ShowFolderListBusy(visible);
         }
         private void ShowFolderListBusy(List<DiffRow> visible)
         {
             int generation = ++filterGeneration;
             if (busy) return;
-            SetFilePanelBusy(true, "Please wait…");
+            SetFilePanelBusy(true, Strings.Common_PleaseWait);
             Dispatcher.BeginInvoke(new Action(() => FinishFolderListBusy(generation)), DispatcherPriority.ContextIdle);
         }
         private void FinishFolderListBusy(int generation)
@@ -738,7 +740,7 @@ namespace DesktopIniManager.Views
             CategoryFilters.IsEnabled = !value && snapshot != null;
             FolderTree.IsHitTestVisible = FilesGrid.IsHitTestVisible = !value;
             FolderTree.Focusable = FilesGrid.Focusable = !value;
-            SetFilePanelBusy(value, value ? "Please wait…" : null);
+            SetFilePanelBusy(value, value ? Strings.Common_PleaseWait : null);
             UpdateSelectionSummary();
         }
         private void SetFilePanelBusy(bool busyPanel, string message = null)
@@ -761,7 +763,7 @@ namespace DesktopIniManager.Views
             var dialog = new Window
             {
                 Owner = this,
-                Title = "Synchronize files",
+                Title = Strings.Mft_SyncTitle,
                 Width = 620,
                 SizeToContent = SizeToContent.Height,
                 ResizeMode = ResizeMode.NoResize,
@@ -780,7 +782,7 @@ namespace DesktopIniManager.Views
 
             var heading = new TextBlock
             {
-                Text = "Synchronize selected files",
+                Text = Strings.Mft_SyncSelectedTitle,
                 FontSize = 24,
                 FontWeight = FontWeights.SemiBold
             };
@@ -790,7 +792,7 @@ namespace DesktopIniManager.Views
 
             var sub = new TextBlock
             {
-                Text = direction + "   •   " + files.Length + (files.Length == 1 ? " file" : " files"),
+                Text = direction + "   •   " + files.Length + " " + (files.Length == 1 ? Strings.Common_FileSingular : Strings.Common_FilePlural),
                 Margin = new Thickness(0, 5, 0, 18),
                 FontSize = 13
             };
@@ -813,12 +815,12 @@ namespace DesktopIniManager.Views
             pathGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             pathGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-            var sourceLabel = new TextBlock { Text = "Source", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 12, 8) };
+            var sourceLabel = new TextBlock { Text = Strings.Common_Source, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 12, 8) };
             sourceLabel.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
             var sourcePath = new TextBlock { Text = snapshot.SourceRoot, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 0, 0, 8) };
             sourcePath.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
 
-            var targetLabel = new TextBlock { Text = "Target", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 12, 0) };
+            var targetLabel = new TextBlock { Text = Strings.Common_Target, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 12, 0) };
             targetLabel.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
             var targetPath = new TextBlock { Text = snapshot.TargetRoot, TextTrimming = TextTrimming.CharacterEllipsis };
             targetPath.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
@@ -872,7 +874,7 @@ namespace DesktopIniManager.Views
 
             var note = new TextBlock
             {
-                Text = "Existing files may be overwritten or removed.",
+                Text = Strings.Mft_OverwriteWarning,
                 VerticalAlignment = VerticalAlignment.Center,
                 FontSize = 12
             };
@@ -882,7 +884,7 @@ namespace DesktopIniManager.Views
 
             var cancel = new Button
             {
-                Content = ActionContent("\uE711", "Cancel"),
+                Content = ActionContent("\uE711", Strings.Common_Cancel),
                 Style = (Style)FindResource("MftActionButton"),
                 MinWidth = 96,
                 Height = 34,
@@ -896,7 +898,7 @@ namespace DesktopIniManager.Views
 
             var sync = new Button
             {
-                Content = ActionContent(toTarget ? "\uE74B" : "\uE74A", "Synchronize"),
+                Content = ActionContent(toTarget ? "\uE74B" : "\uE74A", Strings.Common_Sync),
                 Style = (Style)FindResource("MftActionButton"),
                 MinWidth = 118,
                 Height = 34,
@@ -927,7 +929,7 @@ namespace DesktopIniManager.Views
             DiffFile[] files = snapshot.Files.Where(f => f.CanSync && f.Selected).ToArray();
             if (files.Length == 0) return;
 
-            string direction = toTarget ? "Source to Target" : "Target to Source";
+            string direction = toTarget ? Strings.Mft_SourceToTarget : Strings.Mft_TargetToSource;
             if (!ShowSyncConfirmation(direction, files, toTarget)) return;
 
             var liveLog = new TextBox
@@ -943,7 +945,7 @@ namespace DesktopIniManager.Views
             var logWindow = new Window
             {
                 Owner = this,
-                Title = "Synchronizing — " + direction,
+                Title = string.Format(Strings.Mft_Synchronizing, direction),
                 Width = 850,
                 Height = 480,
                 Content = liveLog,
@@ -951,14 +953,14 @@ namespace DesktopIniManager.Views
             };
 
             liveLog.AppendText(direction + Environment.NewLine);
-            liveLog.AppendText("Source: " + snapshot.SourceRoot + Environment.NewLine);
-            liveLog.AppendText("Target: " + snapshot.TargetRoot + Environment.NewLine);
+            liveLog.AppendText(string.Format(Strings.Mft_SourceLabel, snapshot.SourceRoot) + Environment.NewLine);
+            liveLog.AppendText(string.Format(Strings.Mft_TargetLabel, snapshot.TargetRoot) + Environment.NewLine);
             liveLog.AppendText(new string('-', 80) + Environment.NewLine);
             logWindow.Show();
             logWindow.Activate();
 
             SetBusy(true);
-            StatusText.Text = direction + " — syncing…";
+            StatusText.Text = string.Format(Strings.Mft_Syncing, direction);
 
             List<string> log;
             try
@@ -976,10 +978,10 @@ namespace DesktopIniManager.Views
             }
             catch (Exception ex)
             {
-                log = new List<string> { "FAIL " + ErrorMessages.English(ex) };
+                log = new List<string> { Strings.Common_Fail + " " + ErrorMessages.English(ex) };
                 if (logWindow.IsVisible)
                 {
-                    liveLog.AppendText("FAIL " + ErrorMessages.English(ex) + Environment.NewLine);
+                    liveLog.AppendText(Strings.Common_Fail + " " + ErrorMessages.English(ex) + Environment.NewLine);
                     liveLog.ScrollToEnd();
                 }
             }
@@ -990,29 +992,29 @@ namespace DesktopIniManager.Views
                 Directory.CreateDirectory(StateDirectory);
                 string path = Path.Combine(StateDirectory, "mft-sync-" + DateTime.Now.ToString("yyyyMMdd-HHmmss-fff") + ".log");
                 File.WriteAllText(path, report);
-                report = "Log: " + path + "\n\n" + report;
+                report = string.Format(Strings.Mft_LogLabel, path) + "\n\n" + report;
                 if (logWindow.IsVisible)
                 {
                     liveLog.AppendText(new string('-', 80) + Environment.NewLine);
-                    liveLog.AppendText("Log: " + path + Environment.NewLine);
+                    liveLog.AppendText(string.Format(Strings.Mft_LogLabel, path) + Environment.NewLine);
                 }
             }
             catch (Exception ex)
             {
-                report = "Failed to save log: " + ErrorMessages.English(ex) + "\n\n" + report;
+                report = string.Format(Strings.Mft_SaveLogFailed, ErrorMessages.English(ex)) + "\n\n" + report;
                 if (logWindow.IsVisible)
-                    liveLog.AppendText("Failed to save log: " + ErrorMessages.English(ex) + Environment.NewLine);
+                    liveLog.AppendText(string.Format(Strings.Mft_SaveLogFailed, ErrorMessages.English(ex)) + Environment.NewLine);
             }
 
-            int ok = log.Count(l => l.StartsWith("OK "));
-            int fail = log.Count(l => l.StartsWith("FAIL "));
-            int locked = log.Count(l => l.StartsWith("LOCKED "));
+            int ok = log.Count(l => l.StartsWith(Strings.Common_OK + " "));
+            int fail = log.Count(l => l.StartsWith(Strings.Common_Fail + " "));
+            int locked = log.Count(l => l.StartsWith(Strings.Common_Locked + " "));
             if (logWindow.IsVisible)
             {
                 liveLog.AppendText(new string('-', 80) + Environment.NewLine);
-                liveLog.AppendText("Complete  OK " + ok + " / FAIL " + fail + " / LOCKED " + locked + Environment.NewLine);
+                liveLog.AppendText(string.Format(Strings.Mft_CompleteCounts, ok, fail, locked) + Environment.NewLine);
                 liveLog.ScrollToEnd();
-                logWindow.Title = "Sync result — OK " + ok + " / FAIL " + fail + " / LOCKED " + locked;
+                logWindow.Title = string.Format(Strings.Mft_SyncResultTitle, ok, fail, locked);
             }
 
             await Compare();
@@ -1028,7 +1030,7 @@ namespace DesktopIniManager.Views
             var selectedFile = ((DiffRow)FilesGrid.SelectedItem).File;
             if (DiffMedia.IsBinary(selectedFile.RelativePath))
             {
-                MessageBox.Show(this, DiffMedia.BinaryMessage, "Diff View", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(this, Strings.Diff_BinaryMessage, Strings.Mft_DiffView, MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
             try { new DiffViewWindow(snapshot, selectedFile) { Owner = this }.Show(); } catch (Exception ex) { ShowError(ex); }
@@ -1043,7 +1045,7 @@ namespace DesktopIniManager.Views
                 using (var stream = File.Create(temporary)) new XmlSerializer(typeof(DifferencerState)).Serialize(stream, state);
                 if (File.Exists(StatePath)) File.Replace(temporary, StatePath, null); else File.Move(temporary, StatePath);
             }
-            catch (Exception ex) { StatusText.Text = "Failed to save tree: " + ErrorMessages.English(ex); }
+            catch (Exception ex) { StatusText.Text = string.Format(Strings.Mft_SaveTreeFailed, ErrorMessages.English(ex)); }
         }
         private void ShowError(Exception ex) { MessageBox.Show(this, ErrorMessages.English(ex), Title, MessageBoxButton.OK, MessageBoxImage.Error); }
     }

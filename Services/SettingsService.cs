@@ -103,8 +103,18 @@ namespace DesktopIniManager.Services
 
         public static string LoadGrepProfile() => ReadSetting(GrepProfilePath, null);
         public static void SaveGrepProfile(string profile) => WriteSetting(GrepProfilePath, profile);
-        public static string LoadGrepFreeExtensions() => ReadSetting(GrepFreeExtensionsPath, ".txt .log .ini .json .xml .html .htm .eml");
-        public static void SaveGrepFreeExtensions(string extensions) => WriteSetting(GrepFreeExtensionsPath, extensions);
+        internal const string DefaultGrepFreeExtensions = ".txt .log .ini .json .xml .html .htm .eml";
+        public static string LoadGrepFreeExtensions()
+        {
+            string value = ReadSetting(GrepFreeExtensionsPath, DefaultGrepFreeExtensions);
+            return string.IsNullOrWhiteSpace(value) || string.Equals(value.Trim(), ".", StringComparison.Ordinal)
+                ? DefaultGrepFreeExtensions : value;
+        }
+        public static void SaveGrepFreeExtensions(string extensions)
+        {
+            if (string.IsNullOrWhiteSpace(extensions) || string.Equals(extensions.Trim(), ".", StringComparison.Ordinal)) return;
+            WriteSetting(GrepFreeExtensionsPath, extensions);
+        }
 
         public static double[] LoadGrepColumnWidths()
         {

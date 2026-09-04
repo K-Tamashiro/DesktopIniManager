@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using DesktopIniManager.Properties;
 
 namespace DesktopIniManager.Services
 {
@@ -16,7 +17,7 @@ namespace DesktopIniManager.Services
 
         internal static StartupState Load(Action<string, int> report)
         {
-            report("Loading startup settings…", 0);
+            report(Strings.Splash_LoadingSettings, 0);
             var state = new StartupState
             {
                 DarkMode = SettingsService.LoadDarkMode(), TreeCompact = SettingsService.LoadTreeCompact(),
@@ -25,7 +26,7 @@ namespace DesktopIniManager.Services
             };
             if (string.IsNullOrWhiteSpace(state.IconLibrary))
                 state.IconLibrary = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "folder_set.icl");
-            report("Restoring saved folder trees…", 1);
+            report(Strings.Splash_RestoringTrees, 1);
             try
             {
                 state.Tree = FolderTreeStateService.Load();
@@ -37,7 +38,7 @@ namespace DesktopIniManager.Services
                 }
             }
             catch (Exception ex) { state.Tree = null; state.TreeError = ex.Message; }
-            report("Preparing folder icons…", 2);
+            report(Strings.Splash_PreparingIcons, 2);
             FolderIconService.GetDefaultFolderIcon();
             try
             {

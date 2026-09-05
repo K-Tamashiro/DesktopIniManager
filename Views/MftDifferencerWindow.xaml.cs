@@ -495,85 +495,28 @@ namespace DesktopIniManager.Views
         private async Task RefreshSelectedFolderAsync()
         {
             if (busy || snapshot == null) return;
+            if (!SelectedFolderHasDirectFiles()) return;
 
-            string requestedFolder = selectedFolder ?? string.Empty;
+            string folder = selectedFolder ?? string.Empty;
+            bool compareTimestamp = CompareTimestampBox.IsChecked == true;
+            DiffFile[] targets = snapshot.Files
+                .Where(f => IsDirectChildFile(folder, f.RelativePath))
+                .ToArray();
+
             SetBusy(true);
             CancelCompareButton.IsEnabled = false;
-            SetFilePanelBusy(true, requestedFolder.Length == 0 ? "Refreshing selected root…" : "Refreshing " + requestedFolder + "…");
-            StatusText.Text = requestedFolder.Length == 0
-                ? "Refreshing selected root…"
-                : "Refreshing selected folder only: " + requestedFolder;
+            SetFilePanelBusy(true, "Refreshing files in selected folder…");
+            StatusText.Text = "Refreshing " + targets.Length + " file(s)…";
 
             try
             {
-                bool compareTimestamp = CompareTimestampBox.IsChecked == true;
-                DiffSnapshot refreshed = await Task.Run(() =>
-                    MftDifferencerService.CompareFolder(
-                        snapshot.SourceRoot,
-                        snapshot.TargetRoot,
-                        requestedFolder,
-                        compareTimestamp));
-                snapshot.CompareTimestamp = compareTimestamp;
-
-                Func<string, bool> inSelectedFolder = path =>
-                    requestedFolder.Length == 0 ||
-                    string.Equals(path, requestedFolder, StringComparison.OrdinalIgnoreCase) ||
-                    path.StartsWith(requestedFolder + "\\", StringComparison.OrdinalIgnoreCase);
-
-                DiffFile[] oldFiles = snapshot.Files
-                    .Where(file => inSelectedFolder(file.RelativePath))
-                    .ToArray();
-
-                foreach (DiffFile oldFile in oldFiles)
+                foreach (DiffFile file in targets)
                 {
-                    oldFile.PropertyChanged -= FileSelectionChanged;
-                    RemoveFileFromFolderHierarchy(oldFile);
+                    file.CompareTimestamp = compareTimestamp;
+                    await RefreshFileAsync(file);
                 }
-
-                snapshot.Files.RemoveAll(file => inSelectedFolder(file.RelativePath));
-                snapshot.Files.AddRange(refreshed.Files);
-                snapshot.Files = snapshot.Files
-                    .OrderBy(file => file.RelativePath, StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-
-                rows.RemoveAll(row => inSelectedFolder(row.File.RelativePath));
-                rows.AddRange(refreshed.Files.Select(file => new DiffRow
-                {
-                    File = file,
-                    SourceRoot = snapshot.SourceRoot,
-                    TargetRoot = snapshot.TargetRoot
-                }));
-                rows = rows
-                    .OrderBy(row => row.File.RelativePath, StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-
-                foreach (DiffFile refreshedFile in refreshed.Files)
-                    refreshedFile.PropertyChanged += FileSelectionChanged;
-
-                UpdateSelectedFolderNodes(requestedFolder, refreshed.Folders, inSelectedFolder);
-
-                foreach (DiffFile refreshedFile in refreshed.Files)
-                    AddFileToFolderHierarchy(refreshedFile);
-
-                snapshot.Folders.RemoveWhere(path => inSelectedFolder(path));
-                foreach (string path in refreshed.Folders)
-                    snapshot.Folders.Add(path);
-                snapshot.Folders.Add(string.Empty);
-
-                RefreshSelectedFolderPresentation(requestedFolder, inSelectedFolder);
-
-                if (!folders.ContainsKey(selectedFolder))
-                    SelectNearestExistingFolder(requestedFolder);
-
-                DiffFolder selectedNode;
-                if (folders.TryGetValue(selectedFolder, out selectedNode) && !selectedNode.Visible)
-                    SelectNearestExistingFolder(Path.GetDirectoryName(selectedFolder) ?? string.Empty);
-
-                Filter();
-                UpdateSelectionSummary();
-
-                string label = requestedFolder.Length == 0 ? "Selected root" : requestedFolder;
-                StatusText.Text = label + " refreshed only. " +
+                ApplyKindFilter();
+                StatusText.Text = "Selected folder files refreshed. " +
                     folders[""].CountFor(DiffKind.Differences) + " differences / " +
                     folders[""].CountFor(DiffKind.Same) + " identical.";
             }
@@ -585,9 +528,28 @@ namespace DesktopIniManager.Views
             finally
             {
                 SetBusy(false);
+                UpdateRefreshButtonState();
             }
         }
+        private static bool IsDirectChildFile(string folder, string relativePath)
+        {
+            string parent = Path.GetDirectoryName(relativePath) ?? string.Empty;
+            return string.Equals(parent, folder ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        }
 
+        private bool SelectedFolderHasDirectFiles()
+        {
+            if (snapshot == null) return false;
+            string folder = selectedFolder ?? string.Empty;
+            return snapshot.Files.Any(f => IsDirectChildFile(folder, f.RelativePath));
+        }
+
+        private void UpdateRefreshButtonState()
+        {
+            if (RefreshCompareButton == null) return;
+            RefreshCompareButton.IsEnabled =
+                !busy && !comparing && snapshot != null && SelectedFolderHasDirectFiles();
+        }
         private void RemoveFileFromFolderHierarchy(DiffFile file)
         {
             string path = Path.GetDirectoryName(file.RelativePath) ?? string.Empty;
@@ -1107,6 +1069,7 @@ namespace DesktopIniManager.Views
             var visible = rows.Where(r => IncludeBuildFolderFile(r.File) && (r.File.Kind & kindMask) != 0 && (selectedFolder.Length == 0 || r.File.RelativePath.StartsWith(selectedFolder + "\\", StringComparison.OrdinalIgnoreCase))).ToList();
             FilesGrid.ItemsSource = visible;
             FilePanelTitle.Text = "Files — " + (selectedFolder.Length == 0 ? "all levels" : selectedFolder) + " (" + visible.Count + ")";
+            UpdateRefreshButtonState();
         }
         private void SetBusy(bool value)
         {
@@ -1423,7 +1386,7 @@ namespace DesktopIniManager.Views
         }
         internal async Task<bool> RefreshFileAsync(DiffFile file)
         {
-            if (snapshot == null || file == null || busy || comparing) return false;
+            if (snapshot == null || file == null || comparing) return false;
 
             var stamps = await Task.Run(() =>
             {

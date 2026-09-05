@@ -162,5 +162,22 @@
     </Content>
   </ItemGroup>
   <ItemGroup />
+  <ItemGroup>
+    <Content Include="Languages\*.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="README.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="docs\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Target Name="AfterBuild">
+    <MSBuild Projects="$(ProjectDir)FastVolumeIndex\FastVolumeIndex.Cli\FastVolumeIndex.Cli.csproj"
+             Properties="Configuration=$(Configuration);Platform=AnyCPU" />
+    <Copy SourceFiles="$(ProjectDir)FastVolumeIndex\FastVolumeIndex.Cli\bin\$(Configuration)\mftree.exe"
+          DestinationFolder="$(TargetDir)" />
+  </Target>
 </Project>

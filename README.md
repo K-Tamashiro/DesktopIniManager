@@ -1,4 +1,4 @@
-![DesktopIniManager v2.0.0](docs/images/app-overview-dark.png)
+![DesktopIniManager](docs/images/app-overview-dark.png)
 
 # DesktopIniManager
 
@@ -6,20 +6,23 @@ DesktopIniManager is a Windows developer tool for exploring development
 folders, understanding project structure, searching source code, and
 applying custom folder icons through `desktop.ini`.
 
-Version **2.0.0** expands the project workspace with live UI language switching,
-refined Scoped GREP behavior, selective MFT refresh, and a substantially enhanced
-Diff View with external diff integration.
+It brings Physical, Solution, and Search views together in one workspace,
+with Scoped Code Grep, folder icon management, live UI language switching,
+light/dark themes, and an MFT Differencer for comparing and synchronizing
+local working trees.
 
 ![Physical tree in dark mode](docs/images/physical-tree-dark.png)
 
 ## Download
 
-[<img src="docs/images/download.png" alt="Download DesktopIniManager v2.0.0" width="200" height="45">](https://github.com/K-Tamashiro/DesktopIniManager/releases/download/v2.0.0/DesktopIniManager-v2.0.0-win-x64.zip)
+[<img src="docs/images/download.png" alt="Download DesktopIniManager v2.0.3" width="200" height="45">](https://github.com/K-Tamashiro/DesktopIniManager/releases/download/v2.0.3/DesktopIniManager-v2.0.3-win-x64.zip)
 
-Download `DesktopIniManager-v2.0.0-win-x64.zip`, extract it to a
+Download `DesktopIniManager-v2.0.3-win-x64.zip`, extract it to a
 writable folder, and run `DesktopIniManager.exe`.
 
-See the [v2.0.0 release notes](RELEASE_NOTES_v2.0.0.md).
+Release notes for each version are published on the
+[GitHub Releases](https://github.com/K-Tamashiro/DesktopIniManager/releases)
+page.
 
 ### Requirements
 
@@ -27,18 +30,12 @@ See the [v2.0.0 release notes](RELEASE_NOTES_v2.0.0.md).
 - .NET Framework 4.8
 - Administrator permission when `Use fast NTFS search` is enabled
 - Local NTFS folders for supported comparison and synchronization.
-    Cloud/virtual drives (including Google Drive), network paths, and NAS are
-    unsupported. Elevation does not make these equivalent to local NTFS.
+  Cloud/virtual drives (including Google Drive), network paths, and NAS are
+  unsupported. Elevation does not make these equivalent to local NTFS.
 
 ## What DesktopIniManager does
 
-### MFT Differencer
-
-Open **MFT Diff** to compare two working trees, inspect readonly text/image
-diffs, and synchronize checked files in either direction. `.git` is excluded.
-MFT enumeration requires local NTFS and administrator permissions; when MFT
-enumeration is unavailable, comparison falls back to a file-system scan.
-See [usage, safeguards, and regression tests](docs/mft-differencer.md).
+### Project workspace
 
 Development work often requires several separate tools: Explorer for the
 physical layout, Visual Studio for the logical solution structure, a
@@ -49,52 +46,18 @@ DesktopIniManager brings those views together around the development
 folder itself.
 
 The **Physical**, **Solution**, and **Search** tabs are independent.
-Running a search no longer destroys the folder or solution tree already
+Running a search does not destroy the folder or solution tree already
 acquired, so you can move between the actual disk structure, the Visual
 Studio-oriented structure, and temporary search results without
 rebuilding your working context.
 
-## Version 2.0.0 highlights
+### MFT Differencer
 
-- Language combo on the main window: English, Japanese, Simplified
-    Chinese, and Korean, with flags from `Assets/Flag.icl`
-- Immediate UI language change without restart; child windows fade
-    out and reopen in the same place
-- Language stored in `%LOCALAPPDATA%\DesktopIniManager\culture.txt`
-- Independent folder checks for Scoped GREP, with visible roots used
-    when nothing is checked
-- GREP editor history presets for MIFES, Hidemaru, Mery, and VS Code,
-    including `%LOCALAPPDATA%` expansion
-- Diff View opens at the first text difference
-- MFT Differencer can refresh the currently selected folder without rebuilding the entire comparison
-- Diff View can open Source and Target with their associated Windows applications
-- External Diff integration with presets for VS Code, MIFES, WinMerge, and Visual Studio
-- External Diff selection/history is retained, and edited files are refreshed when returning to DIM
-- Difference map distinguishes left-side removals and right-side additions and follows light/dark themes
-- Source and Target horizontal scrolling uses a shared range so both panes remain aligned
-
-## Version 1.5.0 highlights
-
-- Physical, Solution, and Search views retained independently as tabs
-- Visual Studio `.sln` / project analysis for a logical Solution tree
-- NTFS MFT-based high-speed indexing through `FastVolumeIndex.Core`
-- Refactored MFT and path-index pipelines to reduce repeated
-    filesystem traversal
-- Hidden Windows folders excluded from the physical tree
-- Project and source-language analysis
-- Folder-name and extension-based search
-- File list synchronized with the selected folder
-- Small/large icon file views
-- Non-modal **Scoped Code Search**
-- Grep scopes selectable directly from the project/folder tree
-- Regular expression, Match case, and Whole word Grep options
-- Language profiles and editable extension sets
-- External-editor navigation to matching line and column
-- ICO / ICL / DLL / EXE icon-resource browser
-- Batch `desktop.ini` apply/remove
-- Optional `desktop.ini` registration in `.gitignore`
-- Light and dark themes
-- Bundled `mftree.exe` CLI
+Open **MFT Diff** to compare two working trees, inspect readonly text/image
+diffs, and synchronize checked files in either direction. `.git` is excluded.
+MFT enumeration requires local NTFS and administrator permissions; when MFT
+enumeration is unavailable, comparison falls back to a file-system scan.
+See [usage, safeguards, and regression tests](docs/mft-differencer.md).
 
 ## Three retained project views
 
@@ -134,9 +97,7 @@ than recursively opening every directory.
 
 DesktopIniManager uses `FastVolumeIndex.Core` to build an in-memory
 representation of the volume and then constructs the required
-folder/path indexes from that data. Version 1.5.0 further reduces
-unnecessary full-volume path processing and repeated traversal of the
-same search scope.
+folder/path indexes from that data.
 
 This is particularly useful when the search root contains large
 repositories or many development projects.
@@ -187,9 +148,6 @@ Features include:
 - Configurable external editor with saved history
 - Preset launchers for MIFES, Hidemaru, Mery, and VS Code
 - Line/column arguments such as MIFES `/+{line}@{column} "{file}"`
-
-This allows DesktopIniManager to act as a project-aware front end to
-source-code search rather than a general whole-PC Grep utility.
 
 ## File view
 
@@ -254,7 +212,7 @@ Supported UI languages are English, Japanese, Simplified Chinese, and Korean.
 
 ## mftree command-line tool
 
-Version 1.5.0 also includes `mftree.exe`, a command-line tool powered by
+The release package includes `mftree.exe`, a command-line tool powered by
 `FastVolumeIndex.Core`.
 
 Run it from an administrator terminal:
@@ -281,9 +239,9 @@ Add the extracted release directory to `PATH` if you want to invoke
 5. Use Search for temporary folder/file filtering.
 6. Select only the required projects and run Scoped Code Search.
 7. Inspect files in the right pane or open a match in the configured
-    editor.
+   editor.
 8. Apply project-specific folder icons where visual identification in
-    Explorer is useful.
+   Explorer is useful.
 
 ## Build from source
 
@@ -302,6 +260,10 @@ MSBuild.exe DesktopIniManager.sln /t:Rebuild /p:Configuration=Release
 The solution contains the DesktopIniManager application, reusable
 `FastVolumeIndex.Core`, and the `mftree` command-line tool.
 
+Release output is written to `bin\Release\` and can include `mftree.exe`,
+`Languages\`, `README.md`, and `docs\` when those items are configured to
+copy to the output directory.
+
 ## Release package contents
 
 ``` text
@@ -312,14 +274,14 @@ Assets/
   folder_set.icl
   MftDifferencer_iconset.icl
   Flag.icl
+Languages/
 README.md
-RELEASE_NOTES_v2.0.0.md
 docs/
 ```
 
 ## Version
 
-Current release: **DesktopIniManager 2.0.0**
+Current release: **DesktopIniManager 2.0.3**
 
 ## MFT Differencer
 
@@ -340,9 +302,9 @@ last-write time. This is a metadata comparison, not a content or hash check.
 Turning off **Compare dates** treats equal-sized files as identical even
 when their timestamps differ.
 
-Use the **Update** button to refresh only the currently selected folder. When
-that refresh removes the final difference from the folder, DIM performs the
-required broader refresh so the tree and file list remain consistent.
+Use the **Update** button to refresh files that already belong to the
+selected folder (direct children in the current comparison list). This is a
+lightweight re-check, not a full re-enumeration of the tree.
 
 - **Same / Diff / Left / Right** can be combined to filter the folder tree
   and file list. Initially, **Diff**, **Left**, and **Right** are enabled.

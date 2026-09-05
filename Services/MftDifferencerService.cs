@@ -521,7 +521,7 @@ namespace DesktopIniManager.Services
                         }
                     }
                     SafePath(snapshot.SourceRoot, file.RelativePath); SafePath(snapshot.TargetRoot, file.RelativePath);
-                    if (!DiffStamp.Same(toTarget ? file.Source : file.Target, DiffStamp.Read(to)))
+                    if (!DiffStamp.Same(toTarget ? file.Source : file.Target, DiffStamp.Read(to), snapshot.CompareTimestamp))
                         throw new IOException("Synchronization verification failed: destination timestamp, size or existence differs. Compare again.");
                     writeLog("OK " + operation + " " + file.RelativePath);
                 }

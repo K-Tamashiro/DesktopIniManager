@@ -506,12 +506,14 @@ namespace DesktopIniManager.Views
 
             try
             {
+                bool compareTimestamp = CompareTimestampBox.IsChecked == true;
                 DiffSnapshot refreshed = await Task.Run(() =>
                     MftDifferencerService.CompareFolder(
                         snapshot.SourceRoot,
                         snapshot.TargetRoot,
                         requestedFolder,
-                        snapshot.CompareTimestamp));
+                        compareTimestamp));
+                snapshot.CompareTimestamp = compareTimestamp;
 
                 Func<string, bool> inSelectedFolder = path =>
                     requestedFolder.Length == 0 ||

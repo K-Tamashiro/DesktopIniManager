@@ -20,16 +20,16 @@ namespace DesktopIniManager.Properties
             if (string.IsNullOrWhiteSpace(raw) ||
                 string.Equals(raw, "auto", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(raw, "system", StringComparison.OrdinalIgnoreCase))
-                return CultureInfo.GetCultureInfo("ja");
+                return CultureInfo.GetCultureInfo("en");
             try { return CultureInfo.GetCultureInfo(raw.Trim()); }
-            catch (CultureNotFoundException) { return CultureInfo.GetCultureInfo("ja"); }
+            catch (CultureNotFoundException) { return CultureInfo.GetCultureInfo("en"); }
         }
 
         internal static void Load(CultureInfo culture)
         {
             lock (gate)
             {
-                map = ReadMap(culture ?? CultureInfo.GetCultureInfo("ja"));
+                map = ReadMap(culture ?? CultureInfo.GetCultureInfo("en"));
                 loaded = true;
             }
         }
@@ -37,8 +37,8 @@ namespace DesktopIniManager.Properties
         internal static void SetCulture(string cultureName)
         {
             CultureInfo culture;
-            try { culture = CultureInfo.GetCultureInfo((cultureName ?? "ja").Trim()); }
-            catch (CultureNotFoundException) { culture = CultureInfo.GetCultureInfo("ja"); }
+            try { culture = CultureInfo.GetCultureInfo((cultureName ?? "en").Trim()); }
+            catch (CultureNotFoundException) { culture = CultureInfo.GetCultureInfo("en"); }
             Load(culture);
             Strings.Culture = culture;
             System.Threading.Thread.CurrentThread.CurrentUICulture = culture;
@@ -55,7 +55,7 @@ namespace DesktopIniManager.Properties
                 try
                 {
                     Directory.CreateDirectory(dir);
-                    File.WriteAllText(Path.Combine(dir, "culture.txt"), name ?? "ja", new UTF8Encoding(false));
+                    File.WriteAllText(Path.Combine(dir, "culture.txt"), name ?? "en", new UTF8Encoding(false));
                     return;
                 }
                 catch { }
@@ -83,11 +83,33 @@ namespace DesktopIniManager.Properties
             }
 
             string value;
+            string builtin = Builtin(key);
+            if (!string.IsNullOrEmpty(builtin)) return builtin;
             if (current.TryGetValue(key, out value) && !string.IsNullOrEmpty(value))
                 return Unescape(value);
             value = Strings.ResourceManager.GetString(key, Strings.Culture);
             if (!string.IsNullOrEmpty(value)) return value;
             return Strings.ResourceManager.GetString(key, CultureInfo.InvariantCulture) ?? key;
+        }
+
+        private static string Builtin(string key)
+        {
+            string language = ResolveCulture().TwoLetterISOLanguageName;
+            if (key == "Main_IconRemove" || key == "Main_IconReset")
+            {
+                if (language == "ja") return "アイコンリセット";
+                if (language == "zh") return "重置图标";
+                if (language == "ko") return "아이콘 재설정";
+                return "Icon Reset";
+            }
+            if (key == "Main_RemoveSettings")
+            {
+                if (language == "ja") return "フォルダーのカスタムアイコンをリセットします";
+                if (language == "zh") return "重置文件夹自定义图标";
+                if (language == "ko") return "폴더 사용자 지정 아이콘을 재설정합니다";
+                return "Reset custom folder icons";
+            }
+            return null;
         }
 
         private static Dictionary<string, string> ReadMap(CultureInfo culture)

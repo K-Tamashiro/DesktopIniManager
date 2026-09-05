@@ -100,6 +100,11 @@ namespace DesktopIniManager.Services
             return result;
         }
 
+        internal static void Clear()
+        {
+            try { if (File.Exists(StatePath)) File.Delete(StatePath); } catch { }
+        }
+
         internal static FolderTreeState Load()
         {
             if (!File.Exists(StatePath)) return null;

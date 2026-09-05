@@ -1,7 +1,7 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <SolidColorBrush x:Key="WindowBackground" Color="#111821"/><SolidColorBrush x:Key="CardBackground" Color="#1B2633"/><SolidColorBrush x:Key="HeaderBackground" Color="#141E29"/>
   <SolidColorBrush x:Key="Accent" Color="#D95A96"/><SolidColorBrush x:Key="ButtonHover" Color="#A94273"/><SolidColorBrush x:Key="AccentSoft" Color="#2A1C29"/><SolidColorBrush x:Key="Ink" Color="#E7EEF8"/><SolidColorBrush x:Key="Muted" Color="#A9B7C9"/>
-  <SolidColorBrush x:Key="Line" Color="#34465C"/><SolidColorBrush x:Key="InputLine" Color="#4A5E75"/><SolidColorBrush x:Key="Secondary" Color="#526176"/>
+  <SolidColorBrush x:Key="Line" Color="#34465C"/><SolidColorBrush x:Key="InputLine" Color="#4A5E75"/><SolidColorBrush x:Key="Secondary" Color="#526176"/><SolidColorBrush x:Key="Danger" Color="#E53935"/><SolidColorBrush x:Key="DangerHover" Color="#C62828"/><SolidColorBrush x:Key="OverlayScrim" Color="#CC111821"/>
   <SolidColorBrush x:Key="ThemeToggle" Color="#1A2330"/><SolidColorBrush x:Key="ThemeSelected" Color="#583047"/><SolidColorBrush x:Key="SunGlyph" Color="#E27A2B"/><SolidColorBrush x:Key="MoonGlyph" Color="#D9BC45"/>
   <SolidColorBrush x:Key="DiffRemoved" Color="#5A2430"/>
   <SolidColorBrush x:Key="DiffAdded" Color="#1A3F32"/>
@@ -10,4 +10,7 @@
   <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#1B2633"/>
   <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#1B2633"/>
   <SolidColorBrush x:Key="{x:Static SystemColors.WindowColorKey}" Color="#1B2633"/>
+  <SolidColorBrush x:Key="ExternalDiffButton" Color="#245A86"/>
+  <SolidColorBrush x:Key="ExternalDiffButtonHover" Color="#2F6E9F"/>
+  <SolidColorBrush x:Key="ExternalDiffButtonForeground" Color="#FFFFFF"/>
 </ResourceDictionary>

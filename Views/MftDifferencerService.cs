@@ -52,6 +52,25 @@ namespace DesktopIniManager.Services
         { return own == null ? "missing" : (other == null ? "" : DiffStamp.Same(own, other, true) ? "Same\n" : own.ModifiedUtc == other.ModifiedUtc ? "Size differs\n" : own.ModifiedUtc > other.ModifiedUtc ? "NEW\n" : "OLD\n") + own.Describe(); }
         private bool selected;
         public bool Selected { get { return selected; } set { value = value && CanSync; if (selected == value) return; selected = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Selected")); } }
+        internal bool Refresh(DiffStamp source, DiffStamp target)
+        {
+            DiffKind oldKind = Kind;
+            string oldSourceInfo = SourceInfo;
+            string oldTargetInfo = TargetInfo;
+            Source = source;
+            Target = target;
+            if (!CanSync) Selected = false;
+            bool changed = oldKind != Kind || oldSourceInfo != SourceInfo || oldTargetInfo != TargetInfo;
+            if (changed)
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Kind"));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("State"));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("SourceInfo"));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("TargetInfo"));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("CanSync"));
+            }
+            return changed;
+        }
         public event PropertyChangedEventHandler PropertyChanged;
     }
 
@@ -124,6 +143,17 @@ namespace DesktopIniManager.Services
                 catch (DirectoryNotFoundException) { }
             }
         }
+        internal static bool RefreshFile(DiffSnapshot snapshot, DiffFile file)
+        {
+            if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
+            if (file == null) throw new ArgumentNullException(nameof(file));
+            string sourcePath = SafePath(snapshot.SourceRoot, file.RelativePath);
+            string targetPath = SafePath(snapshot.TargetRoot, file.RelativePath);
+            DiffStamp source = DiffStamp.Read(sourcePath);
+            DiffStamp target = DiffStamp.Read(targetPath);
+            return file.Refresh(source, target);
+        }
+
         public static DiffSnapshot CompareFolder(string sourceRoot, string targetRoot, string relativeFolder, bool compareTimestamp = true, CancellationToken token = default(CancellationToken))
         {
             token.ThrowIfCancellationRequested();

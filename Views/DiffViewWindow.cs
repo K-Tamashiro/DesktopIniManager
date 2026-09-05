@@ -1,7 +1,9 @@
-using DesktopIniManager.Services;
+﻿using DesktopIniManager.Services;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.Design;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -10,18 +12,18 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
+using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
-using System.Windows.Input;
-using System.Windows.Interop;
-using DesktopIniManager.Properties;
+using System.Windows.Threading;
 
 namespace DesktopIniManager.Views
 {
     internal static class DiffMedia
     {
-        internal static string BinaryMessage { get { return Strings.Diff_BinaryMessage; } }
+        internal const string BinaryMessage = "Binary and cache files are not supported in Diff View. Only text files and supported images can be displayed.";
         public static bool IsBinary(string path)
         { return new[] { ".exe", ".dll", ".pdb", ".obj", ".lib", ".zip", ".7z", ".rar", ".gz", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".db", ".sqlite", ".mp3", ".mp4", ".wav", ".msi", ".bin", ".icl", ".resources", ".baml", ".cache" }.Contains(System.IO.Path.GetExtension(path).ToLowerInvariant()); }
         public static bool IsImage(string path)
@@ -41,15 +43,31 @@ namespace DesktopIniManager.Views
         private Canvas map;
         private Thumb viewportThumb;
         private double viewportDragTop;
+        private double sharedTextWidth;
         private HwndSource inputSource;
+        private readonly HistoryTextBox externalDiffBox = new HistoryTextBox
+        {
+            HistoryKey = "DiffView-ExternalDiff",
+            PreserveOrder = false,
+            Height = 36,
+            Padding = new Thickness(8, 4, 8, 4),
+            VerticalContentAlignment = VerticalAlignment.Center,
+            HorizontalContentAlignment = HorizontalAlignment.Left,
+            TextAlignment = TextAlignment.Left,
+            TextWrapping = TextWrapping.NoWrap,
+            ToolTip = "External diff command. Use {source} and {target}."
+        };
         private int current = -1;
         private bool scrolling, selecting;
+        private bool externalDiffPending;
+        private DiffStamp externalSourceStamp, externalTargetStamp;
+        private bool checkingExternalEdit;
 
         public DiffViewWindow(DiffSnapshot snapshot, DiffFile file)
         {
             this.snapshot = snapshot;
             this.file = file;
-            Title = string.Format(Strings.Diff_TitleFile, file.RelativePath);
+            Title = "Diff view — " + file.RelativePath + " — read only";
             Width = 1280;
             Height = 800;
             MinWidth = 700;
@@ -66,7 +84,7 @@ namespace DesktopIniManager.Views
             titleBar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             var titleText = new TextBlock
             {
-                Text = Strings.Diff_Heading,
+                Text = "Diff view",
                 FontSize = 26,
                 FontWeight = FontWeights.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center
@@ -79,7 +97,7 @@ namespace DesktopIniManager.Views
                 Content = "\uE711",
                 FontFamily = new FontFamily("Segoe MDL2 Assets"),
                 Style = TryFindResource("IconButton") as Style,
-                ToolTip = Strings.Common_Close,
+                ToolTip = "Close",
                 VerticalAlignment = VerticalAlignment.Center
             };
             close.Click += (s, e) => Close();
@@ -89,19 +107,53 @@ namespace DesktopIniManager.Views
             panel.Children.Add(titleBar);
 
             var toolbar = new Grid { Margin = new Thickness(0, 0, 0, 4) };
+            toolbar.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            toolbar.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             DockPanel.SetDock(toolbar, Dock.Top);
             panel.Children.Add(toolbar);
 
+            var externalDiffPanel = new Grid { Margin = new Thickness(0, 0, 0, 8) };
+            externalDiffPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            externalDiffPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            var externalDiffLabel = new TextBlock
+            {
+                Text = "External Diff",
+                Margin = new Thickness(0, 0, 10, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            externalDiffLabel.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
+            externalDiffPanel.Children.Add(externalDiffLabel);
+
+            externalDiffBox.SetResourceReference(Control.BackgroundProperty, "CardBackground");
+            externalDiffBox.SetResourceReference(Control.ForegroundProperty, "Ink");
+            externalDiffBox.SetResourceReference(Control.BorderBrushProperty, "Line");
+            Grid.SetColumn(externalDiffBox, 1);
+            externalDiffPanel.Children.Add(externalDiffBox);
+
+            toolbar.Children.Add(externalDiffPanel);
+
             var actions = new WrapPanel();
+            Grid.SetRow(actions, 1);
             toolbar.Children.Add(actions);
             if (!DiffMedia.IsImage(file.RelativePath))
             {
-                AddButton(actions, "\uE70E", Strings.Diff_Prev, () => Navigate(-1));
-                AddButton(actions, "\uE70D", Strings.Diff_Next, () => Navigate(1));
+                AddButton(actions, "\uE70E", "Prev", () => Navigate(-1));
+                AddButton(actions, "\uE70D", "Next", () => Navigate(1));
             }
-            AddButton(actions, "\uE8A7", Strings.Diff_OpenSource, () => OpenEditor(true));
-            AddButton(actions, "\uE8A7", Strings.Diff_OpenTarget, () => OpenEditor(false));
+            AddButton(actions, "\uE8A7", "Open Source", () => OpenAssociatedApplication(true));
+            AddButton(actions, "\uE8A7", "Open Target", () => OpenAssociatedApplication(false));
+
+            var openExtDiffButton = AddButton(actions, "\uE8A7", "Open Ext Diff", () => OpenExternalDiff());
+            openExtDiffButton.SetResourceReference(Control.BackgroundProperty, "ExternalDiffButton");
+            openExtDiffButton.SetResourceReference(Control.ForegroundProperty, "ExternalDiffButtonForeground");
+
+            SeedExternalDiffPresets();
+            string savedExternalDiff = SettingsService.LoadExternalDiff();
+            externalDiffBox.Text = string.IsNullOrWhiteSpace(savedExternalDiff)
+                ? ExternalDiffPresets[0]
+                : savedExternalDiff;
 
             status.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
             DockPanel.SetDock(status, Dock.Bottom);
@@ -111,8 +163,8 @@ namespace DesktopIniManager.Views
             headers.ColumnDefinitions.Add(new ColumnDefinition());
             headers.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(34) });
             headers.ColumnDefinitions.Add(new ColumnDefinition());
-            headers.Children.Add(HeaderBlock(Strings.Common_Source, file.SourceInfo));
-            var rightHeader = HeaderBlock(Strings.Common_Target, file.TargetInfo);
+            headers.Children.Add(HeaderBlock("Source", file.SourceInfo));
+            var rightHeader = HeaderBlock("Target", file.TargetInfo);
             Grid.SetColumn(rightHeader, 2);
             headers.Children.Add(rightHeader);
             DockPanel.SetDock(headers, Dock.Top);
@@ -123,12 +175,23 @@ namespace DesktopIniManager.Views
             body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(34) });
             body.ColumnDefinitions.Add(new ColumnDefinition());
             Loaded += async (s, e) => await LoadContent();
+            Activated += async (s, e) => await RefreshAfterExternalEditAsync();
             SourceInitialized += (s, e) =>
             {
                 inputSource = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
                 inputSource?.AddHook(HorizontalWheelMessage);
             };
-            Closed += (s, e) => { inputSource?.RemoveHook(HorizontalWheelMessage); inputSource = null; };
+            Closed += (s, e) =>
+            {
+                inputSource?.RemoveHook(HorizontalWheelMessage);
+                inputSource = null;
+
+                if (!string.IsNullOrWhiteSpace(externalDiffBox.Text))
+                {
+                    externalDiffBox.CommitHistory();
+                    SettingsService.SaveExternalDiff(externalDiffBox.Text.Trim());
+                }
+            };
             body.PreviewMouseWheel += (s, e) =>
             {
                 if ((Keyboard.Modifiers & ModifierKeys.Shift) == 0) return;
@@ -189,7 +252,14 @@ namespace DesktopIniManager.Views
 
         private async Task LoadContent()
         {
-            status.Text = Strings.Diff_Loading;
+            body.Children.Clear();
+            hunks.Clear();
+            current = -1;
+            leftList = rightList = null;
+            leftScroll = rightScroll = null;
+            map = null;
+            viewportThumb = null;
+            status.Text = "Loading…";
             try
             {
                 if (DiffMedia.IsBinary(file.RelativePath)) throw new InvalidDataException(DiffMedia.BinaryMessage);
@@ -197,6 +267,7 @@ namespace DesktopIniManager.Views
                 string leftPath = GetPath(true), rightPath = GetPath(false);
                 lines = await Task.Run(() => DiffTextService.Compare(ReadText(leftPath), ReadText(rightPath)));
                 if (!IsLoaded) return;
+                sharedTextWidth = MeasureSharedTextWidth();
                 leftList = MakeList("LeftDisplay", true);
                 rightList = MakeList("RightDisplay", false);
                 body.Children.Add(leftList);
@@ -214,17 +285,39 @@ namespace DesktopIniManager.Views
                 rightList.SelectionChanged += (s, e) => SyncSelection(rightList, leftList);
                 leftList.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(ScrollChanged));
                 rightList.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(ScrollChanged));
-                status.Text = string.Format(Strings.Diff_HunkStatus, hunks.Count);
+                status.Text = hunks.Count + " hunks | left red = removed  right green = added | UTF-8 / BOM / Shift-JIS | large files use a simplified match";
+                if (hunks.Count > 0)
+                    _ = Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (!IsLoaded || hunks.Count == 0) return;
+                        Jump(hunks[0]);
+                        _ = Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            if (IsLoaded && hunks.Count > 0) Jump(hunks[0]);
+                        }), DispatcherPriority.ContextIdle);
+                    }), DispatcherPriority.Loaded);
             }
-            catch (InvalidDataException) { MessageBox.Show(Owner ?? this, DiffMedia.BinaryMessage, Strings.Mft_DiffView, MessageBoxButton.OK, MessageBoxImage.Information); Close(); }
-            catch (DecoderFallbackException) { MessageBox.Show(Owner ?? this, DiffMedia.BinaryMessage, Strings.Mft_DiffView, MessageBoxButton.OK, MessageBoxImage.Information); Close(); }
-            catch (Exception ex) { status.Text = string.Format(Strings.Diff_Unable, ErrorMessages.English(ex)); }
+            catch (InvalidDataException) { MessageBox.Show(Owner ?? this, DiffMedia.BinaryMessage, "Diff View", MessageBoxButton.OK, MessageBoxImage.Information); Close(); }
+            catch (DecoderFallbackException) { MessageBox.Show(Owner ?? this, DiffMedia.BinaryMessage, "Diff View", MessageBoxButton.OK, MessageBoxImage.Information); Close(); }
+            catch (Exception ex) { status.Text = "Unable to display: " + ErrorMessages.English(ex); }
         }
+        private double MeasureSharedTextWidth()
+        {
+            if (lines == null || lines.Count == 0) return 0;
 
+            string longest = lines
+                .SelectMany(line => new[] { line.LeftDisplay ?? string.Empty, line.RightDisplay ?? string.Empty })
+                .OrderByDescending(text => text.Length)
+                .FirstOrDefault() ?? string.Empty;
+
+            var typeface = new Typeface(new FontFamily("Consolas, Yu Gothic UI, Meiryo UI"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
+            var formatted = new FormattedText(longest, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface, 13, Brushes.Black, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+            return formatted.WidthIncludingTrailingWhitespace + 24;
+        }
         private static string[] ReadText(string path)
         {
             DiffStamp stamp = DiffStamp.Read(path); if (stamp == null) return new string[0];
-            if (stamp.Size > 8 * 1024 * 1024) throw new IOException(Strings.Diff_TooLargeBytes);
+            if (stamp.Size > 8 * 1024 * 1024) throw new IOException("Files over 8 MB should be opened in an external editor.");
             byte[] bytes = File.ReadAllBytes(path);
             string text;
             try { using (var reader = new StreamReader(new MemoryStream(bytes), new UTF8Encoding(false, true), true)) text = reader.ReadToEnd(); }
@@ -233,7 +326,7 @@ namespace DesktopIniManager.Views
                 throw new InvalidDataException(DiffMedia.BinaryMessage);
             if (text.Length == 0) return new string[0];
             var lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
-            if (lines.Length > 100000) throw new IOException(Strings.Diff_TooManyLines);
+            if (lines.Length > 100000) throw new IOException("Files over 100,000 lines should be opened in an external editor.");
             return lines;
         }
 
@@ -256,6 +349,7 @@ namespace DesktopIniManager.Views
             var text = new FrameworkElementFactory(typeof(TextBlock));
             text.SetBinding(TextBlock.TextProperty, new Binding(property));
             text.SetValue(FrameworkElement.HeightProperty, 22.0);
+            text.SetValue(FrameworkElement.MinWidthProperty, sharedTextWidth);
             text.SetValue(TextBlock.ForegroundProperty, new DynamicResourceExtension("Ink"));
             list.ItemTemplate = new DataTemplate { VisualTree = text };
 
@@ -356,21 +450,41 @@ namespace DesktopIniManager.Views
             foreach (int start in hunks)
             {
                 int end = start + 1; while (end < lines.Count && lines[end].Kind != "一致") end++;
-                var marker = new Rectangle
+                string kind = lines[start].Kind;
+                double mapWidth = Math.Max(0, map.ActualWidth);
+                double halfWidth = mapWidth / 2.0;
+                double top = start * map.ActualHeight / Math.Max(1, lines.Count);
+                double height = Math.Max(4, (end - start) * map.ActualHeight / Math.Max(1, lines.Count));
+
+                if (kind == "変更")
                 {
-                    Width = 30,
-                    Height = Math.Max(4, (end - start) * map.ActualHeight / Math.Max(1, lines.Count)),
-                    Fill = MapBrush(lines[start].Kind),
-                    ToolTip = string.Format(Strings.Diff_HunkN, hunks.IndexOf(start) + 1),
-                    Cursor = System.Windows.Input.Cursors.Hand
-                };
-                Canvas.SetTop(marker, start * map.ActualHeight / Math.Max(1, lines.Count));
-                marker.MouseLeftButtonDown += (s, e) => Jump(start);
-                map.Children.Add(marker);
+                    var leftMarker = new Rectangle { Width = halfWidth, Height = height, ToolTip = "Hunk " + (hunks.IndexOf(start) + 1), Cursor = System.Windows.Input.Cursors.Hand };
+                    leftMarker.SetResourceReference(Shape.FillProperty, "DiffRemoved");
+                    Canvas.SetLeft(leftMarker, 0);
+                    Canvas.SetTop(leftMarker, top);
+                    leftMarker.MouseLeftButtonDown += (s, e) => Jump(start);
+                    map.Children.Add(leftMarker);
+
+                    var rightMarker = new Rectangle { Width = halfWidth, Height = height, ToolTip = "Hunk " + (hunks.IndexOf(start) + 1), Cursor = System.Windows.Input.Cursors.Hand };
+                    rightMarker.SetResourceReference(Shape.FillProperty, "DiffAdded");
+                    Canvas.SetLeft(rightMarker, halfWidth);
+                    Canvas.SetTop(rightMarker, top);
+                    rightMarker.MouseLeftButtonDown += (s, e) => Jump(start);
+                    map.Children.Add(rightMarker);
+                }
+                else
+                {
+                    var marker = new Rectangle { Width = halfWidth, Height = height, ToolTip = "Hunk " + (hunks.IndexOf(start) + 1), Cursor = System.Windows.Input.Cursors.Hand };
+                    marker.SetResourceReference(Shape.FillProperty, kind == "追加" ? "DiffAdded" : "DiffRemoved");
+                    Canvas.SetLeft(marker, kind == "追加" ? halfWidth : 0);
+                    Canvas.SetTop(marker, top);
+                    marker.MouseLeftButtonDown += (s, e) => Jump(start);
+                    map.Children.Add(marker);
+                }
             }
             if (viewportThumb == null)
             {
-                viewportThumb = new Thumb { Cursor = System.Windows.Input.Cursors.SizeNS, ToolTip = Strings.Diff_VisibleRange, Focusable = false };
+                viewportThumb = new Thumb { Cursor = System.Windows.Input.Cursors.SizeNS, ToolTip = "Visible range — drag to scroll", Focusable = false };
                 var border = new FrameworkElementFactory(typeof(Border));
                 border.SetValue(Border.BorderBrushProperty, new DynamicResourceExtension("Accent"));
                 border.SetValue(Border.BorderThicknessProperty, new Thickness(2));
@@ -410,9 +524,9 @@ namespace DesktopIniManager.Views
             body.Children.Add(rightScroll);
             leftScroll.ScrollChanged += ScrollChanged;
             rightScroll.ScrollChanged += ScrollChanged;
-            var zoom = new Slider { Minimum = 0.001, Maximum = 16, Value = 1, Width = 170, ToolTip = Strings.Diff_ZoomShared };
+            var zoom = new Slider { Minimum = 0.001, Maximum = 16, Value = 1, Width = 170, ToolTip = "Shared zoom for Source and Target" };
             var wrapper = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 8) };
-            wrapper.Children.Add(new TextBlock { Text = Strings.Diff_Zoom, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
+            wrapper.Children.Add(new TextBlock { Text = "Zoom", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
             wrapper.Children.Add(zoom);
             var root = (DockPanel)Content;
             DockPanel.SetDock(wrapper, Dock.Top);
@@ -429,11 +543,11 @@ namespace DesktopIniManager.Views
                 fitting = false;
             };
             zoom.ValueChanged += (s, e) => { if (!fitting) fitToWindow = false; };
-            AddButton(wrapper, "\uE9A6", Strings.Diff_Fit, () => { fitToWindow = true; fit(); });
-            AddButton(wrapper, "\uE91F", Strings.Diff_ActualSize, () => { fitToWindow = false; zoom.Value = 1; });
+            AddButton(wrapper, "\uE9A6", "Fit", () => { fitToWindow = true; fit(); });
+            AddButton(wrapper, "\uE91F", "100%", () => { fitToWindow = false; zoom.Value = 1; });
             body.SizeChanged += (s, e) => fit();
             await Dispatcher.InvokeAsync(fit, System.Windows.Threading.DispatcherPriority.Loaded);
-            status.Text = string.Format(Strings.Diff_ImageStatus, ImageSize(left), ImageSize(right));
+            status.Text = "Source: " + ImageSize(left) + " | Target: " + ImageSize(right) + " | shared zoom, top-left aligned (GIF/ICO first frame)";
         }
 
         private static ScrollViewer ThemedViewer(object content)
@@ -463,21 +577,152 @@ namespace DesktopIniManager.Views
             var canvas = new Canvas { Width = width, Height = height };
             canvas.SetResourceReference(Panel.BackgroundProperty, "CardBackground");
             if (image != null) canvas.Children.Add(new Image { Source = image, Width = image.PixelWidth, Height = image.PixelHeight, Stretch = Stretch.Fill });
-            else canvas.Children.Add(new TextBlock { Text = Strings.Diff_Missing, Margin = new Thickness(12) });
+            else canvas.Children.Add(new TextBlock { Text = "Missing", Margin = new Thickness(12) });
             return canvas;
         }
 
-        private static string ImageSize(BitmapSource image) { return image == null ? Strings.Diff_None : string.Format(Strings.Diff_Pixels, image.PixelWidth, image.PixelHeight); }
+        private static string ImageSize(BitmapSource image) { return image == null ? "none" : image.PixelWidth + " × " + image.PixelHeight + " px"; }
 
-        private void OpenEditor(bool source)
+        private static readonly string[] ExternalDiffPresets =
+        {
+            @"code --diff ""{source}"" ""{target}""",
+            @"""C:\Program Files\MIFES11\MIW.exe"" /diff ""{source}"" ""{target}""",
+            @"""C:\Program Files\WinMerge\WinMergeU.exe"" ""{source}"" ""{target}""",
+            @"devenv /Diff ""{source}"" ""{target}"""
+        };
+
+        private static void SeedExternalDiffPresets()
+        {
+            string settingsDirectory = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "DesktopIniManager");
+            string markerPath = System.IO.Path.Combine(settingsDirectory, "diff-view-presets-v2.txt");
+            if (File.Exists(markerPath)) return;
+
+            var store = new InputHistoryStore(System.IO.Path.Combine(settingsDirectory, "input-history"));
+            store.Replace("DiffView-ExternalDiff", ExternalDiffPresets);
+            try
+            {
+                Directory.CreateDirectory(settingsDirectory);
+                File.WriteAllText(markerPath, "code+mifes+winmerge+visualstudio");
+            }
+            catch { }
+        }
+
+        private void OpenAssociatedApplication(bool source)
         {
             try
             {
-                string path = GetPath(source); if (!File.Exists(path)) throw new FileNotFoundException(source ? Strings.Diff_SourceMissing : Strings.Diff_TargetMissing);
-                string arguments = SettingsService.LoadEditorArguments().Replace("{file}", path).Replace("{line}", "1").Replace("{column}", "1");
-                Process.Start(new ProcessStartInfo(SettingsService.LoadEditorPath(), arguments) { UseShellExecute = true });
+                string path = GetPath(source);
+                if (!File.Exists(path))
+                    throw new FileNotFoundException((source ? "Source" : "Target") + " file does not exist.");
+
+                Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
             }
-            catch (Exception ex) { MessageBox.Show(this, ErrorMessages.English(ex), Title, MessageBoxButton.OK, MessageBoxImage.Error); }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ErrorMessages.English(ex), Title, MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void OpenExternalDiff()
+        {
+            try
+            {
+                string sourcePath = GetPath(true);
+                string targetPath = GetPath(false);
+                if (!File.Exists(sourcePath)) throw new FileNotFoundException("Source file does not exist.");
+                if (!File.Exists(targetPath)) throw new FileNotFoundException("Target file does not exist.");
+
+                string command = (externalDiffBox.Text ?? string.Empty).Trim();
+                if (command.Length == 0) throw new InvalidOperationException("External diff command is empty.");
+
+                externalDiffBox.CommitHistory();
+
+                string executable;
+                string arguments;
+                SplitCommand(command, out executable, out arguments);
+
+                executable = Environment.ExpandEnvironmentVariables(executable);
+                arguments = arguments
+                    .Replace("{source}", sourcePath)
+                    .Replace("{target}", targetPath);
+
+                externalSourceStamp = DiffStamp.Read(sourcePath);
+                externalTargetStamp = DiffStamp.Read(targetPath);
+                externalDiffPending = true;
+
+                Process.Start(new ProcessStartInfo(executable, arguments)
+                {
+                    UseShellExecute = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ErrorMessages.English(ex), Title, MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async Task RefreshAfterExternalEditAsync()
+        {
+            if (!externalDiffPending || checkingExternalEdit || !IsLoaded) return;
+
+            try
+            {
+                checkingExternalEdit = true;
+                DiffStamp source = DiffStamp.Read(GetPath(true));
+                DiffStamp target = DiffStamp.Read(GetPath(false));
+                if (SameStamp(source, externalSourceStamp) && SameStamp(target, externalTargetStamp)) return;
+
+                externalSourceStamp = source;
+                externalTargetStamp = target;
+
+                var owner = Owner as MftDifferencerWindow;
+                if (owner != null)
+                    await owner.RefreshFileAsync(file);
+
+                await LoadContent();
+            }
+            catch (Exception ex)
+            {
+                status.Text = "Unable to refresh external edit: " + ErrorMessages.English(ex);
+            }
+            finally
+            {
+                checkingExternalEdit = false;
+            }
+        }
+
+        private static bool SameStamp(DiffStamp left, DiffStamp right)
+        {
+            return left == null || right == null
+                ? left == right
+                : left.Size == right.Size && left.ModifiedUtc == right.ModifiedUtc;
+        }
+
+        private static void SplitCommand(string command, out string executable, out string arguments)
+        {
+            command = command.Trim();
+            if (command.StartsWith("\"", StringComparison.Ordinal))
+            {
+                int closingQuote = command.IndexOf('"', 1);
+                if (closingQuote < 0) throw new FormatException("The external diff executable path has an unmatched quote.");
+                executable = command.Substring(1, closingQuote - 1);
+                arguments = command.Substring(closingQuote + 1).TrimStart();
+                return;
+            }
+
+            int separator = command.IndexOfAny(new[] { ' ', '\t' });
+            if (separator < 0)
+            {
+                executable = command;
+                arguments = string.Empty;
+                return;
+            }
+
+            executable = command.Substring(0, separator);
+            arguments = command.Substring(separator + 1).TrimStart();
         }
     }
 }

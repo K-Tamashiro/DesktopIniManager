@@ -1,31 +1,32 @@
+![DesktopIniManager v2.0.0](docs/images/app-overview-dark.png)
+
 # DesktopIniManager
 
 DesktopIniManager is a Windows developer tool for exploring development
 folders, understanding project structure, searching source code, and
 applying custom folder icons through `desktop.ini`.
 
-Version **1.7.0** expands the original folder-icon manager into a
-project-oriented workspace. Physical folders, Visual Studio solution
-structure, search results, file lists, scoped Grep, and icon resources
-can all be handled from one application.
+Version **2.0.0** expands the project workspace with live UI language switching,
+refined Scoped GREP behavior, selective MFT refresh, and a substantially enhanced
+Diff View with external diff integration.
 
 ![Physical tree in dark mode](docs/images/physical-tree-dark.png)
 
 ## Download
 
-[<img src="docs/images/download.png" alt="Download DesktopIniManager v1.7.0" width="200" height="45">](https://github.com/K-Tamashiro/DesktopIniManager/releases/download/v1.7.0/DesktopIniManager-v1.7.0-win-x64.zip)
+[<img src="docs/images/download.png" alt="Download DesktopIniManager v2.0.0" width="200" height="45">](https://github.com/K-Tamashiro/DesktopIniManager/releases/download/v2.0.0/DesktopIniManager-v2.0.0-win-x64.zip)
 
-Download `DesktopIniManager-v1.7.0-win-x64.zip`, extract it to a
+Download `DesktopIniManager-v2.0.0-win-x64.zip`, extract it to a
 writable folder, and run `DesktopIniManager.exe`.
 
-See the [v1.7.0 release notes](RELEASE_NOTES_v1.7.0.md).
+See the [v2.0.0 release notes](RELEASE_NOTES_v2.0.0.md).
 
 ### Requirements
 
--   Windows 10 or Windows 11, x64
--   .NET Framework 4.8
--   Administrator permission when `Use fast NTFS search` is enabled
--   Local NTFS folders for supported comparison and synchronization.
+- Windows 10 or Windows 11, x64
+- .NET Framework 4.8
+- Administrator permission when `Use fast NTFS search` is enabled
+- Local NTFS folders for supported comparison and synchronization.
     Cloud/virtual drives (including Google Drive), network paths, and NAS are
     unsupported. Elevation does not make these equivalent to local NTFS.
 
@@ -53,28 +54,47 @@ acquired, so you can move between the actual disk structure, the Visual
 Studio-oriented structure, and temporary search results without
 rebuilding your working context.
 
+## Version 2.0.0 highlights
+
+- Language combo on the main window: English, Japanese, Simplified
+    Chinese, and Korean, with flags from `Assets/Flag.icl`
+- Immediate UI language change without restart; child windows fade
+    out and reopen in the same place
+- Language stored in `%LOCALAPPDATA%\DesktopIniManager\culture.txt`
+- Independent folder checks for Scoped GREP, with visible roots used
+    when nothing is checked
+- GREP editor history presets for MIFES, Hidemaru, Mery, and VS Code,
+    including `%LOCALAPPDATA%` expansion
+- Diff View opens at the first text difference
+- MFT Differencer can refresh the currently selected folder without rebuilding the entire comparison
+- Diff View can open Source and Target with their associated Windows applications
+- External Diff integration with presets for VS Code, MIFES, WinMerge, and Visual Studio
+- External Diff selection/history is retained, and edited files are refreshed when returning to DIM
+- Difference map distinguishes left-side removals and right-side additions and follows light/dark themes
+- Source and Target horizontal scrolling uses a shared range so both panes remain aligned
+
 ## Version 1.5.0 highlights
 
--   Physical, Solution, and Search views retained independently as tabs
--   Visual Studio `.sln` / project analysis for a logical Solution tree
--   NTFS MFT-based high-speed indexing through `FastVolumeIndex.Core`
--   Refactored MFT and path-index pipelines to reduce repeated
+- Physical, Solution, and Search views retained independently as tabs
+- Visual Studio `.sln` / project analysis for a logical Solution tree
+- NTFS MFT-based high-speed indexing through `FastVolumeIndex.Core`
+- Refactored MFT and path-index pipelines to reduce repeated
     filesystem traversal
--   Hidden Windows folders excluded from the physical tree
--   Project and source-language analysis
--   Folder-name and extension-based search
--   File list synchronized with the selected folder
--   Small/large icon file views
--   Non-modal **Scoped Code Search**
--   Grep scopes selectable directly from the project/folder tree
--   Regular expression, Match case, and Whole word Grep options
--   Language profiles and editable extension sets
--   External-editor navigation to matching line and column
--   ICO / ICL / DLL / EXE icon-resource browser
--   Batch `desktop.ini` apply/remove
--   Optional `desktop.ini` registration in `.gitignore`
--   Light and dark themes
--   Bundled `mftree.exe` CLI
+- Hidden Windows folders excluded from the physical tree
+- Project and source-language analysis
+- Folder-name and extension-based search
+- File list synchronized with the selected folder
+- Small/large icon file views
+- Non-modal **Scoped Code Search**
+- Grep scopes selectable directly from the project/folder tree
+- Regular expression, Match case, and Whole word Grep options
+- Language profiles and editable extension sets
+- External-editor navigation to matching line and column
+- ICO / ICL / DLL / EXE icon-resource browser
+- Batch `desktop.ini` apply/remove
+- Optional `desktop.ini` registration in `.gitignore`
+- Light and dark themes
+- Bundled `mftree.exe` CLI
 
 ## Three retained project views
 
@@ -132,12 +152,12 @@ folders below them.
 
 DesktopIniManager recognizes common development structures including:
 
--   `.sln`, `.slnx`
--   `.csproj`, `.vbproj`, `.fsproj`, `.vcxproj`
--   `.vbp`, `.dproj`, `.dpr`
--   `package.json`, `composer.json`, `pyproject.toml`
--   `Cargo.toml`, `go.mod`, `pom.xml`
--   Gradle, CMake, Make, and related project markers
+- `.sln`, `.slnx`
+- `.csproj`, `.vbproj`, `.fsproj`, `.vcxproj`
+- `.vbp`, `.dproj`, `.dpr`
+- `package.json`, `composer.json`, `pyproject.toml`
+- `Cargo.toml`, `go.mod`, `pom.xml`
+- Gradle, CMake, Make, and related project markers
 
 Generated and dependency folders such as `.git`, `.vs`, `bin`, `obj`,
 `node_modules`, `vendor`, `dist`, and `target` are excluded where
@@ -156,16 +176,17 @@ and run Grep against those scopes.
 
 Features include:
 
--   Multiple selected project/folder scopes
--   Parent/child scope de-duplication
--   C# / WPF and other language profiles
--   Editable included extensions
--   Regular expressions
--   Match case
--   Whole word
--   File, line, column, and matched-text display
--   Configurable external editor
--   Line/column arguments such as MIFES `/+{line}@{column} "{file}"`
+- Multiple selected project/folder scopes
+- Parent/child scope de-duplication
+- C# / WPF and other language profiles
+- Editable included extensions
+- Regular expressions
+- Match case
+- Whole word
+- File, line, column, and matched-text display
+- Configurable external editor with saved history
+- Preset launchers for MIFES, Hidemaru, Mery, and VS Code
+- Line/column arguments such as MIFES `/+{line}@{column} "{file}"`
 
 This allows DesktopIniManager to act as a project-aware front end to
 source-code search rather than a general whole-PC Grep utility.
@@ -193,11 +214,11 @@ ready-to-use development-oriented folder set.
 
 For each selected folder, DesktopIniManager:
 
-1.  Writes `[.ShellClassInfo]` and `IconResource` to `desktop.ini`.
-2.  Marks `desktop.ini` as Hidden and System.
-3.  Applies the folder attributes required by Explorer customization.
-4.  Refreshes Explorer after the batch operation.
-5.  Optionally adds `desktop.ini` to `.gitignore`.
+1. Writes `[.ShellClassInfo]` and `IconResource` to `desktop.ini`.
+2. Marks `desktop.ini` as Hidden and System.
+3. Applies the folder attributes required by Explorer customization.
+4. Refreshes Explorer after the batch operation.
+5. Optionally adds `desktop.ini` to `.gitignore`.
 
 `Remove` deletes the customization and restores the folder to its normal
 icon state.
@@ -207,6 +228,29 @@ icon state.
 The complete workspace can be switched between dark and light themes.
 
 ![Light theme](docs/images/physical-tree-light.png)
+
+## Live UI language switching
+
+DesktopIniManager supports live UI language switching without restarting the
+application. The selected language is retained for the next launch.
+
+Supported UI languages are English, Japanese, Simplified Chinese, and Korean.
+
+### English
+
+![DesktopIniManager in English](docs/images/language-english.png)
+
+### Japanese
+
+![DesktopIniManager in Japanese](docs/images/language-japanese.png)
+
+### Simplified Chinese
+
+![DesktopIniManager in Simplified Chinese](docs/images/language-chinese.png)
+
+### Korean
+
+![DesktopIniManager in Korean](docs/images/language-korean.png)
 
 ## mftree command-line tool
 
@@ -230,24 +274,24 @@ Add the extracted release directory to `PATH` if you want to invoke
 
 ## Typical workflow
 
-1.  Choose the development root.
-2.  Enable fast NTFS search when working on a local NTFS volume.
-3.  Run `GIT` to acquire the Physical and Solution structures.
-4.  Switch between Physical and Solution without rebuilding either tree.
-5.  Use Search for temporary folder/file filtering.
-6.  Select only the required projects and run Scoped Code Search.
-7.  Inspect files in the right pane or open a match in the configured
+1. Choose the development root.
+2. Enable fast NTFS search when working on a local NTFS volume.
+3. Run `GIT` to acquire the Physical and Solution structures.
+4. Switch between Physical and Solution without rebuilding either tree.
+5. Use Search for temporary folder/file filtering.
+6. Select only the required projects and run Scoped Code Search.
+7. Inspect files in the right pane or open a match in the configured
     editor.
-8.  Apply project-specific folder icons where visual identification in
+8. Apply project-specific folder icons where visual identification in
     Explorer is useful.
 
 ## Build from source
 
 Requirements:
 
--   Visual Studio 2022 or newer
--   .NET desktop development workload
--   .NET Framework 4.8 targeting pack
+- Visual Studio 2022 or newer
+- .NET desktop development workload
+- .NET Framework 4.8 targeting pack
 
 Build with Visual Studio MSBuild:
 
@@ -267,14 +311,15 @@ mftree.exe
 Assets/
   folder_set.icl
   MftDifferencer_iconset.icl
+  Flag.icl
 README.md
-RELEASE_NOTES_v1.7.0.md
+RELEASE_NOTES_v2.0.0.md
 docs/
 ```
 
 ## Version
 
-Current release: **DesktopIniManager 1.7.0**
+Current release: **DesktopIniManager 2.0.0**
 
 ## MFT Differencer
 
@@ -294,6 +339,10 @@ each root and classified using size and, when **Compare dates** is enabled,
 last-write time. This is a metadata comparison, not a content or hash check.
 Turning off **Compare dates** treats equal-sized files as identical even
 when their timestamps differ.
+
+Use the **Update** button to refresh only the currently selected folder. When
+that refresh removes the final difference from the folder, DIM performs the
+required broader refresh so the tree and file list remain consistent.
 
 - **Same / Diff / Left / Right** can be combined to filter the folder tree
   and file list. Initially, **Diff**, **Left**, and **Right** are enabled.
@@ -332,9 +381,12 @@ Images initially fit both panes; **Fit** and **100%** control their shared zoom.
 Executables, DLLs, `.cache`, and other recognized binary formats show an English
 unsupported-file message without opening Diff View. Unknown extensions are
 also checked for binary content when read.
-**Open Source** and **Open Target** send the corresponding file to the
-configured external editor. Diff View itself does not edit, save, or merge
-files.
+**Open Source** and **Open Target** open the corresponding file with its
+Windows-associated application. **Open Ext Diff** sends both files to the
+selected external diff command. Presets are provided for VS Code, MIFES,
+WinMerge, and Visual Studio, and the last selected command is retained. When
+an externally edited file changes, DIM refreshes the affected file and reloads
+Diff View. Diff View itself remains read only.
 
 ### Clean solutions before synchronization
 

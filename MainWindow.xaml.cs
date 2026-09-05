@@ -20,6 +20,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Media.Animation;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using FastVolumeIndex;
 using DesktopIniManager.Properties;
 
@@ -84,7 +85,7 @@ namespace DesktopIniManager
             _filterTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
             _filterTimer.Tick += (sender, args) => { _filterTimer.Stop(); ApplyFolderFilter(); };
             string savedRoot = startup != null ? startup.Root : SettingsService.LoadSearchRoot();
-            RootBox.Text = !string.IsNullOrWhiteSpace(savedRoot) ? savedRoot : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            RootBox.Text = savedRoot ?? string.Empty;
             string defaultLibrary = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "folder_set.icl");
             string savedLibrary = startup != null ? startup.IconLibrary : SettingsService.LoadIconLibraryPath();
             IconPathBox.Text = !string.IsNullOrWhiteSpace(savedLibrary) ? savedLibrary : defaultLibrary;
@@ -279,11 +280,13 @@ namespace DesktopIniManager
                                 string reason;
                                 if (analysis.TryGetValue(VolumePathIndex.Normalize(item.Path), out reason)) item.Reason = reason;
                                 if ((++updated % 60) == 0)
+                                {
                                     await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
+                                }
                             }
                         }
                         if (!searchOnly)
-                            solutionRoots = await Task.Run(() => SolutionTreeService.Build(root, searchCts.Token));
+                            solutionRoots = await BuildSolutions(root, searchCts.Token);
                     }
                     else
                     {
@@ -292,7 +295,7 @@ namespace DesktopIniManager
                         _pathIndex = standard.Paths;
                         RefreshTreeItemsSource();
                         await ApplyStandardDevelopmentAnalysis(gitSearchRequested, standard.Paths, searchCts.Token);
-                        if (!searchOnly) solutionRoots = await Task.Run(() => SolutionTreeService.Build(root, searchCts.Token));
+                        if (!searchOnly) solutionRoots = await BuildSolutions(root, searchCts.Token);
                     }
                 }
                 else if (folderListMode)
@@ -309,7 +312,7 @@ namespace DesktopIniManager
                     _pathIndex = standard.Paths;
                     RefreshTreeItemsSource();
                     await ApplyStandardDevelopmentAnalysis(gitSearchRequested, standard.Paths, searchCts.Token);
-                    if (!searchOnly) solutionRoots = await Task.Run(() => SolutionTreeService.Build(root, searchCts.Token));
+                    if (!searchOnly) solutionRoots = await BuildSolutions(root, searchCts.Token);
                 }
                 foreach (FolderMatch solution in solutionRoots)
                 {
@@ -328,7 +331,8 @@ namespace DesktopIniManager
                     ShowTreeView(2);
                     SelectSearchRootForFileList();
                 }
-                ShowTreeView(_treeView);
+                else
+                    ShowTreeView(0);
             }
             catch (OperationCanceledException) { StatusText.Text = Strings.Main_SearchCancelled; }
             catch (Exception ex) { MessageBox.Show(ErrorMessages.English(ex), Title); StatusText.Text = Strings.Main_SearchFailed; }
@@ -387,7 +391,10 @@ namespace DesktopIniManager
                 token.ThrowIfCancellationRequested();
                 string reason;
                 if (analysis.TryGetValue(VolumePathIndex.Normalize(item.Path), out reason)) item.Reason = reason;
-                if ((++updated % 60) == 0) await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
+                if ((++updated % 60) == 0)
+                {
+                    await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
+                }
             }
         }
 
@@ -659,7 +666,6 @@ namespace DesktopIniManager
                 _searchResultCount = built.Items.Count;
                 RefreshTreeItemsSource();
                 CountText.Text = string.Format(Strings.Main_SearchResults, _searchResultCount);
-                await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
                 return;
             }
             _results.Clear();
@@ -668,7 +674,6 @@ namespace DesktopIniManager
             foreach (FolderMatch root in built.Roots) _treeRoots.Add(root);
             RefreshTreeItemsSource();
             CountText.Text = string.Format(Strings.Main_NFolders, _results.Count);
-            await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
         }
 
         private static bool IsAncestorPath(string parent, string child)
@@ -1243,13 +1248,15 @@ namespace DesktopIniManager
         {
             GitSearchButton.IsEnabled = !value; SearchButton.IsEnabled = !value; CancelButton.IsEnabled = value;
             ApplyButton.IsEnabled = !value; RemoveButton.IsEnabled = !value; GrepButton.IsEnabled = !value;
-            ElevationService.Shared.SetBusy(this, value); SearchProgress.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
+            ElevationService.Shared.SetBusy(this, value);
+            SearchProgress.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
             if (value)
+                Dispatcher.BeginInvoke(new Action(() => AnimateSearchProgress(true)), DispatcherPriority.Loaded);
+            else
             {
-                Dispatcher.BeginInvoke(new Action(() => AnimateSearchProgress(true)), System.Windows.Threading.DispatcherPriority.Loaded);
-                return;
+                AnimateSearchProgress(false);
+                SetTreePanelBusy(false);
             }
-            AnimateSearchProgress(false);
         }
 
         private void AnimateSearchProgress(bool value)
@@ -1265,6 +1272,26 @@ namespace DesktopIniManager
             var animation = new DoubleAnimation(0, distance, TimeSpan.FromSeconds(1.2))
             { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever };
             transform.BeginAnimation(TranslateTransform.XProperty, animation, HandoffBehavior.SnapshotAndReplace);
+        }
+
+        private async Task<List<FolderMatch>> BuildSolutions(string root, CancellationToken token)
+        {
+            ShowTreeView(1);
+            SetTreePanelBusy(true);
+            try
+            {
+                return await Task.Run(() => SolutionTreeService.Build(root, token), token);
+            }
+            finally
+            {
+                SetTreePanelBusy(false);
+            }
+        }
+
+        private void SetTreePanelBusy(bool busy)
+        {
+            if (TreePanelBusy != null)
+                TreePanelBusy.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
         }
         private void LightTheme_Click(object sender, RoutedEventArgs e) => SetTheme(false);
         private void DarkTheme_Click(object sender, RoutedEventArgs e) => SetTheme(true);
@@ -1448,7 +1475,7 @@ namespace DesktopIniManager
             };
             LanguageBox.ItemsSource = items;
             string current = StringOverlay.ResolveCulture().Name;
-            LanguageChoice selected = items[1];
+            LanguageChoice selected = items[0];
             foreach (LanguageChoice item in items)
             {
                 if (string.Equals(item.Code, current, StringComparison.OrdinalIgnoreCase) ||
@@ -1461,19 +1488,104 @@ namespace DesktopIniManager
             }
             LanguageBox.SelectedItem = selected;
             _languageReady = true;
+            ScheduleResetCaption();
         }
 
-        private void LanguageBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private async void LanguageBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (!_languageReady) return;
             var choice = LanguageBox.SelectedItem as LanguageChoice;
             if (choice == null) return;
             StringOverlay.SetCulture(choice.Code);
             Title = Strings.App_Title;
-            RelayoutChildWindows();
+            ScheduleResetCaption();
+            await RelayoutChildWindows();
         }
 
-        private async void RelayoutChildWindows()
+        private void ScheduleResetCaption()
+        {
+            Dispatcher.BeginInvoke(new Action(UpdateResetCaption), DispatcherPriority.ContextIdle);
+        }
+
+        private void UpdateResetCaption()
+        {
+            if (ResetButton == null) return;
+            string language = StringOverlay.ResolveCulture().TwoLetterISOLanguageName;
+            string label, tip;
+            if (language == "ja") { label = "リセット"; tip = "設定・履歴・フォルダー一覧を初期化します"; }
+            else if (language == "zh") { label = "重置"; tip = "清除设置、历史和文件夹列表"; }
+            else if (language == "ko") { label = "초기화"; tip = "설정, 기록, 폴더 목록을 초기화합니다"; }
+            else { label = "Reset"; tip = "Clear settings, history, and folder lists"; }
+            ResetButton.ToolTip = tip;
+            if (ResetButtonLabel != null) ResetButtonLabel.Text = label;
+        }
+
+        private void Reset_Click(object sender, RoutedEventArgs e)
+        {
+            string language = StringOverlay.ResolveCulture().TwoLetterISOLanguageName;
+            string title = language == "ja" ? "リセット" : language == "zh" ? "重置" : language == "ko" ? "초기화" : "Reset";
+            string message = language == "ja"
+                ? "設定、入力履歴、フォルダー一覧、GREP / MFT の状態、エディターとアイコンの選択を初期化します。よろしいですか。"
+                : language == "zh"
+                ? "将清除设置、输入历史、文件夹列表、GREP / MFT 状态以及编辑器和图标选择。确定吗？"
+                : language == "ko"
+                ? "설정, 입력 기록, 폴더 목록, GREP / MFT 상태, 편집기와 아이콘 선택을 초기화합니다. 계속할까요?"
+                : "This clears settings, input history, folder lists, GREP / MFT state, and editor and icon selections. Continue?";
+            if (MessageBox.Show(this, message, title, MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
+                return;
+
+            _searchCts?.Cancel();
+            _fileListCts?.Cancel();
+            _filterCts?.Cancel();
+            _grepWindow?.Close();
+            _differencerWindow?.Close();
+            foreach (Window window in Application.Current.Windows.Cast<Window>().ToArray())
+            {
+                if (!ReferenceEquals(window, this))
+                    try { window.Close(); } catch { }
+            }
+
+            SettingsService.ClearAll();
+            FolderTreeStateService.Clear();
+
+            _results.Clear();
+            _treeRoots.Clear();
+            _solutionRoots.Clear();
+            _searchRoots.Clear();
+            _files.Clear();
+            _pathIndex = null;
+            _searchResultCount = 0;
+            _filteredViewItems = null;
+            _folderTreeRoot = null;
+            _physicalCurrent = _solutionCurrent = _searchCurrent = null;
+            _selectedIconIndex = 0;
+            _selectedIconPreview = null;
+            _pendingSearchQuery = null;
+            SelectedIconImage.Source = null;
+            RootBox.ResetField(string.Empty);
+            IconPathBox.ResetField(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "folder_set.icl"));
+            QueryBox.ResetField(string.Empty);
+            FolderFilterBox.ResetField(string.Empty);
+            SettingsService.SaveSearchQuery(string.Empty);
+            SettingsService.SaveIconLibraryPath(IconPathBox.Text);
+            if (AddToGitIgnoreBox != null) AddToGitIgnoreBox.IsChecked = false;
+            ElevationService.Shared.Enabled = false;
+            ApplyTreeDensity(false, false);
+            ThemeService.Apply(false);
+            LightThemeButton.IsChecked = true;
+            DarkThemeButton.IsChecked = false;
+            ShowTreeView(0);
+            CountText.Text = string.Format(Strings.Main_NFolders, 0);
+            StatusText.Text = Strings.Common_Ready;
+            _languageReady = false;
+            StringOverlay.SetCulture("en");
+            InitLanguageBox();
+            Title = Strings.App_Title;
+            RefreshSelectedIconPreview();
+            ScheduleResetCaption();
+        }
+
+        private async Task RelayoutChildWindows()
         {
             bool reopenGrep = _grepWindow != null;
             bool reopenMft = _differencerWindow != null;

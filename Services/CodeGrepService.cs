@@ -90,8 +90,11 @@ namespace DesktopIniManager.Services
             {
                 NtfsVolumeIndex index = null;
                 token.ThrowIfCancellationRequested();
-                try { index = NtfsVolumeIndex.Create(volumeGroup.First(), token); }
-                catch (Exception ex) when (ex is UnauthorizedAccessException || ex is NotSupportedException || ex is IOException) { }
+                if (ElevationService.Shared.Enabled)
+                {
+                    try { index = NtfsVolumeIndex.Create(volumeGroup.First(), token); }
+                    catch (Exception ex) when (ex is UnauthorizedAccessException || ex is NotSupportedException || ex is IOException) { }
+                }
 
                 foreach (string scope in volumeGroup)
                 {

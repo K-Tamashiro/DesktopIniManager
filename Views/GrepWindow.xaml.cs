@@ -50,11 +50,7 @@ namespace DesktopIniManager.Views
             ProfileBox.SelectedItem = LanguageProfile.All.FirstOrDefault(profile =>
                 string.Equals(profile.Name, savedProfile, StringComparison.OrdinalIgnoreCase))
                 ?? LanguageProfile.All.First(profile => !profile.IsFree);
-            double[] widths = SettingsService.LoadGrepColumnWidths();
-            if (widths != null)
-                for (int index = 0; index < widths.Length && index < ResultsGrid.Columns.Count; index++)
-                    if (widths[index] >= 40 && widths[index] <= 4000)
-                        ResultsGrid.Columns[index].Width = new DataGridLength(widths[index]);
+            ApplyGrepColumnWidths(SettingsService.LoadGrepColumnWidths());
             bool resetPresets = SeedEditorPresets();
             HookPathBox(EditorBox);
             HookPathBox(EditorArgumentsBox);
@@ -74,6 +70,8 @@ namespace DesktopIniManager.Views
             SetScopes(initialScopes);
             Loaded += (sender, args) =>
             {
+                ApplyGrepColumnWidths(SettingsService.LoadGrepColumnWidths());
+                Dispatcher.BeginInvoke(new Action(() => ApplyGrepColumnWidths(SettingsService.LoadGrepColumnWidths())), System.Windows.Threading.DispatcherPriority.Loaded);
                 QueryBox.Focus();
                 ShowTextEnd(EditorBox);
                 ShowTextEnd(EditorArgumentsBox);
@@ -400,8 +398,24 @@ namespace DesktopIniManager.Views
             SettingsService.SaveEditor(EditorBox.Text.Trim(), EditorArgumentsBox.Text);
             SettingsService.SaveGrepProfile((ProfileBox.SelectedItem as LanguageProfile)?.Name);
             if ((ProfileBox.SelectedItem as LanguageProfile)?.IsFree == true) SettingsService.SaveGrepFreeExtensions(ExtensionsText.Text.Trim());
-            SettingsService.SaveGrepColumnWidths(ResultsGrid.Columns.Select(column => column.ActualWidth).ToArray());
+            double[] widths = ResultsGrid.Columns.Select(column => column.ActualWidth).ToArray();
+            if (widths.Length >= 4 && widths[0] >= 80 && widths[1] >= 120)
+                SettingsService.SaveGrepColumnWidths(widths);
             base.OnClosing(e);
+        }
+
+        private void ApplyGrepColumnWidths(double[] widths)
+        {
+            ResultsGrid.RowHeaderWidth = 0;
+            double[] defaults = { 200, 300, 80, 80, 550 };
+            double[] mins = { 90, 160, 60, 60, 200 };
+            bool saved = widths != null && widths.Length >= 5 &&
+                widths[0] >= 90 && widths[1] >= 160 && widths[2] >= 50 && widths[3] >= 50 && widths[4] >= 200;
+            for (int index = 0; index < ResultsGrid.Columns.Count && index < defaults.Length; index++)
+            {
+                ResultsGrid.Columns[index].MinWidth = mins[index];
+                ResultsGrid.Columns[index].Width = new DataGridLength(saved ? widths[index] : defaults[index]);
+            }
         }
     }
 }

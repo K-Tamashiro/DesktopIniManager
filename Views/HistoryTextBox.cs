@@ -78,6 +78,15 @@ namespace DesktopIniManager.Views
             if (!IsReadOnly && !string.IsNullOrEmpty(HistoryKey)) store.Remember(HistoryKey, Text, !PreserveOrder);
         }
 
+        public void ResetField(string text)
+        {
+            Text = text ?? string.Empty;
+            CaretIndex = Text.Length;
+            if (!string.IsNullOrEmpty(HistoryKey)) store.Clear(HistoryKey);
+            if (list != null) list.ItemsSource = null;
+            if (popup != null) popup.IsOpen = false;
+        }
+
         protected override void OnLostKeyboardFocus(KeyboardFocusChangedEventArgs e)
         {
             base.OnLostKeyboardFocus(e);

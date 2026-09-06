@@ -282,7 +282,7 @@ namespace DesktopIniManager
             return Task.Run(() =>
             {
                 int lastReport = Environment.TickCount;
-                VolumePathIndex paths = VolumePathIndex.BuildFromFileSystem(root,
+                VolumePathIndex paths = VolumePathIndex.BuildFromDirCommand(root,
                     count =>
                     {
                         int now = Environment.TickCount;
@@ -593,6 +593,8 @@ namespace DesktopIniManager
             UpdateVisibleCount();
         }
 
+        private const int MaxFileListItems = 3000;
+
         private async void ResultsTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
             if (_syncingTreeFromFile) return;
@@ -611,29 +613,68 @@ namespace DesktopIniManager
             FilePanelTitle.ToolTip = folder?.Path;
             if (folder == null || string.IsNullOrEmpty(folder.Path)) { SetFilePanelBusy(false); return; }
             SetFilePanelBusy(true);
+            await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Render);
             string[] searchKeys = (QueryBox.Text ?? string.Empty).Split((char[])null, StringSplitOptions.RemoveEmptyEntries)
                 .Select(key => key.Trim().TrimStart('*')).Where(key => key.Length > 0).Distinct(StringComparer.CurrentCultureIgnoreCase).ToArray();
-            string[] paths = CollectSearchTabFiles(folder);
+
+            VolumePathIndex index = _pathIndex;
+            int treeView = _treeView;
+            string folderPath = folder.Path;
+            // Search タブ用: UI スレッドで子孫 FolderMatch を先にスナップショット
+            List<string> searchFolderPaths = null;
+            if (treeView == 2)
+            {
+                searchFolderPaths = new List<string>();
+                var stack = new Stack<FolderMatch>();
+                stack.Push(folder);
+                while (stack.Count > 0)
+                {
+                    FolderMatch node = stack.Pop();
+                    searchFolderPaths.Add(node.Path);
+                    for (int i = node.Children.Count - 1; i >= 0; i--)
+                        stack.Push(node.Children[i]);
+                }
+            }
+
             try
             {
-                List<FileListItem> items = await Task.Run(() =>
+                var loaded = await Task.Run(() =>
                 {
-                    var loaded = new List<FileListItem>(paths.Length);
+                    string[] paths = treeView == 2
+                        ? CollectFilesFromFolders(index, searchFolderPaths, fileListCts.Token)
+                        : CollectFilesUnder(index, folderPath, fileListCts.Token);
+
+                    int total = paths.Length;
+                    bool truncated = total > MaxFileListItems;
+                    if (truncated)
+                    {
+                        var limited = new string[MaxFileListItems];
+                        Array.Copy(paths, limited, MaxFileListItems);
+                        paths = limited;
+                    }
+
+                    var items = new List<FileListItem>(paths.Length);
                     foreach (string path in paths)
                     {
                         fileListCts.Token.ThrowIfCancellationRequested();
-                        loaded.Add(new FileListItem(path, searchKeys));
+                        items.Add(new FileListItem(path, searchKeys));
                     }
-                    return loaded;
+                    return Tuple.Create(items, total, truncated);
                 }, fileListCts.Token);
+
                 if (fileListCts.IsCancellationRequested || !ReferenceEquals(_fileListCts, fileListCts)) return;
-                foreach (FileListItem item in items)
+
+                foreach (FileListItem item in loaded.Item1)
                 {
                     _files.Add(item);
-                    if ((_files.Count % 32) == 0) await System.Windows.Threading.Dispatcher.Yield();
+                    if ((_files.Count % 64) == 0) await System.Windows.Threading.Dispatcher.Yield();
                     if (fileListCts.IsCancellationRequested) return;
                 }
-                FileListItem firstMatch = items.FirstOrDefault(item => item.IsSearchMatch);
+
+                if (loaded.Item3)
+                    StatusText.Text = string.Format("{0:N0} / {1:N0} files", loaded.Item1.Count, loaded.Item2);
+
+                FileListItem firstMatch = loaded.Item1.FirstOrDefault(item => item.IsSearchMatch);
                 if (firstMatch != null)
                 {
                     FileList.ScrollIntoView(firstMatch);
@@ -648,26 +689,68 @@ namespace DesktopIniManager
             }
         }
 
-        private void SelectSearchRootForFileList()
-        {
-            if (_searchRoots.Count == 0) return;
-            FolderMatch root = _searchRoots[0];
-            root.IsExpanded = true;
-            Dispatcher.BeginInvoke(new Action(() =>
-            {
-                if (_treeView != 2 || _searchRoots.Count == 0) return;
-                FolderMatch current = _searchRoots[0];
-                current.IsExpanded = true;
-                current.IsCurrent = true;
-            }), System.Windows.Threading.DispatcherPriority.Loaded);
-        }
-
         private string[] FilesInFolder(string path)
         {
             VolumePathNode node = _pathIndex?.Find(path);
-            if (node != null) return node.Files.Select(file => file.Path).ToArray();
+            if (node != null)
+                return node.Files.Select(file => file.Path).ToArray();
+            // index があるときはディスク列挙しない（Dropbox で固まる）
+            if (_pathIndex != null)
+                return Array.Empty<string>();
             try { return Directory.EnumerateFiles(path).OrderBy(item => item, StringComparer.CurrentCultureIgnoreCase).ToArray(); }
             catch { return Array.Empty<string>(); }
+        }
+
+        private static string[] CollectFilesUnder(VolumePathIndex index, string folderPath, CancellationToken token)
+        {
+            if (index == null || string.IsNullOrEmpty(folderPath))
+                return Array.Empty<string>();
+
+            VolumePathNode root = index.Find(folderPath);
+            if (root == null)
+                return Array.Empty<string>();
+
+            var paths = new List<string>();
+            var stack = new Stack<VolumePathNode>();
+            stack.Push(root);
+            while (stack.Count > 0)
+            {
+                token.ThrowIfCancellationRequested();
+                VolumePathNode node = stack.Pop();
+                foreach (VolumePathNode file in node.Files)
+                {
+                    paths.Add(file.Path);
+                    if (paths.Count >= MaxFileListItems) goto Done;
+                }
+                for (int i = node.Directories.Count - 1; i >= 0; i--)
+                    stack.Push(node.Directories[i]);
+            }
+        Done:
+            paths.Sort(StringComparer.CurrentCultureIgnoreCase);
+            return paths.ToArray();
+        }
+        private static string[] CollectFilesFromFolders(VolumePathIndex index, List<string> folderPaths, CancellationToken token)
+        {
+            if (folderPaths == null || folderPaths.Count == 0)
+                return Array.Empty<string>();
+
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var paths = new List<string>();
+
+            if (index != null)
+            {
+                foreach (string folderPath in folderPaths)
+                {
+                    token.ThrowIfCancellationRequested();
+                    VolumePathNode node = index.Find(folderPath);
+                    if (node == null) continue;
+                    foreach (VolumePathNode file in node.Files)
+                        if (seen.Add(file.Path)) paths.Add(file.Path);
+                }
+            }
+
+            paths.Sort(StringComparer.CurrentCultureIgnoreCase);
+            return paths.ToArray();
         }
 
         private string[] CollectSearchTabFiles(FolderMatch folder)
@@ -687,6 +770,20 @@ namespace DesktopIniManager
             paths.Sort(StringComparer.CurrentCultureIgnoreCase);
             return paths.ToArray();
         }
+        private void SelectSearchRootForFileList()
+        {
+            if (_searchRoots.Count == 0) return;
+            FolderMatch root = _searchRoots[0];
+            root.IsExpanded = true;
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (_treeView != 2 || _searchRoots.Count == 0) return;
+                FolderMatch current = _searchRoots[0];
+                current.IsExpanded = true;
+                current.IsCurrent = true;
+            }), System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+
 
         private void FileList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {

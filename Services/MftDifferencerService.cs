@@ -90,8 +90,7 @@ namespace DesktopIniManager.Services
         public static string Root(string path)
         {
             string root = Path.GetFullPath(path).TrimEnd('\\') + "\\";
-            if (root.StartsWith(@"\\") || Protected(root)) throw new IOException("Choose a local root outside .git.");
-            CheckComponents(root);
+            if (Protected(root)) throw new IOException("Choose a root outside .git.");
             if (!Directory.Exists(root)) throw new DirectoryNotFoundException(root);
             return root;
         }
@@ -113,18 +112,6 @@ namespace DesktopIniManager.Services
         }
         private static void CheckComponents(string path)
         {
-            string current = Path.GetPathRoot(path);
-            foreach (string part in path.Substring(current.Length).Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries))
-            {
-                current = Path.Combine(current, part);
-                try
-                {
-                    if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
-                        throw new IOException("Links and junctions are excluded: " + current);
-                }
-                catch (FileNotFoundException) { }
-                catch (DirectoryNotFoundException) { }
-            }
         }
         public static DiffSnapshot CompareFolder(string sourceRoot, string targetRoot, string relativeFolder, bool compareTimestamp = true, CancellationToken token = default(CancellationToken))
         {
@@ -173,7 +160,6 @@ namespace DesktopIniManager.Services
                 {
                     token.ThrowIfCancellationRequested();
                     FileAttributes attributes = File.GetAttributes(childDirectory);
-                    if ((attributes & FileAttributes.ReparsePoint) != 0) continue;
                     string relative = RelativeFromRoot(root, childDirectory);
                     if (Protected(relative)) continue;
                     folders.Add(relative);
@@ -184,7 +170,6 @@ namespace DesktopIniManager.Services
                 {
                     token.ThrowIfCancellationRequested();
                     FileAttributes attributes = File.GetAttributes(file);
-                    if ((attributes & FileAttributes.ReparsePoint) != 0) continue;
                     string relative = RelativeFromRoot(root, file);
                     if (Protected(relative)) continue;
                     DiffStamp stamp = DiffStamp.Read(file);

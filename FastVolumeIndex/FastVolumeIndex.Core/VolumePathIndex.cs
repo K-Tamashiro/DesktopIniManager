@@ -166,70 +166,97 @@ namespace FastVolumeIndex
         {
             string rootPath = Normalize(searchRoot);
             if (!Directory.Exists(rootPath)) throw new DirectoryNotFoundException(rootPath);
-
             string[] lines = RunDirBare(rootPath, token);
             var nodes = new Dictionary<string, VolumePathNode>(StringComparer.OrdinalIgnoreCase);
             var root = new VolumePathNode(rootPath, null, true);
             nodes[rootPath] = root;
             var projectFiles = new List<string>();
-            int scanned = 0;
-
+            var all = new List<string>();
             foreach (string raw in lines)
             {
                 token.ThrowIfCancellationRequested();
                 if (string.IsNullOrWhiteSpace(raw)) continue;
-
                 string path;
                 try { path = Normalize(raw.Trim()); }
                 catch (ArgumentException) { continue; }
                 catch (NotSupportedException) { continue; }
                 catch (PathTooLongException) { continue; }
-
-                if (!IsWithin(path, rootPath) || nodes.ContainsKey(path)) continue;
-
-                bool attrOk = true;
-                bool isDirectory = false;
-                try
+                if (!IsWithin(path, rootPath)) continue;
+                if (string.Equals(path, rootPath, StringComparison.OrdinalIgnoreCase)) continue;
+                all.Add(path);
+            }
+            all.Sort(StringComparer.OrdinalIgnoreCase);
+            // dir /s /b の行だけを見て、別パスの親になっているものをフォルダとみなす（属性不要）
+            var directoryHints = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < all.Count - 1; i++)
+            {
+                string current = all[i];
+                string next = all[i + 1];
+                if (next.StartsWith(current + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                    directoryHints.Add(current);
+            }
+            int scanned = 0;
+            foreach (string path in all)
+            {
+                token.ThrowIfCancellationRequested();
+                // 祖先フォルダを必ず作る
+                string ancestor = Normalize(Path.GetDirectoryName(path));
+                while (!string.IsNullOrEmpty(ancestor) && IsWithin(ancestor, rootPath))
                 {
-                    isDirectory = (File.GetAttributes(path) & FileAttributes.Directory) != 0;
+                    EnsureDirectory(nodes, ancestor);
+                    if (string.Equals(ancestor, rootPath, StringComparison.OrdinalIgnoreCase)) break;
+                    ancestor = Normalize(Path.GetDirectoryName(ancestor));
                 }
-                catch (ArgumentException) { attrOk = false; }
-                catch (FileNotFoundException) { attrOk = false; }
-                catch (DirectoryNotFoundException) { attrOk = false; }
-                catch (UnauthorizedAccessException) { attrOk = false; }
-                catch (IOException) { attrOk = false; }
-
-                string ext = Path.GetExtension(path);
-                bool isProject = ProjectFileExtensions.Contains(ext);
-
-                if (!attrOk)
-                {
-                    if (!isProject) continue;
-                    isDirectory = false;
-                }
-
-                if (isDirectory)
+                if (directoryHints.Contains(path))
                 {
                     EnsureDirectory(nodes, path);
                 }
                 else
                 {
-                    string parentPath = Normalize(Path.GetDirectoryName(path));
-                    if (!string.IsNullOrEmpty(parentPath))
-                        EnsureDirectory(nodes, parentPath);
-                    nodes[path] = new VolumePathNode(path, null, false);
-                    if (isProject)
+                    if (!nodes.ContainsKey(path))
+                        nodes[path] = new VolumePathNode(path, null, false);
+                    string ext = Path.GetExtension(path);
+                    if (ProjectFileExtensions.Contains(ext))
                         projectFiles.Add(path);
                 }
-
                 if ((++scanned & 63) == 0) progress?.Invoke(scanned);
             }
-
+            EnsureFolderTreeFromFileSystem(rootPath, nodes, token);
             LinkNodes(nodes, root);
             progress?.Invoke(scanned);
             return new VolumePathIndex(rootPath, nodes, root, projectFiles);
         }
-
+        private static void EnsureFolderTreeFromFileSystem(string rootPath, Dictionary<string, VolumePathNode> nodes, CancellationToken token)
+        {
+            var pending = new Stack<string>();
+            pending.Push(rootPath);
+            while (pending.Count > 0)
+            {
+                token.ThrowIfCancellationRequested();
+                string folder = pending.Pop();
+                IEnumerable<string> children;
+                try { children = Directory.EnumerateDirectories(folder); }
+                catch (UnauthorizedAccessException) { continue; }
+                catch (IOException) { continue; }
+                foreach (string child in children)
+                {
+                    token.ThrowIfCancellationRequested();
+                    string name = Path.GetFileName(child);
+                    if (string.Equals(name, ".git", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(name, ".vs", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(name, ".vscode", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    string path;
+                    try { path = Normalize(child); }
+                    catch (ArgumentException) { continue; }
+                    catch (NotSupportedException) { continue; }
+                    catch (PathTooLongException) { continue; }
+                    if (!IsWithin(path, rootPath)) continue;
+                    EnsureDirectory(nodes, path);
+                    pending.Push(child);
+                }
+            }
+        }
         private static void LinkNodes(Dictionary<string, VolumePathNode> nodes, VolumePathNode root)
         {
             foreach (VolumePathNode node in nodes.Values.OrderBy(node => node.Path.Length).ToArray())
@@ -237,7 +264,7 @@ namespace FastVolumeIndex
                 if (ReferenceEquals(node, root)) continue;
                 string parentPath = Normalize(Path.GetDirectoryName(node.Path));
                 VolumePathNode parent;
-                if (!nodes.TryGetValue(parentPath, out parent) || !parent.IsDirectory || parent.IsReparsePoint) continue;
+                if (!nodes.TryGetValue(parentPath, out parent) || !parent.IsDirectory) continue;
                 node.Parent = parent; node.Depth = parent.Depth + 1;
                 if (node.IsDirectory) parent.MutableDirectories.Add(node); else parent.MutableFiles.Add(node);
             }
@@ -280,6 +307,8 @@ namespace FastVolumeIndex
         public static bool IsWithin(string path, string root) => string.Equals(path, root, StringComparison.OrdinalIgnoreCase) ||
             path.StartsWith(root.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
+
+
 
     public sealed class VolumePathNode
     {

@@ -121,7 +121,10 @@
     <Compile Include="Services\InputHistoryStore.cs" />
     <Compile Include="Views\HistoryTextBox.cs" />
     <Compile Include="Views\InputHistory.cs" />
-    <Page Include="Views\HistoryTextBox.xaml"><Generator>MSBuild:Compile</Generator><SubType>Designer</SubType></Page>
+    <Page Include="Views\HistoryTextBox.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Compile Include="Services\ThemeService.cs" />
     <Compile Include="Views\IconGroupBrowserWindow.xaml.cs">
       <DependentUpon>IconGroupBrowserWindow.xaml</DependentUpon>
@@ -138,6 +141,7 @@
     <EmbeddedResource Include="Properties\Strings.resx">
       <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>Strings.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
@@ -175,9 +179,7 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="AfterBuild">
-    <MSBuild Projects="$(ProjectDir)FastVolumeIndex\FastVolumeIndex.Cli\FastVolumeIndex.Cli.csproj"
-             Properties="Configuration=$(Configuration);Platform=AnyCPU" />
-    <Copy SourceFiles="$(ProjectDir)FastVolumeIndex\FastVolumeIndex.Cli\bin\$(Configuration)\mftree.exe"
-          DestinationFolder="$(TargetDir)" />
+    <MSBuild Projects="$(ProjectDir)FastVolumeIndex\FastVolumeIndex.Cli\FastVolumeIndex.Cli.csproj" Properties="Configuration=$(Configuration);Platform=AnyCPU" />
+    <Copy SourceFiles="$(ProjectDir)FastVolumeIndex\FastVolumeIndex.Cli\bin\$(Configuration)\mftree.exe" DestinationFolder="$(TargetDir)" />
   </Target>
 </Project>

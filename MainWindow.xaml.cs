@@ -11,7 +11,6 @@ using System.IO;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
-using System.Security.Principal;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -69,8 +68,6 @@ namespace DesktopIniManager
         {
             _startup = startup;
             string[] commandLine = Environment.GetCommandLineArgs();
-            var resume = ElevationResumeState.Load(commandLine);
-            bool fastSearchRequested = commandLine.Any(argument => string.Equals(argument, "--fast-search", StringComparison.OrdinalIgnoreCase));
             bool runGitSearch = commandLine.Any(argument => string.Equals(argument, "--run-git-search", StringComparison.OrdinalIgnoreCase));
             bool runSearch = commandLine.Any(argument => string.Equals(argument, "--run-search", StringComparison.OrdinalIgnoreCase));
             bool darkMode = startup != null ? startup.DarkMode : SettingsService.LoadDarkMode();
@@ -91,10 +88,6 @@ namespace DesktopIniManager
             IconPathBox.Text = !string.IsNullOrWhiteSpace(savedLibrary) ? savedLibrary : defaultLibrary;
             string savedQuery = startup != null ? startup.Query : SettingsService.LoadSearchQuery();
             QueryBox.Text = string.Equals(savedQuery, ".git", StringComparison.OrdinalIgnoreCase) ? string.Empty : (savedQuery ?? string.Empty);
-            // Reflect the actual process state as well as an elevation restart request.
-            // Users who always run the executable as administrator can still uncheck it
-            // to compare the standard search during the current session.
-            ElevationService.Shared.Initialize(fastSearchRequested);
             RestoreWindowPlacement(commandLine);
             HookPathBox(RootBox);
             HookPathBox(IconPathBox);
@@ -113,7 +106,6 @@ namespace DesktopIniManager
                 ShowTextEnd(RootBox);
                 ShowTextEnd(IconPathBox);
                 WindowActivationService.BringToFront(this);
-                if (resume != null) { RestoreElevation(resume); return; }
                 if (runGitSearch) Dispatcher.BeginInvoke(new Action(() => GitSearch_Click(this, new RoutedEventArgs())));
                 else if (runSearch) Dispatcher.BeginInvoke(new Action(() => Search_Click(this, new RoutedEventArgs())));
             };
@@ -199,15 +191,9 @@ namespace DesktopIniManager
             // are populated exclusively by the Git acquisition workflow.
             bool searchOnly = !gitSearchRequested;
             _pendingSearchQuery = null;
-            bool fastSearch = false;
             SettingsService.SaveSearchRoot(root);
             SettingsService.SaveSearchQuery(visibleQuery);
             if (!Directory.Exists(root)) { MessageBox.Show(Strings.Main_LocationMissing, Title); return; }
-            if (fastSearch && !IsAdministrator())
-            {
-                RestartForFastSearch(gitSearchRequested);
-                return;
-            }
             _searchCts?.Cancel();
             var searchCts = new CancellationTokenSource();
             _searchCts = searchCts;
@@ -231,10 +217,7 @@ namespace DesktopIniManager
             try
             {
                 System.Collections.Generic.List<FolderMatch> solutionRoots = new List<FolderMatch>();
-                if (fastSearch)
-                {
-                }
-                else if (folderListMode)
+                if (folderListMode)
                 {
                     StandardSearchResult standard = await RunStandardIndexedSearch(root, string.Empty, searchCts.Token);
                     await AddTreeResultsAsync(standard.Matches, searchCts.Token, searchOnly);
@@ -369,57 +352,6 @@ namespace DesktopIniManager
                 items.Add(item);
         }
 
-        private static bool IsAdministrator()
-        {
-            using (WindowsIdentity identity = WindowsIdentity.GetCurrent())
-                return new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator);
-        }
-
-        private void RestartForFastSearch(bool gitSearchRequested)
-        { RestartElevated("main", gitSearchRequested ? "git" : "search"); }
-
-        internal bool RestartElevated(string target, string mainAction = null)
-        {
-            if (!ElevationService.Shared.CanChange) return false;
-            string sessionPath = null;
-            try
-            {
-                SaveFolderTrees();
-                SettingsService.SaveSearchRoot(RootBox.Text);
-                SettingsService.SaveSearchQuery(QueryBox.Text);
-                SettingsService.SaveIconLibraryPath(IconPathBox.Text);
-                var session = new ElevationResumeState { TargetWindow = target, MainAction = mainAction, MainRoot = RootBox.Text, MainQuery = QueryBox.Text };
-                if (target == "mft") _differencerWindow?.CaptureElevation(session);
-                if (target == "grep") _grepWindow?.CaptureElevation(session);
-                sessionPath = session.Save();
-                Rect bounds = WindowState == WindowState.Normal ? new Rect(Left, Top, ActualWidth, ActualHeight) : RestoreBounds;
-                string placement = string.Format(CultureInfo.InvariantCulture,
-                    " --window-left {0:R} --window-top {1:R} --window-width {2:R} --window-height {3:R}{4}",
-                    bounds.Left, bounds.Top, bounds.Width, bounds.Height,
-                    WindowState == WindowState.Maximized ? " --window-maximized" : string.Empty);
-                Process.Start(new ProcessStartInfo(Assembly.GetExecutingAssembly().Location)
-                {
-                    UseShellExecute = true, Verb = "runas",
-                    Arguments = "--fast-search --resume-session \"" + sessionPath + "\"" + placement
-                });
-                Application.Current.Shutdown();
-                return true;
-            }
-            catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
-            { StatusText.Text = Strings.Main_ElevationCancelled; }
-            catch (Exception ex) { ShowError(Strings.Main_ElevationFailed, ex); }
-            if (sessionPath != null) { try { File.Delete(sessionPath); } catch { } }
-            return false;
-        }
-
-        private void RestoreElevation(ElevationResumeState session)
-        {
-            RootBox.Text = session.MainRoot; QueryBox.Text = session.MainQuery;
-            if (session.TargetWindow == "mft") { MftDifferencer_Click(this, new RoutedEventArgs()); _differencerWindow.RestoreElevation(session); }
-            else if (session.TargetWindow == "grep") { OpenGrep(session.GrepScopes); _grepWindow.RestoreElevation(session); }
-            else if (session.MainAction == "git") GitSearch_Click(this, new RoutedEventArgs());
-            else if (session.MainAction == "search") Search_Click(this, new RoutedEventArgs());
-        }
         private void RestoreWindowPlacement(string[] arguments)
         {
             if (!TryReadArgument(arguments, "--window-left", out double left)
@@ -1184,7 +1116,6 @@ namespace DesktopIniManager
         {
             GitSearchButton.IsEnabled = !value; SearchButton.IsEnabled = !value; CancelButton.IsEnabled = value;
             ApplyButton.IsEnabled = !value; RemoveButton.IsEnabled = !value; GrepButton.IsEnabled = !value;
-            ElevationService.Shared.SetBusy(this, value);
             SearchProgress.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
             if (value)
                 Dispatcher.BeginInvoke(new Action(() => AnimateSearchProgress(true)), DispatcherPriority.Loaded);
@@ -1232,7 +1163,6 @@ namespace DesktopIniManager
                 SetTreePanelBusy(false);
             }
         }
-
 
         private void SetTreePanelBusy(bool busy)
         {
@@ -1293,7 +1223,8 @@ namespace DesktopIniManager
                 var iconIds = new Dictionary<ImageSource, int>();
                 FolderTreeStateService.Save(new FolderTreeState
                 {
-                    Root = _folderTreeRoot, View = _baseTreeView,
+                    Root = _folderTreeRoot,
+                    View = _baseTreeView,
                     Icons = icons,
                     Physical = FolderTreeStateService.Capture(_treeRoots, _physicalCurrent, icons, iconIds),
                     Solution = FolderTreeStateService.Capture(_solutionRoots, _solutionCurrent, icons, iconIds)
@@ -1515,7 +1446,6 @@ namespace DesktopIniManager
             SettingsService.SaveSearchQuery(string.Empty);
             SettingsService.SaveIconLibraryPath(IconPathBox.Text);
             if (AddToGitIgnoreBox != null) AddToGitIgnoreBox.IsChecked = false;
-            ElevationService.Shared.Enabled = false;
             ApplyTreeDensity(false, false);
             ThemeService.Apply(false);
             LightThemeButton.IsChecked = true;

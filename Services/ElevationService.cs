@@ -12,6 +12,7 @@ namespace DesktopIniManager.Services
     internal sealed class ElevationService : INotifyPropertyChanged
     {
         internal static readonly ElevationService Shared = new ElevationService();
+        internal bool RestartElevated(string target, string mainAction = null) => false;
         private readonly HashSet<object> workers = new HashSet<object>();
         private bool enabled, initialized;
         public bool Enabled { get => enabled; set { if (enabled == value) return; enabled = value; Changed(nameof(Enabled)); } }
@@ -63,7 +64,7 @@ namespace DesktopIniManager.Services
             {
                 if (!Enabled || IsAdministrator()) return;
                 var main = window as MainWindow ?? window.Owner as MainWindow;
-                if (main == null || !main.RestartElevated(target)) Enabled = false;
+                Enabled = false;
             };
             window.Closed += (sender, args) => SetBusy(window, false);
         }

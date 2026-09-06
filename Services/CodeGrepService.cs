@@ -86,34 +86,15 @@ namespace DesktopIniManager.Services
         private static List<string> CollectFiles(IReadOnlyList<string> scopes, string[] extensions, CancellationToken token)
         {
             var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var volumeGroup in scopes.GroupBy(Path.GetPathRoot, StringComparer.OrdinalIgnoreCase))
+            var extensionSet = new HashSet<string>(extensions ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+            foreach (string scope in scopes)
             {
-                NtfsVolumeIndex index = null;
                 token.ThrowIfCancellationRequested();
-                if (ElevationService.Shared.Enabled)
-                {
-                    try { index = NtfsVolumeIndex.Create(volumeGroup.First(), token); }
-                    catch (Exception ex) when (ex is UnauthorizedAccessException || ex is NotSupportedException || ex is IOException) { }
-                }
-
-                foreach (string scope in volumeGroup)
-                {
-                    token.ThrowIfCancellationRequested();
-                    if (index != null)
-                    {
-                        foreach (MftEntry entry in index.FindFiles(scope, extensions, null, token))
-                        {
-                            token.ThrowIfCancellationRequested();
-                            string path = index.GetFullPath(entry);
-                            if (!ContainsIgnoredDirectory(path, scope)) files.Add(path);
-                        }
-                    }
-                    else CollectFilesStandard(scope, new HashSet<string>(extensions, StringComparer.OrdinalIgnoreCase), files, token);
-                }
+                if (string.IsNullOrWhiteSpace(scope) || !Directory.Exists(scope)) continue;
+                CollectFilesStandard(scope, extensionSet, files, token);
             }
             return files.ToList();
         }
-
         private static void CollectFilesStandard(string root, HashSet<string> extensions, HashSet<string> files, CancellationToken token)
         {
             var pending = new Stack<string>(); pending.Push(root);

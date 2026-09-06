@@ -398,10 +398,6 @@ namespace DesktopIniManager.Views
             if (title != null) Grid.SetColumn(title, 0);
             if (close != null) Grid.SetColumn(close, 2);
 
-            var toggle = ElevationService.Shared.CreateToggle(this, "mft");
-            toggle.VerticalAlignment = VerticalAlignment.Center;
-            Grid.SetColumn(toggle, 1);
-            header.Children.Add(toggle);
         }
 
         private void RootsChanged(object sender, TextChangedEventArgs e)

@@ -95,7 +95,6 @@
     <Compile Include="Views\MftDifferencerWindow.Clean.cs" />
     <Compile Include="Services\StartupState.cs" />
     <Compile Include="Views\SplashWindow.cs" />
-    <Compile Include="Services\ElevationService.cs" />
     <Compile Include="Services\ElevationResumeState.cs" />
     <Compile Include="App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>

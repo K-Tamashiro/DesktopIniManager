@@ -33,7 +33,6 @@ namespace DesktopIniManager.Views
         {
             _scopeProvider = scopeProvider;
             InitializeComponent();
-            AttachElevationToggle();
             ScopeList.ItemsSource = _scopes;
             ICollectionView resultView = CollectionViewSource.GetDefaultView(_matches);
             resultView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(GrepMatch.GroupPath)));
@@ -76,58 +75,6 @@ namespace DesktopIniManager.Views
                 ShowTextEnd(EditorBox);
                 ShowTextEnd(EditorArgumentsBox);
             };
-        }
-
-        private void AttachElevationToggle()
-        {
-            var header = TitleBar;
-            if (header == null) return;
-
-            while (header.ColumnDefinitions.Count < 3)
-                header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            header.ColumnDefinitions[0].Width = new GridLength(1, GridUnitType.Star);
-            header.ColumnDefinitions[1].Width = GridLength.Auto;
-            header.ColumnDefinitions[2].Width = GridLength.Auto;
-
-            var close = CloseButton ?? header.Children.OfType<Button>().FirstOrDefault();
-            if (close != null)
-            {
-                Grid.SetColumn(close, 2);
-                close.VerticalAlignment = VerticalAlignment.Center;
-            }
-
-            var toggle = ElevationService.Shared.CreateToggle(this, "grep");
-            toggle.VerticalAlignment = VerticalAlignment.Center;
-            toggle.Margin = new Thickness(0, 0, 4, 0);
-            Grid.SetColumn(toggle, 1);
-            header.Children.Add(toggle);
-        }
-
-        internal void CaptureElevation(ElevationResumeState session)
-        {
-            session.GrepScopes = _scopes.ToList();
-            session.GrepQuery = QueryBox.Text;
-            session.GrepProfile = (ProfileBox.SelectedItem as LanguageProfile)?.Name;
-            session.GrepExtensions = ExtensionsText.Text;
-            session.Regex = RegexBox.IsChecked == true;
-            session.MatchCase = MatchCaseBox.IsChecked == true;
-            session.WholeWord = WholeWordBox.IsChecked == true;
-        }
-
-        internal void RestoreElevation(ElevationResumeState session)
-        {
-            SetScopes(session.GrepScopes ?? new List<string>());
-            QueryBox.Text = session.GrepQuery ?? string.Empty;
-
-            var profile = LanguageProfile.All.FirstOrDefault(item =>
-                string.Equals(item.Name, session.GrepProfile, StringComparison.OrdinalIgnoreCase));
-            if (profile != null) ProfileBox.SelectedItem = profile;
-            if (profile?.IsFree == true) ExtensionsText.Text = session.GrepExtensions ?? string.Empty;
-
-            RegexBox.IsChecked = session.Regex;
-            MatchCaseBox.IsChecked = session.MatchCase;
-            WholeWordBox.IsChecked = session.WholeWord;
-            QueryBox.Focus();
         }
 
         private void HookPathBox(TextBox box)
@@ -258,7 +205,6 @@ namespace DesktopIniManager.Views
         {
             SearchButton.IsEnabled = !searching; CancelButton.IsEnabled = searching; ProfileBox.IsEnabled = !searching;
             SearchProgress.Visibility = searching ? Visibility.Visible : Visibility.Collapsed;
-            ElevationService.Shared.SetBusy(this, searching);
         }
 
         private void ResultsGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)

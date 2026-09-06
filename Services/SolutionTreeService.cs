@@ -20,7 +20,13 @@ namespace DesktopIniManager.Services
         private static readonly Regex NestedLine = new Regex(
             "^\\s*(?<child>\\{[^}]+\\})\\s*=\\s*(?<parent>\\{[^}]+\\})",
             RegexOptions.Compiled);
+        private static readonly Regex IncludeAttr = new Regex(
+            "\\bInclude\\s*=\\s*\"([^\"]+)\"",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+        private static readonly Regex RemoveAttr = new Regex(
+            "\\bRemove\\s*=\\s*\"([^\"]+)\"",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly HashSet<string> Ignored = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             ".git", ".vs", ".vscode", "bin", "obj", "node_modules",
@@ -64,6 +70,27 @@ namespace DesktopIniManager.Services
             return solutions;
         }
 
+        public static List<FolderMatch> BuildFromProjectFiles(IReadOnlyList<string> projectFiles, CancellationToken token)
+        {
+            var solutions = new List<FolderMatch>();
+            if (projectFiles == null) return solutions;
+
+            foreach (string path in projectFiles)
+            {
+                token.ThrowIfCancellationRequested();
+                if (string.IsNullOrWhiteSpace(path)) continue;
+                if (!string.Equals(Path.GetExtension(path), ".sln", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (!File.Exists(path)) continue;
+
+                try { solutions.Add(Parse(path, token)); }
+                catch (UnauthorizedAccessException) { }
+                catch (IOException) { }
+            }
+
+            solutions.Sort((x, y) => StringComparer.CurrentCultureIgnoreCase.Compare(x.Name, y.Name));
+            return solutions;
+        }
         private static FolderMatch Parse(string solutionPath, CancellationToken token)
         {
             string solutionDirectory = Path.GetDirectoryName(solutionPath);
@@ -182,36 +209,49 @@ namespace DesktopIniManager.Services
 
             try
             {
-                var document = new XmlDocument();
-                document.Load(projectFile);
-                sdk = document.DocumentElement != null && document.DocumentElement.HasAttribute("Sdk");
-
-                foreach (XmlNode item in document.SelectNodes(
-                    "//*[local-name()='Compile' or local-name()='None' or local-name()='Content' or local-name()='EmbeddedResource']"))
+                foreach (string raw in File.ReadLines(projectFile))
                 {
                     token.ThrowIfCancellationRequested();
+                    string line = raw;
+                    if (line.IndexOf("Sdk=", StringComparison.OrdinalIgnoreCase) >= 0
+                        && line.IndexOf("<Project", StringComparison.OrdinalIgnoreCase) >= 0)
+                        sdk = true;
 
-                    string include = item.Attributes?["Include"]?.Value;
-                    string remove = item.Attributes?["Remove"]?.Value;
-                    string link = item.SelectSingleNode("*[local-name()='Link']")?.InnerText;
+                    bool itemLine =
+                        line.IndexOf("<Compile", StringComparison.OrdinalIgnoreCase) >= 0
+                        || line.IndexOf("<None", StringComparison.OrdinalIgnoreCase) >= 0
+                        || line.IndexOf("<Content", StringComparison.OrdinalIgnoreCase) >= 0
+                        || line.IndexOf("<EmbeddedResource", StringComparison.OrdinalIgnoreCase) >= 0
+                        || line.IndexOf("<ClCompile", StringComparison.OrdinalIgnoreCase) >= 0
+                        || line.IndexOf("<ClInclude", StringComparison.OrdinalIgnoreCase) >= 0
+                        || line.IndexOf("<Page", StringComparison.OrdinalIgnoreCase) >= 0
+                        || line.IndexOf("<Resource", StringComparison.OrdinalIgnoreCase) >= 0
+                        || line.IndexOf("<ProjectReference", StringComparison.OrdinalIgnoreCase) >= 0;
 
-                    if (!string.IsNullOrWhiteSpace(remove))
-                        removed.Add(NormalizeProjectPath(remove));
+                    if (!itemLine) continue;
 
-                    if (string.IsNullOrWhiteSpace(include) || include.IndexOfAny(new[] { '*', '?' }) >= 0)
+                    Match remove = RemoveAttr.Match(line);
+                    if (remove.Success)
+                        removed.Add(NormalizeProjectPath(remove.Groups[1].Value));
+
+                    Match include = IncludeAttr.Match(line);
+                    if (!include.Success) continue;
+
+                    string value = include.Groups[1].Value;
+                    if (string.IsNullOrWhiteSpace(value) || value.IndexOfAny(new[] { '*', '?' }) >= 0)
                         continue;
 
-                    string full = Path.GetFullPath(Path.Combine(directory, NormalizeProjectPath(include)));
+                    // ProjectReference はプロジェクトファイル自体なので、ソース一覧には入れない
+                    if (line.IndexOf("<ProjectReference", StringComparison.OrdinalIgnoreCase) >= 0)
+                        continue;
+
+                    string full = Path.GetFullPath(Path.Combine(directory, NormalizeProjectPath(value)));
                     if (File.Exists(full))
-                    {
-                        files.Add(string.IsNullOrWhiteSpace(link)
-                            ? full
-                            : Path.Combine(directory, NormalizeProjectPath(link)));
-                    }
+                        files.Add(full);
                 }
             }
-            catch (XmlException) { return; }
             catch (IOException) { return; }
+            catch (UnauthorizedAccessException) { return; }
 
             if (sdk)
             {
@@ -219,10 +259,8 @@ namespace DesktopIniManager.Services
                 {
                     string relative = NormalizeProjectPath(
                         file.Substring(directory.Length).TrimStart(Path.DirectorySeparatorChar));
-
                     if (removed.Contains(relative))
                         continue;
-
                     files.Add(file);
                 }
             }
@@ -230,7 +268,6 @@ namespace DesktopIniManager.Services
             AddVirtual(project, "Properties", directory, "Project properties");
             AddVirtual(project, "依存関係", directory, "Dependencies");
 
-            // フォルダーノードを線形検索しないよう、論理パス -> ノードをキャッシュする。
             var folderNodes = new Dictionary<string, FolderMatch>(StringComparer.OrdinalIgnoreCase)
             {
                 [string.Empty] = project

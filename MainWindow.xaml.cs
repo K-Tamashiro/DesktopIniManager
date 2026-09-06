@@ -95,7 +95,6 @@ namespace DesktopIniManager
             // Users who always run the executable as administrator can still uncheck it
             // to compare the standard search during the current session.
             ElevationService.Shared.Initialize(fastSearchRequested);
-            ElevationService.Shared.Bind(FastNtfsSearchBox, this, "main");
             RestoreWindowPlacement(commandLine);
             HookPathBox(RootBox);
             HookPathBox(IconPathBox);
@@ -200,7 +199,7 @@ namespace DesktopIniManager
             // are populated exclusively by the Git acquisition workflow.
             bool searchOnly = !gitSearchRequested;
             _pendingSearchQuery = null;
-            bool fastSearch = FastNtfsSearchBox.IsChecked == true;
+            bool fastSearch = false;
             SettingsService.SaveSearchRoot(root);
             SettingsService.SaveSearchQuery(visibleQuery);
             if (!Directory.Exists(root)) { MessageBox.Show(Strings.Main_LocationMissing, Title); return; }
@@ -234,69 +233,6 @@ namespace DesktopIniManager
                 System.Collections.Generic.List<FolderMatch> solutionRoots = new List<FolderMatch>();
                 if (fastSearch)
                 {
-                    FastSearchResult fastResult = null;
-                    try
-                    {
-                        fastResult = await Task.Run(() => new FastFolderSearchService().Search(root, query,
-                            count => Dispatcher.BeginInvoke(new Action(() => StatusText.Text = count == 0 ? Strings.Main_ReadingNtfs : string.Format(Strings.Main_IndexedFolders, count.ToString("N0")))), searchCts.Token));
-                    }
-                    catch (NotSupportedException)
-                    {
-                        StatusText.Text = Strings.Main_FastUnavailable;
-                    }
-                    catch (UnauthorizedAccessException)
-                    {
-                        StatusText.Text = Strings.Main_FastPermissionUnavailable;
-                    }
-                    catch (Win32Exception)
-                    {
-                        StatusText.Text = Strings.Main_DriveIndexFailed;
-                    }
-
-                    if (fastResult != null)
-                    {
-                        ImageSource defaultFolderIcon = FolderIconService.GetDefaultFolderIcon();
-                        await Task.Run(() =>
-                        {
-                            foreach (FolderMatch item in fastResult.Matches)
-                            {
-                                searchCts.Token.ThrowIfCancellationRequested();
-                                item.IconPreview = string.Equals(item.Reason, "Folder", StringComparison.Ordinal)
-                                    ? defaultFolderIcon : FolderIconService.GetFolderIcon(item.Path);
-                            }
-                        }, searchCts.Token);
-                        await AddTreeResultsAsync(fastResult.Matches, searchCts.Token, searchOnly);
-                        _pathIndex = fastResult.Paths;
-                        RefreshTreeItemsSource();
-                        StatusText.Text = folderListMode ? string.Format(Strings.Main_FoldersAnalyzing, _results.Count) : string.Format(Strings.Main_MatchesAnalyzing, _results.Count);
-                        await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
-                        var fastService = new FastFolderSearchService();
-                        if (gitSearchRequested)
-                        {
-                            Dictionary<string, string> analysis = await Task.Run(() => fastService.AnalyzeDevelopment(fastResult.Paths, searchCts.Token));
-                            int updated = 0;
-                            foreach (FolderMatch item in _results)
-                            {
-                                string reason;
-                                if (analysis.TryGetValue(VolumePathIndex.Normalize(item.Path), out reason)) item.Reason = reason;
-                                if ((++updated % 60) == 0)
-                                {
-                                    await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
-                                }
-                            }
-                        }
-                        if (!searchOnly)
-                            solutionRoots = await BuildSolutions(root, searchCts.Token);
-                    }
-                    else
-                    {
-                        StandardSearchResult standard = await RunStandardIndexedSearch(root, query, searchCts.Token);
-                        await AddTreeResultsAsync(standard.Matches, searchCts.Token, searchOnly);
-                        _pathIndex = standard.Paths;
-                        RefreshTreeItemsSource();
-                        await ApplyStandardDevelopmentAnalysis(gitSearchRequested, standard.Paths, searchCts.Token);
-                        if (!searchOnly) solutionRoots = await BuildSolutions(root, searchCts.Token);
-                    }
                 }
                 else if (folderListMode)
                 {
@@ -745,7 +681,7 @@ namespace DesktopIniManager
             SetFilePanelBusy(true);
             string[] searchKeys = (QueryBox.Text ?? string.Empty).Split((char[])null, StringSplitOptions.RemoveEmptyEntries)
                 .Select(key => key.Trim().TrimStart('*')).Where(key => key.Length > 0).Distinct(StringComparer.CurrentCultureIgnoreCase).ToArray();
-            string[] paths = _treeView == 2 ? CollectSearchTabFiles(folder) : FilesInFolder(folder.Path);
+            string[] paths = CollectSearchTabFiles(folder);
             try
             {
                 List<FileListItem> items = await Task.Run(() =>
@@ -1280,13 +1216,23 @@ namespace DesktopIniManager
             SetTreePanelBusy(true);
             try
             {
-                return await Task.Run(() => SolutionTreeService.Build(root, token), token);
+                IReadOnlyList<string> projectFiles = _pathIndex != null
+                    ? _pathIndex.ProjectFiles
+                    : (IReadOnlyList<string>)new string[0];
+
+                return await Task.Run(() =>
+                {
+                    List<FolderMatch> fromIndex = SolutionTreeService.BuildFromProjectFiles(projectFiles, token);
+                    if (fromIndex.Count > 0) return fromIndex;
+                    return SolutionTreeService.Build(root, token);
+                }, token);
             }
             finally
             {
                 SetTreePanelBusy(false);
             }
         }
+
 
         private void SetTreePanelBusy(bool busy)
         {

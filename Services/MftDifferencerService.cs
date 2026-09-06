@@ -1,12 +1,14 @@
-using FastVolumeIndex;
+using Microsoft.Win32.SafeHandles;
 using System;
-using System.Threading;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
-using Microsoft.Win32.SafeHandles;
+using System.Text;
+using System.Threading;
 
 namespace DesktopIniManager.Services
 {
@@ -222,183 +224,177 @@ namespace DesktopIniManager.Services
             token.ThrowIfCancellationRequested();
             source = Root(source); target = Root(target); ValidateRoots(source, target);
             var result = new DiffSnapshot { SourceRoot = source, TargetRoot = target, CompareTimestamp = compareTimestamp };
-            var indexes = new Dictionary<string, NtfsVolumeIndex>(StringComparer.OrdinalIgnoreCase);
 
-            NtfsVolumeIndex sourceIndex = null;
-            NtfsVolumeIndex targetIndex = null;
-            List<MftEntry> sourceEntries = null;
-            List<MftEntry> targetEntries = null;
+            progress?.Report(new DiffProgress { Stage = "Listing source via dir /s…" });
+            Dictionary<string, DiffStamp> left = ScanViaDir(source, result.Folders, progress, token);
 
-            Exception sourceMftError = null;
-            Exception targetMftError = null;
-
-            bool useMft = ElevationService.Shared.Enabled;
-            if (useMft)
-            {
-                try
-                {
-                    sourceIndex = GetIndex(source, indexes, progress, token);
-                    sourceEntries = sourceIndex.EnumerateDescendants(source, token).Select(entry => { token.ThrowIfCancellationRequested(); return entry; }).ToList();
-                }
-                catch (OperationCanceledException) { throw; }
-                catch (Exception ex)
-                {
-                    sourceMftError = ex;
-                }
-
-                try
-                {
-                    targetIndex = GetIndex(target, indexes, progress, token);
-                    targetEntries = targetIndex.EnumerateDescendants(target, token).Select(entry => { token.ThrowIfCancellationRequested(); return entry; }).ToList();
-                }
-                catch (OperationCanceledException) { throw; }
-                catch (Exception ex)
-                {
-                    targetMftError = ex;
-                }
-            }
-
-            Dictionary<string, DiffStamp> left;
-            Dictionary<string, DiffStamp> right;
-
-            // Normal MFT path: source + target are one continuous progress range.
-            // When both roots are on the same volume, GetIndex() also reuses the same MFT index.
-            if (sourceEntries != null && targetEntries != null)
-            {
-                int total = sourceEntries.Count + targetEntries.Count;
-                int completed = 0;
-                var timer = System.Diagnostics.Stopwatch.StartNew();
-
-                progress?.Report(new DiffProgress
-                {
-                    Stage = "Reading timestamps and sizes…",
-                    Completed = 0,
-                    Total = total
-                });
-
-                left = Scan(source, sourceIndex, sourceEntries, result.Folders,
-                    ref completed, total, timer, progress, token);
-
-                right = Scan(target, targetIndex, targetEntries, result.Folders,
-                    ref completed, total, timer, progress, token);
-            }
-            else
-            {
-                if (sourceEntries != null)
-                {
-                    int completed = 0;
-                    int total = sourceEntries.Count;
-                    var timer = System.Diagnostics.Stopwatch.StartNew();
-                    progress?.Report(new DiffProgress { Stage = "Reading timestamps and sizes…", Completed = 0, Total = total });
-                    left = Scan(source, sourceIndex, sourceEntries, result.Folders, ref completed, total, timer, progress, token);
-                }
-                else
-                {
-                    progress?.Report(new DiffProgress
-                    {
-                        Stage = "MFT unavailable for " + source + ". Falling back to file-system scan: " + (sourceMftError == null ? "" : ErrorMessages.English(sourceMftError))
-                    });
-                    left = ScanFileSystem(source, result.Folders, progress, token);
-                }
-
-                if (targetEntries != null)
-                {
-                    int completed = 0;
-                    int total = targetEntries.Count;
-                    var timer = System.Diagnostics.Stopwatch.StartNew();
-                    progress?.Report(new DiffProgress { Stage = "Reading timestamps and sizes…", Completed = 0, Total = total });
-                    right = Scan(target, targetIndex, targetEntries, result.Folders, ref completed, total, timer, progress, token);
-                }
-                else
-                {
-                    progress?.Report(new DiffProgress
-                    {
-                        Stage = "MFT unavailable for " + target + ". Falling back to file-system scan: " + (targetMftError == null ? "" : ErrorMessages.English(targetMftError))
-                    });
-                    right = ScanFileSystem(target, result.Folders, progress, token);
-                }
-            }
+            progress?.Report(new DiffProgress { Stage = "Listing target via dir /s…" });
+            Dictionary<string, DiffStamp> right = ScanViaDir(target, result.Folders, progress, token);
 
             progress?.Report(new DiffProgress { Stage = "Classifying differences by relative path…" });
             result.Files = Classify(left, right, true, compareTimestamp, token);
             return result;
         }
 
-        private static NtfsVolumeIndex GetIndex(string root, Dictionary<string, NtfsVolumeIndex> indexes, IProgress<DiffProgress> progress, CancellationToken token)
-        {
-            string volume = Path.GetPathRoot(root);
-            NtfsVolumeIndex index;
-            if (!indexes.TryGetValue(volume, out index))
-            {
-                progress?.Report(new DiffProgress { Stage = "Reading MFT for " + volume + "…" });
-                indexes.Add(volume, index = NtfsVolumeIndex.Create(root, token));
-            }
-            return index;
-        }
-
-        private static Dictionary<string, DiffStamp> ScanFileSystem(string root, HashSet<string> folders,
+        private static Dictionary<string, DiffStamp> ScanViaDir(string root, HashSet<string> folders,
             IProgress<DiffProgress> progress, CancellationToken token)
         {
             var files = new Dictionary<string, DiffStamp>(StringComparer.OrdinalIgnoreCase);
-            var pending = new Stack<string>();
-            pending.Push(root.TrimEnd('\\'));
+            string[] lines = RunDirListing(root, token);
+            string currentDir = root.TrimEnd('\\');
             int completed = 0;
             var timer = System.Diagnostics.Stopwatch.StartNew();
 
-            while (pending.Count > 0)
+            foreach (string raw in lines)
             {
                 token.ThrowIfCancellationRequested();
-                string directory = pending.Pop();
+                if (string.IsNullOrWhiteSpace(raw)) continue;
+                string line = raw.TrimEnd();
 
-                foreach (string childDirectory in Directory.EnumerateDirectories(directory))
+                // Directory header (JA / EN)
+                int ja = line.IndexOf("のディレクトリ", StringComparison.Ordinal);
+                if (ja > 0)
                 {
-                    token.ThrowIfCancellationRequested();
-                    string relative = childDirectory.Substring(root.Length);
-                    if (relative.Length == 0 || Protected(relative)) continue;
-
-                    FileAttributes attributes = File.GetAttributes(childDirectory);
-                    if ((attributes & FileAttributes.ReparsePoint) != 0) continue;
-
-                    ScanPath(root, relative);
-                    folders.Add(relative);
-                    pending.Push(childDirectory);
+                    string path = line.Substring(0, ja).Trim();
+                    if (path.Length > 0) currentDir = Path.GetFullPath(path).TrimEnd('\\');
+                    continue;
+                }
+                if (line.StartsWith("Directory of ", StringComparison.OrdinalIgnoreCase))
+                {
+                    string path = line.Substring("Directory of ".Length).Trim();
+                    if (path.Length > 0) currentDir = Path.GetFullPath(path).TrimEnd('\\');
+                    continue;
                 }
 
-                foreach (string file in Directory.EnumerateFiles(directory))
+                if (line.IndexOf("<DIR>", StringComparison.OrdinalIgnoreCase) >= 0) continue;
+                if (line.IndexOf("個のファイル", StringComparison.Ordinal) >= 0) continue;
+                if (line.IndexOf("個のディレクトリ", StringComparison.Ordinal) >= 0) continue;
+                if (line.IndexOf("File(s)", StringComparison.OrdinalIgnoreCase) >= 0) continue;
+                if (line.IndexOf("Dir(s)", StringComparison.OrdinalIgnoreCase) >= 0) continue;
+                if (line.StartsWith("Volume ", StringComparison.OrdinalIgnoreCase)) continue;
+                if (line.IndexOf("ボリューム", StringComparison.Ordinal) >= 0) continue;
+
+                DiffStamp stamp;
+                string name;
+                if (!TryParseDirFileLine(line, out stamp, out name)) continue;
+                if (name == "." || name == "..") continue;
+
+                string full = Path.GetFullPath(Path.Combine(currentDir, name));
+                if (!full.StartsWith(root.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(full, root.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                string relative = full.Substring(root.Length);
+                if (relative.Length == 0 || Protected(relative)) continue;
+
+                // parent folders
+                string parentRel = Path.GetDirectoryName(relative);
+                while (!string.IsNullOrEmpty(parentRel))
                 {
-                    token.ThrowIfCancellationRequested();
-                    string relative = file.Substring(root.Length);
-                    if (relative.Length == 0 || Protected(relative)) continue;
+                    folders.Add(parentRel);
+                    parentRel = Path.GetDirectoryName(parentRel);
+                }
 
-                    FileAttributes attributes = File.GetAttributes(file);
-                    if ((attributes & FileAttributes.ReparsePoint) != 0) continue;
+                try { ScanPath(root, relative); }
+                catch (IOException) { continue; }
 
-                    string path = ScanPath(root, relative);
-                    DiffStamp stamp = DiffStamp.Read(path);
-                    if (stamp == null) throw new IOException("A file disappeared during compare. Compare again: " + path);
+                if (!files.ContainsKey(relative))
                     files.Add(relative, stamp);
 
-                    completed++;
-                    if (completed == 1 || timer.ElapsedMilliseconds >= 100)
+                completed++;
+                if (completed == 1 || timer.ElapsedMilliseconds >= 100)
+                {
+                    progress?.Report(new DiffProgress
                     {
-                        progress?.Report(new DiffProgress
-                        {
-                            Stage = "Scanning files without MFT…",
-                            Completed = completed,
-                            Total = 0
-                        });
-                        timer.Restart();
-                    }
+                        Stage = "dir /s scan…",
+                        Completed = completed,
+                        Total = 0
+                    });
+                    timer.Restart();
                 }
             }
 
             progress?.Report(new DiffProgress
             {
-                Stage = "File-system scan complete.",
+                Stage = "dir /s scan complete.",
                 Completed = completed,
                 Total = completed
             });
             return files;
+        }
+
+        private static string[] RunDirListing(string rootPath, CancellationToken token)
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = "cmd.exe",
+                Arguments = "/c dir /s \"" + rootPath.TrimEnd('\\') + "\"",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+                StandardOutputEncoding = Encoding.Default
+            };
+            using (var process = Process.Start(psi))
+            {
+                if (process == null) throw new InvalidOperationException("Failed to start dir.");
+                string output = process.StandardOutput.ReadToEnd();
+                process.WaitForExit();
+                token.ThrowIfCancellationRequested();
+                if (string.IsNullOrWhiteSpace(output))
+                    return Array.Empty<string>();
+                return output.Replace("\r\n", "\n").Split('\n');
+            }
+        }
+
+        private static bool TryParseDirFileLine(string line, out DiffStamp stamp, out string name)
+        {
+            stamp = null;
+            name = null;
+            if (string.IsNullOrWhiteSpace(line)) return false;
+
+            // JA: 2026/08/31  23:47        15,161,478 filename
+            // EN: 08/31/2026  11:47 PM        15,161,478 filename
+            string[] parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 4) return false;
+
+            DateTime local;
+            int sizeIndex;
+
+            // try JA date + time
+            if (DateTime.TryParseExact(parts[0] + " " + parts[1],
+                    new[] { "yyyy/MM/dd HH:mm", "yyyy/M/d H:mm", "yyyy/MM/dd H:mm" },
+                    CultureInfo.InvariantCulture, DateTimeStyles.None, out local))
+            {
+                sizeIndex = 2;
+            }
+            else if (parts.Length >= 5
+                && DateTime.TryParseExact(parts[0] + " " + parts[1] + " " + parts[2],
+                    new[] { "MM/dd/yyyy hh:mm tt", "M/d/yyyy h:mm tt", "MM/dd/yyyy h:mm tt" },
+                    CultureInfo.InvariantCulture, DateTimeStyles.None, out local))
+            {
+                sizeIndex = 3;
+            }
+            else
+            {
+                return false;
+            }
+
+            if (sizeIndex >= parts.Length) return false;
+            string sizeText = parts[sizeIndex].Replace(",", "").Replace(".", "");
+            long size;
+            if (!long.TryParse(sizeText, NumberStyles.Integer, CultureInfo.InvariantCulture, out size))
+                return false;
+
+            name = string.Join(" ", parts, sizeIndex + 1, parts.Length - (sizeIndex + 1));
+            if (string.IsNullOrWhiteSpace(name)) return false;
+
+            stamp = new DiffStamp
+            {
+                Size = size,
+                ModifiedUtc = DateTime.SpecifyKind(local, DateTimeKind.Local).ToUniversalTime()
+            };
+            return true;
         }
 
         internal static List<DiffFile> Classify(Dictionary<string, DiffStamp> left, Dictionary<string, DiffStamp> right, bool includeSame = false, bool compareTimestamp = true, CancellationToken token = default(CancellationToken))
@@ -410,41 +406,6 @@ namespace DesktopIniManager.Services
                 if (Protected(path)) continue;
                 DiffStamp a, b; left.TryGetValue(path, out a); right.TryGetValue(path, out b);
                 if (includeSame || !DiffStamp.Same(a, b, compareTimestamp)) files.Add(new DiffFile { RelativePath = path, Source = a, Target = b, CompareTimestamp = compareTimestamp });
-            }
-            return files;
-        }
-        private static Dictionary<string, DiffStamp> Scan(string root, NtfsVolumeIndex index, List<MftEntry> entries,
-            HashSet<string> folders, ref int completed, int total, System.Diagnostics.Stopwatch timer,
-            IProgress<DiffProgress> progress, CancellationToken token)
-        {
-            var files = new Dictionary<string, DiffStamp>(StringComparer.OrdinalIgnoreCase);
-            foreach (MftEntry entry in entries)
-            {
-                token.ThrowIfCancellationRequested();
-                completed++;
-                if (completed == 1 || completed == total || timer.ElapsedMilliseconds >= 100)
-                {
-                    progress?.Report(new DiffProgress { Stage = "Reading timestamps and sizes…", Completed = completed, Total = total });
-                    timer.Restart();
-                }
-                string path = index.GetFullPath(entry);
-                if (!path.StartsWith(root, StringComparison.OrdinalIgnoreCase)) continue;
-                string relative = path.Substring(root.Length);
-                if (relative.Length == 0 || Protected(relative)) continue;
-
-                // The path came from EnumerateDescendants(root), so do not run SafePath here.
-                // SafePath walks every parent with File.GetAttributes and made the MFT scan
-                // proportional to "file count x directory depth".  Keep the inexpensive
-                // lexical/root checks during comparison; the full physical safety checks
-                // still run immediately before every synchronization operation.
-                path = ScanPath(root, relative);
-                if (entry.IsDirectory) folders.Add(relative);
-                else
-                {
-                    DiffStamp stamp = DiffStamp.Read(path);
-                    if (stamp == null) throw new IOException("A file disappeared during compare. Compare again: " + path);
-                    files.Add(relative, stamp);
-                }
             }
             return files;
         }

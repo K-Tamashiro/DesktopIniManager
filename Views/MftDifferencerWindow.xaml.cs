@@ -359,7 +359,6 @@ namespace DesktopIniManager.Views
             RefreshCompareIcon.Source = MftDiffStatusIcons.GetRefreshIcon();
             ObjFilterIcon.Source = MftDiffStatusIcons.GetBuildFolderIcon(true);
             BinFilterIcon.Source = MftDiffStatusIcons.GetBuildFolderIcon(false);
-            AttachElevationToggle();
             TreeCompact = SettingsService.LoadTreeCompact();
             SourceBox.TextChanged += RootsChanged; TargetBox.TextChanged += RootsChanged;
             // HistoryTextBox persists Source/Target via HistoryKey.
@@ -403,25 +402,6 @@ namespace DesktopIniManager.Views
             toggle.VerticalAlignment = VerticalAlignment.Center;
             Grid.SetColumn(toggle, 1);
             header.Children.Add(toggle);
-        }
-
-        internal void CaptureElevation(ElevationResumeState session)
-        {
-            session.Source = SourceBox.Text;
-            session.Target = TargetBox.Text;
-            session.CompareDates = CompareTimestampBox.IsChecked == true;
-        }
-
-        internal void RestoreElevation(ElevationResumeState session)
-        {
-            SourceBox.Text = session.Source ?? string.Empty;
-            TargetBox.Text = session.Target ?? string.Empty;
-            CompareTimestampBox.IsChecked = session.CompareDates;
-            treeSource = SourceBox.Text;
-            treeTarget = TargetBox.Text;
-            selectedFolder = string.Empty;
-            cachedVisibleFolders = null;
-            StatusText.Text = "Source and Target restored. Click Compare to build the difference tree.";
         }
 
         private void RootsChanged(object sender, TextChangedEventArgs e)
@@ -1074,7 +1054,6 @@ namespace DesktopIniManager.Views
         private void SetBusy(bool value)
         {
             busy = value;
-            ElevationService.Shared.SetBusy(this, value);
             RootControls.IsEnabled = CompareButton.IsEnabled = CompareTimestampBox.IsEnabled = CleanSolutionButton.IsEnabled = !value;
             CancelCompareButton.IsEnabled = value;
             CategoryFilters.IsEnabled = !value && snapshot != null;

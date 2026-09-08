@@ -28,6 +28,8 @@ namespace DesktopIniManager.Views
         private CancellationTokenSource _searchCts;
         private ConcurrentQueue<GrepMatch> _pendingMatches = new ConcurrentQueue<GrepMatch>();
         private readonly DispatcherTimer _resultTimer;
+        private bool _resultGroupsExpanded = true;
+        private readonly Dictionary<string, bool> _resultGroupStates = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
 
         public GrepWindow(Func<IReadOnlyList<string>> scopeProvider, IReadOnlyList<string> initialScopes)
         {
@@ -148,6 +150,8 @@ namespace DesktopIniManager.Views
 
             var cts = new CancellationTokenSource();
             _searchCts = cts;
+            _resultGroupsExpanded = true;
+            _resultGroupStates.Clear();
             _matches.Clear();
             var pending = new ConcurrentQueue<GrepMatch>();
             _pendingMatches = pending;
@@ -205,6 +209,69 @@ namespace DesktopIniManager.Views
         {
             SearchButton.IsEnabled = !searching; CancelButton.IsEnabled = searching; ProfileBox.IsEnabled = !searching;
             SearchProgress.Visibility = searching ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        /// <summary>Applies the current global expansion state to a newly realized file group.</summary>
+        private void ResultGroupExpander_Loaded(object sender, RoutedEventArgs e)
+        {
+            var expander = sender as Expander;
+            if (expander == null) return;
+            bool expanded;
+            expander.IsExpanded = _resultGroupStates.TryGetValue(ResultGroupKey(expander), out expanded)
+                ? expanded : _resultGroupsExpanded;
+        }
+
+        /// <summary>Remembers an individual file group's expanded state.</summary>
+        private void ResultGroupExpander_Expanded(object sender, RoutedEventArgs e)
+        {
+            var expander = sender as Expander;
+            if (expander != null) _resultGroupStates[ResultGroupKey(expander)] = true;
+        }
+
+        /// <summary>Remembers an individual file group's collapsed state.</summary>
+        private void ResultGroupExpander_Collapsed(object sender, RoutedEventArgs e)
+        {
+            var expander = sender as Expander;
+            if (expander != null) _resultGroupStates[ResultGroupKey(expander)] = false;
+        }
+
+        /// <summary>Returns the stable file-path key for a result group.</summary>
+        private static string ResultGroupKey(Expander expander)
+        { return Convert.ToString((expander.DataContext as CollectionViewGroup)?.Name) ?? string.Empty; }
+
+        /// <summary>Expands every file group in the GREP result list.</summary>
+        private void ExpandResultGroups_Click(object sender, RoutedEventArgs e)
+        {
+            SetResultGroupsExpanded(true);
+        }
+
+        /// <summary>Collapses every file group to its file-path row.</summary>
+        private void CollapseResultGroups_Click(object sender, RoutedEventArgs e)
+        {
+            SetResultGroupsExpanded(false);
+        }
+
+        /// <summary>Updates realized groups and the default state for groups realized after scrolling.</summary>
+        private void SetResultGroupsExpanded(bool expanded)
+        {
+            _resultGroupsExpanded = expanded;
+            _resultGroupStates.Clear();
+            foreach (Expander expander in FindVisualDescendants<Expander>(ResultsGrid)
+                .Where(item => string.Equals(item.Name, "ResultGroupExpander", StringComparison.Ordinal)))
+                expander.IsExpanded = expanded;
+        }
+
+        /// <summary>Enumerates visual descendants of the requested type.</summary>
+        private static IEnumerable<T> FindVisualDescendants<T>(DependencyObject root) where T : DependencyObject
+        {
+            if (root == null) yield break;
+            for (int index = 0; index < System.Windows.Media.VisualTreeHelper.GetChildrenCount(root); index++)
+            {
+                DependencyObject child = System.Windows.Media.VisualTreeHelper.GetChild(root, index);
+                var match = child as T;
+                if (match != null) yield return match;
+                foreach (T descendant in FindVisualDescendants<T>(child)) yield return descendant;
+            }
         }
 
         private void ResultsGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)

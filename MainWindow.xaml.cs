@@ -53,6 +53,14 @@ namespace DesktopIniManager
         private bool _syncingTreeFromFile;
         private readonly StartupState _startup;
 
+        private sealed class DiffViewState
+        {
+            public DiffSnapshot Snapshot;
+            public DiffFile Difference;
+            public Rect Bounds;
+            public WindowState WindowState;
+        }
+
         public static readonly DependencyProperty TreeCompactProperty =
             DependencyProperty.Register(nameof(TreeCompact), typeof(bool), typeof(MainWindow), new PropertyMetadata(false));
 
@@ -396,17 +404,10 @@ namespace DesktopIniManager
         private void Cancel_Click(object sender, RoutedEventArgs e) => _searchCts?.Cancel();
         private void InvertSelection_Click(object sender, RoutedEventArgs e)
         {
-            foreach (FolderMatch item in VisibleItems().Where(item => item.IsActionable))
-                item.SetSelected(!item.IsSelected, false, false);
+            foreach (FolderMatch item in CurrentItems().Where(item => item.IsActionable && !item.IsHidden && !item.IsFilterHidden))
+                item.SetSelected(!item.IsSelected);
         }
 
-        private void FolderCheck_Click(object sender, RoutedEventArgs e)
-        {
-            var box = sender as System.Windows.Controls.CheckBox;
-            var item = box?.DataContext as FolderMatch;
-            if (item == null) return;
-            item.SetSelected(box.IsChecked == true, true, false);
-        }
         private void ExpandAll_Click(object sender, RoutedEventArgs e) { foreach (var item in CurrentItems()) item.IsExpanded = true; }
         private void CollapseAll_Click(object sender, RoutedEventArgs e) { foreach (var item in CurrentItems()) item.IsExpanded = false; }
         private void TreeTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -620,7 +621,7 @@ namespace DesktopIniManager
             VolumePathIndex index = _pathIndex;
             int treeView = _treeView;
             string folderPath = folder.Path;
-            // Search タブ用: UI スレッドで子孫 FolderMatch を先にスナップショット
+            // Snapshot descendant folders on the UI thread for the Search tab.
             List<string> searchFolderPaths = null;
             if (treeView == 2)
             {
@@ -694,7 +695,7 @@ namespace DesktopIniManager
             VolumePathNode node = _pathIndex?.Find(path);
             if (node != null)
                 return node.Files.Select(file => file.Path).ToArray();
-            // index があるときはディスク列挙しない（Dropbox で固まる）
+            // Avoid disk enumeration while an index exists because cloud folders can block.
             if (_pathIndex != null)
                 return Array.Empty<string>();
             try { return Directory.EnumerateFiles(path).OrderBy(item => item, StringComparer.CurrentCultureIgnoreCase).ToArray(); }
@@ -787,64 +788,183 @@ namespace DesktopIniManager
 
         private void FileList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (_syncingTreeFromFile || _treeView != 2) return;
+            if (_syncingTreeFromFile) return;
             FileListItem file = (sender as System.Windows.Controls.Primitives.Selector)?.SelectedItem as FileListItem;
             if (file == null) return;
-            RevealSearchFolder(Path.GetDirectoryName(file.Path));
+            RevealFolderInCurrentTree(Path.GetDirectoryName(file.Path));
         }
 
-        private void RevealSearchFolder(string directory)
+        private ObservableCollection<FolderMatch> CurrentTreeRoots()
         {
-            if (string.IsNullOrEmpty(directory) || _searchRoots.Count == 0) return;
-            FolderMatch target = FindSearchFolder(directory);
+            if (_treeView == 1) return _solutionRoots;
+            if (_treeView == 2) return _searchRoots;
+            return _treeRoots;
+        }
+
+        private void RevealFolderInCurrentTree(string directory)
+        {
+            ObservableCollection<FolderMatch> roots = CurrentTreeRoots();
+            if (string.IsNullOrEmpty(directory) || roots.Count == 0) return;
+            FolderMatch target = FindFolderInRoots(roots, directory);
             if (target == null) return;
             for (FolderMatch ancestor = target.Parent; ancestor != null; ancestor = ancestor.Parent)
                 ancestor.IsExpanded = true;
             target.IsExpanded = true;
             _syncingTreeFromFile = true;
-            foreach (FolderMatch item in Flatten(_searchRoots))
+            foreach (FolderMatch item in Flatten(roots))
                 if (item.IsCurrent && item != target) item.IsCurrent = false;
             target.IsCurrent = true;
+            if (_treeView == 0) _physicalCurrent = target;
+            else if (_treeView == 1) _solutionCurrent = target;
+            else _searchCurrent = target;
             ResultsTree.UpdateLayout();
             ScheduleFolderIntoView(target);
         }
 
-        private void ScheduleFolderIntoView(FolderMatch target)
-        {
-            Action bring = () => BringFolderIntoView(ResultsTree, target);
-            bring();
-            Dispatcher.BeginInvoke(bring, System.Windows.Threading.DispatcherPriority.Loaded);
-            Dispatcher.BeginInvoke(new Action(() =>
-            {
-                try { bring(); }
-                finally { _syncingTreeFromFile = false; }
-            }), System.Windows.Threading.DispatcherPriority.ContextIdle);
-        }
-
-        private FolderMatch FindSearchFolder(string directory)
+        private FolderMatch FindFolderInRoots(ObservableCollection<FolderMatch> roots, string directory)
         {
             string current = directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             while (!string.IsNullOrEmpty(current))
             {
-                foreach (FolderMatch item in Flatten(_searchRoots))
+                foreach (FolderMatch item in Flatten(roots))
                 {
                     string path = (item.Path ?? string.Empty).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                     if (string.Equals(path, current, StringComparison.OrdinalIgnoreCase)) return item;
                 }
                 current = Path.GetDirectoryName(current);
             }
-            return _searchRoots.Count > 0 ? _searchRoots[0] : null;
+            return roots.Count > 0 ? roots[0] : null;
         }
 
-        private static void BringFolderIntoView(TreeView tree, FolderMatch target)
+        private void ScheduleFolderIntoView(FolderMatch target)
         {
-            if (tree == null || target == null) return;
+            if (target == null)
+            {
+                _syncingTreeFromFile = false;
+                return;
+            }
+
             var path = new List<FolderMatch>();
             for (FolderMatch node = target; node != null; node = node.Parent)
+            {
+                node.IsExpanded = true;
                 path.Add(node);
+            }
             path.Reverse();
-            TreeViewItem item = ContainerAlongPath(tree, path);
-            ScrollTreeItemIntoView(tree, item);
+
+            Dispatcher.BeginInvoke(
+                new Action(() => ExpandPathStep(ResultsTree, path, 0, 0)),
+                System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+
+        private void ExpandPathStep(ItemsControl host, List<FolderMatch> path, int level, int retry)
+        {
+            if (host == null || level >= path.Count)
+            {
+                _syncingTreeFromFile = false;
+                return;
+            }
+
+            FolderMatch node = path[level];
+            host.ApplyTemplate();
+            host.UpdateLayout();
+
+            TreeViewItem container = host.ItemContainerGenerator.ContainerFromItem(node) as TreeViewItem;
+            if (container == null)
+            {
+                int index = host.Items.IndexOf(node);
+                if (index < 0 || retry >= 48)
+                {
+                    _syncingTreeFromFile = false;
+                    return;
+                }
+
+                BringSiblingIndexIntoView(host, index);
+                Dispatcher.BeginInvoke(
+                    new Action(() => ExpandPathStep(host, path, level, retry + 1)),
+                    System.Windows.Threading.DispatcherPriority.Loaded);
+                return;
+            }
+
+            container.IsExpanded = true;
+            container.UpdateLayout();
+
+            if (level == path.Count - 1)
+            {
+                container.IsSelected = true;
+                container.BringIntoView();
+                ScrollTreeItemIntoView(ResultsTree, container);
+                _syncingTreeFromFile = false;
+                return;
+            }
+
+            container.BringIntoView();
+            Dispatcher.BeginInvoke(
+                new Action(() => ExpandPathStep(container, path, level + 1, 0)),
+                System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+
+        private void BringSiblingIndexIntoView(ItemsControl host, int index)
+        {
+            if (index < 0) return;
+
+            ItemsPresenter presenter = FindVisualChild<ItemsPresenter>(host);
+            VirtualizingPanel panel = presenter != null ? FindVisualChild<VirtualizingPanel>(presenter) : null;
+            if (panel != null)
+            {
+                System.Reflection.MethodInfo method = typeof(VirtualizingPanel).GetMethod(
+                    "BringIndexIntoView",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                if (method != null)
+                {
+                    method.Invoke(panel, new object[] { index });
+                    return;
+                }
+            }
+
+            ScrollViewer viewer = FindScrollViewer(ResultsTree);
+            if (viewer != null)
+                viewer.ScrollToVerticalOffset(Math.Max(0, index - 2));
+        }
+
+        private static T FindVisualChild<T>(DependencyObject root) where T : DependencyObject
+        {
+            if (root == null) return null;
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+            {
+                DependencyObject child = VisualTreeHelper.GetChild(root, i);
+                T match = child as T ?? FindVisualChild<T>(child);
+                if (match != null) return match;
+            }
+            return null;
+        }
+        private static bool TryGetFlatIndex(System.Collections.Generic.IEnumerable<FolderMatch> nodes, FolderMatch target, ref int index)
+        {
+            foreach (FolderMatch node in nodes)
+            {
+                if (node.IsHidden || node.IsFilterHidden)
+                    continue;
+                if (ReferenceEquals(node, target))
+                    return true;
+                index++;
+                if (node.IsExpanded && node.Children.Count > 0
+                    && TryGetFlatIndex(node.Children, target, ref index))
+                    return true;
+            }
+            return false;
+        }
+        private static TreeViewItem BringFolderIntoView(TreeView tree, FolderMatch target)
+        {
+            if (tree == null || target == null) return null;
+            var path = new List<FolderMatch>();
+            for (FolderMatch node = target; node != null; node = node.Parent)
+            {
+                node.IsExpanded = true;
+                path.Add(node);
+            }
+            path.Reverse();
+            tree.UpdateLayout();
+            return ContainerAlongPath(tree, path);
         }
 
         private static TreeViewItem ContainerAlongPath(ItemsControl parent, List<FolderMatch> path)
@@ -853,16 +973,27 @@ namespace DesktopIniManager
             ItemsControl host = parent;
             foreach (FolderMatch node in path)
             {
-                if (host == null) return current;
+                if (host == null) return null;
                 host.ApplyTemplate();
                 host.UpdateLayout();
-                var item = host.ItemContainerGenerator.ContainerFromItem(node) as TreeViewItem;
+                var generator = host.ItemContainerGenerator;
+                if (generator.Status != System.Windows.Controls.Primitives.GeneratorStatus.ContainersGenerated)
+                    return null;
+
+                var item = generator.ContainerFromItem(node) as TreeViewItem;
                 if (item == null)
                 {
                     int index = host.Items.IndexOf(node);
-                    if (index >= 0) item = host.ItemContainerGenerator.ContainerFromIndex(index) as TreeViewItem;
+                    if (index >= 0)
+                        item = generator.ContainerFromIndex(index) as TreeViewItem;
                 }
-                if (item == null) return current;
+                if (item == null)
+                {
+                    // Bring the parent into view and retry when virtualization has not created the item yet.
+                    if (current != null) current.BringIntoView();
+                    return null;
+                }
+
                 item.IsExpanded = true;
                 item.UpdateLayout();
                 current = item;
@@ -874,14 +1005,15 @@ namespace DesktopIniManager
         private static void ScrollTreeItemIntoView(TreeView tree, TreeViewItem item)
         {
             if (tree == null || item == null) return;
+            item.IsSelected = true;
             item.BringIntoView();
             ScrollViewer viewer = FindScrollViewer(tree);
-            if (viewer == null || !item.IsVisible) return;
+            if (viewer == null) return;
             try
             {
                 Point pos = item.TransformToAncestor(viewer).Transform(new Point(0, 0));
                 double top = pos.Y;
-                double bottom = top + item.ActualHeight;
+                double bottom = top + Math.Max(item.ActualHeight, 1);
                 if (top < 0) viewer.ScrollToVerticalOffset(viewer.VerticalOffset + top - 8);
                 else if (bottom > viewer.ViewportHeight)
                     viewer.ScrollToVerticalOffset(viewer.VerticalOffset + bottom - viewer.ViewportHeight + 8);
@@ -1113,12 +1245,14 @@ namespace DesktopIniManager
             MessageBox.Show(errors.Count == 0 ? Strings.Main_RemoveOk : string.Format(Strings.Main_RemoveResult, succeeded, errors.Count) + "\n\n" + string.Join("\n", errors.Take(5)), Title);
         }
 
-        private MftDifferencerWindow _differencerWindow;
-        private void MftDifferencer_Click(object sender, RoutedEventArgs e)
+        private DeveloperDifferencerWindow _differencerWindow;
+
+        /// <summary>Opens or activates the developer differencer window.</summary>
+        private void DeveloperDifferencer_Click(object sender, RoutedEventArgs e)
         {
             if (_differencerWindow == null)
             {
-                _differencerWindow = new MftDifferencerWindow { Owner = this };
+                _differencerWindow = new DeveloperDifferencerWindow { Owner = this };
                 _differencerWindow.Closed += (s, args) => _differencerWindow = null;
                 _differencerWindow.Show();
             }
@@ -1145,7 +1279,7 @@ namespace DesktopIniManager
                 {
                     var ancestor = item.Parent;
                     while (ancestor != null && !candidates.Contains(ancestor)) ancestor = ancestor.Parent;
-                    if (ancestor == null) item.SetSelected(true, true, false);
+                    if (ancestor == null) item.SetSelected(true);
                 }
                 scopes = GetSelectedGrepScopes();
             }
@@ -1499,12 +1633,12 @@ namespace DesktopIniManager
             string language = StringOverlay.ResolveCulture().TwoLetterISOLanguageName;
             string title = language == "ja" ? "リセット" : language == "zh" ? "重置" : language == "ko" ? "초기화" : "Reset";
             string message = language == "ja"
-                ? "設定、入力履歴、フォルダー一覧、GREP / MFT の状態、エディターとアイコンの選択を初期化します。よろしいですか。"
+                ? "設定、入力履歴、フォルダー一覧、GREP と差分比較の状態、エディターとアイコンの選択を初期化します。よろしいですか。"
                 : language == "zh"
-                ? "将清除设置、输入历史、文件夹列表、GREP / MFT 状态以及编辑器和图标选择。确定吗？"
+                ? "将清除设置、输入历史、文件夹列表、GREP 和差异比较器状态以及编辑器和图标选择。确定吗？"
                 : language == "ko"
-                ? "설정, 입력 기록, 폴더 목록, GREP / MFT 상태, 편집기와 아이콘 선택을 초기화합니다. 계속할까요?"
-                : "This clears settings, input history, folder lists, GREP / MFT state, and editor and icon selections. Continue?";
+                ? "설정, 입력 기록, 폴더 목록, GREP 및 차이 비교 상태, 편집기와 아이콘 선택을 초기화합니다. 계속할까요?"
+                : "This clears settings, input history, folder lists, GREP and differencer state, and editor and icon selections. Continue?";
             if (MessageBox.Show(this, message, title, MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
                 return;
 
@@ -1561,12 +1695,20 @@ namespace DesktopIniManager
         private async Task RelayoutChildWindows()
         {
             bool reopenGrep = _grepWindow != null;
-            bool reopenMft = _differencerWindow != null;
+            bool reopenDifferencer = _differencerWindow != null;
+            List<DiffViewState> diffViews = Application.Current.Windows.OfType<DiffViewWindow>()
+                .Select(window => new DiffViewState
+                {
+                    Snapshot = window.Snapshot,
+                    Difference = window.Difference,
+                    Bounds = CaptureBounds(window),
+                    WindowState = window.WindowState
+                }).ToList();
             IReadOnlyList<string> scopes = reopenGrep ? GetSelectedGrepScopes() : null;
             Rect grepBounds = reopenGrep ? CaptureBounds(_grepWindow) : Rect.Empty;
             WindowState grepState = reopenGrep ? _grepWindow.WindowState : WindowState.Normal;
-            Rect mftBounds = reopenMft ? CaptureBounds(_differencerWindow) : Rect.Empty;
-            WindowState mftState = reopenMft ? _differencerWindow.WindowState : WindowState.Normal;
+            Rect differencerBounds = reopenDifferencer ? CaptureBounds(_differencerWindow) : Rect.Empty;
+            WindowState differencerState = reopenDifferencer ? _differencerWindow.WindowState : WindowState.Normal;
 
             var children = Application.Current.Windows.Cast<Window>().Where(window => !ReferenceEquals(window, this)).ToArray();
             await FadeWindows(children, 1, 0, TimeSpan.FromMilliseconds(220));
@@ -1575,10 +1717,10 @@ namespace DesktopIniManager
                 try { window.Close(); } catch { }
             }
 
-            if (reopenMft)
+            if (reopenDifferencer)
             {
-                MftDifferencer_Click(this, new RoutedEventArgs());
-                RestoreWindowPlacement(_differencerWindow, mftBounds, mftState);
+                DeveloperDifferencer_Click(this, new RoutedEventArgs());
+                RestoreWindowPlacement(_differencerWindow, differencerBounds, differencerState);
                 PrepareFadeIn(_differencerWindow);
             }
             if (reopenGrep)
@@ -1588,7 +1730,17 @@ namespace DesktopIniManager
                 PrepareFadeIn(_grepWindow);
             }
 
-            await FadeWindows(new Window[] { _differencerWindow, _grepWindow }.Where(window => window != null).ToArray(), 0, 1, TimeSpan.FromMilliseconds(280));
+            foreach (DiffViewState state in diffViews)
+            {
+                var window = new DiffViewWindow(state.Snapshot, state.Difference) { Owner = (Window)_differencerWindow ?? this };
+                RestoreWindowPlacement(window, state.Bounds, state.WindowState);
+                PrepareFadeIn(window);
+                window.Show();
+            }
+
+            Window[] reopened = new Window[] { _differencerWindow, _grepWindow }
+                .Where(window => window != null).Concat(Application.Current.Windows.OfType<DiffViewWindow>()).ToArray();
+            await FadeWindows(reopened, 0, 1, TimeSpan.FromMilliseconds(280));
         }
 
         private static void PrepareFadeIn(Window window)

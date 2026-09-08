@@ -84,9 +84,6 @@ internal static class ScrollPerformance
 
     private static int RunGrepCancellation()
     {
-        var cancelled = new System.Threading.CancellationTokenSource(); cancelled.Cancel();
-        try { FastVolumeIndex.NtfsVolumeIndex.Create("not-a-real-path", cancelled.Token); throw new Exception("MFT ignored cancellation"); }
-        catch (OperationCanceledException) { }
         string root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "grep-cancel-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         File.WriteAllLines(Path.Combine(root, "test.txt"), Enumerable.Repeat("match", 10000));
@@ -114,8 +111,8 @@ internal static class ScrollPerformance
         if (matches.Count > 30 || !remaining.IsEmpty || ((Button)window.FindName("CancelButton")).IsEnabled) throw new Exception("Cancel continued displaying queued results");
         var clean = new CodeGrepService().Search(new[] { root }, new DesktopIniManager.Models.LanguageProfile("Test", new[] { ".txt" }), "match", false, false, false, null, System.Threading.CancellationToken.None);
         if (clean.Matches.Count != 10000) throw new Exception("Subsequent search failed");
-        Console.WriteLine("PASS grep cancellation: MFT pre-cancel, active scan, queued UI results stop, subsequent search succeeds");
-        cancelled.Dispose(); cts.Dispose(); draining.Dispose();
+        Console.WriteLine("PASS grep cancellation: active scan, queued UI results stop, subsequent search succeeds");
+        cts.Dispose(); draining.Dispose();
         Application.Current.Shutdown();
         return 0;
     }
@@ -175,8 +172,8 @@ internal static class ScrollPerformance
         var encoder = new PngBitmapEncoder();
         encoder.Frames.Add(BitmapFrame.Create(BitmapSource.Create(320, 240, 96, 96, PixelFormats.Bgra32, null, new byte[320 * 240 * 4], 320 * 4)));
         using (var stream = File.Create(Path.Combine(root, "sample.png"))) encoder.Save(stream);
-        typeof(MftDifferencerWindow).GetField("StatePath", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, Path.Combine(root, "state.xml"));
-        var window = new MftDifferencerWindow { WindowStartupLocation = WindowStartupLocation.Manual, Left = -20000, Top = -20000, ShowInTaskbar = false, ShowActivated = false };
+        typeof(DeveloperDifferencerWindow).GetField("StatePath", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, Path.Combine(root, "state.xml"));
+        var window = new DeveloperDifferencerWindow { WindowStartupLocation = WindowStartupLocation.Manual, Left = -20000, Top = -20000, ShowInTaskbar = false, ShowActivated = false };
         var snapshot = new DiffSnapshot { SourceRoot = root + "\\", TargetRoot = root + "\\" };
         var rows = new List<DiffRow>();
         for (int i = 0; i < 30000; i++)
@@ -189,7 +186,9 @@ internal static class ScrollPerformance
             rows.Add(new DiffRow { File = file, Source = new DiffSide { Root = snapshot.SourceRoot, Relative = sample, Exists = true, Info = file.SourceInfo }, Target = new DiffSide { Root = snapshot.TargetRoot, Relative = sample, Exists = true, Info = file.TargetInfo } });
         }
         Field(window, "snapshot", snapshot); Field(window, "rows", rows); Field(window, "treeSource", root); Field(window, "treeTarget", root);
-        typeof(MftDifferencerWindow).GetMethod("BuildTree", Private).Invoke(window, new object[] { snapshot.Folders, new[] { "" }, "" });
+        var buildTask = (System.Threading.Tasks.Task)typeof(DeveloperDifferencerWindow).GetMethod("BuildTreeAsync", Private)
+            .Invoke(window, new object[] { snapshot.Folders, new[] { "" }, "", System.Threading.CancellationToken.None });
+        buildTask.GetAwaiter().GetResult();
         window.Show(); Pump(500);
         var list = (ListView)window.FindName("FilesGrid");
         var tree = (TreeView)window.FindName("FolderTree");

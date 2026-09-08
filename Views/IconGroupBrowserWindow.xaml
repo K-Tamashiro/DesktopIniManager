@@ -1,19 +1,161 @@
-<Window x:Class="DesktopIniManager.Views.IconGroupBrowserWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:res="clr-namespace:DesktopIniManager.Properties"
-        Title="{x:Static res:Strings.Icon_Title}" Width="1040" Height="760" MinWidth="760" MinHeight="620" WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Background="{DynamicResource WindowBackground}" Foreground="{DynamicResource Ink}">
-  <Grid Margin="18"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-    <Grid Margin="2,0,2,14"><StackPanel><TextBlock Text="{x:Static res:Strings.Icon_Title}" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource Accent}"/><TextBlock x:Name="FilePathText" Margin="0,4,120,0" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis"/></StackPanel><TextBlock x:Name="CountText" HorizontalAlignment="Right" VerticalAlignment="Bottom" Foreground="{DynamicResource Muted}"/></Grid>
-    <Border Grid.Row="1" BorderBrush="{DynamicResource Line}" Background="{DynamicResource CardBackground}" BorderThickness="1" Padding="8">
-      <ListBox x:Name="GroupList" BorderThickness="0" Background="{DynamicResource CardBackground}" Foreground="{DynamicResource Ink}" HorizontalContentAlignment="Stretch" ScrollViewer.CanContentScroll="False" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Visible" SelectionMode="Single" MouseDoubleClick="GroupList_MouseDoubleClick">
-        <ListBox.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="6" IsItemsHost="True" VerticalAlignment="Top"/></ItemsPanelTemplate></ListBox.ItemsPanel>
-        <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="Height" Value="170"/><Setter Property="Margin" Value="5"/><Setter Property="Padding" Value="6"/><Setter Property="Foreground" Value="{DynamicResource Ink}"/><Setter Property="Background" Value="Transparent"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Style.Triggers><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="{DynamicResource ThemeSelected}"/></Trigger></Style.Triggers></Style></ListBox.ItemContainerStyle>
-        <ListBox.ItemTemplate><DataTemplate><Grid><Grid.RowDefinitions><RowDefinition Height="105"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Border Background="{DynamicResource HeaderBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="1"><Image Source="{Binding Preview}" Stretch="Uniform" Margin="8" RenderOptions.BitmapScalingMode="HighQuality"/></Border><TextBlock Grid.Row="1" Text="{Binding DisplayName}" Foreground="{DynamicResource Ink}" Margin="1,6,1,0" FontWeight="SemiBold" TextAlignment="Center" TextTrimming="CharacterEllipsis"/><TextBlock Grid.Row="2" Text="{Binding ImageCountText}" FontSize="11" TextAlignment="Center" Foreground="{DynamicResource Muted}"/></Grid></DataTemplate></ListBox.ItemTemplate>
+<Window
+  x:Class="DesktopIniManager.Views.IconGroupBrowserWindow"
+  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:res="clr-namespace:DesktopIniManager.Properties"
+  Title="{x:Static res:Strings.Icon_Title}"
+  Width="1040"
+  Height="760"
+  MinWidth="760"
+  MinHeight="620"
+  Background="{DynamicResource WindowBackground}"
+  Foreground="{DynamicResource Ink}"
+  ShowInTaskbar="False"
+  WindowStartupLocation="CenterOwner">
+  <Grid Margin="18">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+    <Grid Margin="2,0,2,14">
+      <StackPanel>
+        <TextBlock
+          FontSize="22"
+          FontWeight="SemiBold"
+          Foreground="{DynamicResource Accent}"
+          Text="{x:Static res:Strings.Icon_Title}" />
+        <TextBlock
+          x:Name="FilePathText"
+          Margin="0,4,120,0"
+          Foreground="{DynamicResource Muted}"
+          TextTrimming="CharacterEllipsis" />
+      </StackPanel>
+      <TextBlock
+        x:Name="CountText"
+        HorizontalAlignment="Right"
+        VerticalAlignment="Bottom"
+        Foreground="{DynamicResource Muted}" />
+    </Grid>
+    <Border
+      Grid.Row="1"
+      Padding="8"
+      Background="{DynamicResource CardBackground}"
+      BorderBrush="{DynamicResource Line}"
+      BorderThickness="1">
+      <ListBox
+        x:Name="GroupList"
+        HorizontalContentAlignment="Stretch"
+        Background="{DynamicResource CardBackground}"
+        BorderThickness="0"
+        Foreground="{DynamicResource Ink}"
+        MouseDoubleClick="GroupList_MouseDoubleClick"
+        ScrollViewer.CanContentScroll="False"
+        ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+        ScrollViewer.VerticalScrollBarVisibility="Visible"
+        SelectionMode="Single">
+        <ListBox.ItemsPanel>
+          <ItemsPanelTemplate>
+            <UniformGrid
+              VerticalAlignment="Top"
+              Columns="6"
+              IsItemsHost="True" />
+          </ItemsPanelTemplate>
+        </ListBox.ItemsPanel>
+        <ListBox.ItemContainerStyle>
+          <Style TargetType="ListBoxItem">
+            <Setter Property="Height" Value="170" />
+            <Setter Property="Margin" Value="5" />
+            <Setter Property="Padding" Value="6" />
+            <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Style.Triggers>
+              <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="{DynamicResource ThemeSelected}" />
+              </Trigger>
+            </Style.Triggers>
+          </Style>
+        </ListBox.ItemContainerStyle>
+        <ListBox.ItemTemplate>
+          <DataTemplate>
+            <Grid>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="105" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+              </Grid.RowDefinitions>
+              <Border
+                Background="{DynamicResource HeaderBackground}"
+                BorderBrush="{DynamicResource Line}"
+                BorderThickness="1">
+                <Image
+                  Margin="8"
+                  RenderOptions.BitmapScalingMode="HighQuality"
+                  Source="{Binding Preview}"
+                  Stretch="Uniform" />
+              </Border>
+              <TextBlock
+                Grid.Row="1"
+                Margin="1,6,1,0"
+                FontWeight="SemiBold"
+                Foreground="{DynamicResource Ink}"
+                Text="{Binding DisplayName}"
+                TextAlignment="Center"
+                TextTrimming="CharacterEllipsis" />
+              <TextBlock
+                Grid.Row="2"
+                FontSize="11"
+                Foreground="{DynamicResource Muted}"
+                Text="{Binding ImageCountText}"
+                TextAlignment="Center" />
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
       </ListBox>
     </Border>
-    <Grid Grid.Row="2" Margin="0,14,0,0"><TextBlock Text="{x:Static res:Strings.Icon_Hint}" VerticalAlignment="Center" Foreground="{DynamicResource Muted}"/><StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Button Style="{StaticResource IconTextButton}" Margin="0,0,8,0" IsCancel="True" Background="{DynamicResource Secondary}" ToolTip="{x:Static res:Strings.Common_Cancel}">
-          <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE711;" FontSize="15" VerticalAlignment="Center"/><TextBlock Text="{x:Static res:Strings.Common_Cancel}" Margin="6,0,0,0" VerticalAlignment="Center"/></StackPanel>
+    <Grid Grid.Row="2" Margin="0,14,0,0">
+      <TextBlock
+        VerticalAlignment="Center"
+        Foreground="{DynamicResource Muted}"
+        Text="{x:Static res:Strings.Icon_Hint}" />
+      <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+        <Button
+          Margin="0,0,8,0"
+          Background="{DynamicResource Secondary}"
+          IsCancel="True"
+          Style="{StaticResource IconTextButton}"
+          ToolTip="{x:Static res:Strings.Common_Cancel}">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock
+              VerticalAlignment="Center"
+              FontFamily="Segoe MDL2 Assets"
+              FontSize="15"
+              Text="&#xE711;" />
+            <TextBlock
+              Margin="6,0,0,0"
+              VerticalAlignment="Center"
+              Text="{x:Static res:Strings.Common_Cancel}" />
+          </StackPanel>
         </Button>
-        <Button Style="{StaticResource IconTextButton}" IsDefault="True" Click="Select_Click" ToolTip="{x:Static res:Strings.Common_Select}">
-          <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE73E;" FontSize="15" VerticalAlignment="Center"/><TextBlock Text="{x:Static res:Strings.Common_Select}" Margin="6,0,0,0" VerticalAlignment="Center"/></StackPanel>
-        </Button></StackPanel></Grid>
+        <Button
+          Click="Select_Click"
+          IsDefault="True"
+          Style="{StaticResource IconTextButton}"
+          ToolTip="{x:Static res:Strings.Common_Select}">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock
+              VerticalAlignment="Center"
+              FontFamily="Segoe MDL2 Assets"
+              FontSize="15"
+              Text="&#xE73E;" />
+            <TextBlock
+              Margin="6,0,0,0"
+              VerticalAlignment="Center"
+              Text="{x:Static res:Strings.Common_Select}" />
+          </StackPanel>
+        </Button>
+      </StackPanel>
+    </Grid>
   </Grid>
 </Window>

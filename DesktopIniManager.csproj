@@ -64,17 +64,17 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Page Include="Views\MftDifferencerWindow.xaml">
+    <Page Include="Views\DeveloperDifferencerWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
     <Compile Include="Properties\StringOverlay.cs" />
     <Compile Include="Properties\LocExtension.cs" />
-    <Compile Include="Services\MftDifferencerService.cs" />
+    <Compile Include="Services\DeveloperDifferencerService.cs" />
     <Compile Include="Services\DiffTextService.cs" />
     <Compile Include="Views\DiffViewWindow.cs" />
-    <Compile Include="Views\MftDifferencerWindow.xaml.cs">
-      <DependentUpon>MftDifferencerWindow.xaml</DependentUpon>
+    <Compile Include="Views\DeveloperDifferencerWindow.xaml.cs">
+      <DependentUpon>DeveloperDifferencerWindow.xaml</DependentUpon>
     </Compile>
     <Page Include="Views\GrepWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
@@ -92,7 +92,7 @@
     <Compile Include="Services\SolutionCleanService.cs" />
     <Compile Include="Services\WindowActivationService.cs" />
     <Compile Include="Services\ErrorMessages.cs" />
-    <Compile Include="Views\MftDifferencerWindow.Clean.cs" />
+    <Compile Include="Views\DeveloperDifferencerWindow.Clean.cs" />
     <Compile Include="Services\StartupState.cs" />
     <Compile Include="Views\SplashWindow.cs" />
     <Compile Include="Services\ElevationResumeState.cs" />
@@ -160,7 +160,7 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Assets\MftDifferencer_iconset.icl">
+    <Content Include="Assets\DeveloperDifferencer_iconset.icl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
@@ -177,8 +177,4 @@
     </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <Target Name="AfterBuild">
-    <MSBuild Projects="$(ProjectDir)FastVolumeIndex\FastVolumeIndex.Cli\FastVolumeIndex.Cli.csproj" Properties="Configuration=$(Configuration);Platform=AnyCPU" />
-    <Copy SourceFiles="$(ProjectDir)FastVolumeIndex\FastVolumeIndex.Cli\bin\$(Configuration)\mftree.exe" DestinationFolder="$(TargetDir)" />
-  </Target>
 </Project>

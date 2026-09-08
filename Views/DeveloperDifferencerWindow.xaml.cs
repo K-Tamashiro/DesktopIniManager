@@ -1,4 +1,4 @@
-﻿using DesktopIniManager.Services;
+using DesktopIniManager.Services;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -28,21 +28,21 @@ namespace DesktopIniManager.Views
         public List<string> VisibleFolders { get; set; }
     }
 
-    internal static class MftDiffStatusIcons
+    internal static class DifferencerStatusIcons
     {
         private static readonly ImageSource[] icons = Load();
 
         private static ImageSource[] Load()
         {
-            var result = new ImageSource[11];
+            var result = new ImageSource[23]; // 0〜22まで拡張
             try
             {
                 string baseDir = AppDomain.CurrentDomain.BaseDirectory;
                 string[] candidates =
                 {
-                    System.IO.Path.Combine(baseDir, "Assets", "MftDifferencer_iconset.icl"),
-                    System.IO.Path.GetFullPath(System.IO.Path.Combine(baseDir, "..", "..", "Assets", "MftDifferencer_iconset.icl")),
-                    System.IO.Path.GetFullPath(System.IO.Path.Combine(baseDir, "..", "..", "..", "Assets", "MftDifferencer_iconset.icl"))
+                    System.IO.Path.Combine(baseDir, "Assets", "DeveloperDifferencer_iconset.icl"),
+                    System.IO.Path.GetFullPath(System.IO.Path.Combine(baseDir, "..", "..", "Assets", "DeveloperDifferencer_iconset.icl")),
+                    System.IO.Path.GetFullPath(System.IO.Path.Combine(baseDir, "..", "..", "..", "Assets", "DeveloperDifferencer_iconset.icl"))
                 };
 
                 string path = candidates.FirstOrDefault(System.IO.File.Exists);
@@ -64,7 +64,8 @@ namespace DesktopIniManager.Views
         public static ImageSource GetFileIcon(DiffKind kind) { return Get(Index(kind, 4)); }
         public static ImageSource GetBuildFolderIcon(bool obj) { return Get(obj ? 8 : 9); }
         public static ImageSource GetRefreshIcon() { return Get(10); }
-
+        public static ImageSource GetCustomIcon(int index) { return Get(index); } // 追加
+        // ...
         private static int Index(DiffKind kind, int offset)
         {
             if (kind == DiffKind.SourceOnly) return offset + 0;
@@ -101,17 +102,17 @@ namespace DesktopIniManager.Views
             {
                 // Only a completely empty one-sided folder uses Left / Right.
                 if (SourceExists && !TargetExists && SourceEmpty)
-                    return MftDiffStatusIcons.GetFolderIcon(DiffKind.SourceOnly);
+                    return DifferencerStatusIcons.GetFolderIcon(DiffKind.SourceOnly);
 
                 if (!SourceExists && TargetExists && TargetEmpty)
-                    return MftDiffStatusIcons.GetFolderIcon(DiffKind.TargetOnly);
+                    return DifferencerStatusIcons.GetFolderIcon(DiffKind.TargetOnly);
 
                 // Any differing/source-only/target-only file below this folder means X.
                 if (CountFor(DiffKind.Differences) > 0)
-                    return MftDiffStatusIcons.GetFolderIcon(DiffKind.Different);
+                    return DifferencerStatusIcons.GetFolderIcon(DiffKind.Different);
 
                 // Otherwise the folder contents match.
-                return MftDiffStatusIcons.GetFolderIcon(DiffKind.Same);
+                return DifferencerStatusIcons.GetFolderIcon(DiffKind.Same);
             }
         }
         public List<DiffFolder> Children { get; } = new List<DiffFolder>();
@@ -199,7 +200,7 @@ namespace DesktopIniManager.Views
             if (!HasImage) return result;
             try
             {
-                string path = MftDifferencerService.SafePath(Root, Relative);
+                string path = DeveloperDifferencerService.SafePath(Root, Relative);
                 int width, height;
                 using (var stream = File.OpenRead(path))
                 {
@@ -237,7 +238,7 @@ namespace DesktopIniManager.Views
         public DiffSide Source { get { return source ?? (source = new DiffSide { Info = File.SourceInfo, Root = SourceRoot, Relative = File.RelativePath, Exists = File.Source != null }); } set { source = value; } }
         public DiffSide Target { get { return target ?? (target = new DiffSide { Info = File.TargetInfo, Root = TargetRoot, Relative = File.RelativePath, Exists = File.Target != null }); } set { target = value; } }
         public string Extension { get { return Path.GetExtension(File.RelativePath); } }
-        public ImageSource StatusIcon { get { return MftDiffStatusIcons.GetFileIcon(File.Kind); } }
+        public ImageSource StatusIcon { get { return DifferencerStatusIcons.GetFileIcon(File.Kind); } }
         public System.Windows.Media.ImageSource Icon { get; private set; }
         private bool previewLoaded;
         private CancellationTokenSource previewCancellation;
@@ -301,10 +302,11 @@ namespace DesktopIniManager.Views
         }
         public event PropertyChangedEventHandler PropertyChanged;
     }
-    public partial class MftDifferencerWindow : Window
+    /// <summary>Displays and synchronizes differences between development directories.</summary>
+    public partial class DeveloperDifferencerWindow : Window
     {
         private static readonly string StateDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DesktopIniManager");
-        private static readonly string StatePath = Path.Combine(StateDirectory, "mft-differencer.xml");
+        private static readonly string StatePath = Path.Combine(StateDirectory, "developer-differencer.xml");
         private DiffSnapshot snapshot;
         private readonly Dictionary<string, DiffFolder> folders = new Dictionary<string, DiffFolder>(StringComparer.OrdinalIgnoreCase);
         private List<DiffRow> rows = new List<DiffRow>();
@@ -343,22 +345,23 @@ namespace DesktopIniManager.Views
         }
         internal bool IsWorking { get { return busy; } }
         private string treeSource, treeTarget;
-        public static readonly DependencyProperty TreeCompactProperty = DependencyProperty.Register("TreeCompact", typeof(bool), typeof(MftDifferencerWindow), new PropertyMetadata(false));
+        public static readonly DependencyProperty TreeCompactProperty = DependencyProperty.Register("TreeCompact", typeof(bool), typeof(DeveloperDifferencerWindow), new PropertyMetadata(false));
         public bool TreeCompact { get { return (bool)GetValue(TreeCompactProperty); } set { SetValue(TreeCompactProperty, value); } }
         private void CompactTree_Click(object sender, RoutedEventArgs e) { TreeCompact = true; }
         private void ComfortableTree_Click(object sender, RoutedEventArgs e) { TreeCompact = false; }
         private void ExpandAll_Click(object sender, RoutedEventArgs e) { foreach (DiffFolder folder in folders.Values) folder.Expanded = true; }
         private void CollapseAll_Click(object sender, RoutedEventArgs e) { foreach (DiffFolder folder in folders.Values) folder.Expanded = false; }
-        public MftDifferencerWindow()
+        /// <summary>Initializes a new developer differencer window.</summary>
+        public DeveloperDifferencerWindow()
         {
             InitializeComponent();
-            SameFilterIcon.Source = MftDiffStatusIcons.GetFileIcon(DiffKind.Same);
-            DifferentFilterIcon.Source = MftDiffStatusIcons.GetFileIcon(DiffKind.Different);
-            SourceOnlyFilterIcon.Source = MftDiffStatusIcons.GetFileIcon(DiffKind.SourceOnly);
-            TargetOnlyFilterIcon.Source = MftDiffStatusIcons.GetFileIcon(DiffKind.TargetOnly);
-            RefreshCompareIcon.Source = MftDiffStatusIcons.GetRefreshIcon();
-            ObjFilterIcon.Source = MftDiffStatusIcons.GetBuildFolderIcon(true);
-            BinFilterIcon.Source = MftDiffStatusIcons.GetBuildFolderIcon(false);
+            SameFilterIcon.Source = DifferencerStatusIcons.GetFileIcon(DiffKind.Same);
+            DifferentFilterIcon.Source = DifferencerStatusIcons.GetFileIcon(DiffKind.Different);
+            SourceOnlyFilterIcon.Source = DifferencerStatusIcons.GetFileIcon(DiffKind.SourceOnly);
+            TargetOnlyFilterIcon.Source = DifferencerStatusIcons.GetFileIcon(DiffKind.TargetOnly);
+            RefreshCompareIcon.Source = DifferencerStatusIcons.GetRefreshIcon();
+            ObjFilterIcon.Source = DifferencerStatusIcons.GetBuildFolderIcon(true);
+            BinFilterIcon.Source = DifferencerStatusIcons.GetBuildFolderIcon(false);
             TreeCompact = SettingsService.LoadTreeCompact();
             SourceBox.TextChanged += RootsChanged; TargetBox.TextChanged += RootsChanged;
             // HistoryTextBox persists Source/Target via HistoryKey.
@@ -696,13 +699,13 @@ namespace DesktopIniManager.Views
             var token = compareCts.Token;
             CompareProgress.Visibility = Visibility.Visible;
             CompareProgress.IsIndeterminate = true;
-            StatusText.Text = "Enumerating MFT and comparing timestamps and sizes…";
+            StatusText.Text = "Scanning files and comparing timestamps and sizes…";
             string source = SourceBox.Text, target = TargetBox.Text;
             try
             {
                 var progress = new Progress<DiffProgress>(UpdateProgress);
                 bool compareTimestamp = CompareTimestampBox.IsChecked == true;
-                DiffSnapshot fresh = await Task.Run(() => MftDifferencerService.Compare(source, target, progress, compareTimestamp, token), token);
+                DiffSnapshot fresh = await Task.Run(() => DeveloperDifferencerService.Compare(source, target, progress, compareTimestamp, token), token);
                 token.ThrowIfCancellationRequested();
                 StatusText.Text = "Updating the difference tree…";
                 if (FilePanelBusyText != null) FilePanelBusyText.Text = "Updating the difference tree and file list…";
@@ -1179,7 +1182,7 @@ namespace DesktopIniManager.Views
                 Margin = new Thickness(0, 16, 0, 16)
             };
 
-            foreach (var group in files.GroupBy(f => MftDifferencerService.Operation(f, toTarget)))
+            foreach (var group in files.GroupBy(f => DeveloperDifferencerService.Operation(f, toTarget)))
             {
                 var badge = new Border
                 {
@@ -1222,7 +1225,7 @@ namespace DesktopIniManager.Views
             var cancel = new Button
             {
                 Content = ActionContent("\uE711", "Cancel"),
-                Style = (Style)FindResource("MftActionButton"),
+                Style = (Style)FindResource("DifferencerActionButton"),
                 MinWidth = 96,
                 Height = 34,
                 Margin = new Thickness(12, 0, 0, 0),
@@ -1236,7 +1239,7 @@ namespace DesktopIniManager.Views
             var sync = new Button
             {
                 Content = ActionContent(toTarget ? "\uE74B" : "\uE74A", "Synchronize"),
-                Style = (Style)FindResource("MftActionButton"),
+                Style = (Style)FindResource("DifferencerActionButton"),
                 MinWidth = 118,
                 Height = 34,
                 Margin = new Thickness(8, 0, 0, 0),
@@ -1303,7 +1306,7 @@ namespace DesktopIniManager.Views
             try
             {
                 DiffSnapshot current = snapshot;
-                log = await Task.Run(() => MftDifferencerService.Synchronize(current, files, toTarget, line =>
+                log = await Task.Run(() => DeveloperDifferencerService.Synchronize(current, files, toTarget, line =>
                 {
                     Dispatcher.BeginInvoke(new Action(() =>
                     {
@@ -1327,7 +1330,7 @@ namespace DesktopIniManager.Views
             try
             {
                 Directory.CreateDirectory(StateDirectory);
-                string path = Path.Combine(StateDirectory, "mft-sync-" + DateTime.Now.ToString("yyyyMMdd-HHmmss-fff") + ".log");
+                string path = Path.Combine(StateDirectory, "differencer-sync-" + DateTime.Now.ToString("yyyyMMdd-HHmmss-fff") + ".log");
                 File.WriteAllText(path, report);
                 report = "Log: " + path + "\n\n" + report;
                 if (logWindow.IsVisible)
@@ -1365,8 +1368,8 @@ namespace DesktopIniManager.Views
 
             var stamps = await Task.Run(() =>
             {
-                string sourcePath = MftDifferencerService.SafePath(snapshot.SourceRoot, file.RelativePath);
-                string targetPath = MftDifferencerService.SafePath(snapshot.TargetRoot, file.RelativePath);
+                string sourcePath = DeveloperDifferencerService.SafePath(snapshot.SourceRoot, file.RelativePath);
+                string targetPath = DeveloperDifferencerService.SafePath(snapshot.TargetRoot, file.RelativePath);
                 return Tuple.Create(DiffStamp.Read(sourcePath), DiffStamp.Read(targetPath));
             });
 

@@ -22,7 +22,7 @@ namespace DesktopIniManager.Services
             var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (string input in roots)
             {
-                string root = MftDifferencerService.Root(input);
+                string root = DeveloperDifferencerService.Root(input);
                 var pending = new Stack<string>(); pending.Push(root);
                 while (pending.Count > 0)
                 {
@@ -32,7 +32,7 @@ namespace DesktopIniManager.Services
                             (File.GetAttributes(file) & FileAttributes.ReparsePoint) == 0)
                             result.Add(file);
                     foreach (string child in Directory.EnumerateDirectories(folder))
-                        if (!MftDifferencerService.Protected(child) && !new[] { "bin", "obj" }.Contains(Path.GetFileName(child), StringComparer.OrdinalIgnoreCase) &&
+                        if (!DeveloperDifferencerService.Protected(child) && !new[] { "bin", "obj" }.Contains(Path.GetFileName(child), StringComparer.OrdinalIgnoreCase) &&
                             (File.GetAttributes(child) & FileAttributes.ReparsePoint) == 0)
                             pending.Push(child);
                 }
@@ -57,7 +57,7 @@ namespace DesktopIniManager.Services
                 throw new IOException(Strings.Clean_RunningDim);
             if (string.IsNullOrWhiteSpace(configuration) || configuration.Any(c => !char.IsLetterOrDigit(c) && c != ' ' && c != '_' && c != '-'))
                 throw new ArgumentException(Strings.Clean_BadConfiguration);
-            MftDifferencerService.SafePath(Path.GetDirectoryName(solution) + Path.DirectorySeparatorChar, Path.GetFileName(solution));
+            DeveloperDifferencerService.SafePath(Path.GetDirectoryName(solution) + Path.DirectorySeparatorChar, Path.GetFileName(solution));
             return Run(msbuild, "\"" + solution + "\" /t:Clean /p:Configuration=\"" + configuration + "\" /nologo /v:minimal /nr:false", Path.GetDirectoryName(solution), out output);
         }
 

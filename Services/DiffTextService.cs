@@ -4,11 +4,15 @@ using System.Linq;
 
 namespace DesktopIniManager.Services
 {
+    /// <summary>Identifies how a line differs between the source and target text.</summary>
+    internal enum DiffLineKind { Unchanged, Added, Removed, Modified }
+
+    /// <summary>Represents one aligned row in a side-by-side text comparison.</summary>
     internal sealed class DiffLine
     {
         public string Left { get; set; }
         public string Right { get; set; }
-        public string Kind { get; set; }
+        public DiffLineKind Kind { get; set; }
         public int LeftNumber { get; set; }
         public int RightNumber { get; set; }
         public string LeftDisplay { get { return (LeftNumber == 0 ? "" : LeftNumber.ToString()).PadLeft(6) + "  " + (Left ?? "").Replace("\t", "    "); } }
@@ -16,6 +20,7 @@ namespace DesktopIniManager.Services
     }
     internal static class DiffTextService
     {
+        /// <summary>Builds an aligned line-by-line comparison of two text buffers.</summary>
         public static List<DiffLine> Compare(string[] left, string[] right)
         {
             var matches = new List<Tuple<int, int>>();
@@ -48,10 +53,10 @@ namespace DesktopIniManager.Services
                 while (li < match.Item1 || ri < match.Item2)
                 {
                     bool l = li < match.Item1, r = ri < match.Item2;
-                    rows.Add(new DiffLine { Left = l ? left[li] : null, Right = r ? right[ri] : null, LeftNumber = l ? li + 1 : 0, RightNumber = r ? ri + 1 : 0, Kind = l && r ? "変更" : l ? "削除" : "追加" });
+                    rows.Add(new DiffLine { Left = l ? left[li] : null, Right = r ? right[ri] : null, LeftNumber = l ? li + 1 : 0, RightNumber = r ? ri + 1 : 0, Kind = l && r ? DiffLineKind.Modified : l ? DiffLineKind.Removed : DiffLineKind.Added });
                     if (l) li++; if (r) ri++;
                 }
-                if (li < left.Length && ri < right.Length) { rows.Add(new DiffLine { Left = left[li], Right = right[ri], LeftNumber = ++li, RightNumber = ++ri, Kind = "一致" }); }
+                if (li < left.Length && ri < right.Length) { rows.Add(new DiffLine { Left = left[li], Right = right[ri], LeftNumber = ++li, RightNumber = ++ri, Kind = DiffLineKind.Unchanged }); }
             }
             return rows;
         }

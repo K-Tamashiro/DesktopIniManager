@@ -9,8 +9,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DesktopIniManager", "Deskto
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FastVolumeIndex.Core", "FastVolumeIndex\FastVolumeIndex.Core\FastVolumeIndex.Core.csproj", "{A67C59A1-8E4E-4F44-9A88-D2D1BE56DD81}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "mftree", "FastVolumeIndex\FastVolumeIndex.Cli\FastVolumeIndex.Cli.csproj", "{018A03AC-6BC3-4404-AC71-3B81D27B2019}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -25,9 +23,5 @@ Global
 		{A67C59A1-8E4E-4F44-9A88-D2D1BE56DD81}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A67C59A1-8E4E-4F44-9A88-D2D1BE56DD81}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A67C59A1-8E4E-4F44-9A88-D2D1BE56DD81}.Release|Any CPU.Build.0 = Release|Any CPU
-		{018A03AC-6BC3-4404-AC71-3B81D27B2019}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{018A03AC-6BC3-4404-AC71-3B81D27B2019}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{018A03AC-6BC3-4404-AC71-3B81D27B2019}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{018A03AC-6BC3-4404-AC71-3B81D27B2019}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

@@ -2,7 +2,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 
 [assembly: AssemblyTitle("FastVolumeIndex.Core")]
-[assembly: AssemblyDescription("Fast NTFS file and folder indexing through the MFT")]
+[assembly: AssemblyDescription("File-system path indexing for DesktopIniManager")]
 [assembly: AssemblyCompany("")]
 [assembly: AssemblyProduct("FastVolumeIndex")]
 [assembly: ComVisible(false)]

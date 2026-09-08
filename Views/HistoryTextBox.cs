@@ -138,7 +138,7 @@ namespace DesktopIniManager.Views
             e.Handled = true;
             list.SelectedItem = item.Content;
             var menu = new ContextMenu();
-            var delete = new MenuItem { Header = "削除" };
+            var delete = new MenuItem { Header = "Delete" };
             string value = item.Content as string;
             delete.Click += (s, args) => RemoveHistory(value);
             menu.Items.Add(delete);

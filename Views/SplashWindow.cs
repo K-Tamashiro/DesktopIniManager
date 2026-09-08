@@ -29,7 +29,9 @@ namespace DesktopIniManager.Views
             Content = new Viewbox { Stretch = Stretch.Uniform, Child = canvas };
             canvas.Children.Add(new Image
             {
-                Width = 1774, Height = 887, Stretch = Stretch.Fill,
+                Width = 1774,
+                Height = 887,
+                Stretch = Stretch.Fill,
                 Source = new BitmapImage(new Uri("pack://application:,,,/DesktopIniManager;component/Assets/splash-background.png"))
             });
             AddText(canvas, Strings.Splash_Initializing, 377, 484, 36, "#339AFF", 820);
@@ -37,7 +39,10 @@ namespace DesktopIniManager.Views
             previous = AddText(canvas, "", 377, 603, 22, "#9CAFC5", 850);
             progress = new ProgressBar
             {
-                Width = 700, Height = 6, Minimum = 0, Maximum = 4,
+                Width = 700,
+                Height = 6,
+                Minimum = 0,
+                Maximum = 4,
                 Foreground = new SolidColorBrush(Color.FromRgb(37, 148, 255)),
                 Background = new SolidColorBrush(Color.FromRgb(25, 44, 65))
             };
@@ -48,8 +53,15 @@ namespace DesktopIniManager.Views
 
         private static TextBlock AddText(Canvas canvas, string text, double left, double top, double size, string color, double width)
         {
-            var label = new TextBlock { Text = text, FontFamily = new FontFamily("Segoe UI"), FontSize = size,
-                Foreground = (Brush)new BrushConverter().ConvertFromString(color), Width = width, TextTrimming = TextTrimming.CharacterEllipsis };
+            var label = new TextBlock
+            {
+                Text = text,
+                FontFamily = new FontFamily("Segoe UI"),
+                FontSize = size,
+                Foreground = (Brush)new BrushConverter().ConvertFromString(color),
+                Width = width,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
             Canvas.SetLeft(label, left); Canvas.SetTop(label, top); canvas.Children.Add(label);
             return label;
         }

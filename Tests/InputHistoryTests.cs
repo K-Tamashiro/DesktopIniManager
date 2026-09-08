@@ -62,7 +62,8 @@ internal static class InputHistoryTests
             "history keeps the native TextBox and its exact input text");
         check(InputHistory.GetKey(nativeInput) == "native-query" && nativeInput.ContextMenu != null,
             "native TextBox receives selectable history without replacing its template");
-        check(SettingsService.DefaultGrepFreeExtensions.StartsWith(".txt ") && SettingsService.DefaultGrepFreeExtensions.Contains(".json"),
+        string defaultGrepExtensions = SettingsService.LoadGrepFreeExtensions();
+        check(defaultGrepExtensions.StartsWith(".txt ") && defaultGrepExtensions.Contains(".json"),
             "Free Grep profile has a usable default extension list");
         app.Shutdown();
         Console.WriteLine("PASS " + checks + " input history checks");

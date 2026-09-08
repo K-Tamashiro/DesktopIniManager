@@ -38,59 +38,13 @@ namespace FastVolumeIndex
         public IEnumerable<VolumePathNode> Directories => _nodes.Values.Where(node => node.IsDirectory);
         public IEnumerable<VolumePathNode> Files => _nodes.Values.Where(node => !node.IsDirectory);
 
-        public static VolumePathIndex Build(NtfsVolumeIndex source, string searchRoot)
-        {
-            if (source == null) throw new ArgumentNullException(nameof(source));
-            string rootPath = Normalize(searchRoot);
-            var nodes = new Dictionary<string, VolumePathNode>(StringComparer.OrdinalIgnoreCase);
-            foreach (MftEntry entry in source.EnumerateDescendants(rootPath))
-            {
-                if ((entry.Attributes & FileAttributes.Hidden) != 0) continue;
-                string path;
-                try { path = Normalize(source.GetFullPath(entry)); } catch { continue; }
-                if (!IsWithin(path, rootPath) || nodes.ContainsKey(path)) continue;
-                nodes.Add(path, new VolumePathNode(path, entry));
-            }
-            VolumePathNode root;
-            if (!nodes.TryGetValue(rootPath, out root))
-            {
-                root = new VolumePathNode(rootPath, source.FindByPath(rootPath), true);
-                nodes[rootPath] = root;
-            }
-            foreach (VolumePathNode node in nodes.Values.OrderBy(node => node.Path.Length).ToArray())
-            {
-                if (ReferenceEquals(node, root)) continue;
-                string parentPath = Normalize(Path.GetDirectoryName(node.Path));
-                VolumePathNode parent;
-                if (!nodes.TryGetValue(parentPath, out parent) || !parent.IsDirectory || parent.IsReparsePoint) continue;
-                node.Parent = parent; node.Depth = parent.Depth + 1;
-                if (node.IsDirectory) parent.MutableDirectories.Add(node); else parent.MutableFiles.Add(node);
-            }
-            var reachable = new HashSet<VolumePathNode>();
-            var pending = new Stack<VolumePathNode>(); pending.Push(root);
-            while (pending.Count > 0)
-            {
-                VolumePathNode node = pending.Pop();
-                if (!reachable.Add(node)) continue;
-                foreach (VolumePathNode child in node.MutableDirectories) pending.Push(child);
-                foreach (VolumePathNode file in node.MutableFiles) reachable.Add(file);
-            }
-            foreach (string orphan in nodes.Where(pair => !reachable.Contains(pair.Value)).Select(pair => pair.Key).ToArray())
-                nodes.Remove(orphan);
-            foreach (VolumePathNode node in nodes.Values)
-            {
-                node.MutableDirectories.Sort((a, b) => StringComparer.CurrentCultureIgnoreCase.Compare(a.Name, b.Name));
-                node.MutableFiles.Sort((a, b) => StringComparer.CurrentCultureIgnoreCase.Compare(a.Name, b.Name));
-            }
-            return new VolumePathIndex(rootPath, nodes, root, new List<string>());
-        }
-
+        /// <summary>Builds a path index by enumerating the file system directly.</summary>
         public static VolumePathIndex BuildFromFileSystem(string searchRoot, Action<int> progress, CancellationToken token)
         {
             string rootPath = Normalize(searchRoot);
             if (!Directory.Exists(rootPath)) throw new DirectoryNotFoundException(rootPath);
             var nodes = new Dictionary<string, VolumePathNode>(StringComparer.OrdinalIgnoreCase);
-            var root = new VolumePathNode(rootPath, null, true);
+            var root = new VolumePathNode(rootPath, FileAttributes.Directory, true);
             nodes[rootPath] = root;
             var pending = new Stack<string>();
             pending.Push(rootPath);
@@ -109,14 +63,14 @@ namespace FastVolumeIndex
                         FileAttributes attributes;
                         try { attributes = File.GetAttributes(path); } catch { attributes = 0; }
                         if ((attributes & FileAttributes.Hidden) != 0) continue;
-                        nodes[path] = new VolumePathNode(path, null, true, (attributes & FileAttributes.ReparsePoint) != 0);
+                        nodes[path] = new VolumePathNode(path, attributes, true);
                         if ((attributes & FileAttributes.ReparsePoint) == 0) pending.Push(path);
                     }
                     foreach (string file in Directory.EnumerateFiles(folder))
                     {
                         token.ThrowIfCancellationRequested();
                         string path = Normalize(file);
-                        if (!nodes.ContainsKey(path)) nodes[path] = new VolumePathNode(path, null, false);
+                        if (!nodes.ContainsKey(path)) nodes[path] = new VolumePathNode(path, File.GetAttributes(path));
                     }
                 }
                 catch (UnauthorizedAccessException) { }
@@ -159,16 +113,17 @@ namespace FastVolumeIndex
             string parentPath = Normalize(Path.GetDirectoryName(path));
             if (!string.IsNullOrEmpty(parentPath) && !nodes.ContainsKey(parentPath))
                 EnsureDirectory(nodes, parentPath);
-            nodes[path] = new VolumePathNode(path, null, true);
+            nodes[path] = new VolumePathNode(path, FileAttributes.Directory, true);
         }
 
+        /// <summary>Builds a path index from the platform directory-listing command.</summary>
         public static VolumePathIndex BuildFromDirCommand(string searchRoot, Action<int> progress, CancellationToken token)
         {
             string rootPath = Normalize(searchRoot);
             if (!Directory.Exists(rootPath)) throw new DirectoryNotFoundException(rootPath);
             string[] lines = RunDirBare(rootPath, token);
             var nodes = new Dictionary<string, VolumePathNode>(StringComparer.OrdinalIgnoreCase);
-            var root = new VolumePathNode(rootPath, null, true);
+            var root = new VolumePathNode(rootPath, FileAttributes.Directory, true);
             nodes[rootPath] = root;
             var projectFiles = new List<string>();
             var all = new List<string>();
@@ -186,7 +141,7 @@ namespace FastVolumeIndex
                 all.Add(path);
             }
             all.Sort(StringComparer.OrdinalIgnoreCase);
-            // dir /s /b の行だけを見て、別パスの親になっているものをフォルダとみなす（属性不要）
+            // Infer directories from entries that serve as parents; no attribute lookup is required.
             var directoryHints = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             for (int i = 0; i < all.Count - 1; i++)
             {
@@ -199,7 +154,7 @@ namespace FastVolumeIndex
             foreach (string path in all)
             {
                 token.ThrowIfCancellationRequested();
-                // 祖先フォルダを必ず作る
+                // Materialize every ancestor so the hierarchy remains connected.
                 string ancestor = Normalize(Path.GetDirectoryName(path));
                 while (!string.IsNullOrEmpty(ancestor) && IsWithin(ancestor, rootPath))
                 {
@@ -214,7 +169,7 @@ namespace FastVolumeIndex
                 else
                 {
                     if (!nodes.ContainsKey(path))
-                        nodes[path] = new VolumePathNode(path, null, false);
+                        nodes[path] = new VolumePathNode(path, FileAttributes.Normal);
                     string ext = Path.GetExtension(path);
                     if (ProjectFileExtensions.Contains(ext))
                         projectFiles.Add(path);
@@ -312,15 +267,14 @@ namespace FastVolumeIndex
 
     public sealed class VolumePathNode
     {
-        internal VolumePathNode(string path, MftEntry entry, bool forceDirectory = false, bool forceReparsePoint = false)
-        { Path = path; Entry = entry; IsDirectory = forceDirectory || (entry != null && entry.IsDirectory); _forceReparsePoint = forceReparsePoint; }
+        internal VolumePathNode(string path, FileAttributes attributes, bool forceDirectory = false)
+        { Path = path; Attributes = attributes; IsDirectory = forceDirectory || (attributes & FileAttributes.Directory) != 0; }
         public string Path { get; }
         public string Name => System.IO.Path.GetFileName(Path.TrimEnd(System.IO.Path.DirectorySeparatorChar));
         public bool IsDirectory { get; }
-        private readonly bool _forceReparsePoint;
-        public bool IsReparsePoint => _forceReparsePoint || Entry != null && (Entry.Attributes & FileAttributes.ReparsePoint) != 0;
+        public bool IsReparsePoint => (Attributes & FileAttributes.ReparsePoint) != 0;
         public int Depth { get; internal set; }
-        public MftEntry Entry { get; }
+        public FileAttributes Attributes { get; }
         public VolumePathNode Parent { get; internal set; }
         internal List<VolumePathNode> MutableDirectories { get; } = new List<VolumePathNode>();
         internal List<VolumePathNode> MutableFiles { get; } = new List<VolumePathNode>();

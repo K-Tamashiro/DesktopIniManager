@@ -382,10 +382,10 @@
   <data name="Main_IconRemove" xml:space="preserve">
     <value>Icon Remove</value>
   </data>
-  <data name="Main_MftTooltip" xml:space="preserve">
+  <data name="Main_DifferencerTooltip" xml:space="preserve">
     <value>Compare and synchronize folders</value>
   </data>
-  <data name="Main_Mft" xml:space="preserve">
+  <data name="Main_Differencer" xml:space="preserve">
     <value>Developer Differencer</value>
   </data>
   <data name="Main_GrepTooltip" xml:space="preserve">
@@ -615,199 +615,190 @@
   <data name="Icon_Hint" xml:space="preserve">
     <value>Double-click an icon to select it</value>
   </data>
-  <data name="Mft_Title" xml:space="preserve">
+  <data name="Differencer_Title" xml:space="preserve">
     <value>Developer Differencer</value>
   </data>
-  <data name="Mft_CancelCompare" xml:space="preserve">
+  <data name="Differencer_CancelCompare" xml:space="preserve">
     <value>Cancel comparison</value>
   </data>
-  <data name="Mft_CompareDates" xml:space="preserve">
+  <data name="Differencer_CompareDates" xml:space="preserve">
     <value>Compare dates</value>
   </data>
-  <data name="Mft_CompareDatesTip" xml:space="preserve">
+  <data name="Differencer_CompareDatesTip" xml:space="preserve">
     <value>Include last-write timestamps when classifying differences</value>
   </data>
-  <data name="Mft_CleanTip" xml:space="preserve">
+  <data name="Differencer_CleanTip" xml:space="preserve">
     <value>Choose solutions and configurations to clean with MSBuild, then compare again</value>
   </data>
-  <data name="Mft_CleanSolution" xml:space="preserve">
+  <data name="Differencer_CleanSolution" xml:space="preserve">
     <value>Clean solution</value>
   </data>
-  <data name="Mft_SourceToTarget" xml:space="preserve">
+  <data name="Differencer_SourceToTarget" xml:space="preserve">
     <value>Source to Target</value>
   </data>
-  <data name="Mft_TargetToSource" xml:space="preserve">
+  <data name="Differencer_TargetToSource" xml:space="preserve">
     <value>Target to Source</value>
   </data>
-  <data name="Mft_NeedRoots" xml:space="preserve">
+  <data name="Differencer_NeedRoots" xml:space="preserve">
     <value>Choose Source and Target, then Compare. Local NTFS and an elevated DIM process are required.</value>
   </data>
-  <data name="Mft_SameTimeSize" xml:space="preserve">
+  <data name="Differencer_SameTimeSize" xml:space="preserve">
     <value>Same timestamp and size</value>
   </data>
-  <data name="Mft_DifferentMeta" xml:space="preserve">
+  <data name="Differencer_DifferentMeta" xml:space="preserve">
     <value>Present on both sides with different timestamp or size</value>
   </data>
-  <data name="Mft_SourceOnly" xml:space="preserve">
+  <data name="Differencer_SourceOnly" xml:space="preserve">
     <value>Present on Source only</value>
   </data>
-  <data name="Mft_TargetOnly" xml:space="preserve">
+  <data name="Differencer_TargetOnly" xml:space="preserve">
     <value>Present on Target only</value>
   </data>
-  <data name="Mft_ShowObj" xml:space="preserve">
+  <data name="Differencer_ShowObj" xml:space="preserve">
     <value>Show obj folders and their files</value>
   </data>
-  <data name="Mft_ShowBin" xml:space="preserve">
+  <data name="Differencer_ShowBin" xml:space="preserve">
     <value>Show bin folders and their files</value>
   </data>
-  <data name="Mft_NotCompared" xml:space="preserve">
+  <data name="Differencer_NotCompared" xml:space="preserve">
     <value>(not compared)</value>
   </data>
-  <data name="Mft_Selected" xml:space="preserve">
+  <data name="Differencer_Selected" xml:space="preserve">
     <value>Selected</value>
   </data>
-  <data name="Mft_SelectedIncludesHidden" xml:space="preserve">
+  <data name="Differencer_SelectedIncludesHidden" xml:space="preserve">
     <value>Selected {0} (includes {1} hidden)</value>
   </data>
-  <data name="Mft_AllFolders" xml:space="preserve">
+  <data name="Differencer_AllFolders" xml:space="preserve">
     <value>All folders</value>
   </data>
-  <data name="Mft_FilesAllLevels" xml:space="preserve">
+  <data name="Differencer_FilesAllLevels" xml:space="preserve">
     <value>Files — all levels</value>
   </data>
-  <data name="Mft_SyncTitle" xml:space="preserve">
+  <data name="Differencer_SyncTitle" xml:space="preserve">
     <value>Synchronize files</value>
   </data>
-  <data name="Mft_SyncSelectedTitle" xml:space="preserve">
+  <data name="Differencer_SyncSelectedTitle" xml:space="preserve">
     <value>Synchronize selected files</value>
   </data>
-  <data name="Mft_OverwriteWarning" xml:space="preserve">
+  <data name="Differencer_OverwriteWarning" xml:space="preserve">
     <value>Existing files may be overwritten or removed.</value>
   </data>
-  <data name="Mft_Synchronize" xml:space="preserve">
+  <data name="Differencer_Synchronize" xml:space="preserve">
     <value>Synchronize</value>
   </data>
-  <data name="Mft_Synchronizing" xml:space="preserve">
+  <data name="Differencer_Synchronizing" xml:space="preserve">
     <value>Synchronizing — {0}</value>
   </data>
-  <data name="Mft_SourceLabel" xml:space="preserve">
+  <data name="Differencer_SourceLabel" xml:space="preserve">
     <value>Source: {0}</value>
   </data>
-  <data name="Mft_TargetLabel" xml:space="preserve">
+  <data name="Differencer_TargetLabel" xml:space="preserve">
     <value>Target: {0}</value>
   </data>
-  <data name="Mft_Syncing" xml:space="preserve">
+  <data name="Differencer_Syncing" xml:space="preserve">
     <value>{0} — syncing…</value>
   </data>
-  <data name="Mft_FailPrefix" xml:space="preserve">
+  <data name="Differencer_FailPrefix" xml:space="preserve">
     <value>FAIL {0}</value>
   </data>
-  <data name="Mft_LogLabel" xml:space="preserve">
+  <data name="Differencer_LogLabel" xml:space="preserve">
     <value>Log: {0}</value>
   </data>
-  <data name="Mft_SaveLogFailed" xml:space="preserve">
+  <data name="Differencer_SaveLogFailed" xml:space="preserve">
     <value>Failed to save log: {0}</value>
   </data>
-  <data name="Mft_CompleteCounts" xml:space="preserve">
+  <data name="Differencer_CompleteCounts" xml:space="preserve">
     <value>Complete  OK {0} / FAIL {1} / LOCKED {2}</value>
   </data>
-  <data name="Mft_SyncResultTitle" xml:space="preserve">
+  <data name="Differencer_SyncResultTitle" xml:space="preserve">
     <value>Sync result — OK {0} / FAIL {1} / LOCKED {2}</value>
   </data>
-  <data name="Mft_DiffView" xml:space="preserve">
+  <data name="Differencer_DiffView" xml:space="preserve">
     <value>Diff View</value>
   </data>
-  <data name="Mft_SaveTreeFailed" xml:space="preserve">
+  <data name="Differencer_SaveTreeFailed" xml:space="preserve">
     <value>Failed to save tree: {0}</value>
   </data>
-  <data name="Mft_CompareCancelled" xml:space="preserve">
+  <data name="Differencer_CompareCancelled" xml:space="preserve">
     <value>Compare cancelled</value>
   </data>
-  <data name="Mft_CompareFailed" xml:space="preserve">
+  <data name="Differencer_CompareFailed" xml:space="preserve">
     <value>Compare failed (sync disabled): {0}</value>
   </data>
-  <data name="Mft_DifferencesSummary" xml:space="preserve">
+  <data name="Differencer_DifferencesSummary" xml:space="preserve">
     <value>{0} differences / {1} identical. Check items to synchronize.</value>
   </data>
-  <data name="Mft_ProgressItems" xml:space="preserve">
+  <data name="Differencer_ProgressItems" xml:space="preserve">
     <value>{0} — {1} / {2} items</value>
   </data>
-  <data name="Mft_UpdatingTree" xml:space="preserve">
+  <data name="Differencer_UpdatingTree" xml:space="preserve">
     <value>Updating the difference tree…</value>
   </data>
-  <data name="Mft_ReadingMeta" xml:space="preserve">
+  <data name="Differencer_ReadingMeta" xml:space="preserve">
     <value>Reading timestamps and sizes…</value>
   </data>
-  <data name="Mft_Classifying" xml:space="preserve">
+  <data name="Differencer_Classifying" xml:space="preserve">
     <value>Classifying differences by relative path…</value>
   </data>
-  <data name="Mft_ReadingMftFor" xml:space="preserve">
-    <value>Reading MFT for {0}</value>
-  </data>
-  <data name="Mft_MftUnavailableFor" xml:space="preserve">
-    <value>MFT unavailable for {0}</value>
-  </data>
-  <data name="Mft_ScanWithoutMft" xml:space="preserve">
-    <value>Scanning files without MFT…</value>
-  </data>
-  <data name="Mft_ScanComplete" xml:space="preserve">
+  <data name="Differencer_ScanComplete" xml:space="preserve">
     <value>File-system scan complete.</value>
   </data>
-  <data name="Mft_FileDisappeared" xml:space="preserve">
+  <data name="Differencer_FileDisappeared" xml:space="preserve">
     <value>A file disappeared during compare. Compare again: {0}</value>
   </data>
-  <data name="Mft_SkipSame" xml:space="preserve">
+  <data name="Differencer_SkipSame" xml:space="preserve">
     <value>SKIP same {0}</value>
   </data>
-  <data name="Mft_ChangedAfterCompare" xml:space="preserve">
+  <data name="Differencer_ChangedAfterCompare" xml:space="preserve">
     <value>Changed after compare. Compare again.</value>
   </data>
-  <data name="Mft_ChangedDuringCopy" xml:space="preserve">
+  <data name="Differencer_ChangedDuringCopy" xml:space="preserve">
     <value>Changed during copy. Compare again.</value>
   </data>
-  <data name="Mft_VerifyFailed" xml:space="preserve">
+  <data name="Differencer_VerifyFailed" xml:space="preserve">
     <value>Synchronization verification failed: destination timestamp, size or existence differs. Compare again.</value>
   </data>
-  <data name="Mft_ChooseLocalRoot" xml:space="preserve">
+  <data name="Differencer_ChooseLocalRoot" xml:space="preserve">
     <value>Choose a local root outside .git.</value>
   </data>
-  <data name="Mft_RootsNested" xml:space="preserve">
+  <data name="Differencer_RootsNested" xml:space="preserve">
     <value>Roots must not be equal or nested.</value>
   </data>
-  <data name="Mft_ProtectedPath" xml:space="preserve">
+  <data name="Differencer_ProtectedPath" xml:space="preserve">
     <value>Protected or invalid relative path: {0}</value>
   </data>
-  <data name="Mft_RefusedPath" xml:space="preserve">
+  <data name="Differencer_RefusedPath" xml:space="preserve">
     <value>Refused a path outside the root or inside .git.</value>
   </data>
-  <data name="Mft_LinkExcluded" xml:space="preserve">
+  <data name="Differencer_LinkExcluded" xml:space="preserve">
     <value>Links and junctions are excluded: {0}</value>
   </data>
-  <data name="Mft_NotRegularFile" xml:space="preserve">
+  <data name="Differencer_NotRegularFile" xml:space="preserve">
     <value>Not a regular file: {0}</value>
   </data>
-  <data name="Mft_Bytes" xml:space="preserve">
+  <data name="Differencer_Bytes" xml:space="preserve">
     <value>{0} bytes</value>
   </data>
-  <data name="Mft_StateTargetOnly" xml:space="preserve">
+  <data name="Differencer_StateTargetOnly" xml:space="preserve">
     <value>Target only</value>
   </data>
-  <data name="Mft_StateSourceOnly" xml:space="preserve">
+  <data name="Differencer_StateSourceOnly" xml:space="preserve">
     <value>Source only</value>
   </data>
-  <data name="Mft_StateSizeDiffers" xml:space="preserve">
+  <data name="Differencer_StateSizeDiffers" xml:space="preserve">
     <value>Size differs</value>
   </data>
-  <data name="Mft_StateTimeSizeDiffers" xml:space="preserve">
+  <data name="Differencer_StateTimeSizeDiffers" xml:space="preserve">
     <value>Time / size differs</value>
   </data>
-  <data name="Mft_StateSame" xml:space="preserve">
+  <data name="Differencer_StateSame" xml:space="preserve">
     <value>Same</value>
   </data>
-  <data name="Mft_StateNew" xml:space="preserve">
+  <data name="Differencer_StateNew" xml:space="preserve">
     <value>NEW</value>
   </data>
-  <data name="Mft_StateOld" xml:space="preserve">
+  <data name="Differencer_StateOld" xml:space="preserve">
     <value>OLD</value>
   </data>
   <data name="Diff_Title" xml:space="preserve">
@@ -919,6 +910,18 @@
   <data name="Diff_Next" xml:space="preserve">
     <value>Next</value>
   </data>
+  <data name="Diff_PreviousFile" xml:space="preserve">
+    <value>Previous difference file</value>
+  </data>
+  <data name="Diff_NextFile" xml:space="preserve">
+    <value>Next difference file</value>
+  </data>
+  <data name="Diff_PreviousFile" xml:space="preserve">
+    <value>Previous difference file</value>
+  </data>
+  <data name="Diff_NextFile" xml:space="preserve">
+    <value>Next difference file</value>
+  </data>
   <data name="Diff_OpenSource" xml:space="preserve">
     <value>Open Source</value>
   </data>
@@ -970,72 +973,69 @@
   <data name="Diff_VisibleRange" xml:space="preserve">
     <value>Visible range — drag to scroll</value>
   </data>
-  <data name="Mft_FindingSolutions" xml:space="preserve">
+  <data name="Differencer_FindingSolutions" xml:space="preserve">
     <value>Finding solutions…</value>
   </data>
-  <data name="Mft_NoSolutions" xml:space="preserve">
+  <data name="Differencer_NoSolutions" xml:space="preserve">
     <value>No solutions found under Source or Target.</value>
   </data>
-  <data name="Mft_CleanSolutionsTitle" xml:space="preserve">
+  <data name="Differencer_CleanSolutionsTitle" xml:space="preserve">
     <value>Clean solutions</value>
   </data>
-  <data name="Mft_CleanDialogHint" xml:space="preserve">
+  <data name="Differencer_CleanDialogHint" xml:space="preserve">
     <value>Select solutions to clean with MSBuild. The list will be compared again after cleaning.
 Solutions containing this running DIM are disabled. To clean them, start DIM from a separate release folder outside the solution.</value>
   </data>
-  <data name="Mft_ConfigurationsLabel" xml:space="preserve">
+  <data name="Differencer_ConfigurationsLabel" xml:space="preserve">
     <value>Configurations (semicolon separated; solution default platform)</value>
   </data>
-  <data name="Mft_DimLockedTip" xml:space="preserve">
+  <data name="Differencer_DimLockedTip" xml:space="preserve">
     <value>Contains the running DIM; start DIM from a separate release folder to clean this solution.</value>
   </data>
-  <data name="Mft_SourceLeft" xml:space="preserve">
+  <data name="Differencer_SourceLeft" xml:space="preserve">
     <value>Source (left)</value>
   </data>
-  <data name="Mft_TargetRight" xml:space="preserve">
+  <data name="Differencer_TargetRight" xml:space="preserve">
     <value>Target (right)</value>
   </data>
-  <data name="Mft_SelectSolutions" xml:space="preserve">
+  <data name="Differencer_SelectSolutions" xml:space="preserve">
     <value>Select at least one solution and enter configuration names such as Debug;Release.</value>
   </data>
-  <data name="Mft_CleanCancelled" xml:space="preserve">
+  <data name="Differencer_CleanCancelled" xml:space="preserve">
     <value>Clean cancelled.</value>
   </data>
-  <data name="Mft_Cleaning" xml:space="preserve">
+  <data name="Differencer_Cleaning" xml:space="preserve">
     <value>Cleaning {0}</value>
   </data>
-  <data name="Mft_FailExit" xml:space="preserve">
+  <data name="Differencer_FailExit" xml:space="preserve">
     <value>FAIL (exit {0})</value>
   </data>
-  <data name="Mft_CleanComplete" xml:space="preserve">
+  <data name="Differencer_CleanComplete" xml:space="preserve">
     <value>Clean complete: {0} succeeded / {1} failed.</value>
   </data>
-  <data name="Mft_CleanFailed" xml:space="preserve">
+  <data name="Differencer_CleanFailed" xml:space="preserve">
     <value>Clean failed: {0}</value>
   </data>
-  <data name="Mft_PreviewUnavailable" xml:space="preserve">
+  <data name="Differencer_PreviewUnavailable" xml:space="preserve">
     <value>Preview unavailable: {0}</value>
   </data>
-  <data name="Mft_FilterSummary" xml:space="preserve">
+  <data name="Differencer_FilterSummary" xml:space="preserve">
     <value>{0} differences / {1} identical (OBJ/BIN filters applied). Check items to synchronize.</value>
   </data>
-  <data name="Mft_RestoredClickCompare" xml:space="preserve">
+  <data name="Differencer_RestoredClickCompare" xml:space="preserve">
     <value>Source and Target restored. Click Compare to build the difference tree.</value>
   </data>
-  <data name="Mft_RestoreTreeFailed" xml:space="preserve">
+  <data name="Differencer_RestoreTreeFailed" xml:space="preserve">
     <value>Failed to restore tree: {0}</value>
   </data>
-  <data name="Mft_SourceFolder" xml:space="preserve">
+  <data name="Differencer_SourceFolder" xml:space="preserve">
     <value>Source folder</value>
   </data>
-  <data name="Mft_TargetFolder" xml:space="preserve">
+  <data name="Differencer_TargetFolder" xml:space="preserve">
     <value>Target folder</value>
   </data>
-  <data name="Mft_CancellingCompare" xml:space="preserve">
+  <data name="Differencer_CancellingCompare" xml:space="preserve">
     <value>Cancelling comparison…</value>
-  </data>
-  <data name="Mft_Enumerating" xml:space="preserve">
-    <value>Enumerating MFT and comparing timestamps and sizes…</value>
   </data>
   <data name="Clean_VswhereMissing" xml:space="preserve">
     <value>Visual Studio Installer / vswhere.exe was not found. Install Visual Studio or Build Tools with MSBuild.</value>
@@ -1049,13 +1049,13 @@ Solutions containing this running DIM are disabled. To clean them, start DIM fro
   <data name="Clean_BadConfiguration" xml:space="preserve">
     <value>Use configuration names separated by semicolons (for example Debug;Release).</value>
   </data>
-  <data name="Mft_HardLinkExcluded" xml:space="preserve">
+  <data name="Differencer_HardLinkExcluded" xml:space="preserve">
     <value>Hard links are excluded: {0}</value>
   </data>
-  <data name="Mft_OkPrefix" xml:space="preserve">
+  <data name="Differencer_OkPrefix" xml:space="preserve">
     <value>OK {0}</value>
   </data>
-  <data name="Mft_LockedPrefix" xml:space="preserve">
+  <data name="Differencer_LockedPrefix" xml:space="preserve">
     <value>LOCKED {0}</value>
   </data>
   <data name="Main_ApplyOk" xml:space="preserve">

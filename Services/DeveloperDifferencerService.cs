@@ -73,7 +73,8 @@ namespace DesktopIniManager.Services
         public HashSet<string> Folders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "" };
     }
 
-    internal static class MftDifferencerService
+    /// <summary>Compares and synchronizes two development directory trees.</summary>
+    internal static class DeveloperDifferencerService
     {
         private static readonly HashSet<string> IgnoredDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -82,11 +83,13 @@ namespace DesktopIniManager.Services
             ".vscode"
         };
 
+        /// <summary>Returns whether a path enters a protected metadata directory.</summary>
         public static bool Protected(string path)
         {
             return path.Replace('/', '\\').Split('\\')
                 .Any(p => IgnoredDirectories.Contains(p.TrimEnd(' ', '.')));
         }
+        /// <summary>Normalizes and validates a comparison root directory.</summary>
         public static string Root(string path)
         {
             string root = Path.GetFullPath(path).TrimEnd('\\') + "\\";
@@ -94,11 +97,13 @@ namespace DesktopIniManager.Services
             if (!Directory.Exists(root)) throw new DirectoryNotFoundException(root);
             return root;
         }
+        /// <summary>Ensures that the comparison roots are distinct and non-overlapping.</summary>
         public static void ValidateRoots(string source, string target)
         {
             if (source.StartsWith(target, StringComparison.OrdinalIgnoreCase) || target.StartsWith(source, StringComparison.OrdinalIgnoreCase))
                 throw new IOException("Roots must not be equal or nested.");
         }
+        /// <summary>Resolves a relative file path while enforcing comparison boundaries.</summary>
         public static string SafePath(string root, string relative)
         {
             if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative) || relative.Contains(':') || Protected(relative) ||
@@ -113,6 +118,7 @@ namespace DesktopIniManager.Services
         private static void CheckComponents(string path)
         {
         }
+        /// <summary>Compares one relative folder beneath two development roots.</summary>
         public static DiffSnapshot CompareFolder(string sourceRoot, string targetRoot, string relativeFolder, bool compareTimestamp = true, CancellationToken token = default(CancellationToken))
         {
             token.ThrowIfCancellationRequested();
@@ -204,182 +210,22 @@ namespace DesktopIniManager.Services
             return full.Substring(normalizedRoot.Length);
         }
 
+        /// <summary>Compares all eligible files beneath two development roots.</summary>
         public static DiffSnapshot Compare(string source, string target, IProgress<DiffProgress> progress = null, bool compareTimestamp = true, CancellationToken token = default(CancellationToken))
         {
             token.ThrowIfCancellationRequested();
             source = Root(source); target = Root(target); ValidateRoots(source, target);
             var result = new DiffSnapshot { SourceRoot = source, TargetRoot = target, CompareTimestamp = compareTimestamp };
 
-            progress?.Report(new DiffProgress { Stage = "Listing source via dir /s…" });
-            Dictionary<string, DiffStamp> left = ScanViaDir(source, result.Folders, progress, token);
+            progress?.Report(new DiffProgress { Stage = "Scanning source files…" });
+            Dictionary<string, DiffStamp> left = ScanSelectedFolder(source, string.Empty, result.Folders, token);
 
-            progress?.Report(new DiffProgress { Stage = "Listing target via dir /s…" });
-            Dictionary<string, DiffStamp> right = ScanViaDir(target, result.Folders, progress, token);
+            progress?.Report(new DiffProgress { Stage = "Scanning target files…" });
+            Dictionary<string, DiffStamp> right = ScanSelectedFolder(target, string.Empty, result.Folders, token);
 
             progress?.Report(new DiffProgress { Stage = "Classifying differences by relative path…" });
             result.Files = Classify(left, right, true, compareTimestamp, token);
             return result;
-        }
-
-        private static Dictionary<string, DiffStamp> ScanViaDir(string root, HashSet<string> folders,
-            IProgress<DiffProgress> progress, CancellationToken token)
-        {
-            var files = new Dictionary<string, DiffStamp>(StringComparer.OrdinalIgnoreCase);
-            string[] lines = RunDirListing(root, token);
-            string currentDir = root.TrimEnd('\\');
-            int completed = 0;
-            var timer = System.Diagnostics.Stopwatch.StartNew();
-
-            foreach (string raw in lines)
-            {
-                token.ThrowIfCancellationRequested();
-                if (string.IsNullOrWhiteSpace(raw)) continue;
-                string line = raw.TrimEnd();
-
-                // Directory header (JA / EN)
-                int ja = line.IndexOf("のディレクトリ", StringComparison.Ordinal);
-                if (ja > 0)
-                {
-                    string path = line.Substring(0, ja).Trim();
-                    if (path.Length > 0) currentDir = Path.GetFullPath(path).TrimEnd('\\');
-                    continue;
-                }
-                if (line.StartsWith("Directory of ", StringComparison.OrdinalIgnoreCase))
-                {
-                    string path = line.Substring("Directory of ".Length).Trim();
-                    if (path.Length > 0) currentDir = Path.GetFullPath(path).TrimEnd('\\');
-                    continue;
-                }
-
-                if (line.IndexOf("<DIR>", StringComparison.OrdinalIgnoreCase) >= 0) continue;
-                if (line.IndexOf("個のファイル", StringComparison.Ordinal) >= 0) continue;
-                if (line.IndexOf("個のディレクトリ", StringComparison.Ordinal) >= 0) continue;
-                if (line.IndexOf("File(s)", StringComparison.OrdinalIgnoreCase) >= 0) continue;
-                if (line.IndexOf("Dir(s)", StringComparison.OrdinalIgnoreCase) >= 0) continue;
-                if (line.StartsWith("Volume ", StringComparison.OrdinalIgnoreCase)) continue;
-                if (line.IndexOf("ボリューム", StringComparison.Ordinal) >= 0) continue;
-
-                DiffStamp stamp;
-                string name;
-                if (!TryParseDirFileLine(line, out stamp, out name)) continue;
-                if (name == "." || name == "..") continue;
-
-                string full = Path.GetFullPath(Path.Combine(currentDir, name));
-                if (!full.StartsWith(root.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase)
-                    && !string.Equals(full, root.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                string relative = full.Substring(root.Length);
-                if (relative.Length == 0 || Protected(relative)) continue;
-
-                // parent folders
-                string parentRel = Path.GetDirectoryName(relative);
-                while (!string.IsNullOrEmpty(parentRel))
-                {
-                    folders.Add(parentRel);
-                    parentRel = Path.GetDirectoryName(parentRel);
-                }
-
-                try { ScanPath(root, relative); }
-                catch (IOException) { continue; }
-
-                if (!files.ContainsKey(relative))
-                    files.Add(relative, stamp);
-
-                completed++;
-                if (completed == 1 || timer.ElapsedMilliseconds >= 100)
-                {
-                    progress?.Report(new DiffProgress
-                    {
-                        Stage = "dir /s scan…",
-                        Completed = completed,
-                        Total = 0
-                    });
-                    timer.Restart();
-                }
-            }
-
-            progress?.Report(new DiffProgress
-            {
-                Stage = "dir /s scan complete.",
-                Completed = completed,
-                Total = completed
-            });
-            return files;
-        }
-
-        private static string[] RunDirListing(string rootPath, CancellationToken token)
-        {
-            var psi = new ProcessStartInfo
-            {
-                FileName = "cmd.exe",
-                Arguments = "/c dir /s \"" + rootPath.TrimEnd('\\') + "\"",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true,
-                StandardOutputEncoding = Encoding.Default
-            };
-            using (var process = Process.Start(psi))
-            {
-                if (process == null) throw new InvalidOperationException("Failed to start dir.");
-                string output = process.StandardOutput.ReadToEnd();
-                process.WaitForExit();
-                token.ThrowIfCancellationRequested();
-                if (string.IsNullOrWhiteSpace(output))
-                    return Array.Empty<string>();
-                return output.Replace("\r\n", "\n").Split('\n');
-            }
-        }
-
-        private static bool TryParseDirFileLine(string line, out DiffStamp stamp, out string name)
-        {
-            stamp = null;
-            name = null;
-            if (string.IsNullOrWhiteSpace(line)) return false;
-
-            // JA: 2026/08/31  23:47        15,161,478 filename
-            // EN: 08/31/2026  11:47 PM        15,161,478 filename
-            string[] parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length < 4) return false;
-
-            DateTime local;
-            int sizeIndex;
-
-            // try JA date + time
-            if (DateTime.TryParseExact(parts[0] + " " + parts[1],
-                    new[] { "yyyy/MM/dd HH:mm", "yyyy/M/d H:mm", "yyyy/MM/dd H:mm" },
-                    CultureInfo.InvariantCulture, DateTimeStyles.None, out local))
-            {
-                sizeIndex = 2;
-            }
-            else if (parts.Length >= 5
-                && DateTime.TryParseExact(parts[0] + " " + parts[1] + " " + parts[2],
-                    new[] { "MM/dd/yyyy hh:mm tt", "M/d/yyyy h:mm tt", "MM/dd/yyyy h:mm tt" },
-                    CultureInfo.InvariantCulture, DateTimeStyles.None, out local))
-            {
-                sizeIndex = 3;
-            }
-            else
-            {
-                return false;
-            }
-
-            if (sizeIndex >= parts.Length) return false;
-            string sizeText = parts[sizeIndex].Replace(",", "").Replace(".", "");
-            long size;
-            if (!long.TryParse(sizeText, NumberStyles.Integer, CultureInfo.InvariantCulture, out size))
-                return false;
-
-            name = string.Join(" ", parts, sizeIndex + 1, parts.Length - (sizeIndex + 1));
-            if (string.IsNullOrWhiteSpace(name)) return false;
-
-            stamp = new DiffStamp
-            {
-                Size = size,
-                ModifiedUtc = DateTime.SpecifyKind(local, DateTimeKind.Local).ToUniversalTime()
-            };
-            return true;
         }
 
         internal static List<DiffFile> Classify(Dictionary<string, DiffStamp> left, Dictionary<string, DiffStamp> right, bool includeSame = false, bool compareTimestamp = true, CancellationToken token = default(CancellationToken))
@@ -405,11 +251,13 @@ namespace DesktopIniManager.Services
                 throw new IOException("Refused a path outside the root or inside .git.");
             return path;
         }
+        /// <summary>Returns the synchronization operation required for a difference.</summary>
         public static string Operation(DiffFile file, bool toTarget)
         {
             DiffStamp from = toTarget ? file.Source : file.Target, to = toTarget ? file.Target : file.Source;
             return from == null ? "Delete" : to == null ? "Copy" : "Overwrite";
         }
+        /// <summary>Synchronizes selected differences and returns an operation log.</summary>
         public static List<string> Synchronize(DiffSnapshot snapshot, IEnumerable<DiffFile> selected, bool toTarget, Action<string> onLog = null)
         {
             Root(snapshot.SourceRoot); Root(snapshot.TargetRoot); ValidateRoots(snapshot.SourceRoot, snapshot.TargetRoot);
@@ -512,6 +360,7 @@ namespace DesktopIniManager.Services
             }
         }
 
+        /// <summary>Rejects files with multiple hard-link references.</summary>
         public static void RejectHardLinks(string path)
         {
             using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))

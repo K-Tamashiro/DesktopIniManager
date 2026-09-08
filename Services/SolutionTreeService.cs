@@ -241,7 +241,7 @@ namespace DesktopIniManager.Services
                     if (string.IsNullOrWhiteSpace(value) || value.IndexOfAny(new[] { '*', '?' }) >= 0)
                         continue;
 
-                    // ProjectReference はプロジェクトファイル自体なので、ソース一覧には入れない
+                    // ProjectReference points to another project file and is not a source item.
                     if (line.IndexOf("<ProjectReference", StringComparison.OrdinalIgnoreCase) >= 0)
                         continue;
 
@@ -266,7 +266,7 @@ namespace DesktopIniManager.Services
             }
 
             AddVirtual(project, "Properties", directory, "Project properties");
-            AddVirtual(project, "依存関係", directory, "Dependencies");
+            AddVirtual(project, "Dependencies", directory, "Dependencies");
 
             var folderNodes = new Dictionary<string, FolderMatch>(StringComparer.OrdinalIgnoreCase)
             {
@@ -289,8 +289,7 @@ namespace DesktopIniManager.Services
         }
 
         /// <summary>
-        /// SDK-style project のファイルを列挙する。
-        /// SearchOption.AllDirectories は使用せず、除外/Hidden ディレクトリには最初から降りない。
+        /// Enumerates files in an SDK-style project without descending into excluded or hidden directories.
         /// </summary>
         private static IEnumerable<string> EnumerateProjectFiles(string root, CancellationToken token)
         {
@@ -438,11 +437,11 @@ namespace DesktopIniManager.Services
                 return;
 
             FolderMatch[] ordered = items
-                .OrderBy(item => item.Name == "Properties" ? 0 : item.Name == "依存関係" ? 1 : 2)
+                .OrderBy(item => item.Name == "Properties" ? 0 : item.Name == "Dependencies" ? 1 : 2)
                 .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
                 .ToArray();
 
-            // IndexOf + Move の繰り返し(O(n^2))を避ける。
+            // Rebuild the collection to avoid repeated O(n²) IndexOf and Move operations.
             items.Clear();
             foreach (FolderMatch item in ordered)
                 items.Add(item);

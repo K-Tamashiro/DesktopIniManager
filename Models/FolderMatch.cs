@@ -15,27 +15,16 @@ namespace DesktopIniManager.Models
         private bool _isFilterHidden;
         private string _reason;
         public FolderMatch Parent { get; set; }
-        public bool IsSelected { get => _isSelected; set { SetSelected(value, false, false); } }
+        public bool IsSelected { get => _isSelected; set { SetSelected(value); } }
 
-        public void SetSelectedFromUi(bool value)
-        {
-            SetSelected(value, true, value);
-        }
-
-        public void SetSelected(bool value, bool propagateDown, bool propagateUp)
+        /// <summary>Sets this folder's selection without changing any parent or child selection.</summary>
+        public void SetSelected(bool value)
         {
             if (_isSelected != value)
             {
                 _isSelected = value;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
             }
-            if (propagateDown)
-            {
-                foreach (FolderMatch child in Children)
-                    child.SetSelected(value, true, false);
-            }
-            if (propagateUp && value && Parent != null)
-                Parent.SetSelected(true, false, true);
         }
         public bool IsExpanded { get => _isExpanded; set { if (_isExpanded == value) return; _isExpanded = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsExpanded))); } }
         public string Path { get; set; }

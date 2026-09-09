@@ -14,6 +14,7 @@
   Icon="../DesktopIniManager.ico"
   WindowStartupLocation="CenterOwner">
   <Window.Resources>
+    <BooleanToVisibilityConverter x:Key="MvvmBooleanToVisibility"/>
     <Style TargetType="{x:Type ComboBoxItem}">
       <Setter Property="Foreground" Value="{DynamicResource Ink}" />
       <Setter Property="Background" Value="{DynamicResource CardBackground}" />
@@ -264,14 +265,14 @@
           <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
         <ListBox
-          x:Name="ScopeList"
+          x:Name="ScopeList" ItemsSource="{Binding Scopes}"
           Height="86"
           Background="Transparent"
           BorderThickness="0"
           Foreground="{DynamicResource Ink}" />
         <StackPanel Grid.Column="1" Margin="12,0,0,0">
           <Button
-            Click="ReloadScopes_Click"
+            Command="{Binding ReloadScopesCommand}"
             Style="{StaticResource IconTextButton}"
             ToolTip="{loc:L Grep_ReloadSelection}">
             <StackPanel Orientation="Horizontal">
@@ -287,7 +288,7 @@
             </StackPanel>
           </Button>
           <TextBlock
-            x:Name="ScopeCountText"
+            x:Name="ScopeCountText" Text="{Binding ScopeCountLabel}"
             Margin="0,9,0,0"
             HorizontalAlignment="Center"
             Foreground="{DynamicResource Muted}" />
@@ -307,7 +308,7 @@
           Foreground="{DynamicResource Muted}"
           Text="{loc:L Grep_SearchText}" />
         <history:HistoryTextBox
-          x:Name="QueryBox"
+          x:Name="QueryBox" Text="{Binding Query, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
           Height="36"
           Padding="8,4"
           VerticalContentAlignment="Center"
@@ -319,11 +320,11 @@
           Foreground="{DynamicResource Muted}"
           Text="{loc:L Grep_LanguageProfile}" />
         <ComboBox
-          x:Name="ProfileBox"
+          x:Name="ProfileBox" IsEnabled="{Binding CanEdit}" ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}"
           Height="36"
           Padding="8,4"
           VerticalContentAlignment="Center"
-          SelectionChanged="ProfileBox_SelectionChanged" />
+          />
       </StackPanel>
       <StackPanel Grid.Column="2" Margin="12,0,0,0">
         <TextBlock
@@ -331,12 +332,12 @@
           Foreground="{DynamicResource Muted}"
           Text="{loc:L Grep_IncludedExtensions}" />
         <history:HistoryTextBox
-          x:Name="ExtensionsText"
+          x:Name="ExtensionsText" Text="{Binding Extensions, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
           Height="36"
           Padding="8,4"
           VerticalContentAlignment="Center"
           HistoryKey="Grep-Extensions"
-          IsReadOnly="True" />
+          IsReadOnly="{Binding IsProfileReadOnly}" />
       </StackPanel>
       <StackPanel
         Grid.Column="3"
@@ -346,7 +347,7 @@
         <Button
           x:Name="SearchButton"
           Height="36"
-          Click="Search_Click"
+          Command="{Binding SearchCommand}"
           Style="{StaticResource IconTextButton}"
           ToolTip="{loc:L Common_Search}">
           <StackPanel Orientation="Horizontal">
@@ -365,9 +366,9 @@
           x:Name="CancelButton"
           Margin="8,0,0,0"
           Background="{DynamicResource Secondary}"
-          Click="Cancel_Click"
+          Command="{Binding CancelCommand}"
           Content="&#xE711;"
-          IsEnabled="False"
+          IsEnabled="{Binding IsSearching}"
           Style="{StaticResource IconButton}"
           ToolTip="{loc:L Common_Cancel}" />
       </StackPanel>
@@ -387,13 +388,13 @@
           Style="{StaticResource IconButton}"
           ToolTip="{loc:L Common_Collapse}" />
       </StackPanel>
-      <CheckBox x:Name="RegexBox" Content="{loc:L Grep_Regex}" />
+      <CheckBox x:Name="RegexBox" IsChecked="{Binding UseRegex}" Content="{loc:L Grep_Regex}" />
       <CheckBox
-        x:Name="MatchCaseBox"
+        x:Name="MatchCaseBox" IsChecked="{Binding MatchCase}"
         Margin="18,0,0,0"
         Content="{loc:L Grep_MatchCase}" />
       <CheckBox
-        x:Name="WholeWordBox"
+        x:Name="WholeWordBox" IsChecked="{Binding WholeWord}"
         Margin="18,0,0,0"
         Content="{loc:L Grep_WholeWord}" />
     </DockPanel>
@@ -402,7 +403,7 @@
       BorderBrush="{DynamicResource Line}"
       BorderThickness="1">
       <DataGrid
-        x:Name="ResultsGrid"
+        x:Name="ResultsGrid" ItemsSource="{Binding Matches}" SelectedItem="{Binding SelectedMatch}"
         AutoGenerateColumns="False"
         Background="{DynamicResource CardBackground}"
         BorderThickness="0"
@@ -542,7 +543,7 @@
         Background="{DynamicResource HeaderBackground}"
         Foreground="{DynamicResource Accent}"
         IsIndeterminate="True"
-        Visibility="Collapsed" />
+        Visibility="{Binding IsSearching, Converter={StaticResource MvvmBooleanToVisibility}}" />
       <Grid>
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto" />
@@ -563,7 +564,7 @@
           HorizontalAlignment="Left"
           VerticalAlignment="Center"
           Foreground="{DynamicResource Muted}"
-          Text="{loc:L Common_Ready}"
+          Text="{Binding Status}"
           TextWrapping="Wrap" />
         <TextBlock
           Grid.Column="2"
@@ -578,7 +579,7 @@
           Foreground="{DynamicResource Muted}"
           Text="{loc:L Grep_EditorArguments}" />
         <history:HistoryTextBox
-          x:Name="EditorBox"
+          x:Name="EditorBox" Text="{Binding EditorPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
           Grid.Row="1"
           Grid.Column="2"
           HorizontalContentAlignment="Left"
@@ -588,7 +589,7 @@
           TextWrapping="NoWrap"
           ToolTip="{loc:L Grep_EditorExecutable}" />
         <history:HistoryTextBox
-          x:Name="EditorArgumentsBox"
+          x:Name="EditorArgumentsBox" Text="{Binding EditorArguments, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
           Grid.Row="1"
           Grid.Column="3"
           Margin="8,0,0,0"

@@ -148,7 +148,7 @@ namespace DesktopIniManager.Services
             if (count >= 2 && sample[0] == 0xFE && sample[1] == 0xFF) return Encoding.BigEndianUnicode;
             if (count >= 3 && sample[0] == 0xEF && sample[1] == 0xBB && sample[2] == 0xBF) return Encoding.UTF8;
             try { new UTF8Encoding(false, true).GetString(sample, 0, count); return new UTF8Encoding(false); }
-            catch (DecoderFallbackException) { return Encoding.GetEncoding(932); }
+            catch (DecoderFallbackException) { return CodePagesEncodingProvider.Instance.GetEncoding(932); }
         }
 
         private static bool ContainsIgnoredDirectory(string file, string root)

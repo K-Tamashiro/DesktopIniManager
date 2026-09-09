@@ -1,3 +1,4 @@
+using DesktopIniManager.ViewModels;
 using DesktopIniManager.Services;
 using DesktopIniManager.Views;
 using System;
@@ -16,9 +17,9 @@ internal static class DifferencerTests
     private static int checks;
     private static void BuildTree(DeveloperDifferencerWindow window, IEnumerable<string> paths, IEnumerable<string> expanded, string selected)
     {
-        var task = (System.Threading.Tasks.Task)typeof(DeveloperDifferencerWindow)
+        var task = (System.Threading.Tasks.Task)typeof(DeveloperDifferencerViewModel)
             .GetMethod("BuildTreeAsync", BindingFlags.NonPublic | BindingFlags.Instance)
-            .Invoke(window, new object[] { paths, expanded, selected, System.Threading.CancellationToken.None });
+            .Invoke(window.ViewModel, new object[] { paths, expanded, selected, System.Threading.CancellationToken.None });
         var frame = new DispatcherFrame();
         task.GetAwaiter().OnCompleted(() => frame.Continue = false);
         Dispatcher.PushFrame(frame);
@@ -83,7 +84,7 @@ internal static class DifferencerTests
             Check(ErrorMessages.English(new UnauthorizedAccessException("アクセスが拒否されました")).StartsWith("Access was denied."), "localized permission errors use English");
             Check(DiffMedia.IsBinary("APP.EXE") && DiffMedia.IsBinary("library.dll") && !DiffMedia.IsBinary("source.cs") && DiffMedia.IsImage("photo.PNG"), "binary and image routing is case insensitive");
             Check(DiffMedia.IsBinary("build.cache") && DiffMedia.IsBinary("BUILD.CACHE") && !DiffMedia.IsBinary("cache.cs"), "cache files are excluded before opening the viewer");
-            var readText = typeof(DiffViewWindow).GetMethod("ReadText", BindingFlags.Static | BindingFlags.NonPublic);
+            var readText = typeof(DiffViewModel).GetMethod("ReadText", BindingFlags.Static | BindingFlags.NonPublic);
             File.WriteAllBytes(Path.Combine(source, "unknown.dat"), new byte[] { 65, 0, 66, 1 });
             bool rejectedBinary = false;
             try { readText.Invoke(null, new object[] { Path.Combine(source, "unknown.dat") }); }
@@ -154,19 +155,19 @@ internal static class DifferencerTests
             Check(fileSystemComparison.Files.All(f => !DeveloperDifferencerService.Protected(f.RelativePath)) && fileSystemComparison.Folders.All(p => !DeveloperDifferencerService.Protected(p)), "file-system scan excludes protected folders");
             Check(fileSystemComparison.Files.Any(f => f.RelativePath == "stale"), "file-system scan finds expected difference");
             var app = new DesktopIniManager.App(); app.InitializeComponent();
-            typeof(DeveloperDifferencerWindow).GetField("StatePath", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, Path.Combine(artifacts, "state.xml"));
+            typeof(DeveloperDifferencerViewModel).GetField("StatePath", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, Path.Combine(artifacts, "state.xml"));
             var window = new DeveloperDifferencerWindow();
-            ((TextBox)window.FindName("SourceBox")).Text = source; ((TextBox)window.FindName("TargetBox")).Text = target;
+            window.ViewModel.SourcePath = source; window.ViewModel.TargetPath = target;
             Write(source, "nested\\child\\changed.txt", "new");
             var display = Snapshot(source, target, "stale", "forward\\unchecked", "nested\\child\\changed.txt");
-            typeof(DeveloperDifferencerWindow).GetField("snapshot", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(window, display);
+            typeof(DeveloperDifferencerViewModel).GetField("snapshot", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(window.ViewModel, display);
             var displayRows = display.Files.Select(f => new DiffRow { File = f, Source = new DiffSide { Info = f.SourceInfo, Root = display.SourceRoot, Relative = f.RelativePath, Exists = f.Source != null }, Target = new DiffSide { Info = f.TargetInfo, Root = display.TargetRoot, Relative = f.RelativePath, Exists = f.Target != null } }).ToList();
-            typeof(DeveloperDifferencerWindow).GetField("rows", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(window, displayRows);
-            typeof(DeveloperDifferencerWindow).GetField("treeSource", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(window, source);
-            typeof(DeveloperDifferencerWindow).GetField("treeTarget", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(window, target);
+            typeof(DeveloperDifferencerViewModel).GetField("rows", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(window.ViewModel, displayRows);
+            typeof(DeveloperDifferencerViewModel).GetField("treeSource", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(window.ViewModel, source);
+            typeof(DeveloperDifferencerViewModel).GetField("treeTarget", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(window.ViewModel, target);
             BuildTree(window, new[] { "", "forward", "nested", "nested\\child", "nested\\identical", "identicalOnly" }, new[] { "", "nested" }, "nested");
-            typeof(DeveloperDifferencerWindow).GetField("selectedFolder", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(window, "");
-            typeof(DeveloperDifferencerWindow).GetMethod("Filter", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(window, null);
+            typeof(DeveloperDifferencerViewModel).GetField("selectedFolder", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(window.ViewModel, "");
+            typeof(DeveloperDifferencerViewModel).GetMethod("Filter", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(window.ViewModel, null);
             var content = (FrameworkElement)window.Content; content.SetResourceReference(Panel.BackgroundProperty, "WindowBackground"); content.Measure(new Size(1280, 800)); content.Arrange(new Rect(0, 0, 1280, 800)); content.UpdateLayout();
             var liveTree = (TreeView)window.FindName("FolderTree"); ((TreeViewItem)liveTree.ItemContainerGenerator.ContainerFromIndex(0)).IsSelected = true;
             content.UpdateLayout();
@@ -176,8 +177,8 @@ internal static class DifferencerTests
             Check(filteredRoot.DisplayChildren.Single(f => f.Path == "nested").DisplayChildren.Single().Path == "nested\\child", "difference folder retains its parent; identical siblings are hidden");
             var bitmap = new RenderTargetBitmap(1280, 800, 96, 96, PixelFormats.Pbgra32); bitmap.Render(content);
             var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap)); using (var stream = File.Create(Path.Combine(artifacts, "window.png"))) encoder.Save(stream);
-            typeof(DeveloperDifferencerWindow).GetField("selectedFolder", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(window, "nested");
-            typeof(DeveloperDifferencerWindow).GetMethod("SaveState", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(window, null);
+            typeof(DeveloperDifferencerViewModel).GetField("selectedFolder", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(window.ViewModel, "nested");
+            typeof(DeveloperDifferencerViewModel).GetMethod("SaveState", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(window.ViewModel, null);
             var restored = new DeveloperDifferencerWindow();
             Check(((TextBox)restored.FindName("SourceBox")).Text == source, "WPF window restores roots");
             Check(((TreeView)restored.FindName("FolderTree")).Items.Count == 0 && !((Button)restored.FindName("ForwardButton")).IsEnabled, "comparison restores roots but requires a fresh comparison");
@@ -234,7 +235,7 @@ internal static class DifferencerTests
                 scope.Cancel();
                 Check(pending.Wait(3000) && pendingRow.Icon == null, "obsolete preview requests stop while waiting for a worker");
             }
-            typeof(DeveloperDifferencerWindow).GetMethod("ClearComparisonView", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(window, null);
+            typeof(DeveloperDifferencerViewModel).GetMethod("ClearComparisonView", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(window.ViewModel, null);
             Check(liveTree.Items.Count == 0 && ((ListView)window.FindName("FilesGrid")).Items.Count == 0, "comparison start clears both visible lists immediately");
             Check(filteredRoot.Children.Any(f => f.Path == "identicalOnly"), "clearing the view preserves the saved base hierarchy");
             var filterWindow = new DeveloperDifferencerWindow();
@@ -244,15 +245,15 @@ internal static class DifferencerTests
                 new Dictionary<string, DiffStamp>(StringComparer.OrdinalIgnoreCase) { { "parent\\same\\file.txt", stamp }, { "parent\\different\\file.txt", new DiffStamp { Size = 2, ModifiedUtc = FixedTime } }, { "parent\\right\\file.txt", stamp } }, true);
             Check(filterFiles.Count == 4 && filterFiles.Single(f => f.Kind == DiffKind.Same).State == "Same", "comparison retains identical metadata as a separate category");
             var filterSnapshot = new DiffSnapshot { SourceRoot = display.SourceRoot, TargetRoot = display.TargetRoot, Files = filterFiles };
-            typeof(DeveloperDifferencerWindow).GetField("snapshot", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(filterWindow, filterSnapshot);
-            typeof(DeveloperDifferencerWindow).GetField("rows", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(filterWindow, filterFiles.Select(f => new DiffRow { File = f, SourceRoot = display.SourceRoot, TargetRoot = display.TargetRoot }).ToList());
+            typeof(DeveloperDifferencerViewModel).GetField("snapshot", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(filterWindow.ViewModel, filterSnapshot);
+            typeof(DeveloperDifferencerViewModel).GetField("rows", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(filterWindow.ViewModel, filterFiles.Select(f => new DiffRow { File = f, SourceRoot = display.SourceRoot, TargetRoot = display.TargetRoot }).ToList());
             BuildTree(filterWindow, filterFiles.Select(f => Path.GetDirectoryName(f.RelativePath)), new[] { "", "parent" }, "");
             var leftOnly = filterFiles.Single(f => f.Kind == DiffKind.SourceOnly); leftOnly.Selected = true;
             var filterNames = new[] { "SameFilter", "DifferentFilter", "SourceOnlyFilter", "TargetOnlyFilter" };
             Action<int> setMask = mask =>
             {
-                for (int i = 0; i < 4; i++) ((CheckBox)filterWindow.FindName(filterNames[i])).IsChecked = (mask & (1 << i)) != 0;
-                typeof(DeveloperDifferencerWindow).GetMethod("KindFilter_Click", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(filterWindow, new object[] { null, new RoutedEventArgs() });
+                for (int i = 0; i < 4; i++) ((CheckBox)filterWindow.FindName(filterNames[i])).SetCurrentValue(System.Windows.Controls.Primitives.ToggleButton.IsCheckedProperty, (mask & (1 << i)) != 0);
+                filterWindow.ViewModel.ApplyCategoryFilter();
             };
             for (int mask = 0; mask < 16; mask++)
             {
@@ -275,8 +276,8 @@ internal static class DifferencerTests
                 .Select(p => new DiffFile { RelativePath = p.Replace('/', '\\'), Source = stamp }).ToList();
             var buildSnapshot = new DiffSnapshot { SourceRoot = root, TargetRoot = DeveloperDifferencerService.Root(target), Files = buildFiles };
             foreach (var f in buildFiles) buildSnapshot.Folders.Add(Path.GetDirectoryName(f.RelativePath) ?? "");
-            typeof(DeveloperDifferencerWindow).GetField("snapshot", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(buildWindow, buildSnapshot);
-            typeof(DeveloperDifferencerWindow).GetField("rows", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(buildWindow, buildFiles.Select(f => new DiffRow { File = f }).ToList());
+            typeof(DeveloperDifferencerViewModel).GetField("snapshot", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(buildWindow.ViewModel, buildSnapshot);
+            typeof(DeveloperDifferencerViewModel).GetField("rows", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(buildWindow.ViewModel, buildFiles.Select(f => new DiffRow { File = f }).ToList());
             BuildTree(buildWindow, buildSnapshot.Folders, new string[0], "");
             var buildRoot = (DiffFolder)((TreeView)buildWindow.FindName("FolderTree")).Items[0];
             Check(((CheckBox)buildWindow.FindName("ObjFilter")).IsChecked == false && ((CheckBox)buildWindow.FindName("BinFilter")).IsChecked == false && buildRoot.CountFor(DiffKind.Differences) == 3, "OBJ/BIN default off hides only exact folder names at any depth");
@@ -285,22 +286,22 @@ internal static class DifferencerTests
             Check(buildFiles.Count(f => f.Selected) == 3 && !buildFiles[1].Selected && !buildFiles[2].Selected, "root checkbox excludes hidden OBJ/BIN files");
             for (int mask = 0; mask < 4; mask++)
             {
-                ((CheckBox)buildWindow.FindName("ObjFilter")).IsChecked = (mask & 1) != 0;
-                ((CheckBox)buildWindow.FindName("BinFilter")).IsChecked = (mask & 2) != 0;
-                typeof(DeveloperDifferencerWindow).GetMethod("BuildFolderFilter_Click", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(buildWindow, new object[] { null, new RoutedEventArgs() });
+                ((CheckBox)buildWindow.FindName("ObjFilter")).SetCurrentValue(System.Windows.Controls.Primitives.ToggleButton.IsCheckedProperty, (mask & 1) != 0);
+                ((CheckBox)buildWindow.FindName("BinFilter")).SetCurrentValue(System.Windows.Controls.Primitives.ToggleButton.IsCheckedProperty, (mask & 2) != 0);
+                buildWindow.ViewModel.ApplyBuildFolderFilter();
                 int expected = mask == 3 ? 6 : mask == 0 ? 3 : 4;
                 Check(((ListView)buildWindow.FindName("FilesGrid")).Items.Count == expected && buildRoot.CountFor(DiffKind.Differences) == expected, "OBJ/BIN filter combination " + mask + " updates list and tree counts");
             }
             buildFiles[1].Selected = true;
-            ((CheckBox)buildWindow.FindName("ObjFilter")).IsChecked = false;
-            typeof(DeveloperDifferencerWindow).GetMethod("BuildFolderFilter_Click", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(buildWindow, new object[] { null, new RoutedEventArgs() });
+            ((CheckBox)buildWindow.FindName("ObjFilter")).SetCurrentValue(System.Windows.Controls.Primitives.ToggleButton.IsCheckedProperty, false);
+            buildWindow.ViewModel.ApplyBuildFolderFilter();
             Check(buildFiles[1].Selected && ((TextBlock)buildWindow.FindName("CountText")).Text.Contains("1 hidden"), "explicitly selected OBJ file retains its checkbox with hidden count");
             buildWindow.Close();
             var cancelWindow = new DeveloperDifferencerWindow();
-            ((TextBox)cancelWindow.FindName("SourceBox")).Text = source;
-            ((TextBox)cancelWindow.FindName("TargetBox")).Text = target;
+            cancelWindow.ViewModel.SourcePath = source;
+            cancelWindow.ViewModel.TargetPath = target;
             System.Threading.SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
-            var compareTask = (System.Threading.Tasks.Task)typeof(DeveloperDifferencerWindow).GetMethod("Compare", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(cancelWindow, null);
+            var compareTask = (System.Threading.Tasks.Task)typeof(DeveloperDifferencerViewModel).GetMethod("CompareAsync", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(cancelWindow.ViewModel, null);
             Check(((Button)cancelWindow.FindName("CancelCompareButton")).IsEnabled, "comparison enables its cancel button");
             ((Button)cancelWindow.FindName("CancelCompareButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             var cancelWait = System.Diagnostics.Stopwatch.StartNew();

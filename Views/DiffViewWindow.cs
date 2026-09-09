@@ -1,4 +1,5 @@
-﻿using DesktopIniManager.Services;
+using DesktopIniManager.ViewModels;
+using DesktopIniManager.Services;
 using DesktopIniManager.Properties;
 using System;
 using System.Collections.Generic;
@@ -22,24 +23,16 @@ using System.Windows.Threading;
 
 namespace DesktopIniManager.Views
 {
-    internal static class DiffMedia
-    {
-        internal const string BinaryMessage = "Binary and cache files are not supported in Diff View. Only text files and supported images can be displayed.";
-        public static bool IsBinary(string path)
-        { return new[] { ".exe", ".dll", ".pdb", ".obj", ".lib", ".zip", ".7z", ".rar", ".gz", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".db", ".sqlite", ".mp3", ".mp4", ".wav", ".msi", ".bin", ".icl", ".resources", ".baml", ".cache" }.Contains(System.IO.Path.GetExtension(path).ToLowerInvariant()); }
-        public static bool IsImage(string path)
-        { return new[] { ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".ico", ".tif", ".tiff", ".wdp", ".jxr" }.Contains(System.IO.Path.GetExtension(path).ToLowerInvariant()); }
-    }
-
     internal sealed class DiffViewWindow : Window
     {
-        private readonly DiffSnapshot snapshot;
-        private DiffFile file;
+        internal DiffViewModel ViewModel { get; }
+        private DiffSnapshot snapshot => ViewModel.Snapshot;
+        private DiffFile file { get => ViewModel.File; set => ViewModel.File = value; }
         private readonly Grid body = new Grid();
         private readonly TextBlock status = new TextBlock { Margin = new Thickness(8, 6, 8, 0), TextWrapping = TextWrapping.Wrap };
         private readonly TextBlock selectedFileText = new TextBlock();
-        private readonly List<int> hunks = new List<int>();
-        private List<DiffLine> lines;
+        private List<int> hunks => ViewModel.Hunks;
+        private List<DiffLine> lines => ViewModel.Lines;
         private ListBox leftList, rightList;
         private ScrollViewer leftScroll, rightScroll;
         private Canvas map;
@@ -62,7 +55,7 @@ namespace DesktopIniManager.Views
             TextWrapping = TextWrapping.NoWrap,
             ToolTip = "External diff command. Use {source} and {target}."
         };
-        private int current = -1;
+        private int current { get => ViewModel.CurrentHunk; set => ViewModel.CurrentHunk = value; }
         private bool scrolling, selecting;
         private bool externalDiffPending;
         private DiffStamp externalSourceStamp, externalTargetStamp;
@@ -73,8 +66,11 @@ namespace DesktopIniManager.Views
 
         public DiffViewWindow(DiffSnapshot snapshot, DiffFile file)
         {
-            this.snapshot = snapshot;
-            this.file = file;
+            ViewModel = new DiffViewModel(snapshot, file);
+            DataContext = ViewModel;
+            status.SetBinding(TextBlock.TextProperty, new Binding(nameof(ViewModel.Status)));
+            ViewModel.JumpRequested += Jump;
+            ViewModel.ReloadRequested = async () => { externalDiffPending = false; await LoadContent(); };
             Title = string.Format(StringOverlay.Get("Diff_TitleFile"), file.RelativePath);
             Width = 1280;
             Height = 800;
@@ -168,8 +164,8 @@ namespace DesktopIniManager.Views
             toolbar.Children.Add(actions);
             if (!DiffMedia.IsImage(file.RelativePath))
             {
-                AddButton(actions, DifferencerStatusIcons.GetCustomIcon(20), StringOverlay.Get(""), () => Navigate(-1));
-                AddButton(actions, DifferencerStatusIcons.GetCustomIcon(21), StringOverlay.Get(""), () => Navigate(1));
+                AddButton(actions, DifferencerStatusIcons.GetCustomIcon(20), StringOverlay.Get(""), () => ViewModel.PreviousHunkCommand.Execute(null));
+                AddButton(actions, DifferencerStatusIcons.GetCustomIcon(21), StringOverlay.Get(""), () => ViewModel.NextHunkCommand.Execute(null));
             }
             AddButton(actions, DifferencerStatusIcons.GetCustomIcon(17), StringOverlay.Get("Diff_OpenSource"), () => OpenAssociatedApplication(true));
             AddButton(actions, DifferencerStatusIcons.GetCustomIcon(17), StringOverlay.Get("Diff_OpenTarget"), () => OpenAssociatedApplication(false));
@@ -195,8 +191,8 @@ namespace DesktopIniManager.Views
                 Orientation = Orientation.Horizontal,
                 HorizontalAlignment = HorizontalAlignment.Right
             };
-            AddButton(fileNavigation, DifferencerStatusIcons.GetCustomIcon(18), StringOverlay.Get(""), () => NavigateFile(-1));
-            AddButton(fileNavigation, DifferencerStatusIcons.GetCustomIcon(19), StringOverlay.Get(""), () => NavigateFile(1)); Grid.SetRow(fileNavigation, 1);
+            AddButton(fileNavigation, DifferencerStatusIcons.GetCustomIcon(18), StringOverlay.Get(""), () => ViewModel.PreviousFileCommand.Execute(null));
+            AddButton(fileNavigation, DifferencerStatusIcons.GetCustomIcon(19), StringOverlay.Get(""), () => ViewModel.NextFileCommand.Execute(null)); Grid.SetRow(fileNavigation, 1);
             Grid.SetColumn(fileNavigation, 2);
             toolbar.Children.Add(fileNavigation);
             SeedExternalDiffPresets();
@@ -316,19 +312,18 @@ namespace DesktopIniManager.Views
             string cleanTarget = System.Text.RegularExpressions.Regex.Replace(file.TargetInfo ?? "", @"(\d{2}:\d{2}:\d{2})\.\d+", "$1");
             sourceHeader.Text = StringOverlay.Get("Common_Source") + "\n" + cleanSource;
             targetHeader.Text = StringOverlay.Get("Common_Target") + "\n" + cleanTarget; body.Children.Clear();
-            hunks.Clear();
-            current = -1;
+            ViewModel.ResetContent();
             leftList = rightList = null;
             leftScroll = rightScroll = null;
             map = null;
             viewportThumb = null;
-            status.Text = StringOverlay.Get("Diff_Loading");
+            ViewModel.Status = StringOverlay.Get("Diff_Loading");
             try
             {
                 if (DiffMedia.IsBinary(file.RelativePath)) throw new InvalidDataException(DiffMedia.BinaryMessage);
                 if (DiffMedia.IsImage(file.RelativePath)) { await LoadImages(); return; }
                 string leftPath = GetPath(true), rightPath = GetPath(false);
-                lines = await Task.Run(() => DiffTextService.Compare(ReadText(leftPath), ReadText(rightPath)));
+                await ViewModel.LoadTextAsync();
                 if (!IsLoaded) return;
                 sharedTextWidth = MeasureSharedTextWidth();
                 leftList = MakeList("LeftDisplay", true);
@@ -340,8 +335,6 @@ namespace DesktopIniManager.Views
                 map.SetResourceReference(Panel.BackgroundProperty, "CardBackground");
                 Grid.SetColumn(map, 1);
                 body.Children.Add(map);
-                for (int i = 0; i < lines.Count; i++)
-                    if (lines[i].Kind != DiffLineKind.Unchanged && (i == 0 || lines[i - 1].Kind == DiffLineKind.Unchanged)) hunks.Add(i);
                 map.SizeChanged += (s, e) => DrawMap();
                 DrawMap();
                 leftList.SelectionChanged += (s, e) => SyncSelection(leftList, rightList);
@@ -353,14 +346,14 @@ namespace DesktopIniManager.Views
                     body.IsEnabled = false;
                     body.Opacity = 0.5;
                     ShowDateDiffOnlyOverlay();
-                    status.Text = "Different timestamps, identical content";
+                    ViewModel.Status = "Different timestamps, identical content";
                 }
                 else
                 {
                     body.IsEnabled = true;
                     body.Opacity = 1.0;
                     HideDateDiffOnlyOverlay();
-                    status.Text = hunks.Count + " hunks | left red = removed  right green = added | UTF-8 / BOM / Shift-JIS | large files use a simplified match";
+                    ViewModel.Status = hunks.Count + " hunks | left red = removed  right green = added | UTF-8 / BOM / Shift-JIS | large files use a simplified match";
                     _ = Dispatcher.BeginInvoke(new Action(() =>
                     {
                         if (!IsLoaded || hunks.Count == 0) return;
@@ -374,7 +367,7 @@ namespace DesktopIniManager.Views
             }
             catch (InvalidDataException) { MessageBox.Show(Owner ?? this, DiffMedia.BinaryMessage, "Diff View", MessageBoxButton.OK, MessageBoxImage.Information); Close(); }
             catch (DecoderFallbackException) { MessageBox.Show(Owner ?? this, DiffMedia.BinaryMessage, "Diff View", MessageBoxButton.OK, MessageBoxImage.Information); Close(); }
-            catch (Exception ex) { status.Text = string.Format(StringOverlay.Get("Diff_Unable"), ErrorMessages.English(ex)); }
+            catch (Exception ex) { ViewModel.Status = string.Format(StringOverlay.Get("Diff_Unable"), ErrorMessages.English(ex)); }
         }
         private void ShowDateDiffOnlyOverlay()
         {
@@ -436,21 +429,7 @@ namespace DesktopIniManager.Views
             var formatted = new FormattedText(longest, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface, 13, Brushes.Black, VisualTreeHelper.GetDpi(this).PixelsPerDip);
             return formatted.WidthIncludingTrailingWhitespace + 24;
         }
-        private static string[] ReadText(string path)
-        {
-            DiffStamp stamp = DiffStamp.Read(path); if (stamp == null) return new string[0];
-            if (stamp.Size > 8 * 1024 * 1024) throw new IOException("Files over 8 MB should be opened in an external editor.");
-            byte[] bytes = File.ReadAllBytes(path);
-            string text;
-            try { using (var reader = new StreamReader(new MemoryStream(bytes), new UTF8Encoding(false, true), true)) text = reader.ReadToEnd(); }
-            catch (DecoderFallbackException) { text = Encoding.GetEncoding(932, EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback).GetString(bytes); }
-            if (text.Any(c => c == '\0' || (char.IsControl(c) && c != '\r' && c != '\n' && c != '\t' && c != '\f')))
-                throw new InvalidDataException(DiffMedia.BinaryMessage);
-            if (text.Length == 0) return new string[0];
-            var lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
-            if (lines.Length > 100000) throw new IOException("Files over 100,000 lines should be opened in an external editor.");
-            return lines;
-        }
+
 
         private ListBox MakeList(string property, bool sourceSide)
         {
@@ -626,26 +605,10 @@ namespace DesktopIniManager.Views
             UpdateViewport(leftScroll);
         }
 
-        private void Navigate(int direction)
-        { if (hunks.Count == 0) return; current = current < 0 ? (direction > 0 ? 0 : hunks.Count - 1) : (current + direction + hunks.Count) % hunks.Count; Jump(hunks[current]); }
+
 
         /// <summary>Displays the previous or next difference that Diff View supports.</summary>
-        private async void NavigateFile(int direction)
-        {
-            List<DiffFile> candidates = snapshot.Files
-                .Where(candidate => candidate.Kind != DiffKind.Same && !DiffMedia.IsBinary(candidate.RelativePath))
-                .OrderBy(candidate => candidate.RelativePath, StringComparer.CurrentCultureIgnoreCase)
-                .ToList();
-            if (candidates.Count == 0) return;
 
-            int index = candidates.FindIndex(candidate => ReferenceEquals(candidate, file)
-                || string.Equals(candidate.RelativePath, file.RelativePath, StringComparison.OrdinalIgnoreCase));
-            index = index < 0 ? (direction > 0 ? 0 : candidates.Count - 1)
-                : (index + direction + candidates.Count) % candidates.Count;
-            file = candidates[index];
-            externalDiffPending = false;
-            await LoadContent();
-        }
 
         private void Jump(int index)
         { leftList.SelectedIndex = rightList.SelectedIndex = index; leftList.ScrollIntoView(lines[index]); rightList.ScrollIntoView(lines[index]); current = hunks.IndexOf(index); }
@@ -693,7 +656,7 @@ namespace DesktopIniManager.Views
             zoom.ValueChanged += (s, e) => { if (!fitting) fitToWindow = false; };
             body.SizeChanged += (s, e) => fit();
             await Dispatcher.InvokeAsync(fit, System.Windows.Threading.DispatcherPriority.Loaded);
-            status.Text = "Source: " + ImageSize(left) + " | Target: " + ImageSize(right) + " | shared zoom, top-left aligned (GIF/ICO first frame)";
+            ViewModel.Status = "Source: " + ImageSize(left) + " | Target: " + ImageSize(right) + " | shared zoom, top-left aligned (GIF/ICO first frame)";
         }
 
         private static ScrollViewer ThemedViewer(object content)
@@ -832,7 +795,7 @@ namespace DesktopIniManager.Views
             }
             catch (Exception ex)
             {
-                status.Text = "Unable to refresh external edit: " + ErrorMessages.English(ex);
+                ViewModel.Status = "Unable to refresh external edit: " + ErrorMessages.English(ex);
             }
             finally
             {

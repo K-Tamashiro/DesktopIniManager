@@ -1,3 +1,4 @@
+using DesktopIniManager.ViewModels;
 using DesktopIniManager.Services;
 using System;
 using System.Collections.Generic;
@@ -20,17 +21,8 @@ namespace DesktopIniManager.Views
             content.Children.Add(new TextBlock { Text = label, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center });
             return content;
         }
-
-        private async void CleanSolutionClick(object sender, RoutedEventArgs e)
+        private SolutionCleanSelection ChooseCleanSolutions(IReadOnlyList<string> solutions, string source)
         {
-            if (busy) return;
-            SetBusy(true); CancelCompareButton.IsEnabled = false;
-            try
-            {
-                string source = SourceBox.Text, target = TargetBox.Text;
-                StatusText.Text = Strings.Differencer_FindingSolutions;
-                var solutions = await Task.Run(() => SolutionCleanService.FindSolutions(source, target));
-                if (solutions.Count == 0) { StatusText.Text = Strings.Differencer_NoSolutions; return; }
                 var dialog = new Window
                 {
                     Owner = this,
@@ -98,33 +90,11 @@ namespace DesktopIniManager.Views
                     { MessageBox.Show(dialog, Strings.Differencer_SelectSolutions); return; }
                     dialog.DialogResult = true;
                 };
-                if (dialog.ShowDialog() != true) { StatusText.Text = Strings.Differencer_CleanCancelled; return; }
-                string msbuild = await Task.Run(() => SolutionCleanService.FindMSBuild());
-                ClearComparisonView();
-                CompareProgress.Visibility = Visibility.Visible; CompareProgress.IsIndeterminate = true;
-                var log = new StringBuilder(); int failures = 0, completed = 0;
-                foreach (string solution in choices.Where(c => c.IsChecked == true).Select(c => (string)c.Content))
-                    foreach (string config in configurations)
-                    {
-                        string label = solution + " [" + config + "]";
-                        StatusText.Text = string.Format(Strings.Differencer_Cleaning, label);
-                        SetFilePanelBusy(true, string.Format(Strings.Differencer_Cleaning, Path.GetFileName(solution) + " [" + config + "]…"));
-                        log.AppendLine(label);
-                        try
-                        {
-                            int exit = await Task.Run(() => { string output; int code = SolutionCleanService.Clean(msbuild, solution, config, out output); log.AppendLine(output); return code; });
-                            if (exit != 0) failures++;
-                            log.AppendLine(exit == 0 ? Strings.Common_OK : string.Format(Strings.Differencer_FailExit, exit));
-                        }
-                        catch (Exception ex) { failures++; log.AppendLine(Strings.Common_Fail + " " + ErrorMessages.English(ex)); }
-                        completed++;
-                    }
-                string summary = string.Format(Strings.Differencer_CleanComplete, completed - failures, failures);
-                Directory.CreateDirectory(StateDirectory);
-                string logPath = Path.Combine(StateDirectory, "solution-clean-" + DateTime.Now.ToString("yyyyMMdd-HHmmss-fff") + ".log");
-                File.WriteAllText(logPath, log.ToString());
-                await Compare();
-                StatusText.Text = summary + " " + StatusText.Text;
+                if (dialog.ShowDialog() != true) return null;
+                return new SolutionCleanSelection { Solutions = choices.Where(c => c.IsChecked == true).Select(c => (string)c.Content).ToArray(), Configurations = configurations };
+        }
+        private void ShowCleanReport(string summary, string logPath, string log)
+        {
                 var report = new Window
                 {
                     Owner = this,
@@ -142,9 +112,6 @@ namespace DesktopIniManager.Views
                 };
                 report.SetResourceReference(BackgroundProperty, "WindowBackground");
                 report.SetResourceReference(ForegroundProperty, "Ink"); report.Show();
-            }
-            catch (Exception ex) { StatusText.Text = string.Format(Strings.Differencer_CleanFailed, ErrorMessages.English(ex)); ShowError(ex); }
-            finally { CompareProgress.Visibility = Visibility.Collapsed; CompareProgress.IsIndeterminate = false; SetBusy(false); }
         }
     }
 }

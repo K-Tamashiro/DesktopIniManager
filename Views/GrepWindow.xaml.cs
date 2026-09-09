@@ -1,3 +1,4 @@
+using DesktopIniManager.ViewModels;
 using DesktopIniManager.Models;
 using DesktopIniManager.Services;
 using Microsoft.Win32;
@@ -22,33 +23,27 @@ namespace DesktopIniManager.Views
 {
     public partial class GrepWindow : Window
     {
-        private readonly Func<IReadOnlyList<string>> _scopeProvider;
-        private readonly ObservableCollection<string> _scopes = new ObservableCollection<string>();
-        private readonly ObservableCollection<GrepMatch> _matches = new ObservableCollection<GrepMatch>();
-        private CancellationTokenSource _searchCts;
-        private ConcurrentQueue<GrepMatch> _pendingMatches = new ConcurrentQueue<GrepMatch>();
-        private readonly DispatcherTimer _resultTimer;
+        internal GrepWindowViewModel ViewModel { get; }
         private bool _resultGroupsExpanded = true;
         private readonly Dictionary<string, bool> _resultGroupStates = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
 
         public GrepWindow(Func<IReadOnlyList<string>> scopeProvider, IReadOnlyList<string> initialScopes)
         {
-            _scopeProvider = scopeProvider;
+            ViewModel = new GrepWindowViewModel(scopeProvider, Dispatcher, new UserDialogService(this));
             InitializeComponent();
-            ScopeList.ItemsSource = _scopes;
-            ICollectionView resultView = CollectionViewSource.GetDefaultView(_matches);
+            DataContext = ViewModel;
+            ViewModel.DialogTitle = Title;
+            ViewModel.SearchHistoryRequested += () => { QueryBox.CommitHistory(); ExtensionsText.CommitHistory(); };
+            ViewModel.MatchScrollRequested += match => ResultsGrid.ScrollIntoView(match);
+            ViewModel.ResultGroupsResetRequested += () => { _resultGroupsExpanded = true; _resultGroupStates.Clear(); };
+            ICollectionView resultView = CollectionViewSource.GetDefaultView(ViewModel.Matches);
             resultView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(GrepMatch.GroupPath)));
-            ResultsGrid.ItemsSource = resultView;
-            _resultTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(50), DispatcherPriority.Background,
-                (sender, args) => DrainPendingMatches(20), Dispatcher);
-            _resultTimer.Stop();
             VirtualizingPanel.SetIsVirtualizing(ResultsGrid, true);
             VirtualizingPanel.SetIsVirtualizingWhenGrouping(ResultsGrid, true);
             VirtualizingPanel.SetVirtualizationMode(ResultsGrid, VirtualizationMode.Recycling);
             ScrollViewer.SetCanContentScroll(ResultsGrid, true);
-            ProfileBox.ItemsSource = LanguageProfile.All;
             string savedProfile = SettingsService.LoadGrepProfile();
-            ProfileBox.SelectedItem = LanguageProfile.All.FirstOrDefault(profile =>
+            ViewModel.SelectedProfile = LanguageProfile.All.FirstOrDefault(profile =>
                 string.Equals(profile.Name, savedProfile, StringComparison.OrdinalIgnoreCase))
                 ?? LanguageProfile.All.First(profile => !profile.IsFree);
             ApplyGrepColumnWidths(SettingsService.LoadGrepColumnWidths());
@@ -59,16 +54,16 @@ namespace DesktopIniManager.Views
             EditorBox.HistoryItemApplied += EditorBox_TextChanged;
             if (resetPresets)
             {
-                EditorBox.Text = EditorPresets[0].Executable;
-                EditorArgumentsBox.Text = EditorPresets[0].Arguments;
+                ViewModel.EditorPath = EditorPresets[0].Executable;
+                ViewModel.EditorArguments = EditorPresets[0].Arguments;
                 SettingsService.SaveEditor(EditorPresets[0].Executable, EditorPresets[0].Arguments);
             }
             else
             {
-                EditorBox.Text = SettingsService.LoadEditorPath();
-                EditorArgumentsBox.Text = SettingsService.LoadEditorArguments();
+                ViewModel.EditorPath = SettingsService.LoadEditorPath();
+                ViewModel.EditorArguments = SettingsService.LoadEditorArguments();
             }
-            SetScopes(initialScopes);
+            ViewModel.SetExplicitScopes(initialScopes);
             Loaded += (sender, args) =>
             {
                 ApplyGrepColumnWidths(SettingsService.LoadGrepColumnWidths());
@@ -89,110 +84,21 @@ namespace DesktopIniManager.Views
             };
         }
 
-        public void SetExplicitScopes(IReadOnlyList<string> scopes)
-        {
-            if (_searchCts != null) { StatusText.Text = Strings.Grep_CancelBeforeChange; return; }
-            SetScopes(scopes);
-        }
 
-        public void ReloadFromMainWindow()
-        {
-            if (_searchCts != null) { StatusText.Text = Strings.Grep_CancelBeforeChange; return; }
-            SetScopes(_scopeProvider());
-        }
 
-        private void SetScopes(IEnumerable<string> paths)
-        {
-            string[] normalized = NormalizeScopes(paths).ToArray();
-            _scopes.Clear();
-            foreach (string path in normalized) _scopes.Add(path);
-            ScopeCountText.Text = string.Format(_scopes.Count == 1 ? Strings.Grep_FolderSingular : Strings.Grep_FolderPlural, _scopes.Count);
-            StatusText.Text = _scopes.Count == 0 ? Strings.Grep_NoFoldersSelected : Strings.Common_Ready;
-        }
 
-        private static IEnumerable<string> NormalizeScopes(IEnumerable<string> paths)
-        {
-            var result = new List<string>();
-            foreach (string path in (paths ?? Enumerable.Empty<string>()).Where(Directory.Exists)
-                .Select(path => Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar)).Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(path => path.Length))
-            {
-                if (!result.Any(parent => IsAncestor(parent, path))) result.Add(path);
-            }
-            return result.OrderBy(path => path, StringComparer.CurrentCultureIgnoreCase);
-        }
 
-        private static bool IsAncestor(string parent, string child)
-        {
-            return child.StartsWith(parent.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
-        }
 
-        private async void Search_Click(object sender, RoutedEventArgs e)
-        {
-            if (_searchCts != null) return;
-            QueryBox.CommitHistory(); ExtensionsText.CommitHistory();
-            string query = QueryBox.Text;
-            var profile = ProfileBox.SelectedItem as LanguageProfile;
-            string[] scopes = _scopes.ToArray();
-            if (scopes.Length == 0) { MessageBox.Show(Strings.Grep_SelectFolders, Title); return; }
-            if (string.IsNullOrEmpty(query)) { MessageBox.Show(Strings.Grep_EnterText, Title); return; }
-            if (profile == null) return;
-            if (profile.IsFree)
-            {
-                string[] extensions = ParseExtensions(ExtensionsText.Text);
-                if (extensions.Length == 0) { MessageBox.Show(Strings.Grep_EnterExtensions, Title); return; }
-                SettingsService.SaveGrepFreeExtensions(ExtensionsText.Text.Trim());
-                profile = new LanguageProfile(profile.Name, extensions);
-            }
-            bool useRegex = RegexBox.IsChecked == true;
-            bool matchCase = MatchCaseBox.IsChecked == true;
-            bool wholeWord = WholeWordBox.IsChecked == true;
 
-            var cts = new CancellationTokenSource();
-            _searchCts = cts;
-            _resultGroupsExpanded = true;
-            _resultGroupStates.Clear();
-            _matches.Clear();
-            var pending = new ConcurrentQueue<GrepMatch>();
-            _pendingMatches = pending;
-            _resultTimer.Start();
-            SetSearching(true);
-            try
-            {
-                GrepSearchResult result = await Task.Run(() => new CodeGrepService().Search(scopes, profile, query,
-                    useRegex, matchCase, wholeWord,
-                    (done, total) => Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
-                    {
-                        if (ReferenceEquals(_searchCts, cts) && !cts.IsCancellationRequested)
-                            StatusText.Text = string.Format(Strings.Grep_SearchingFiles, done.ToString("N0"), total.ToString("N0"));
-                    })), cts.Token,
-                    match => { if (!cts.IsCancellationRequested) pending.Enqueue(match); }));
-                await DrainAllPendingMatchesAsync(cts.Token);
-                cts.Token.ThrowIfCancellationRequested();
-                StatusText.Text = result.SkippedCount == 0 ? string.Format(Strings.Grep_Result, result.Matches.Count.ToString("N0"), result.FileCount.ToString("N0")) : string.Format(Strings.Grep_ResultSkipped, result.Matches.Count.ToString("N0"), result.FileCount.ToString("N0"), result.SkippedCount);
-            }
-            catch (OperationCanceledException) { _pendingMatches = new ConcurrentQueue<GrepMatch>(); StatusText.Text = Strings.Grep_SearchCancelled; }
-            catch (ArgumentException ex) { MessageBox.Show(string.Format(Strings.Grep_InvalidExpression, ErrorMessages.English(ex)), Title, MessageBoxButton.OK, MessageBoxImage.Warning); StatusText.Text = Strings.Grep_InvalidExpressionStatus; }
-            catch (Exception ex) { MessageBox.Show(ErrorMessages.English(ex), Title, MessageBoxButton.OK, MessageBoxImage.Error); StatusText.Text = Strings.Grep_SearchFailed; }
-            finally { _resultTimer.Stop(); if (ReferenceEquals(_searchCts, cts)) _searchCts = null; SetSearching(false); cts.Dispose(); }
-        }
 
-        private void DrainPendingMatches(int maximum)
-        {
-            int count = 0; GrepMatch match; GrepMatch last = null;
-            while (count++ < maximum && _pendingMatches.TryDequeue(out match)) { _matches.Add(match); last = match; }
-            if (last != null) ResultsGrid.ScrollIntoView(last);
-        }
 
-        private async Task DrainAllPendingMatchesAsync(CancellationToken token)
-        {
-            while (!_pendingMatches.IsEmpty)
-            {
-                token.ThrowIfCancellationRequested();
-                DrainPendingMatches(30);
-                await System.Windows.Threading.Dispatcher.Yield(DispatcherPriority.Background);
-            }
-        }
+
+
+
+
+
+
+
 
         private static void ShowTextEnd(TextBox box)
         {
@@ -205,11 +111,7 @@ namespace DesktopIniManager.Views
             }), DispatcherPriority.Loaded);
         }
 
-        private void SetSearching(bool searching)
-        {
-            SearchButton.IsEnabled = !searching; CancelButton.IsEnabled = searching; ProfileBox.IsEnabled = !searching;
-            SearchProgress.Visibility = searching ? Visibility.Visible : Visibility.Collapsed;
-        }
+
 
         /// <summary>Applies the current global expansion state to a newly realized file group.</summary>
         private void ResultGroupExpander_Loaded(object sender, RoutedEventArgs e)
@@ -274,25 +176,13 @@ namespace DesktopIniManager.Views
             }
         }
 
-        private void ResultsGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
-        {
-            var match = ResultsGrid.SelectedItem as GrepMatch;
-            if (match == null) return;
-            try
-            {
-                SettingsService.SaveEditor(EditorBox.Text.Trim(), EditorArgumentsBox.Text);
-                string arguments = (EditorArgumentsBox.Text ?? string.Empty)
-                    .Replace("{file}", match.FilePath).Replace("{line}", match.LineNumber.ToString()).Replace("{column}", match.ColumnNumber.ToString());
-                Process.Start(new ProcessStartInfo(ExpandEditorPath(EditorBox.Text), arguments) { UseShellExecute = true });
-            }
-            catch (Exception ex) { MessageBox.Show(string.Format(Strings.Grep_EditorFailed, ErrorMessages.English(ex)), Title, MessageBoxButton.OK, MessageBoxImage.Error); }
-        }
+
 
         private void BrowseEditor_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new OpenFileDialog { Filter = Strings.Grep_EditorFilter, CheckFileExists = true };
             if (dialog.ShowDialog(this) != true) return;
-            EditorBox.Text = dialog.FileName; EditorBox.CommitHistory();
+            ViewModel.EditorPath = dialog.FileName; EditorBox.CommitHistory();
             ShowTextEnd(EditorBox);
         }
 
@@ -340,27 +230,23 @@ namespace DesktopIniManager.Views
         private void EditorBox_TextChanged(object sender, EventArgs e)
         {
             if (_applyingEditorArgs) return;
-            EditorPreset preset = MatchEditorPreset(EditorBox.Text);
+            EditorPreset preset = MatchEditorPreset(ViewModel.EditorPath);
             if (preset == null) return;
             _applyingEditorArgs = true;
             try
             {
-                EditorArgumentsBox.Text = preset.Arguments;
+                ViewModel.EditorArguments = preset.Arguments;
                 ShowTextEnd(EditorArgumentsBox);
             }
             finally { _applyingEditorArgs = false; }
         }
 
-        private static string ExpandEditorPath(string editor)
-        {
-            if (string.IsNullOrWhiteSpace(editor)) return editor;
-            return Environment.ExpandEnvironmentVariables(editor.Trim().Trim('"'));
-        }
+
 
         private static EditorPreset MatchEditorPreset(string editor)
         {
             if (string.IsNullOrWhiteSpace(editor)) return null;
-            string path = ExpandEditorPath(editor);
+            string path = GrepWindowViewModel.ExpandEditorPath(editor);
             string name = Path.GetFileName(path);
             foreach (EditorPreset preset in EditorPresets)
             {
@@ -375,42 +261,18 @@ namespace DesktopIniManager.Views
             return null;
         }
 
-        private void ProfileBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            var previous = e.RemovedItems.Count > 0 ? e.RemovedItems[0] as LanguageProfile : null;
-            if (previous != null && previous.IsFree) SettingsService.SaveGrepFreeExtensions(ExtensionsText.Text.Trim());
-            var selected = ProfileBox.SelectedItem as LanguageProfile;
-            bool free = selected != null && selected.IsFree;
-            ExtensionsText.IsReadOnly = !free;
-            ExtensionsText.Text = free ? SettingsService.LoadGrepFreeExtensions() : selected?.ExtensionText ?? string.Empty;
-        }
 
-        private static string[] ParseExtensions(string text)
-        {
-            return (text ?? string.Empty).Split(new[] { ' ', '\t', ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(value => value.Trim())
-                .Where(value => value.Length > 0)
-                .Select(value => value == "(none)" ? string.Empty : value.StartsWith(".", StringComparison.Ordinal) ? value : "." + value)
-                .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-        }
-        private void ReloadScopes_Click(object sender, RoutedEventArgs e) => ReloadFromMainWindow();
-        private void Cancel_Click(object sender, RoutedEventArgs e)
-        {
-            if (_searchCts == null) return;
-            _searchCts.Cancel();
-            _resultTimer.Stop();
-            _pendingMatches = new ConcurrentQueue<GrepMatch>();
-            CancelButton.IsEnabled = false;
-            StatusText.Text = Strings.Grep_Cancelling;
-        }
+
+
+
+
+        public void SetExplicitScopes(IReadOnlyList<string> scopes) => ViewModel.SetExplicitScopes(scopes);
+        public void ReloadFromMainWindow() => ViewModel.ReloadFromMainWindow();
+        private void ResultsGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e) => ViewModel.OpenMatchCommand.Execute(null);
         private void Close_Click(object sender, RoutedEventArgs e) => Close();
         protected override void OnClosing(CancelEventArgs e)
         {
-            Cancel_Click(this, new RoutedEventArgs());
-            _resultTimer.Stop();
-            SettingsService.SaveEditor(EditorBox.Text.Trim(), EditorArgumentsBox.Text);
-            SettingsService.SaveGrepProfile((ProfileBox.SelectedItem as LanguageProfile)?.Name);
-            if ((ProfileBox.SelectedItem as LanguageProfile)?.IsFree == true) SettingsService.SaveGrepFreeExtensions(ExtensionsText.Text.Trim());
+            ViewModel.Close();
             double[] widths = ResultsGrid.Columns.Select(column => column.ActualWidth).ToArray();
             if (widths.Length >= 4 && widths[0] >= 80 && widths[1] >= 120)
                 SettingsService.SaveGrepColumnWidths(widths);

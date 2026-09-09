@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -87,12 +87,12 @@ namespace FastVolumeIndex
             var psi = new ProcessStartInfo
             {
                 FileName = "cmd.exe",
-                Arguments = "/c dir /s /b \"" + rootPath.TrimEnd('\\') + "\"",
+                Arguments = "/u /c dir /s /b \"" + rootPath.TrimEnd('\\') + "\"",
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 CreateNoWindow = true,
-                StandardOutputEncoding = Encoding.Default
+                StandardOutputEncoding = Encoding.Unicode
             };
             using (var process = Process.Start(psi))
             {

@@ -80,7 +80,7 @@ namespace DesktopIniManager.Views
 
         public void ResetField(string text)
         {
-            Text = text ?? string.Empty;
+            SetCurrentValue(TextProperty, text ?? string.Empty);
             CaretIndex = Text.Length;
             if (!string.IsNullOrEmpty(HistoryKey)) store.Clear(HistoryKey);
             if (list != null) list.ItemsSource = null;
@@ -168,7 +168,7 @@ namespace DesktopIniManager.Views
         private void ApplySelection()
         {
             if (!(list.SelectedItem is string value)) return;
-            Text = value;
+            SetCurrentValue(TextProperty, value);
             if (!PreserveOrder) CommitHistory();
             popup.IsOpen = false;
             Focus();

@@ -1,3 +1,4 @@
+using DesktopIniManager.ViewModels;
 using DesktopIniManager.Services;
 using DesktopIniManager.Views;
 using System;
@@ -16,7 +17,9 @@ using System.Windows.Threading;
 internal static class ScrollPerformance
 {
     private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
-    private static void Field(object target, string name, object value) { target.GetType().GetField(name, Private).SetValue(target, value); }
+    private static void Field(object target, string name, object value) { if (target is GrepWindow grep) target = grep.ViewModel;
+        else if (target is DeveloperDifferencerWindow diff) target = diff.ViewModel;
+        target.GetType().GetField(name, Private).SetValue(target, value); }
     private static IEnumerable<T> Visuals<T>(DependencyObject parent) where T : DependencyObject
     {
         for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
@@ -44,7 +47,7 @@ internal static class ScrollPerformance
         var file = new DiffFile { RelativePath = "test.txt", Source = DiffStamp.Read(Path.Combine(left, "test.txt")), Target = DiffStamp.Read(Path.Combine(right, "test.txt")) };
         var window = new DiffViewWindow(snapshot, file) { WindowStartupLocation = WindowStartupLocation.Manual, Left = -20000, Top = -20000, ShowInTaskbar = false, ShowActivated = false };
         window.Show();
-        Func<string, object> field = name => typeof(DiffViewWindow).GetField(name, Private).GetValue(window);
+        Func<string, object> field = name => typeof(DiffViewWindow).GetField(name, Private)?.GetValue(window) ?? typeof(DiffViewWindow).GetProperty(name, Private)?.GetValue(window);
         var wait = Stopwatch.StartNew();
         while (field("leftScroll") == null && wait.ElapsedMilliseconds < 5000) Pump(50);
         Pump(100);
@@ -97,17 +100,17 @@ internal static class ScrollPerformance
         catch (OperationCanceledException) { }
         if (found != 1) throw new Exception("Cancelled search kept emitting matches");
         var window = new GrepWindow(() => new[] { root }, new[] { root });
-        var pending = (System.Collections.Concurrent.ConcurrentQueue<DesktopIniManager.Models.GrepMatch>)typeof(GrepWindow).GetField("_pendingMatches", Private).GetValue(window);
+        var pending = (System.Collections.Concurrent.ConcurrentQueue<DesktopIniManager.Models.GrepMatch>)typeof(GrepWindowViewModel).GetField("_pendingMatches", Private).GetValue(window.ViewModel);
         for (int i = 0; i < 10000; i++) pending.Enqueue(new DesktopIniManager.Models.GrepMatch { FilePath = Path.Combine(root, "test.txt"), ScopeName = "Test", RelativePath = "test.txt", LineNumber = i + 1, LineText = "match" });
         var draining = new System.Threading.CancellationTokenSource();
         Field(window, "_searchCts", draining);
-        var task = (System.Threading.Tasks.Task)typeof(GrepWindow).GetMethod("DrainAllPendingMatchesAsync", Private).Invoke(window, new object[] { draining.Token });
-        typeof(GrepWindow).GetMethod("Cancel_Click", Private).Invoke(window, new object[] { window, new RoutedEventArgs() });
+        var task = (System.Threading.Tasks.Task)typeof(GrepWindowViewModel).GetMethod("DrainAllPendingMatchesAsync", Private).Invoke(window.ViewModel, new object[] { draining.Token });
+        window.ViewModel.Cancel();
         Pump(100);
-        // Search_Click checks cancellation after draining, even if replacing the queue ended the loop.
+        // SearchAsync checks cancellation after draining, even if replacing the queue ended the loop.
         if (!task.IsCompleted || !draining.IsCancellationRequested) throw new Exception("Pending result drain did not stop");
-        var matches = (System.Collections.ObjectModel.ObservableCollection<DesktopIniManager.Models.GrepMatch>)typeof(GrepWindow).GetField("_matches", Private).GetValue(window);
-        var remaining = (System.Collections.Concurrent.ConcurrentQueue<DesktopIniManager.Models.GrepMatch>)typeof(GrepWindow).GetField("_pendingMatches", Private).GetValue(window);
+        var matches = (System.Collections.ObjectModel.ObservableCollection<DesktopIniManager.Models.GrepMatch>)typeof(GrepWindowViewModel).GetField("_matches", Private).GetValue(window.ViewModel);
+        var remaining = (System.Collections.Concurrent.ConcurrentQueue<DesktopIniManager.Models.GrepMatch>)typeof(GrepWindowViewModel).GetField("_pendingMatches", Private).GetValue(window.ViewModel);
         if (matches.Count > 30 || !remaining.IsEmpty || ((Button)window.FindName("CancelButton")).IsEnabled) throw new Exception("Cancel continued displaying queued results");
         var clean = new CodeGrepService().Search(new[] { root }, new DesktopIniManager.Models.LanguageProfile("Test", new[] { ".txt" }), "match", false, false, false, null, System.Threading.CancellationToken.None);
         if (clean.Matches.Count != 10000) throw new Exception("Subsequent search failed");
@@ -142,7 +145,7 @@ internal static class ScrollPerformance
         string preview = Path.Combine(root, "splash-preview.png");
         using (var stream = File.Create(preview)) encoder.Save(stream);
         var main = new DesktopIniManager.MainWindow(prepared);
-        var trees = (System.Collections.ObjectModel.ObservableCollection<DesktopIniManager.Models.FolderMatch>)typeof(DesktopIniManager.MainWindow).GetField("_treeRoots", Private).GetValue(main);
+        var trees = (System.Collections.ObjectModel.ObservableCollection<DesktopIniManager.Models.FolderMatch>)typeof(MainWindowViewModel).GetField("_treeRoots", Private).GetValue(main.ViewModel);
         if (trees.Count != 1 || trees[0].Path != root) throw new Exception("Prepared tree was not handed to the main window");
         File.WriteAllText(FolderTreeStateService.StatePath, "invalid xml");
         var invalid = StartupState.Load((message, completed) => { });
@@ -172,7 +175,7 @@ internal static class ScrollPerformance
         var encoder = new PngBitmapEncoder();
         encoder.Frames.Add(BitmapFrame.Create(BitmapSource.Create(320, 240, 96, 96, PixelFormats.Bgra32, null, new byte[320 * 240 * 4], 320 * 4)));
         using (var stream = File.Create(Path.Combine(root, "sample.png"))) encoder.Save(stream);
-        typeof(DeveloperDifferencerWindow).GetField("StatePath", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, Path.Combine(root, "state.xml"));
+        typeof(DeveloperDifferencerViewModel).GetField("StatePath", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, Path.Combine(root, "state.xml"));
         var window = new DeveloperDifferencerWindow { WindowStartupLocation = WindowStartupLocation.Manual, Left = -20000, Top = -20000, ShowInTaskbar = false, ShowActivated = false };
         var snapshot = new DiffSnapshot { SourceRoot = root + "\\", TargetRoot = root + "\\" };
         var rows = new List<DiffRow>();
@@ -186,8 +189,8 @@ internal static class ScrollPerformance
             rows.Add(new DiffRow { File = file, Source = new DiffSide { Root = snapshot.SourceRoot, Relative = sample, Exists = true, Info = file.SourceInfo }, Target = new DiffSide { Root = snapshot.TargetRoot, Relative = sample, Exists = true, Info = file.TargetInfo } });
         }
         Field(window, "snapshot", snapshot); Field(window, "rows", rows); Field(window, "treeSource", root); Field(window, "treeTarget", root);
-        var buildTask = (System.Threading.Tasks.Task)typeof(DeveloperDifferencerWindow).GetMethod("BuildTreeAsync", Private)
-            .Invoke(window, new object[] { snapshot.Folders, new[] { "" }, "", System.Threading.CancellationToken.None });
+        var buildTask = (System.Threading.Tasks.Task)typeof(DeveloperDifferencerViewModel).GetMethod("BuildTreeAsync", Private)
+            .Invoke(window.ViewModel, new object[] { snapshot.Folders, new[] { "" }, "", System.Threading.CancellationToken.None });
         buildTask.GetAwaiter().GetResult();
         window.Show(); Pump(500);
         var list = (ListView)window.FindName("FilesGrid");

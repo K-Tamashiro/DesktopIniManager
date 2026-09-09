@@ -1,4 +1,5 @@
 using DesktopIniManager.Models;
+using DesktopIniManager.ViewModels;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -9,20 +10,18 @@ namespace DesktopIniManager.Views
 {
     public partial class IconGroupBrowserWindow : Window
     {
+        internal IconGroupBrowserViewModel ViewModel { get; }
         internal IconGroupBrowserWindow(string filePath, IEnumerable<IconGroupResource> groups, int currentIndex)
         {
+            ViewModel = new IconGroupBrowserViewModel(filePath, groups, currentIndex);
             InitializeComponent();
-            var items = groups.ToList();
-            FilePathText.Text = filePath;
-            CountText.Text = string.Format(Strings.Icon_NIcons, items.Count);
-            GroupList.ItemsSource = items;
-            GroupList.SelectedItem = items.FirstOrDefault(item => item.ShellIndex == currentIndex) ?? items.FirstOrDefault();
+            DataContext = ViewModel;
+            ViewModel.SelectionConfirmed += () => DialogResult = true;
             Loaded += (sender, args) => { if (GroupList.SelectedItem != null) GroupList.ScrollIntoView(GroupList.SelectedItem); };
         }
 
-        internal IconGroupResource SelectedGroup => GroupList.SelectedItem as IconGroupResource;
-        private void Select_Click(object sender, RoutedEventArgs e) => ConfirmSelection();
+        internal IconGroupResource SelectedGroup => ViewModel.SelectedGroup;
         private void GroupList_MouseDoubleClick(object sender, MouseButtonEventArgs e) { if (SelectedGroup != null) ConfirmSelection(); }
-        private void ConfirmSelection() { if (SelectedGroup != null) DialogResult = true; }
+        private void ConfirmSelection() => ViewModel.SelectCommand.Execute(null);
     }
 }

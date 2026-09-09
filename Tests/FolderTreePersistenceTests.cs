@@ -1,3 +1,4 @@
+using DesktopIniManager.ViewModels;
 using DesktopIniManager;
 using DesktopIniManager.Models;
 using DesktopIniManager.Services;
@@ -15,9 +16,9 @@ internal static class FolderTreePersistenceTests
     private static void Check(bool condition, string message)
     { if (!condition) throw new Exception(message); Console.WriteLine("PASS " + message); }
     private static ObservableCollection<FolderMatch> Nodes(MainWindow window, string name)
-    { return (ObservableCollection<FolderMatch>)typeof(MainWindow).GetField(name, Private).GetValue(window); }
+    { return (ObservableCollection<FolderMatch>)typeof(MainWindowViewModel).GetField(name, Private).GetValue(window.ViewModel); }
     private static void Save(MainWindow window)
-    { typeof(MainWindow).GetMethod("SaveFolderTrees", Private).Invoke(window, null); }
+    { window.ViewModel.SaveFolderTrees(); }
 
     internal static int Run(string appXaml)
     {
@@ -49,12 +50,12 @@ internal static class FolderTreePersistenceTests
         var restoredChild = physical.Single().Children.Single();
         Check(restoredChild.Parent == physical.Single() && restoredChild.IsExpanded && restoredChild.IsCurrent,
             "main window restores hierarchy, parent links, expansion and current folder");
-        Check(Nodes(first, "_solutionRoots").Single().DisplayName == "Solution" && (int)typeof(MainWindow).GetField("_treeView", Private).GetValue(first) == 1,
+        Check(Nodes(first, "_solutionRoots").Single().DisplayName == "Solution" && first.ViewModel.SelectedTreeView == 1,
             "solution tree and active base tab restored");
         Check(Nodes(first, "_results").Count == 2 && !restoredChild.IsSelected, "physical index restored without selecting file operations");
         restoredChild.IsFilterHidden = true;
         Nodes(first, "_searchRoots").Add(new FolderMatch { Path = "search-only" });
-        typeof(MainWindow).GetMethod("ShowTreeView", Private).Invoke(first, new object[] { 2 });
+        first.ViewModel.ShowTreeView(2);
         Save(first);
         Check(FolderTreeStateService.Load().Icons.Count == 1, "shared icons are stored once for both trees");
         var second = new MainWindow();
@@ -64,7 +65,7 @@ internal static class FolderTreePersistenceTests
             "Search view cannot replace base trees or their current folder");
         Check(!Nodes(second, "_treeRoots").Single().Children.Single().IsFilterHidden,
             "temporary filtering is not persisted");
-        typeof(MainWindow).GetField("_rebuildingFolderTrees", Private).SetValue(second, true);
+        second.ViewModel._rebuildingFolderTrees = true;
         Nodes(second, "_treeRoots").Clear();
         Save(second);
         Check(FolderTreeStateService.Load().Physical.Single().Children.Count == 1,

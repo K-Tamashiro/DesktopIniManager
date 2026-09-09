@@ -27,7 +27,7 @@ page.
 ### Requirements
 
 - Windows 10 or Windows 11, x64
-- .NET Framework 4.8
+- .NET 10 Desktop Runtime (x64) for builds from this source tree; self-contained publishing does not require a separately installed runtime. The v2.0.3 download above remains a .NET Framework 4.8 release.
 - Administrator permission when `Use fast NTFS search` is enabled
 - Local NTFS folders for supported comparison and synchronization.
   Cloud/virtual drives (including Google Drive), network paths, and NAS are
@@ -245,24 +245,44 @@ Add the extracted release directory to `PATH` if you want to invoke
 
 ## Build from source
 
+For the current refactoring checkpoint and remaining SMVVM work, see
+[SMVVM progress](docs/smvvm-progress.md).
+
 Requirements:
 
-- Visual Studio 2022 or newer
+- Visual Studio 2026 with .NET 10 support, or the .NET 10 SDK
 - .NET desktop development workload
-- .NET Framework 4.8 targeting pack
+- .NET 10 SDK
 
-Build with Visual Studio MSBuild:
+Build on Windows:
 
 ``` powershell
-MSBuild.exe DesktopIniManager.sln /t:Rebuild /p:Configuration=Release
+dotnet build DesktopIniManager.sln -c Release
 ```
 
-The solution contains the DesktopIniManager application, reusable
-`FastVolumeIndex.Core`, and the `mftree` command-line tool.
+The solution contains the DesktopIniManager application and reusable
+`FastVolumeIndex.Core`. The `mftree` CLI source is absent from this checkout
+and is not built by this solution.
 
-Release output is written to `bin\Release\` and can include `mftree.exe`,
-`Languages\`, `README.md`, and `docs\` when those items are configured to
-copy to the output directory.
+Application release output is written to `bin\Release\net10.0-windows\win-x64\`,
+including the configured assets, languages and documentation. Distribute the
+complete publish directory, including DLL, deps.json and runtimeconfig.json files.
+
+To publish with the runtime included:
+
+``` powershell
+dotnet publish DesktopIniManager.csproj -c Release -r win-x64 --self-contained true -o release/net10-win-x64
+```
+
+The standalone regression harness is built and run separately:
+
+``` powershell
+dotnet run --project Tests/DesktopIniManager.DifferencerTests.csproj -c Release
+```
+
+The .NET 10 migration changes have not yet been built or executed. Validate
+startup, themes/languages, Shift-JIS Grep and text diffs, folder icons, search,
+and comparison/synchronization on disposable folders before publishing a release.
 
 ## Release package contents
 

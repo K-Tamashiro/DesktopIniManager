@@ -24,18 +24,25 @@ namespace DesktopIniManager.ViewModels
     {
         internal static readonly string StateDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DesktopIniManager");
         internal static string StatePath = Path.Combine(StateDirectory, "developer-differencer.xml");
-        internal DiffSnapshot snapshot;
-        internal readonly Dictionary<string, DiffFolder> folders = new Dictionary<string, DiffFolder>(StringComparer.OrdinalIgnoreCase);
-        internal List<DiffRow> rows = new List<DiffRow>();
-        internal string selectedFolder = "";
-        internal bool bulk;
-        internal bool busy => IsBusy;
-        internal bool comparing;
-        internal CancellationTokenSource compareCts;
-        internal HashSet<string> cachedVisibleFolders;
-        internal DiffKind kindMask = DiffKind.Differences;
-        internal bool showObj, showBin;
-        internal string treeSource, treeTarget;
+        private DiffSnapshot snapshot;
+        private readonly Dictionary<string, DiffFolder> folders = new Dictionary<string, DiffFolder>(StringComparer.OrdinalIgnoreCase);
+        private List<DiffRow> rows = new List<DiffRow>();
+        private string selectedFolder = "";
+        private bool bulk;
+        private bool comparing;
+        private CancellationTokenSource compareCts;
+        private HashSet<string> cachedVisibleFolders;
+        private DiffKind kindMask = DiffKind.Differences;
+        private bool showObj, showBin;
+        private string treeSource, treeTarget;
+        public DiffSnapshot Snapshot => snapshot;
+        public IReadOnlyDictionary<string, DiffFolder> Folders => folders;
+        public string SelectedFolderPath => selectedFolder;
+        public void SelectFolder(string path)
+        {
+            selectedFolder = path ?? "";
+            Filter();
+        }
         private string _sourcePath = string.Empty;
         public string SourcePath { get => _sourcePath; set { if (SetProperty(ref _sourcePath, value)) ClearComparisonView(); } }
         private string _targetPath = string.Empty;
@@ -138,7 +145,7 @@ namespace DesktopIniManager.ViewModels
         }
         internal async Task SyncAsync(bool toTarget)
         {
-            if (busy || snapshot == null) return;
+            if (IsBusy || snapshot == null) return;
             DiffFile[] files = snapshot.Files.Where(f => f.CanSync && f.Selected).ToArray();
             if (files.Length == 0) return;
             string direction = toTarget ? "Source to Target" : "Target to Source";
@@ -172,7 +179,7 @@ namespace DesktopIniManager.ViewModels
         public event Action<string, string, string> CleanReportRequested;
         internal async Task CleanAsync()
         {
-            if (busy) return;
+            if (IsBusy) return;
             SetBusy(true); CanCancel = false;
             try
             {
@@ -256,7 +263,7 @@ namespace DesktopIniManager.ViewModels
 
         internal async Task RefreshSelectedFolderAsync()
         {
-            if (busy || snapshot == null) return;
+            if (IsBusy || snapshot == null) return;
             if (!SelectedFolderHasDirectFiles()) return;
 
             string folder = selectedFolder ?? string.Empty;
@@ -307,7 +314,7 @@ namespace DesktopIniManager.ViewModels
             return snapshot.Files.Any(f => IsDirectChildFile(folder, f.RelativePath));
         }
 
-        internal void UpdateRefreshButtonState() { CanRefresh = !busy && !comparing && snapshot != null && SelectedFolderHasDirectFiles(); RefreshCommand.NotifyCanExecuteChanged(); }
+        internal void UpdateRefreshButtonState() { CanRefresh = !IsBusy && !comparing && snapshot != null && SelectedFolderHasDirectFiles(); RefreshCommand.NotifyCanExecuteChanged(); }
 
         internal void RemoveFileFromFolderHierarchy(DiffFile file)
         {
@@ -712,7 +719,7 @@ namespace DesktopIniManager.ViewModels
             int total = root == null ? 0 : root.AllDifferenceCount;
             int hidden = root == null ? 0 : count - root.SelectedFor(kindMask);
             CountLabel = "Selected " + count + " / " + total + (hidden > 0 ? " (includes " + hidden + " hidden)" : "");
-            CanSynchronize = !busy && count > 0; ForwardCommand.NotifyCanExecuteChanged(); ReverseCommand.NotifyCanExecuteChanged();
+            CanSynchronize = !IsBusy && count > 0; ForwardCommand.NotifyCanExecuteChanged(); ReverseCommand.NotifyCanExecuteChanged();
         }
 
         internal string RootLabel()

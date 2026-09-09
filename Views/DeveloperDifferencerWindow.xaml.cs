@@ -1,6 +1,8 @@
 using DesktopIniManager.ViewModels;
 using DesktopIniManager.Services;
+using DesktopIniManager.Properties;
 using System;
+using System.Runtime.Versioning;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -19,6 +21,7 @@ using System.Xml.Serialization;
 
 namespace DesktopIniManager.Views
 {
+    [SupportedOSPlatform("windows")]
     public partial class DeveloperDifferencerWindow : Window
     {
         internal DeveloperDifferencerViewModel ViewModel { get; }
@@ -29,7 +32,7 @@ namespace DesktopIniManager.Views
 
 
 
-        internal bool IsWorking { get { return ViewModel.busy; } }
+        internal bool IsWorking { get { return ViewModel.IsBusy; } }
         public static readonly DependencyProperty TreeCompactProperty = DependencyProperty.Register("TreeCompact", typeof(bool), typeof(DeveloperDifferencerWindow), new PropertyMetadata(false));
         public bool TreeCompact { get { return (bool)GetValue(TreeCompactProperty); } set { SetValue(TreeCompactProperty, value); } }
         private void CompactTree_Click(object sender, RoutedEventArgs e) { TreeCompact = true; }
@@ -57,10 +60,28 @@ namespace DesktopIniManager.Views
             BinFilterIcon.Source = DifferencerStatusIcons.GetBuildFolderIcon(false);
             TreeCompact = SettingsService.LoadTreeCompact();
             // HistoryTextBox persists Source/Target via HistoryKey.
-            Closing += (s, e) => { if (ViewModel.busy) { e.Cancel = true; return; } ViewModel.SaveState(); };
-            Closed += (s, e) => { ViewModel.Close(); previewScope.Cancel(); previewScope.Dispose(); ViewModel.DetachSelectionHandlers(); };
+            Closing += (s, e) => { if (ViewModel.IsBusy) { e.Cancel = true; return; } ViewModel.SaveState(); };
+            Closed += (s, e) =>
+            {
+                StringOverlay.CultureChanged -= OnCultureChanged;
+                ViewModel.Close();
+                previewScope.Cancel();
+                previewScope.Dispose();
+                ViewModel.DetachSelectionHandlers();
+            };
             Loaded += (s, e) => ViewModel.SetFilePanelBusy(false);
+            StringOverlay.CultureChanged += OnCultureChanged;
             ViewModel.RestoreState();
+        }
+
+        private void OnCultureChanged(object sender, EventArgs e)
+        {
+            if (ViewModel.IsFileBusy) RestartPanelProgress();
+            if (ViewModel.IsProgressVisible && ViewModel.ProgressIndeterminate)
+            {
+                ViewModel.ProgressIndeterminate = false;
+                ViewModel.ProgressIndeterminate = true;
+            }
         }
         private void AttachElevationToggle()
         {
@@ -106,7 +127,7 @@ namespace DesktopIniManager.Views
             if (ReferenceEquals(item.Tag, item.DataContext)) return;
             (item.Tag as DiffRow)?.ReleasePreview();
             var row = item.DataContext as DiffRow; item.Tag = row;
-            if (row == null || ViewModel.snapshot == null) return;
+            if (row == null || ViewModel.Snapshot == null) return;
             bool wait = !row.IsPreviewReady;
             if (wait) previewInFlight++;
             try { await row.LoadPreviewAsync(previewWorkers, previewScope.Token); }
@@ -115,7 +136,7 @@ namespace DesktopIniManager.Views
                 if (wait)
                 {
                     previewInFlight--;
-                    if (previewInFlight <= 0 && !ViewModel.busy) ViewModel.SetFilePanelBusy(false);
+                    if (previewInFlight <= 0 && !ViewModel.IsBusy) ViewModel.SetFilePanelBusy(false);
                 }
             }
         }
@@ -169,24 +190,24 @@ namespace DesktopIniManager.Views
         private void FolderChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
             if (syncingTreeFromFile) return;
-            var folder = e.NewValue as DiffFolder; if (folder == null) return; ViewModel.selectedFolder = folder.Path; ViewModel.Filter();
+            var folder = e.NewValue as DiffFolder; if (folder == null) return; ViewModel.SelectFolder(folder.Path);
         }
         private void FileListSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (syncingTreeFromFile || ViewModel.busy || ViewModel.snapshot == null) return;
+            if (syncingTreeFromFile || ViewModel.IsBusy || ViewModel.Snapshot == null) return;
             var row = FilesGrid.SelectedItem as DiffRow;
             if (row == null) return;
             RevealContainingFolder(Path.GetDirectoryName(row.File.RelativePath) ?? "");
         }
         private void RevealContainingFolder(string path)
         {
-            if (ViewModel.folders.Count == 0) return;
+            if (ViewModel.Folders.Count == 0) return;
             DiffFolder target = null;
             string current = path ?? "";
             while (true)
             {
-                if (ViewModel.folders.TryGetValue(current, out target) && target.Visible) break;
-                if (current.Length == 0) { target = ViewModel.folders.ContainsKey("") ? ViewModel.folders[""] : null; break; }
+                if (ViewModel.Folders.TryGetValue(current, out target) && target.Visible) break;
+                if (current.Length == 0) { target = ViewModel.Folders.ContainsKey("") ? ViewModel.Folders[""] : null; break; }
                 current = Path.GetDirectoryName(current) ?? "";
             }
             if (target == null) return;
@@ -196,11 +217,11 @@ namespace DesktopIniManager.Views
             {
                 ancestor = Path.GetDirectoryName(ancestor) ?? "";
                 DiffFolder parent;
-                if (ViewModel.folders.TryGetValue(ancestor, out parent)) parent.Expanded = true;
+                if (ViewModel.Folders.TryGetValue(ancestor, out parent)) parent.Expanded = true;
             }
 
             syncingTreeFromFile = true;
-            foreach (DiffFolder folder in ViewModel.folders.Values)
+            foreach (DiffFolder folder in ViewModel.Folders.Values)
                 if (folder.Active && folder != target) folder.Active = false;
             target.Active = true;
             ScheduleFolderIntoView(target);
@@ -224,7 +245,7 @@ namespace DesktopIniManager.Views
             while (true)
             {
                 DiffFolder node;
-                if (ViewModel.folders.TryGetValue(current, out node)) path.Add(node);
+                if (ViewModel.Folders.TryGetValue(current, out node)) path.Add(node);
                 if (current.Length == 0) break;
                 current = Path.GetDirectoryName(current) ?? "";
             }
@@ -312,181 +333,22 @@ namespace DesktopIniManager.Views
         }
 
 
+        private SolutionCleanSelection ChooseCleanSolutions(IReadOnlyList<string> solutions, string source)
+            => CleanSolutionsWindow.Choose(this, solutions, source);
+
+        private void ShowCleanReport(string summary, string logPath, string log)
+            => CleanReportWindow.Show(this, summary, logPath, log);
+
         private bool ShowSyncConfirmation(string direction, DiffFile[] files, bool toTarget)
         {
-            bool accepted = false;
-
-            var dialog = new Window
-            {
-                Owner = this,
-                Title = "Synchronize files",
-                Width = 620,
-                SizeToContent = SizeToContent.Height,
-                ResizeMode = ResizeMode.NoResize,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                ShowInTaskbar = false
-            };
-            dialog.SetResourceReference(Window.BackgroundProperty, "WindowBackground");
-            dialog.SetResourceReference(Window.ForegroundProperty, "Ink");
-
-            var root = new Grid { Margin = new Thickness(28) };
-            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-
-            var heading = new TextBlock
-            {
-                Text = "Synchronize selected files",
-                FontSize = 24,
-                FontWeight = FontWeights.SemiBold
-            };
-            heading.SetResourceReference(TextBlock.ForegroundProperty, "Accent");
-            Grid.SetRow(heading, 0);
-            root.Children.Add(heading);
-
-            var sub = new TextBlock
-            {
-                Text = direction + "   •   " + files.Length + (files.Length == 1 ? " file" : " files"),
-                Margin = new Thickness(0, 5, 0, 18),
-                FontSize = 13
-            };
-            sub.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
-            Grid.SetRow(sub, 1);
-            root.Children.Add(sub);
-
-            var paths = new Border
-            {
-                Padding = new Thickness(16, 13, 16, 13),
-                CornerRadius = new CornerRadius(6),
-                BorderThickness = new Thickness(1)
-            };
-            paths.SetResourceReference(Border.BackgroundProperty, "CardBackground");
-            paths.SetResourceReference(Border.BorderBrushProperty, "Line");
-
-            var pathGrid = new Grid();
-            pathGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });
-            pathGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            pathGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            pathGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-
-            var sourceLabel = new TextBlock { Text = "Source", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 12, 8) };
-            sourceLabel.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
-            var sourcePath = new TextBlock { Text = ViewModel.snapshot.SourceRoot, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 0, 0, 8) };
-            sourcePath.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
-
-            var targetLabel = new TextBlock { Text = "Target", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 12, 0) };
-            targetLabel.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
-            var targetPath = new TextBlock { Text = ViewModel.snapshot.TargetRoot, TextTrimming = TextTrimming.CharacterEllipsis };
-            targetPath.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
-
-            Grid.SetRow(sourceLabel, 0); Grid.SetColumn(sourceLabel, 0);
-            Grid.SetRow(sourcePath, 0); Grid.SetColumn(sourcePath, 1);
-            Grid.SetRow(targetLabel, 1); Grid.SetColumn(targetLabel, 0);
-            Grid.SetRow(targetPath, 1); Grid.SetColumn(targetPath, 1);
-            pathGrid.Children.Add(sourceLabel); pathGrid.Children.Add(sourcePath);
-            pathGrid.Children.Add(targetLabel); pathGrid.Children.Add(targetPath);
-            paths.Child = pathGrid;
-
-            Grid.SetRow(paths, 2);
-            root.Children.Add(paths);
-
-            var operations = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Margin = new Thickness(0, 16, 0, 16)
-            };
-
-            foreach (var group in files.GroupBy(f => DeveloperDifferencerService.Operation(f, toTarget)))
-            {
-                var badge = new Border
-                {
-                    CornerRadius = new CornerRadius(5),
-                    Padding = new Thickness(10, 6, 10, 6),
-                    Margin = new Thickness(0, 0, 8, 0),
-                    BorderThickness = new Thickness(1)
-                };
-                badge.SetResourceReference(Border.BackgroundProperty, "AccentSoft");
-                badge.SetResourceReference(Border.BorderBrushProperty, "Line");
-
-                var label = new TextBlock
-                {
-                    Text = group.Key + "  " + group.Count(),
-                    FontWeight = FontWeights.SemiBold
-                };
-                label.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
-                badge.Child = label;
-                operations.Children.Add(badge);
-            }
-
-            Grid.SetRow(operations, 3);
-            root.Children.Add(operations);
-
-            var footer = new Grid();
-            footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-            var note = new TextBlock
-            {
-                Text = "Existing files may be overwritten or removed.",
-                VerticalAlignment = VerticalAlignment.Center,
-                FontSize = 12
-            };
-            note.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
-            Grid.SetColumn(note, 0);
-            footer.Children.Add(note);
-
-            var cancel = new Button
-            {
-                Content = ActionContent("\uE711", "Cancel"),
-                Style = (Style)FindResource("DifferencerActionButton"),
-                MinWidth = 96,
-                Height = 34,
-                Margin = new Thickness(12, 0, 0, 0),
-                IsCancel = true
-            };
-            cancel.SetResourceReference(Button.BackgroundProperty, "Secondary");
-            cancel.SetResourceReference(Button.ForegroundProperty, "Ink");
-            Grid.SetColumn(cancel, 1);
-            footer.Children.Add(cancel);
-
-            var sync = new Button
-            {
-                Content = ActionContent(toTarget ? "\uE74B" : "\uE74A", "Synchronize"),
-                Style = (Style)FindResource("DifferencerActionButton"),
-                MinWidth = 118,
-                Height = 34,
-                Margin = new Thickness(8, 0, 0, 0),
-                IsDefault = true
-            };
-            sync.Background = (Brush)FindResource(toTarget ? "SourceColor" : "TargetColor");
-            sync.Foreground = toTarget ? (Brush)new BrushConverter().ConvertFromString("#20252B") : Brushes.White;
-            sync.Click += (s, e) =>
-            {
-                accepted = true;
-                dialog.DialogResult = true;
-            };
-            Grid.SetColumn(sync, 2);
-            footer.Children.Add(sync);
-
-            Grid.SetRow(footer, 4);
-            root.Children.Add(footer);
-
-            dialog.Content = root;
-            dialog.ShowDialog();
-            return accepted;
+            return SynchronizeConfirmWindow.Confirm(this, direction, files, toTarget, ViewModel.Snapshot.SourceRoot, ViewModel.Snapshot.TargetRoot);
         }
-
-
-
 
         internal Task<bool> RefreshFileAsync(DiffFile file) => ViewModel.RefreshFileAsync(file);
         internal void SaveState() => ViewModel.SaveState();
         private void OpenDiff(object sender, MouseButtonEventArgs e)
         {
-            if (ViewModel.busy || ViewModel.snapshot == null || !(FilesGrid.SelectedItem is DiffRow)) return;
+            if (ViewModel.IsBusy || ViewModel.Snapshot == null || !(FilesGrid.SelectedItem is DiffRow)) return;
             // Only data rows open a viewer; header/scrollbar double-clicks do not.
             if (!(ItemsControl.ContainerFromElement(FilesGrid, e.OriginalSource as DependencyObject) is ListViewItem)) return;
             var selectedFile = ((DiffRow)FilesGrid.SelectedItem).File;
@@ -495,7 +357,7 @@ namespace DesktopIniManager.Views
                 MessageBox.Show(this, DiffMedia.BinaryMessage, "Diff View", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
-            try { new DiffViewWindow(ViewModel.snapshot, selectedFile) { Owner = this }.Show(); } catch (Exception ex) { ShowError(ex); }
+            try { new DiffViewWindow(ViewModel.Snapshot, selectedFile) { Owner = this }.Show(); } catch (Exception ex) { ShowError(ex); }
         }
 
         private void ShowError(Exception ex) { MessageBox.Show(this, ErrorMessages.English(ex), Title, MessageBoxButton.OK, MessageBoxImage.Error); }

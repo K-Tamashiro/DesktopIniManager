@@ -56,11 +56,17 @@
     <Compile Include="Models\MainWindowAction.cs" />
     <Compile Include="Models\LanguageChoice.cs" />
     <Compile Include="Services\LanguageIconService.cs" />
-    <Compile Include="Services\MainWindowPresentationService*.cs" />
+    <Compile Include="Views\Presenter\MainWindowPresentationService.cs" />
     <Compile Include="Services\UserDialogService.cs" />
     <Compile Include="Services\ISynchronizationLog.cs" />
     <Compile Include="Services\DiffMedia.cs" />
-    <Compile Include="Views\SynchronizationLogWindow.cs" />
+    <Page Include="Views\SynchronizationLogWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Compile Include="Views\SynchronizationLogWindow.xaml.cs">
+      <DependentUpon>SynchronizationLogWindow.xaml</DependentUpon>
+    </Compile>
     <ApplicationDefinition Include="App.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -73,6 +79,27 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
+    <Page Include="Views\SynchronizeConfirmWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Compile Include="Views\SynchronizeConfirmWindow.xaml.cs">
+      <DependentUpon>SynchronizeConfirmWindow.xaml</DependentUpon>
+    </Compile>
+    <Page Include="Views\CleanSolutionsWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Compile Include="Views\CleanSolutionsWindow.xaml.cs">
+      <DependentUpon>CleanSolutionsWindow.xaml</DependentUpon>
+    </Compile>
+    <Page Include="Views\CleanReportWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Compile Include="Views\CleanReportWindow.xaml.cs">
+      <DependentUpon>CleanReportWindow.xaml</DependentUpon>
+    </Compile>
     <Page Include="Views\DeveloperDifferencerWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -81,7 +108,13 @@
     <Compile Include="Properties\LocExtension.cs" />
     <Compile Include="Services\DeveloperDifferencerService.cs" />
     <Compile Include="Services\DiffTextService.cs" />
-    <Compile Include="Views\DiffViewWindow.cs" />
+    <Page Include="Views\DiffViewWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Compile Include="Views\DiffViewWindow.xaml.cs">
+      <DependentUpon>DiffViewWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Views\DeveloperDifferencerWindow.xaml.cs">
       <DependentUpon>DeveloperDifferencerWindow.xaml</DependentUpon>
     </Compile>
@@ -101,9 +134,14 @@
     <Compile Include="Services\SolutionCleanService.cs" />
     <Compile Include="Services\WindowActivationService.cs" />
     <Compile Include="Services\ErrorMessages.cs" />
-    <Compile Include="Views\DeveloperDifferencerWindow.Clean.cs" />
+    <Page Include="Views\SplashWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Compile Include="Views\SplashWindow.xaml.cs">
+      <DependentUpon>SplashWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Services\StartupState.cs" />
-    <Compile Include="Views\SplashWindow.cs" />
     <Compile Include="Services\ElevationResumeState.cs" />
     <Compile Include="App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>
@@ -127,12 +165,14 @@
     <Compile Include="Services\NativeFolderPicker.cs" />
     <Compile Include="Services\SettingsService.cs" />
     <Compile Include="Services\InputHistoryStore.cs" />
-    <Compile Include="Views\HistoryTextBox.cs" />
-    <Compile Include="Views\InputHistory.cs" />
+    <Compile Include="Views\Presenter\InputHistory.cs" />
     <Page Include="Views\HistoryTextBox.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
+    <Compile Include="Views\HistoryTextBox.xaml.cs">
+      <DependentUpon>HistoryTextBox.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Services\ThemeService.cs" />
     <Compile Include="Views\IconGroupBrowserWindow.xaml.cs">
       <DependentUpon>IconGroupBrowserWindow.xaml</DependentUpon>

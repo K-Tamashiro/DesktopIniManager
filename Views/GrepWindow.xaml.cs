@@ -26,6 +26,7 @@ namespace DesktopIniManager.Views
         internal GrepWindowViewModel ViewModel { get; }
         private bool _resultGroupsExpanded = true;
         private readonly Dictionary<string, bool> _resultGroupStates = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        private bool _applyingEditorArgs;
 
         public GrepWindow(Func<IReadOnlyList<string>> scopeProvider, IReadOnlyList<string> initialScopes)
         {
@@ -47,16 +48,16 @@ namespace DesktopIniManager.Views
                 string.Equals(profile.Name, savedProfile, StringComparison.OrdinalIgnoreCase))
                 ?? LanguageProfile.All.First(profile => !profile.IsFree);
             ApplyGrepColumnWidths(SettingsService.LoadGrepColumnWidths());
-            bool resetPresets = SeedEditorPresets();
+            bool resetPresets = ViewModel.SeedEditorPresets();
             HookPathBox(EditorBox);
             HookPathBox(EditorArgumentsBox);
             EditorBox.TextChanged += EditorBox_TextChanged;
             EditorBox.HistoryItemApplied += EditorBox_TextChanged;
             if (resetPresets)
             {
-                ViewModel.EditorPath = EditorPresets[0].Executable;
-                ViewModel.EditorArguments = EditorPresets[0].Arguments;
-                SettingsService.SaveEditor(EditorPresets[0].Executable, EditorPresets[0].Arguments);
+                ViewModel.EditorPath = ViewModel.FirstEditorPreset.Executable;
+                ViewModel.EditorArguments = ViewModel.FirstEditorPreset.Arguments;
+                SettingsService.SaveEditor(ViewModel.FirstEditorPreset.Executable, ViewModel.FirstEditorPreset.Arguments);
             }
             else
             {
@@ -186,83 +187,19 @@ namespace DesktopIniManager.Views
             ShowTextEnd(EditorBox);
         }
 
-        private static readonly EditorPreset[] EditorPresets =
-        {
-            new EditorPreset(@"C:\Program Files\MIFES11\MIW.exe", @"/+{line}@{column} ""{file}"""),
-            new EditorPreset(@"C:\Program Files\Hidemaru\Hidemaru.exe", @"/j{line},{column} ""{file}"""),
-            new EditorPreset(@"%LOCALAPPDATA%\Programs\Mery\Mery.exe", @"/l {line} /cl {column} ""{file}"""),
-            new EditorPreset("code", @"--goto ""{file}:{line}:{column}""")
-        };
-
-        private bool _applyingEditorArgs;
-
-        private sealed class EditorPreset
-        {
-            internal EditorPreset(string executable, string arguments)
-            {
-                Executable = executable;
-                Arguments = arguments;
-            }
-            internal string Executable { get; }
-            internal string Arguments { get; }
-            internal string FileName { get { return Path.GetFileName(Executable); } }
-        }
-
-        private bool SeedEditorPresets()
-        {
-            string settingsDirectory = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "DesktopIniManager");
-            string markerPath = Path.Combine(settingsDirectory, "editor-presets-miw.txt");
-            var store = new InputHistoryStore(Path.Combine(settingsDirectory, "input-history"));
-            if (File.Exists(markerPath)) return false;
-            store.Replace("Grep-Editor", EditorPresets.Select(preset => preset.Executable));
-            store.Replace("Grep-EditorArguments", EditorPresets.Select(preset => preset.Arguments));
-            try
-            {
-                Directory.CreateDirectory(settingsDirectory);
-                File.WriteAllText(markerPath, "mifes");
-            }
-            catch { }
-            return true;
-        }
-
         private void EditorBox_TextChanged(object sender, EventArgs e)
         {
             if (_applyingEditorArgs) return;
-            EditorPreset preset = MatchEditorPreset(ViewModel.EditorPath);
-            if (preset == null) return;
+            string arguments;
+            if (!ViewModel.TryApplyEditorPreset(ViewModel.EditorPath, out arguments)) return;
             _applyingEditorArgs = true;
             try
             {
-                ViewModel.EditorArguments = preset.Arguments;
+                ViewModel.EditorArguments = arguments;
                 ShowTextEnd(EditorArgumentsBox);
             }
             finally { _applyingEditorArgs = false; }
         }
-
-
-
-        private static EditorPreset MatchEditorPreset(string editor)
-        {
-            if (string.IsNullOrWhiteSpace(editor)) return null;
-            string path = GrepWindowViewModel.ExpandEditorPath(editor);
-            string name = Path.GetFileName(path);
-            foreach (EditorPreset preset in EditorPresets)
-            {
-                if (string.Equals(preset.Executable, path, StringComparison.OrdinalIgnoreCase)) return preset;
-                if (!string.IsNullOrEmpty(name) && string.Equals(preset.FileName, name, StringComparison.OrdinalIgnoreCase)) return preset;
-            }
-            if (string.Equals(path, "code", StringComparison.OrdinalIgnoreCase))
-                return EditorPresets[EditorPresets.Length - 1];
-            if (string.Equals(name, "MIW.exe", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(name, "Mifes.exe", StringComparison.OrdinalIgnoreCase))
-                return EditorPresets[0];
-            return null;
-        }
-
-
-
 
 
 

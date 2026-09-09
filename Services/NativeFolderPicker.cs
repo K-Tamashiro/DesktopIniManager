@@ -1,8 +1,10 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 
 namespace DesktopIniManager.Services
 {
+    [SupportedOSPlatform("windows")]
     internal static class NativeFolderPicker
     {
         public static string Show(IntPtr owner, string initialPath, string title)

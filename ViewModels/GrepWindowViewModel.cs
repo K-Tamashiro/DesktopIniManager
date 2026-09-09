@@ -22,12 +22,12 @@ namespace DesktopIniManager.ViewModels
 {
     internal sealed class GrepWindowViewModel : ObservableObject
     {
-        internal readonly Func<IReadOnlyList<string>> _scopeProvider;
-        internal readonly ObservableCollection<string> _scopes = new ObservableCollection<string>();
-        internal readonly ObservableCollection<GrepMatch> _matches = new ObservableCollection<GrepMatch>();
-        internal CancellationTokenSource _searchCts;
-        internal ConcurrentQueue<GrepMatch> _pendingMatches = new ConcurrentQueue<GrepMatch>();
-        internal readonly DispatcherTimer _resultTimer;
+        private readonly Func<IReadOnlyList<string>> _scopeProvider;
+        private readonly ObservableCollection<string> _scopes = new ObservableCollection<string>();
+        private readonly ObservableCollection<GrepMatch> _matches = new ObservableCollection<GrepMatch>();
+        private CancellationTokenSource _searchCts;
+        private ConcurrentQueue<GrepMatch> _pendingMatches = new ConcurrentQueue<GrepMatch>();
+        private readonly DispatcherTimer _resultTimer;
         private string _query = string.Empty;
         public string Query { get => _query; set => SetProperty(ref _query, value); }
         private string _extensions = string.Empty;
@@ -249,5 +249,72 @@ namespace DesktopIniManager.ViewModels
             return Environment.ExpandEnvironmentVariables(editor.Trim().Trim('"'));
         }
 
+        private static readonly EditorPreset[] EditorPresets =
+        {
+            new EditorPreset(@"C:\Program Files\MIFES11\MIW.exe", @"/+{line}@{column} ""{file}"""),
+            new EditorPreset(@"C:\Program Files\Hidemaru\Hidemaru.exe", @"/j{line},{column} ""{file}"""),
+            new EditorPreset(@"%LOCALAPPDATA%\Programs\Mery\Mery.exe", @"/l {line} /cl {column} ""{file}"""),
+            new EditorPreset("code", @"--goto ""{file}:{line}:{column}""")
+        };
+
+        public EditorPreset FirstEditorPreset => EditorPresets[0];
+
+        public bool SeedEditorPresets()
+        {
+            string settingsDirectory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "DesktopIniManager");
+            string markerPath = Path.Combine(settingsDirectory, "editor-presets-miw.txt");
+            var store = new InputHistoryStore(Path.Combine(settingsDirectory, "input-history"));
+            if (File.Exists(markerPath)) return false;
+            store.Replace("Grep-Editor", EditorPresets.Select(preset => preset.Executable));
+            store.Replace("Grep-EditorArguments", EditorPresets.Select(preset => preset.Arguments));
+            try
+            {
+                Directory.CreateDirectory(settingsDirectory);
+                File.WriteAllText(markerPath, "mifes");
+            }
+            catch { }
+            return true;
+        }
+
+        public bool TryApplyEditorPreset(string editor, out string arguments)
+        {
+            arguments = null;
+            EditorPreset preset = MatchEditorPreset(editor);
+            if (preset == null) return false;
+            arguments = preset.Arguments;
+            return true;
+        }
+
+        private static EditorPreset MatchEditorPreset(string editor)
+        {
+            if (string.IsNullOrWhiteSpace(editor)) return null;
+            string path = ExpandEditorPath(editor);
+            string name = Path.GetFileName(path);
+            foreach (EditorPreset preset in EditorPresets)
+            {
+                if (string.Equals(preset.Executable, path, StringComparison.OrdinalIgnoreCase)) return preset;
+                if (!string.IsNullOrEmpty(name) && string.Equals(preset.FileName, name, StringComparison.OrdinalIgnoreCase)) return preset;
+            }
+            if (string.Equals(path, "code", StringComparison.OrdinalIgnoreCase))
+                return EditorPresets[EditorPresets.Length - 1];
+            if (string.Equals(name, "MIW.exe", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, "Mifes.exe", StringComparison.OrdinalIgnoreCase))
+                return EditorPresets[0];
+            return null;
+        }
+
+        public sealed class EditorPreset
+        {
+            internal EditorPreset(string executable, string arguments)
+            {
+                Executable = executable;
+                Arguments = arguments;
+            }
+            public string Executable { get; }
+            public string Arguments { get; }
+            public string FileName => Path.GetFileName(Executable);
+        }
     }
 }

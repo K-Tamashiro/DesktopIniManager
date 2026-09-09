@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Markup;
+using System.Windows.Threading;
 
 namespace DesktopIniManager.Properties
 {
@@ -10,6 +11,7 @@ namespace DesktopIniManager.Properties
     {
         private static readonly List<Target> Targets = new List<Target>();
         private static readonly object Gate = new object();
+        private static DispatcherOperation pending;
 
         static L()
         {
@@ -41,9 +43,19 @@ namespace DesktopIniManager.Properties
 
         private static void Refresh()
         {
-            List<Target> live = new List<Target>();
+            Dispatcher dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher == null) return;
+            if (pending != null && pending.Status == DispatcherOperationStatus.Pending)
+                return;
+            pending = dispatcher.BeginInvoke(DispatcherPriority.DataBind, new Action(Apply));
+        }
+
+        private static void Apply()
+        {
+            List<Target> live;
             lock (Gate)
             {
+                live = new List<Target>(Targets.Count);
                 for (int i = Targets.Count - 1; i >= 0; i--)
                 {
                     Target item = Targets[i];
@@ -59,11 +71,10 @@ namespace DesktopIniManager.Properties
             {
                 DependencyObject obj = item.Object;
                 if (obj == null) continue;
-                obj.Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    if (item.Object != null)
-                        item.Object.SetValue(item.Property, StringOverlay.Get(item.Key));
-                }));
+                string value = StringOverlay.Get(item.Key);
+                object current = obj.GetValue(item.Property);
+                if (Equals(current, value)) continue;
+                obj.SetValue(item.Property, value);
             }
         }
 

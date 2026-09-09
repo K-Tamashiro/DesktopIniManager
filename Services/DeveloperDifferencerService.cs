@@ -16,6 +16,8 @@ namespace DesktopIniManager.Services
     {
         public long Size { get; set; }
         public DateTime ModifiedUtc { get; set; }
+        // Compare whole seconds without rounding; retain the original timestamp for copying.
+        public long ModifiedUtcSeconds => ModifiedUtc.Ticks / TimeSpan.TicksPerSecond;
         public static DiffStamp Read(string path)
         {
             // GetAttributes distinguishes missing files from access/IO errors.
@@ -31,7 +33,7 @@ namespace DesktopIniManager.Services
         public static bool Same(DiffStamp a, DiffStamp b)
         { return Same(a, b, true); }
         public static bool Same(DiffStamp a, DiffStamp b, bool compareTimestamp)
-        { return a == null || b == null ? a == b : a.Size == b.Size && (!compareTimestamp || a.ModifiedUtc == b.ModifiedUtc); }
+        { return a == null || b == null ? a == b : a.Size == b.Size && (!compareTimestamp || a.ModifiedUtcSeconds == b.ModifiedUtcSeconds); }
         public string Describe() { return ModifiedUtc.ToLocalTime().ToString("yyyy/MM/dd HH:mm:ss.fffffff") + "\n" + Size.ToString("N0") + " bytes"; }
     }
 
@@ -47,11 +49,11 @@ namespace DesktopIniManager.Services
         public bool CompareTimestamp { get; set; } = true;
         public DiffKind Kind { get { return Source == null ? DiffKind.TargetOnly : Target == null ? DiffKind.SourceOnly : DiffStamp.Same(Source, Target, CompareTimestamp) ? DiffKind.Same : DiffKind.Different; } }
         public bool CanSync { get { return Kind != DiffKind.Same; } }
-        public string State { get { return Kind == DiffKind.Same ? "Same" : Source == null ? "Target only" : Target == null ? "Source only" : Source.ModifiedUtc == Target.ModifiedUtc ? "Size differs" : "Time / size differs"; } }
+        public string State { get { return Kind == DiffKind.Same ? "Same" : Source == null ? "Target only" : Target == null ? "Source only" : Source.ModifiedUtcSeconds == Target.ModifiedUtcSeconds ? "Size differs" : "Time / size differs"; } }
         public string SourceInfo { get { return Describe(Source, Target); } }
         public string TargetInfo { get { return Describe(Target, Source); } }
         private static string Describe(DiffStamp own, DiffStamp other)
-        { return own == null ? "missing" : (other == null ? "" : DiffStamp.Same(own, other, true) ? "Same\n" : own.ModifiedUtc == other.ModifiedUtc ? "Size differs\n" : own.ModifiedUtc > other.ModifiedUtc ? "NEW\n" : "OLD\n") + own.Describe(); }
+        { return own == null ? "missing" : (other == null ? "" : DiffStamp.Same(own, other, true) ? "Same\n" : own.ModifiedUtcSeconds == other.ModifiedUtcSeconds ? "Size differs\n" : own.ModifiedUtcSeconds > other.ModifiedUtcSeconds ? "NEW\n" : "OLD\n") + own.Describe(); }
         private bool selected;
         public bool Selected { get { return selected; } set { value = value && CanSync; if (selected == value) return; selected = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Selected")); } }
         public event PropertyChangedEventHandler PropertyChanged;

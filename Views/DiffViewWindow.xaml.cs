@@ -37,7 +37,6 @@ namespace DesktopIniManager.Views
         private double viewportDragTop;
         private double sharedTextWidth;
         private HwndSource inputSource;
-        private Border dateDiffOnlyOverlay;
         private int current { get => ViewModel.CurrentHunk; set => ViewModel.CurrentHunk = value; }
         private bool scrolling, selecting;
         private bool externalDiffPending;
@@ -203,16 +202,10 @@ namespace DesktopIniManager.Views
                 rightList.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(ScrollChanged));
                 if (hunks.Count == 0)
                 {
-                    body.IsEnabled = false;
-                    body.Opacity = 0.5;
-                    ShowDateDiffOnlyOverlay();
                     ViewModel.Status = "Different timestamps, identical content";
                 }
                 else
                 {
-                    body.IsEnabled = true;
-                    body.Opacity = 1.0;
-                    HideDateDiffOnlyOverlay();
                     ViewModel.Status = hunks.Count + " hunks | left red = removed  right green = added | UTF-8 / BOM / Shift-JIS | large files use a simplified match";
                     _ = Dispatcher.BeginInvoke(new Action(() =>
                     {
@@ -228,53 +221,6 @@ namespace DesktopIniManager.Views
             catch (InvalidDataException) { MessageBox.Show(Owner ?? this, DiffMedia.BinaryMessage, "Diff View", MessageBoxButton.OK, MessageBoxImage.Information); Close(); }
             catch (DecoderFallbackException) { MessageBox.Show(Owner ?? this, DiffMedia.BinaryMessage, "Diff View", MessageBoxButton.OK, MessageBoxImage.Information); Close(); }
             catch (Exception ex) { ViewModel.Status = string.Format(StringOverlay.Get("Diff_Unable"), ErrorMessages.English(ex)); }
-        }
-        private void ShowDateDiffOnlyOverlay()
-        {
-            if (dateDiffOnlyOverlay == null)
-            {
-                var text = new TextBlock
-                {
-                    Text = "Different timestamps, identical content",
-                    FontSize = 18,
-                    FontWeight = FontWeights.SemiBold,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-                text.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
-
-                dateDiffOnlyOverlay = new Border
-                {
-                    CornerRadius = new CornerRadius(8),
-                    Padding = new Thickness(24, 12, 24, 12),
-                    BorderThickness = new Thickness(1),
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Child = text
-                };
-                dateDiffOnlyOverlay.SetResourceReference(Border.BackgroundProperty, "CardBackground");
-                dateDiffOnlyOverlay.SetResourceReference(Border.BorderBrushProperty, "Line");
-                Grid.SetColumnSpan(dateDiffOnlyOverlay, 3);
-                Panel.SetZIndex(dateDiffOnlyOverlay, 100);
-            }
-
-            if (!body.Children.Contains(dateDiffOnlyOverlay))
-            {
-                body.Children.Add(dateDiffOnlyOverlay);
-            }
-            dateDiffOnlyOverlay.Visibility = Visibility.Visible;
-        }
-
-        private void HideDateDiffOnlyOverlay()
-        {
-            if (dateDiffOnlyOverlay != null)
-            {
-                dateDiffOnlyOverlay.Visibility = Visibility.Collapsed;
-                if (body.Children.Contains(dateDiffOnlyOverlay))
-                {
-                    body.Children.Remove(dateDiffOnlyOverlay);
-                }
-            }
         }
         private double MeasureSharedTextWidth()
         {
@@ -307,11 +253,20 @@ namespace DesktopIniManager.Views
             ScrollViewer.SetHorizontalScrollBarVisibility(list, ScrollBarVisibility.Auto);
             ScrollViewer.SetVerticalScrollBarVisibility(list, ScrollBarVisibility.Hidden);
 
-            var text = new FrameworkElementFactory(typeof(TextBlock));
-            text.SetBinding(TextBlock.TextProperty, new Binding(property));
+            var text = new FrameworkElementFactory(typeof(TextBox));
+            text.SetBinding(TextBox.TextProperty, new Binding(property) { Mode = BindingMode.OneWay });
+            text.SetValue(TextBoxBase.IsReadOnlyProperty, true);
+            text.SetValue(TextBoxBase.IsReadOnlyCaretVisibleProperty, true);
+            text.SetValue(TextBoxBase.IsUndoEnabledProperty, false);
+            text.SetValue(Control.BackgroundProperty, Brushes.Transparent);
+            text.SetValue(Control.BorderThicknessProperty, new Thickness(0));
+            text.SetValue(Control.PaddingProperty, new Thickness(0));
+            text.SetValue(TextBox.TextWrappingProperty, TextWrapping.NoWrap);
+            text.SetValue(ScrollViewer.HorizontalScrollBarVisibilityProperty, ScrollBarVisibility.Disabled);
+            text.SetValue(ScrollViewer.VerticalScrollBarVisibilityProperty, ScrollBarVisibility.Disabled);
             text.SetValue(FrameworkElement.HeightProperty, 22.0);
             text.SetValue(FrameworkElement.MinWidthProperty, sharedTextWidth);
-            text.SetValue(TextBlock.ForegroundProperty, new DynamicResourceExtension("Ink"));
+            text.SetValue(Control.ForegroundProperty, new DynamicResourceExtension("Ink"));
             list.ItemTemplate = new DataTemplate { VisualTree = text };
 
             var style = new Style(typeof(ListBoxItem));

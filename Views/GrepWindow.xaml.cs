@@ -1,20 +1,12 @@
 using DesktopIniManager.ViewModels;
-using DesktopIniManager.Models;
 using DesktopIniManager.Services;
 using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Collections.Concurrent;
 using System.ComponentModel;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using System.Windows.Data;
 using System.Windows.Threading;
 using DesktopIniManager.Properties;
@@ -26,7 +18,6 @@ namespace DesktopIniManager.Views
         internal GrepWindowViewModel ViewModel { get; }
         private bool _resultGroupsExpanded = true;
         private readonly Dictionary<string, bool> _resultGroupStates = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
-        private bool _applyingEditorArgs;
 
         public GrepWindow(Func<IReadOnlyList<string>> scopeProvider, IReadOnlyList<string> initialScopes)
         {
@@ -37,38 +28,19 @@ namespace DesktopIniManager.Views
             ViewModel.SearchHistoryRequested += () => { QueryBox.CommitHistory(); ExtensionsText.CommitHistory(); };
             ViewModel.MatchScrollRequested += match => ResultsGrid.ScrollIntoView(match);
             ViewModel.ResultGroupsResetRequested += () => { _resultGroupsExpanded = true; _resultGroupStates.Clear(); };
-            ICollectionView resultView = CollectionViewSource.GetDefaultView(ViewModel.Matches);
-            resultView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(GrepMatch.GroupPath)));
-            VirtualizingPanel.SetIsVirtualizing(ResultsGrid, true);
-            VirtualizingPanel.SetIsVirtualizingWhenGrouping(ResultsGrid, true);
-            VirtualizingPanel.SetVirtualizationMode(ResultsGrid, VirtualizationMode.Recycling);
-            ScrollViewer.SetCanContentScroll(ResultsGrid, true);
-            string savedProfile = SettingsService.LoadGrepProfile();
-            ViewModel.SelectedProfile = LanguageProfile.All.FirstOrDefault(profile =>
-                string.Equals(profile.Name, savedProfile, StringComparison.OrdinalIgnoreCase))
-                ?? LanguageProfile.All.First(profile => !profile.IsFree);
-            ApplyGrepColumnWidths(SettingsService.LoadGrepColumnWidths());
-            bool resetPresets = ViewModel.SeedEditorPresets();
+            ViewModel.BrowseEditorRequested += BrowseEditor;
+            ViewModel.CloseRequested += Close;
+            ViewModel.ResultGroupsExpansionRequested += SetResultGroupsExpanded;
+            ViewModel.Initialize(initialScopes);
+            ApplyGrepColumnWidths(ViewModel.ColumnWidths);
             HookPathBox(EditorBox);
             HookPathBox(EditorArgumentsBox);
-            EditorBox.TextChanged += EditorBox_TextChanged;
-            EditorBox.HistoryItemApplied += EditorBox_TextChanged;
-            if (resetPresets)
-            {
-                ViewModel.EditorPath = ViewModel.FirstEditorPreset.Executable;
-                ViewModel.EditorArguments = ViewModel.FirstEditorPreset.Arguments;
-                SettingsService.SaveEditor(ViewModel.FirstEditorPreset.Executable, ViewModel.FirstEditorPreset.Arguments);
-            }
-            else
-            {
-                ViewModel.EditorPath = SettingsService.LoadEditorPath();
-                ViewModel.EditorArguments = SettingsService.LoadEditorArguments();
-            }
-            ViewModel.SetExplicitScopes(initialScopes);
+            // Re-selecting the same history item must also restore its preset arguments.
+            EditorBox.HistoryItemApplied += (sender, args) => ViewModel.ApplyEditorPresetCommand.Execute(null);
             Loaded += (sender, args) =>
             {
-                ApplyGrepColumnWidths(SettingsService.LoadGrepColumnWidths());
-                Dispatcher.BeginInvoke(new Action(() => ApplyGrepColumnWidths(SettingsService.LoadGrepColumnWidths())), System.Windows.Threading.DispatcherPriority.Loaded);
+                ApplyGrepColumnWidths(ViewModel.ColumnWidths);
+                Dispatcher.BeginInvoke(new Action(() => ApplyGrepColumnWidths(ViewModel.ColumnWidths)), DispatcherPriority.Loaded);
                 QueryBox.Focus();
                 ShowTextEnd(EditorBox);
                 ShowTextEnd(EditorArgumentsBox);
@@ -85,22 +57,6 @@ namespace DesktopIniManager.Views
             };
         }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         private static void ShowTextEnd(TextBox box)
         {
             if (box == null) return;
@@ -111,8 +67,6 @@ namespace DesktopIniManager.Views
                 box.ScrollToHorizontalOffset(Math.Max(0, box.ExtentWidth - box.ViewportWidth));
             }), DispatcherPriority.Loaded);
         }
-
-
 
         /// <summary>Applies the current global expansion state to a newly realized file group.</summary>
         private void ResultGroupExpander_Loaded(object sender, RoutedEventArgs e)
@@ -142,18 +96,6 @@ namespace DesktopIniManager.Views
         private static string ResultGroupKey(Expander expander)
         { return Convert.ToString((expander.DataContext as CollectionViewGroup)?.Name) ?? string.Empty; }
 
-        /// <summary>Expands every file group in the GREP result list.</summary>
-        private void ExpandResultGroups_Click(object sender, RoutedEventArgs e)
-        {
-            SetResultGroupsExpanded(true);
-        }
-
-        /// <summary>Collapses every file group to its file-path row.</summary>
-        private void CollapseResultGroups_Click(object sender, RoutedEventArgs e)
-        {
-            SetResultGroupsExpanded(false);
-        }
-
         /// <summary>Updates realized groups and the default state for groups realized after scrolling.</summary>
         private void SetResultGroupsExpanded(bool expanded)
         {
@@ -177,9 +119,7 @@ namespace DesktopIniManager.Views
             }
         }
 
-
-
-        private void BrowseEditor_Click(object sender, RoutedEventArgs e)
+        private void BrowseEditor()
         {
             var dialog = new OpenFileDialog { Filter = Strings.Grep_EditorFilter, CheckFileExists = true };
             if (dialog.ShowDialog(this) != true) return;
@@ -187,32 +127,13 @@ namespace DesktopIniManager.Views
             ShowTextEnd(EditorBox);
         }
 
-        private void EditorBox_TextChanged(object sender, EventArgs e)
-        {
-            if (_applyingEditorArgs) return;
-            string arguments;
-            if (!ViewModel.TryApplyEditorPreset(ViewModel.EditorPath, out arguments)) return;
-            _applyingEditorArgs = true;
-            try
-            {
-                ViewModel.EditorArguments = arguments;
-                ShowTextEnd(EditorArgumentsBox);
-            }
-            finally { _applyingEditorArgs = false; }
-        }
-
-
-
         public void SetExplicitScopes(IReadOnlyList<string> scopes) => ViewModel.SetExplicitScopes(scopes);
         public void ReloadFromMainWindow() => ViewModel.ReloadFromMainWindow();
-        private void ResultsGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e) => ViewModel.OpenMatchCommand.Execute(null);
-        private void Close_Click(object sender, RoutedEventArgs e) => Close();
         protected override void OnClosing(CancelEventArgs e)
         {
             ViewModel.Close();
             double[] widths = ResultsGrid.Columns.Select(column => column.ActualWidth).ToArray();
-            if (widths.Length >= 4 && widths[0] >= 80 && widths[1] >= 120)
-                SettingsService.SaveGrepColumnWidths(widths);
+            ViewModel.SaveColumnWidths(widths);
             base.OnClosing(e);
         }
 

@@ -25,6 +25,36 @@ namespace DesktopIniManager.ViewModels
         internal static readonly string StateDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DesktopIniManager");
         internal static string StatePath = Path.Combine(StateDirectory, "developer-differencer.xml");
         private DiffSnapshot snapshot;
+        private int previewInFlight;
+        private readonly SemaphoreSlim previewWorkers = new SemaphoreSlim(2);
+        private CancellationTokenSource previewScope = new CancellationTokenSource();
+        private bool closed;
+        private bool syncingTreeFromFile;
+        private bool treeCompact = SettingsService.LoadTreeCompact();
+        public bool TreeCompact { get => treeCompact; set => SetProperty(ref treeCompact, value); }
+        private DiffRow selectedRow;
+        public DiffRow SelectedRow
+        {
+            get => selectedRow;
+            set
+            {
+                if (!SetProperty(ref selectedRow, value)) return;
+                OpenDiffCommand?.NotifyCanExecuteChanged();
+                if (!syncingTreeFromFile && !IsBusy && snapshot != null && value != null)
+                    RevealContainingFolder(Path.GetDirectoryName(value.File.RelativePath) ?? "");
+            }
+        }
+        public Func<string, string, string> ChooseFolder { get; set; }
+        public event Action CloseRequested;
+        public event Action<bool> CommitBrowsedRootHistoryRequested;
+        public event Action<DiffSnapshot, DiffFile> DiffRequested;
+        public event Action<IReadOnlyList<DiffFolder>> FolderRevealRequested;
+        public RelayCommand BrowseSourceCommand { get; }
+        public RelayCommand BrowseTargetCommand { get; }
+        public RelayCommand CloseCommand { get; }
+        public RelayCommand CompactTreeCommand { get; }
+        public RelayCommand ComfortableTreeCommand { get; }
+        public RelayCommand OpenDiffCommand { get; }
         private readonly Dictionary<string, DiffFolder> folders = new Dictionary<string, DiffFolder>(StringComparer.OrdinalIgnoreCase);
         private List<DiffRow> rows = new List<DiffRow>();
         private string selectedFolder = "";
@@ -40,6 +70,7 @@ namespace DesktopIniManager.ViewModels
         public string SelectedFolderPath => selectedFolder;
         public void SelectFolder(string path)
         {
+            if (syncingTreeFromFile) return;
             selectedFolder = path ?? "";
             Filter();
         }
@@ -115,6 +146,12 @@ namespace DesktopIniManager.ViewModels
             Func<string, DiffFile[], bool, bool> confirmSync, Func<string, DiffSnapshot, ISynchronizationLog> openLog)
         {
             this.dialogs = dialogs; this.dispatcher = dispatcher; this.confirmSync = confirmSync; this.openLog = openLog;
+            BrowseSourceCommand = new RelayCommand(() => BrowseFolder(true), () => !IsBusy);
+            BrowseTargetCommand = new RelayCommand(() => BrowseFolder(false), () => !IsBusy);
+            CloseCommand = new RelayCommand(() => CloseRequested?.Invoke(), () => !IsBusy);
+            CompactTreeCommand = new RelayCommand(() => TreeCompact = true);
+            ComfortableTreeCommand = new RelayCommand(() => TreeCompact = false);
+            OpenDiffCommand = new RelayCommand(OpenDiff, () => !IsBusy && snapshot != null && SelectedRow != null);
             CompareCommand = new AsyncRelayCommand(CompareAsync, ShowError, () => !IsBusy);
             RefreshCommand = new AsyncRelayCommand(RefreshSelectedFolderAsync, ShowError, () => CanRefresh);
             ForwardCommand = new AsyncRelayCommand(() => SyncAsync(true), ShowError, () => CanSynchronize);
@@ -129,7 +166,99 @@ namespace DesktopIniManager.ViewModels
         internal void SetFilePanelBusy(bool busyPanel, string message = null)
         { IsFileBusy = busyPanel; if (message != null) BusyMessage = message; }
         internal void ShowError(Exception error) => dialogs.Show(ErrorMessages.English(error), "MFT Differencer", MessageBoxButton.OK, MessageBoxImage.Error);
-        internal void Close() { compareCts?.Cancel(); compareCts?.Dispose(); DetachSelectionHandlers(); }
+        internal void Close()
+        {
+            closed = true;
+            compareCts?.Cancel();
+            compareCts?.Dispose();
+            previewScope.Cancel();
+            previewScope.Dispose();
+            DetachSelectionHandlers();
+        }
+
+        private void BrowseFolder(bool source)
+        {
+            try
+            {
+                string path = ChooseFolder?.Invoke(source ? SourcePath : TargetPath, source ? "Source folder" : "Target folder");
+                if (path == null) return;
+                if (source) SourcePath = path;
+                else TargetPath = path;
+                CommitBrowsedRootHistoryRequested?.Invoke(source);
+            }
+            catch (Exception ex) { ShowError(ex); }
+        }
+
+        private void OpenDiff()
+        {
+            if (IsBusy || snapshot == null || SelectedRow == null) return;
+            DiffFile file = SelectedRow.File;
+            if (DiffMedia.IsBinary(file.RelativePath))
+            {
+                dialogs.Show(DiffMedia.BinaryMessage, "Diff View", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            try { DiffRequested?.Invoke(snapshot, file); }
+            catch (Exception ex) { ShowError(ex); }
+        }
+
+        internal async Task LoadPreviewAsync(DiffRow row)
+        {
+            if (closed || row == null || snapshot == null) return;
+            bool wait = !row.IsPreviewReady;
+            if (wait) previewInFlight++;
+            try { await row.LoadPreviewAsync(previewWorkers, previewScope.Token); }
+            finally
+            {
+                if (wait)
+                {
+                    previewInFlight--;
+                    if (!closed && previewInFlight <= 0 && !IsBusy) SetFilePanelBusy(false);
+                }
+            }
+        }
+
+        private void RevealContainingFolder(string path)
+        {
+            if (folders.Count == 0) return;
+            DiffFolder target = null;
+            string current = path ?? "";
+            while (true)
+            {
+                if (folders.TryGetValue(current, out target) && target.Visible) break;
+                if (current.Length == 0) { target = folders.ContainsKey("") ? folders[""] : null; break; }
+                current = Path.GetDirectoryName(current) ?? "";
+            }
+            if (target == null) return;
+
+            string ancestor = target.Path;
+            while (ancestor.Length > 0)
+            {
+                ancestor = Path.GetDirectoryName(ancestor) ?? "";
+                DiffFolder parent;
+                if (folders.TryGetValue(ancestor, out parent)) parent.Expanded = true;
+            }
+
+            syncingTreeFromFile = true;
+            foreach (DiffFolder folder in folders.Values)
+                if (folder.Active && folder != target) folder.Active = false;
+            target.Active = true;
+            var pathToTarget = new List<DiffFolder>();
+            string folderPath = target.Path ?? "";
+            while (true)
+            {
+                DiffFolder node;
+                if (folders.TryGetValue(folderPath, out node)) pathToTarget.Add(node);
+                if (folderPath.Length == 0) break;
+                folderPath = Path.GetDirectoryName(folderPath) ?? "";
+            }
+            pathToTarget.Reverse();
+            if (FolderRevealRequested == null) CompleteFolderReveal();
+            else FolderRevealRequested(pathToTarget);
+        }
+
+        internal void CompleteFolderReveal() => syncingTreeFromFile = false;
+
         internal void RestoreState()
         {
             try
@@ -251,11 +380,16 @@ namespace DesktopIniManager.ViewModels
 
         internal void ClearComparisonView()
         {
+            previewScope.Cancel();
+            previewScope.Dispose();
+            previewScope = new CancellationTokenSource();
             ComparisonCleared?.Invoke();
             DetachSelectionHandlers();
             FolderItems = null;
             FileItems = null;
             snapshot = null; rows.Clear();
+            SelectedRow = null;
+            OpenDiffCommand.NotifyCanExecuteChanged();
             CanFilter = false;
             FilePanelTitle = "Files";
             UpdateSelectionSummary();
@@ -740,6 +874,8 @@ namespace DesktopIniManager.ViewModels
             SetFilePanelBusy(value, value ? "Please wait…" : null);
             UpdateSelectionSummary(); UpdateRefreshButtonState();
             CompareCommand.NotifyCanExecuteChanged(); CleanCommand.NotifyCanExecuteChanged();
+            BrowseSourceCommand.NotifyCanExecuteChanged(); BrowseTargetCommand.NotifyCanExecuteChanged();
+            CloseCommand.NotifyCanExecuteChanged(); OpenDiffCommand.NotifyCanExecuteChanged();
         }
 
         internal async Task<bool> RefreshFileAsync(DiffFile file)

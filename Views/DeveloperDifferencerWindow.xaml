@@ -291,7 +291,7 @@
           Grid.Column="2"
           HorizontalAlignment="Right"
           VerticalAlignment="Center"
-          Click="CloseClick"
+          Command="{Binding CloseCommand}"
           Content="&#xE711;"
           Style="{StaticResource IconButton}"
           ToolTip="{loc:L Common_Close}" />
@@ -320,7 +320,7 @@
         <Button
           Grid.Column="2"
           Margin="0,0,0,6"
-          Click="BrowseSource"
+          Command="{Binding BrowseSourceCommand}"
           Content="&#xE8B7;"
           Style="{StaticResource IconButton}"
           ToolTip="{loc:L Common_Browse}" />
@@ -339,7 +339,7 @@
         <Button
           Grid.Row="1"
           Grid.Column="2"
-          Click="BrowseTarget"
+          Command="{Binding BrowseTargetCommand}"
           Content="&#xE8B7;"
           Style="{StaticResource IconButton}"
           ToolTip="{loc:L Common_Browse}" />
@@ -498,7 +498,7 @@
                 <Button
                   Margin="10,0,0,0"
                   Background="{DynamicResource Secondary}"
-                  Click="CompactTree_Click"
+                  Command="{Binding CompactTreeCommand}"
                   Content="a"
                   FontSize="13"
                   Style="{StaticResource TypeSizeButton}"
@@ -506,7 +506,7 @@
                 <Button
                   Margin="5,0,0,0"
                   Background="{DynamicResource Secondary}"
-                  Click="ComfortableTree_Click"
+                  Command="{Binding ComfortableTreeCommand}"
                   Content="A"
                   FontSize="17"
                   Style="{StaticResource TypeSizeButton}"
@@ -658,7 +658,7 @@
                         <Setter Property="Height" Value="48" />
                         <Setter Property="Margin" Value="5,3" />
                         <Style.Triggers>
-                          <DataTrigger Binding="{Binding TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                          <DataTrigger Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
                             <Setter Property="Width" Value="22" />
                             <Setter Property="Height" Value="22" />
                             <Setter Property="Margin" Value="3,1" />
@@ -677,7 +677,7 @@
                       <Style TargetType="TextBlock">
                         <Setter Property="FontSize" Value="14" />
                         <Style.Triggers>
-                          <DataTrigger Binding="{Binding TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                          <DataTrigger Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
                             <Setter Property="FontSize" Value="11" />
                           </DataTrigger>
                         </Style.Triggers>
@@ -724,7 +724,7 @@
               MouseDoubleClick="OpenDiff"
               ScrollViewer.CanContentScroll="True"
               ScrollViewer.HorizontalScrollBarVisibility="Auto"
-              SelectionChanged="FileListSelectionChanged"
+              SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
               SelectionMode="Single"
               VirtualizingPanel.CacheLength="0"
               VirtualizingPanel.ScrollUnit="Item"

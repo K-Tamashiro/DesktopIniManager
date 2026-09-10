@@ -5,6 +5,7 @@
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
   xmlns:history="clr-namespace:DesktopIniManager.Views"
   xmlns:loc="clr-namespace:DesktopIniManager.Properties"
+  Title="{Binding Title}"
   Width="1280"
   Height="800"
   MinWidth="700"
@@ -27,6 +28,8 @@
         Text="{loc:L Diff_Heading}" />
       <TextBlock
         x:Name="selectedFileText"
+        Text="{Binding File.Name}"
+        ToolTip="{Binding File.RelativePath}"
         Grid.Column="1"
         MaxWidth="720"
         Margin="20,0,12,4"
@@ -41,7 +44,7 @@
         x:Name="CloseButton"
         Grid.Column="2"
         VerticalAlignment="Center"
-        Click="Close_Click"
+        Command="{Binding CloseCommand}"
         Content="&#xE711;"
         FontFamily="Segoe MDL2 Assets"
         Style="{DynamicResource IconButton}"
@@ -71,6 +74,7 @@
           Text="External Diff" />
         <history:HistoryTextBox
           x:Name="externalDiffBox"
+          Text="{Binding ExternalDiff, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
           Grid.Column="1"
           Height="36"
           Padding="8,4"
@@ -120,11 +124,13 @@
       </Grid.ColumnDefinitions>
       <TextBlock
         x:Name="sourceHeader"
+        Text="{Binding SourceHeader}"
         Margin="8,4,8,8"
         Foreground="{DynamicResource Ink}"
         TextWrapping="Wrap" />
       <TextBlock
         x:Name="targetHeader"
+        Text="{Binding TargetHeader}"
         Grid.Column="2"
         Margin="8,4,8,8"
         Foreground="{DynamicResource Ink}"

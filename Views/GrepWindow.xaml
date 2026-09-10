@@ -242,7 +242,7 @@
           HorizontalAlignment="Right"
           VerticalAlignment="Center"
           Background="{DynamicResource Secondary}"
-          Click="Close_Click"
+          Command="{Binding CloseCommand}"
           Content="&#xE8BB;"
           Style="{StaticResource IconButton}"
           ToolTip="{loc:L Common_Close}" />
@@ -376,14 +376,14 @@
     <DockPanel Grid.Row="3" Margin="0,0,0,10">
       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
         <Button
-          Click="ExpandResultGroups_Click"
+          Command="{Binding ExpandResultGroupsCommand}"
           Content="&#xE70D;"
           Style="{StaticResource IconButton}"
           ToolTip="{loc:L Common_Expand}" />
         <Button
           Margin="5,0,0,0"
           Background="{DynamicResource Secondary}"
-          Click="CollapseResultGroups_Click"
+          Command="{Binding CollapseResultGroupsCommand}"
           Content="&#xE70E;"
           Style="{StaticResource IconButton}"
           ToolTip="{loc:L Common_Collapse}" />
@@ -403,7 +403,7 @@
       BorderBrush="{DynamicResource Line}"
       BorderThickness="1">
       <DataGrid
-        x:Name="ResultsGrid" ItemsSource="{Binding Matches}" SelectedItem="{Binding SelectedMatch}"
+        x:Name="ResultsGrid" ItemsSource="{Binding Results}" SelectedItem="{Binding SelectedMatch}"
         AutoGenerateColumns="False"
         Background="{DynamicResource CardBackground}"
         BorderThickness="0"
@@ -413,10 +413,16 @@
         HeadersVisibility="Column"
         IsReadOnly="True"
         MinColumnWidth="56"
-        MouseDoubleClick="ResultsGrid_MouseDoubleClick"
+        VirtualizingPanel.IsVirtualizing="True"
+        VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+        VirtualizingPanel.VirtualizationMode="Recycling"
+        ScrollViewer.CanContentScroll="True"
         RowHeaderWidth="0"
         SelectionMode="Single"
         SelectionUnit="FullRow">
+        <DataGrid.InputBindings>
+          <MouseBinding MouseAction="LeftDoubleClick" Command="{Binding OpenMatchCommand}" />
+        </DataGrid.InputBindings>
         <DataGrid.Resources>
           <Style x:Key="NumericCellStyle" TargetType="TextBlock">
             <Setter Property="HorizontalAlignment" Value="Stretch" />
@@ -604,7 +610,7 @@
           Height="36"
           Margin="8,0,0,0"
           VerticalAlignment="Stretch"
-          Click="BrowseEditor_Click"
+          Command="{Binding BrowseEditorCommand}"
           Content="&#xE8B7;"
           Style="{StaticResource IconButton}"
           ToolTip="{loc:L Grep_BrowseEditor}" />

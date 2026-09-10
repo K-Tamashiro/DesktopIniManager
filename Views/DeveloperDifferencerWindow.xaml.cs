@@ -4,10 +4,6 @@ using DesktopIniManager.Properties;
 using System;
 using System.Runtime.Versioning;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.IO;
-using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -15,9 +11,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using System.Xml.Serialization;
 
 namespace DesktopIniManager.Views
 {
@@ -25,20 +19,7 @@ namespace DesktopIniManager.Views
     public partial class DeveloperDifferencerWindow : Window
     {
         internal DeveloperDifferencerViewModel ViewModel { get; }
-        private int previewInFlight;
-        private bool syncingTreeFromFile;
-        private readonly SemaphoreSlim previewWorkers = new SemaphoreSlim(2);
-        private CancellationTokenSource previewScope = new CancellationTokenSource();
-
-
-
         internal bool IsWorking { get { return ViewModel.IsBusy; } }
-        public static readonly DependencyProperty TreeCompactProperty = DependencyProperty.Register("TreeCompact", typeof(bool), typeof(DeveloperDifferencerWindow), new PropertyMetadata(false));
-        public bool TreeCompact { get { return (bool)GetValue(TreeCompactProperty); } set { SetValue(TreeCompactProperty, value); } }
-        private void CompactTree_Click(object sender, RoutedEventArgs e) { TreeCompact = true; }
-        private void ComfortableTree_Click(object sender, RoutedEventArgs e) { TreeCompact = false; }
-
-
         /// <summary>Initializes a new developer differencer window.</summary>
         public DeveloperDifferencerWindow()
         {
@@ -48,7 +29,16 @@ namespace DesktopIniManager.Views
             DataContext = ViewModel;
             ViewModel.ChooseCleanSolutions = ChooseCleanSolutions;
             ViewModel.CleanReportRequested += ShowCleanReport;
-            ViewModel.ComparisonCleared += () => { previewScope.Cancel(); previewScope.Dispose(); previewScope = new CancellationTokenSource(); };
+            ViewModel.ChooseFolder = (initialPath, title) =>
+                NativeFolderPicker.Show(new WindowInteropHelper(this).Handle, initialPath, title);
+            ViewModel.CloseRequested += Close;
+            ViewModel.DiffRequested += (snapshot, file) => new DiffViewWindow(snapshot, file) { Owner = this }.Show();
+            ViewModel.FolderRevealRequested += ScheduleFolderIntoView;
+            ViewModel.CommitBrowsedRootHistoryRequested += source =>
+            {
+                if (source) SourceBox.CommitHistory();
+                else TargetBox.CommitHistory();
+            };
             ViewModel.CommitRootHistoryRequested += () => { SourceBox.CommitHistory(); TargetBox.CommitHistory(); };
             ViewModel.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(ViewModel.IsFileBusy)) { if (ViewModel.IsFileBusy) RestartPanelProgress(); else StopPanelProgress(); } };
             SameFilterIcon.Source = DifferencerStatusIcons.GetFileIcon(DiffKind.Same);
@@ -58,16 +48,12 @@ namespace DesktopIniManager.Views
             RefreshCompareIcon.Source = DifferencerStatusIcons.GetRefreshIcon();
             ObjFilterIcon.Source = DifferencerStatusIcons.GetBuildFolderIcon(true);
             BinFilterIcon.Source = DifferencerStatusIcons.GetBuildFolderIcon(false);
-            TreeCompact = SettingsService.LoadTreeCompact();
             // HistoryTextBox persists Source/Target via HistoryKey.
             Closing += (s, e) => { if (ViewModel.IsBusy) { e.Cancel = true; return; } ViewModel.SaveState(); };
             Closed += (s, e) =>
             {
                 StringOverlay.CultureChanged -= OnCultureChanged;
                 ViewModel.Close();
-                previewScope.Cancel();
-                previewScope.Dispose();
-                ViewModel.DetachSelectionHandlers();
             };
             Loaded += (s, e) => ViewModel.SetFilePanelBusy(false);
             StringOverlay.CultureChanged += OnCultureChanged;
@@ -83,30 +69,6 @@ namespace DesktopIniManager.Views
                 ViewModel.ProgressIndeterminate = true;
             }
         }
-        private void AttachElevationToggle()
-        {
-            var dock = Content as DockPanel;
-            var top = dock?.Children.OfType<StackPanel>().FirstOrDefault();
-            var header = top?.Children.OfType<Grid>().FirstOrDefault();
-            if (header == null) return;
-
-            while (header.ColumnDefinitions.Count < 3)
-                header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            header.ColumnDefinitions[0].Width = new GridLength(1, GridUnitType.Star);
-            header.ColumnDefinitions[1].Width = GridLength.Auto;
-            header.ColumnDefinitions[2].Width = GridLength.Auto;
-
-            var title = header.Children.OfType<TextBlock>().FirstOrDefault();
-            var close = CloseButton ?? header.Children.OfType<Button>().FirstOrDefault();
-            if (title != null) Grid.SetColumn(title, 0);
-            if (close != null) Grid.SetColumn(close, 2);
-
-        }
-
-        private void RootsChanged(object sender, TextChangedEventArgs e)
-        { ViewModel.ClearComparisonView(); }
-
-
         private void FileRowLoaded(object sender, RoutedEventArgs e)
         {
             var item = (ListViewItem)sender;
@@ -127,133 +89,26 @@ namespace DesktopIniManager.Views
             if (ReferenceEquals(item.Tag, item.DataContext)) return;
             (item.Tag as DiffRow)?.ReleasePreview();
             var row = item.DataContext as DiffRow; item.Tag = row;
-            if (row == null || ViewModel.Snapshot == null) return;
-            bool wait = !row.IsPreviewReady;
-            if (wait) previewInFlight++;
-            try { await row.LoadPreviewAsync(previewWorkers, previewScope.Token); }
-            finally
-            {
-                if (wait)
-                {
-                    previewInFlight--;
-                    if (previewInFlight <= 0 && !ViewModel.IsBusy) ViewModel.SetFilePanelBusy(false);
-                }
-            }
+            await ViewModel.LoadPreviewAsync(row);
         }
-        private void BrowseSource(object sender, RoutedEventArgs e) { Browse(SourceBox, "Source folder"); }
-        private void BrowseTarget(object sender, RoutedEventArgs e) { Browse(TargetBox, "Target folder"); }
-        private void CloseClick(object sender, RoutedEventArgs e) { Close(); }
-        private void Browse(HistoryTextBox box, string title)
-        {
-            try
-            {
-                string path = NativeFolderPicker.Show(new WindowInteropHelper(this).Handle, box.Text, title);
-                if (path == null) return;
-                box.SetCurrentValue(HistoryTextBox.TextProperty, path);
-                box.CommitHistory();
-            }
-            catch (Exception ex) { ShowError(ex); }
-        }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
         private void FolderChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
-            if (syncingTreeFromFile) return;
             var folder = e.NewValue as DiffFolder; if (folder == null) return; ViewModel.SelectFolder(folder.Path);
         }
-        private void FileListSelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void ScheduleFolderIntoView(IReadOnlyList<DiffFolder> path)
         {
-            if (syncingTreeFromFile || ViewModel.IsBusy || ViewModel.Snapshot == null) return;
-            var row = FilesGrid.SelectedItem as DiffRow;
-            if (row == null) return;
-            RevealContainingFolder(Path.GetDirectoryName(row.File.RelativePath) ?? "");
-        }
-        private void RevealContainingFolder(string path)
-        {
-            if (ViewModel.Folders.Count == 0) return;
-            DiffFolder target = null;
-            string current = path ?? "";
-            while (true)
-            {
-                if (ViewModel.Folders.TryGetValue(current, out target) && target.Visible) break;
-                if (current.Length == 0) { target = ViewModel.Folders.ContainsKey("") ? ViewModel.Folders[""] : null; break; }
-                current = Path.GetDirectoryName(current) ?? "";
-            }
-            if (target == null) return;
-
-            string ancestor = target.Path;
-            while (ancestor.Length > 0)
-            {
-                ancestor = Path.GetDirectoryName(ancestor) ?? "";
-                DiffFolder parent;
-                if (ViewModel.Folders.TryGetValue(ancestor, out parent)) parent.Expanded = true;
-            }
-
-            syncingTreeFromFile = true;
-            foreach (DiffFolder folder in ViewModel.Folders.Values)
-                if (folder.Active && folder != target) folder.Active = false;
-            target.Active = true;
-            ScheduleFolderIntoView(target);
-        }
-        private void ScheduleFolderIntoView(DiffFolder target)
-        {
-            Action bring = () => BringFolderIntoView(target);
+            Action bring = () => ScrollTreeItemIntoView(FolderTree, ContainerAlongPath(FolderTree, path));
             bring();
             Dispatcher.BeginInvoke(bring, DispatcherPriority.Loaded);
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 try { bring(); }
-                finally { syncingTreeFromFile = false; }
+                finally { ViewModel.CompleteFolderReveal(); }
             }), DispatcherPriority.ContextIdle);
         }
-        private void BringFolderIntoView(DiffFolder target)
-        {
-            if (target == null) return;
-            var path = new List<DiffFolder>();
-            string current = target.Path ?? "";
-            while (true)
-            {
-                DiffFolder node;
-                if (ViewModel.Folders.TryGetValue(current, out node)) path.Add(node);
-                if (current.Length == 0) break;
-                current = Path.GetDirectoryName(current) ?? "";
-            }
-            path.Reverse();
-            TreeViewItem item = ContainerAlongPath(FolderTree, path);
-            ScrollTreeItemIntoView(FolderTree, item);
-        }
-        private static TreeViewItem ContainerAlongPath(ItemsControl parent, List<DiffFolder> path)
+
+        private static TreeViewItem ContainerAlongPath(ItemsControl parent, IReadOnlyList<DiffFolder> path)
         {
             TreeViewItem current = null;
             ItemsControl host = parent;
@@ -304,9 +159,6 @@ namespace DesktopIniManager.Views
             return null;
         }
 
-
-
-
         private void StopPanelProgress()
         {
             if (FilePanelMarquee == null) return;
@@ -332,7 +184,6 @@ namespace DesktopIniManager.Views
             catch (InvalidOperationException) { }
         }
 
-
         private SolutionCleanSelection ChooseCleanSolutions(IReadOnlyList<string> solutions, string source)
             => CleanSolutionsWindow.Choose(this, solutions, source);
 
@@ -348,18 +199,9 @@ namespace DesktopIniManager.Views
         internal void SaveState() => ViewModel.SaveState();
         private void OpenDiff(object sender, MouseButtonEventArgs e)
         {
-            if (ViewModel.IsBusy || ViewModel.Snapshot == null || !(FilesGrid.SelectedItem is DiffRow)) return;
-            // Only data rows open a viewer; header/scrollbar double-clicks do not.
+            // Keep the row hit test in the View so headers and scrollbars cannot open a viewer.
             if (!(ItemsControl.ContainerFromElement(FilesGrid, e.OriginalSource as DependencyObject) is ListViewItem)) return;
-            var selectedFile = ((DiffRow)FilesGrid.SelectedItem).File;
-            if (DiffMedia.IsBinary(selectedFile.RelativePath))
-            {
-                MessageBox.Show(this, DiffMedia.BinaryMessage, "Diff View", MessageBoxButton.OK, MessageBoxImage.Information);
-                return;
-            }
-            try { new DiffViewWindow(ViewModel.Snapshot, selectedFile) { Owner = this }.Show(); } catch (Exception ex) { ShowError(ex); }
+            ViewModel.OpenDiffCommand.Execute(null);
         }
-
-        private void ShowError(Exception ex) { MessageBox.Show(this, ErrorMessages.English(ex), Title, MessageBoxButton.OK, MessageBoxImage.Error); }
     }
 }

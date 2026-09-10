@@ -1,6 +1,5 @@
 using DesktopIniManager.Models;
 using DesktopIniManager.Services;
-using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -12,8 +11,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
 using System.Windows.Data;
 using System.Windows.Threading;
 using DesktopIniManager.Properties;
@@ -33,7 +30,14 @@ namespace DesktopIniManager.ViewModels
         private string _extensions = string.Empty;
         public string Extensions { get => _extensions; set => SetProperty(ref _extensions, value); }
         private string _editorPath = string.Empty;
-        public string EditorPath { get => _editorPath; set => SetProperty(ref _editorPath, value); }
+        public string EditorPath
+        {
+            get => _editorPath;
+            set
+            {
+                if (SetProperty(ref _editorPath, value)) ApplyEditorPreset();
+            }
+        }
         private string _editorArguments = string.Empty;
         public string EditorArguments { get => _editorArguments; set => SetProperty(ref _editorArguments, value); }
         private bool? _useRegex = false;
@@ -78,6 +82,16 @@ namespace DesktopIniManager.ViewModels
         public RelayCommand CancelCommand { get; }
         public RelayCommand ReloadScopesCommand { get; }
         public RelayCommand OpenMatchCommand { get; }
+        public RelayCommand BrowseEditorCommand { get; }
+        public RelayCommand CloseCommand { get; }
+        public RelayCommand ExpandResultGroupsCommand { get; }
+        public RelayCommand CollapseResultGroupsCommand { get; }
+        public RelayCommand ApplyEditorPresetCommand { get; }
+        public ICollectionView Results { get; }
+        public double[] ColumnWidths { get; private set; }
+        public event Action BrowseEditorRequested;
+        public event Action CloseRequested;
+        public event Action<bool> ResultGroupsExpansionRequested;
         public event Action SearchHistoryRequested;
         public event Action ResultGroupsResetRequested;
         public event Action<GrepMatch> MatchScrollRequested;
@@ -88,9 +102,49 @@ namespace DesktopIniManager.ViewModels
             CancelCommand = new RelayCommand(Cancel, () => IsSearching && !IsCancelling);
             ReloadScopesCommand = new RelayCommand(ReloadFromMainWindow, () => !IsSearching);
             OpenMatchCommand = new RelayCommand(OpenMatch);
+            BrowseEditorCommand = new RelayCommand(() => BrowseEditorRequested?.Invoke());
+            CloseCommand = new RelayCommand(() => CloseRequested?.Invoke());
+            ExpandResultGroupsCommand = new RelayCommand(() => ResultGroupsExpansionRequested?.Invoke(true));
+            CollapseResultGroupsCommand = new RelayCommand(() => ResultGroupsExpansionRequested?.Invoke(false));
+            ApplyEditorPresetCommand = new RelayCommand(ApplyEditorPreset);
+            Results = CollectionViewSource.GetDefaultView(_matches);
+            Results.GroupDescriptions.Add(new PropertyGroupDescription(nameof(GrepMatch.GroupPath)));
             _resultTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(50), DispatcherPriority.Background,
                 (sender, args) => DrainPendingMatches(20), Dispatcher);
             _resultTimer.Stop();
+        }
+
+        internal void Initialize(IReadOnlyList<string> initialScopes)
+        {
+            string savedProfile = SettingsService.LoadGrepProfile();
+            SelectedProfile = LanguageProfile.All.FirstOrDefault(profile =>
+                string.Equals(profile.Name, savedProfile, StringComparison.OrdinalIgnoreCase))
+                ?? LanguageProfile.All.First(profile => !profile.IsFree);
+            ColumnWidths = SettingsService.LoadGrepColumnWidths();
+            if (SeedEditorPresets())
+            {
+                EditorPath = FirstEditorPreset.Executable;
+                EditorArguments = FirstEditorPreset.Arguments;
+                SettingsService.SaveEditor(EditorPath, EditorArguments);
+            }
+            else
+            {
+                EditorPath = SettingsService.LoadEditorPath();
+                EditorArguments = SettingsService.LoadEditorArguments();
+            }
+            SetExplicitScopes(initialScopes);
+        }
+
+        internal void SaveColumnWidths(double[] widths)
+        {
+            if (widths.Length >= 4 && widths[0] >= 80 && widths[1] >= 120)
+                SettingsService.SaveGrepColumnWidths(widths);
+        }
+
+        private void ApplyEditorPreset()
+        {
+            string arguments;
+            if (TryApplyEditorPreset(EditorPath, out arguments)) EditorArguments = arguments;
         }
         internal void Close()
         {

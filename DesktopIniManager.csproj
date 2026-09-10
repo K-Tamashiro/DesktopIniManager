@@ -57,6 +57,7 @@
     <Compile Include="Models\LanguageChoice.cs" />
     <Compile Include="Services\LanguageIconService.cs" />
     <Compile Include="Views\Presenter\MainWindowPresentationService.cs" />
+    <Compile Include="Views\VirtualizingUniformGrid.cs" />
     <Compile Include="Services\UserDialogService.cs" />
     <Compile Include="Services\ISynchronizationLog.cs" />
     <Compile Include="Services\DiffMedia.cs" />

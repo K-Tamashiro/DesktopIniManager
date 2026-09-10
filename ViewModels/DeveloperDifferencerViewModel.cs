@@ -202,6 +202,26 @@ namespace DesktopIniManager.ViewModels
             catch (Exception ex) { ShowError(ex); }
         }
 
+        internal IReadOnlyList<DiffFile> GetVisibleComparableFiles()
+        {
+            var visible = FileItems as IEnumerable<DiffRow> ?? Enumerable.Empty<DiffRow>();
+            return visible
+                .Select(row => row?.File)
+                .Where(file => file != null && !DiffMedia.IsBinary(file.RelativePath))
+                .ToList();
+        }
+
+        internal DiffRow SelectDisplayedFile(DiffFile file)
+        {
+            if (file == null) return null;
+            DiffRow row = rows.FirstOrDefault(item =>
+                ReferenceEquals(item.File, file) ||
+                string.Equals(item.File.RelativePath, file.RelativePath, StringComparison.OrdinalIgnoreCase));
+            if (row == null) return null;
+            SelectedRow = row;
+            return row;
+        }
+
         internal async Task LoadPreviewAsync(DiffRow row)
         {
             if (closed || row == null || snapshot == null) return;
@@ -288,7 +308,7 @@ namespace DesktopIniManager.ViewModels
                 {
                     DiffSnapshot current = snapshot;
                     log = await Task.Run(() => DeveloperDifferencerService.Synchronize(current, files, toTarget,
-                        line => dispatcher.BeginInvoke(new Action(() => liveLog.AppendLine(line)))));
+                        line => dispatcher.Invoke(new Action(() => liveLog.AppendLine(line)))));
                 }
                 catch (Exception ex) { log = new List<string> { "FAIL " + ErrorMessages.English(ex) }; liveLog.AppendLine(log[0]); }
                 string report = direction + "\n" + DateTime.Now.ToString("O") + "\n" + string.Join("\n", log);
@@ -300,7 +320,9 @@ namespace DesktopIniManager.ViewModels
                 }
                 catch (Exception ex) { liveLog.AppendLine("Failed to save log: " + ErrorMessages.English(ex)); }
                 liveLog.Complete(log.Count(l => l.StartsWith("OK ")), log.Count(l => l.StartsWith("FAIL ")), log.Count(l => l.StartsWith("LOCKED ")));
-                await CompareAsync(); liveLog.Activate();
+                liveLog.Activate();
+                await CompareAsync();
+                liveLog.Activate();
             }
             finally { SetBusy(false); }
         }
@@ -656,13 +678,16 @@ namespace DesktopIniManager.ViewModels
         internal void UpdateProgress(DiffProgress progress)
         {
             if (!comparing) return;
-            bool unknown = progress.Total == 0;
-            ProgressIndeterminate = unknown;
-            ProgressMaximum = Math.Max(1, progress.Total);
-            ProgressValue = progress.Completed;
-            string detail = unknown ? progress.Stage : progress.Stage + " — " + progress.Completed.ToString("N0") + " / " + progress.Total.ToString("N0");
-            BusyMessage = string.IsNullOrEmpty(detail) ? "Please wait…" : detail;
-            Status = progress.Stage + (unknown ? "" : " — " + progress.Completed.ToString("N0") + " / " + progress.Total.ToString("N0") + " items");
+            bool counting = progress.Total <= 0;
+            ProgressIndeterminate = counting;
+            if (!counting)
+            {
+                ProgressMaximum = Math.Max(1, progress.Total);
+                ProgressValue = Math.Max(0, Math.Min(progress.Completed, ProgressMaximum));
+            }
+            string detail = string.IsNullOrEmpty(progress.Stage) ? "Please wait…" : progress.Stage;
+            BusyMessage = detail;
+            Status = detail;
         }
 
         internal async Task BuildTreeAsync(IEnumerable<string> paths, IEnumerable<string> expanded, string selected, CancellationToken token)

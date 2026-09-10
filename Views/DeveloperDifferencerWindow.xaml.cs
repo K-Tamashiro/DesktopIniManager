@@ -170,18 +170,24 @@ namespace DesktopIniManager.Views
 
         private void RestartPanelProgress()
         {
-            try
+            Dispatcher.BeginInvoke(new Action(() =>
             {
-                if (FilePanelMarquee == null || FilePanelBusy == null || FilePanelBusy.Visibility != Visibility.Visible) return;
-                var transform = FilePanelMarquee.RenderTransform as TranslateTransform ?? new TranslateTransform();
-                FilePanelMarquee.RenderTransform = transform;
-                transform.BeginAnimation(TranslateTransform.XProperty, null);
-                double distance = 112;
-                var animation = new DoubleAnimation(0, distance, TimeSpan.FromSeconds(1.1))
-                { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever };
-                transform.BeginAnimation(TranslateTransform.XProperty, animation, HandoffBehavior.SnapshotAndReplace);
-            }
-            catch (InvalidOperationException) { }
+                try
+                {
+                    if (FilePanelMarquee == null) return;
+                    if (FilePanelProgress != null) FilePanelProgress.ClipToBounds = true;
+                    var transform = FilePanelMarquee.RenderTransform as TranslateTransform ?? new TranslateTransform();
+                    FilePanelMarquee.RenderTransform = transform;
+                    transform.BeginAnimation(TranslateTransform.XProperty, null);
+                    double track = FilePanelProgress != null && FilePanelProgress.ActualWidth > 0 ? FilePanelProgress.ActualWidth : 160;
+                    double thumb = FilePanelMarquee.ActualWidth > 1 ? FilePanelMarquee.ActualWidth : 48;
+                    double distance = Math.Max(8, track - thumb);
+                    var animation = new DoubleAnimation(0, distance, TimeSpan.FromSeconds(1.4))
+                    { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever };
+                    transform.BeginAnimation(TranslateTransform.XProperty, animation, HandoffBehavior.SnapshotAndReplace);
+                }
+                catch (InvalidOperationException) { }
+            }), DispatcherPriority.Loaded);
         }
 
         private SolutionCleanSelection ChooseCleanSolutions(IReadOnlyList<string> solutions, string source)
@@ -196,6 +202,17 @@ namespace DesktopIniManager.Views
         }
 
         internal Task<bool> RefreshFileAsync(DiffFile file) => ViewModel.RefreshFileAsync(file);
+        internal IReadOnlyList<DiffFile> GetVisibleComparableFiles() => ViewModel.GetVisibleComparableFiles();
+        internal void SelectLastViewedFile(DiffFile file)
+        {
+            DiffRow row = ViewModel.SelectDisplayedFile(file);
+            if (row == null) return;
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                FilesGrid.UpdateLayout();
+                FilesGrid.ScrollIntoView(row);
+            }), DispatcherPriority.Loaded);
+        }
         internal void SaveState() => ViewModel.SaveState();
         private void OpenDiff(object sender, MouseButtonEventArgs e)
         {

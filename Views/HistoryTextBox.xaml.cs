@@ -5,6 +5,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Documents;
+using System.Windows.Media;
 using DesktopIniManager.Services;
 
 namespace DesktopIniManager.Views
@@ -33,10 +35,13 @@ namespace DesktopIniManager.Views
         {
             this.store = store;
             SetResourceReference(StyleProperty, typeof(HistoryTextBox));
+            SnapsToDevicePixels = true;
+            UseLayoutRounding = true;
             Loaded += (s, e) =>
             {
                 owner = Window.GetWindow(this);
                 if (owner != null) owner.Closed += OwnerClosed;
+                ApplyThinCaret();
             };
             Unloaded += (s, e) =>
             {
@@ -45,6 +50,7 @@ namespace DesktopIniManager.Views
                 if (owner != null) owner.Closed -= OwnerClosed;
                 owner = null;
             };
+            SelectionChanged += (s, e) => ApplyThinCaret();
         }
 
         private void OwnerClosed(object sender, EventArgs e) { CommitHistory(); }
@@ -71,6 +77,44 @@ namespace DesktopIniManager.Views
                 list.PreviewKeyDown += HistoryKeyDown;
             }
             if (popup != null) popup.Closed += PopupClosed;
+            ApplyThinCaret();
+        }
+
+        protected override void OnGotKeyboardFocus(KeyboardFocusChangedEventArgs e)
+        {
+            base.OnGotKeyboardFocus(e);
+            ApplyThinCaret();
+        }
+
+        private void ApplyThinCaret()
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                NarrowCaretElements(this);
+                AdornerLayer layer = AdornerLayer.GetAdornerLayer(this);
+                if (layer != null) NarrowCaretElements(layer);
+            }), System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+
+        private static void NarrowCaretElements(DependencyObject root)
+        {
+            if (root == null) return;
+            int count = VisualTreeHelper.GetChildrenCount(root);
+            for (int index = 0; index < count; index++)
+            {
+                DependencyObject child = VisualTreeHelper.GetChild(root, index);
+                string typeName = child.GetType().Name;
+                if (typeName.IndexOf("Caret", StringComparison.OrdinalIgnoreCase) >= 0 && child is FrameworkElement element)
+                {
+                    element.Width = 1;
+                    element.MinWidth = 1;
+                    element.MaxWidth = 1;
+                    element.SnapsToDevicePixels = true;
+                    element.UseLayoutRounding = true;
+                    element.HorizontalAlignment = HorizontalAlignment.Left;
+                }
+                NarrowCaretElements(child);
+            }
         }
 
         public void CommitHistory()

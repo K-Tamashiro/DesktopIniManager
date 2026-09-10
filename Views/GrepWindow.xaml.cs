@@ -1,3 +1,4 @@
+using DesktopIniManager.Models;
 using DesktopIniManager.ViewModels;
 using DesktopIniManager.Services;
 using Microsoft.Win32;
@@ -8,6 +9,9 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Documents;
+using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 using DesktopIniManager.Properties;
 
@@ -17,6 +21,7 @@ namespace DesktopIniManager.Views
     {
         internal GrepWindowViewModel ViewModel { get; }
         private bool _resultGroupsExpanded = true;
+        private bool _applyingGroupExpansion;
         private readonly Dictionary<string, bool> _resultGroupStates = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
 
         public GrepWindow(Func<IReadOnlyList<string>> scopeProvider, IReadOnlyList<string> initialScopes)
@@ -26,9 +31,10 @@ namespace DesktopIniManager.Views
             DataContext = ViewModel;
             ViewModel.DialogTitle = Title;
             ViewModel.SearchHistoryRequested += () => { QueryBox.CommitHistory(); ExtensionsText.CommitHistory(); };
-            ViewModel.MatchScrollRequested += match => ResultsGrid.ScrollIntoView(match);
+            ViewModel.MatchScrollRequested += ScrollToMatch;
             ViewModel.ResultGroupsResetRequested += () => { _resultGroupsExpanded = true; _resultGroupStates.Clear(); };
             ViewModel.BrowseEditorRequested += BrowseEditor;
+            ViewModel.SaveResultsRequested += SaveResults;
             ViewModel.CloseRequested += Close;
             ViewModel.ResultGroupsExpansionRequested += SetResultGroupsExpanded;
             ViewModel.Initialize(initialScopes);
@@ -71,25 +77,40 @@ namespace DesktopIniManager.Views
         /// <summary>Applies the current global expansion state to a newly realized file group.</summary>
         private void ResultGroupExpander_Loaded(object sender, RoutedEventArgs e)
         {
-            var expander = sender as Expander;
+            ApplyGroupExpansion(sender as Expander);
+        }
+
+        private void ResultGroupExpander_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            ApplyGroupExpansion(sender as Expander);
+        }
+
+        private void ApplyGroupExpansion(Expander expander)
+        {
             if (expander == null) return;
-            bool expanded;
-            expander.IsExpanded = _resultGroupStates.TryGetValue(ResultGroupKey(expander), out expanded)
-                ? expanded : _resultGroupsExpanded;
+            string key = ResultGroupKey(expander);
+            bool expanded = !string.IsNullOrEmpty(key) && _resultGroupStates.TryGetValue(key, out bool stored)
+                ? stored : _resultGroupsExpanded;
+            if (expander.IsExpanded == expanded) return;
+            _applyingGroupExpansion = true;
+            try { expander.IsExpanded = expanded; }
+            finally { _applyingGroupExpansion = false; }
         }
 
         /// <summary>Remembers an individual file group's expanded state.</summary>
         private void ResultGroupExpander_Expanded(object sender, RoutedEventArgs e)
         {
-            var expander = sender as Expander;
-            if (expander != null) _resultGroupStates[ResultGroupKey(expander)] = true;
+            if (_applyingGroupExpansion) return;
+            string key = ResultGroupKey(sender as Expander);
+            if (!string.IsNullOrEmpty(key)) _resultGroupStates[key] = true;
         }
 
         /// <summary>Remembers an individual file group's collapsed state.</summary>
         private void ResultGroupExpander_Collapsed(object sender, RoutedEventArgs e)
         {
-            var expander = sender as Expander;
-            if (expander != null) _resultGroupStates[ResultGroupKey(expander)] = false;
+            if (_applyingGroupExpansion) return;
+            string key = ResultGroupKey(sender as Expander);
+            if (!string.IsNullOrEmpty(key)) _resultGroupStates[key] = false;
         }
 
         /// <summary>Returns the stable file-path key for a result group.</summary>
@@ -101,9 +122,106 @@ namespace DesktopIniManager.Views
         {
             _resultGroupsExpanded = expanded;
             _resultGroupStates.Clear();
-            foreach (Expander expander in FindVisualDescendants<Expander>(ResultsGrid)
-                .Where(item => string.Equals(item.Name, "ResultGroupExpander", StringComparison.Ordinal)))
-                expander.IsExpanded = expanded;
+            RecordGroupStates(ResultsGrid.Items.Groups, expanded);
+            _applyingGroupExpansion = true;
+            try
+            {
+                foreach (Expander expander in FindVisualDescendants<Expander>(ResultsGrid)
+                    .Where(item => string.Equals(item.Name, "ResultGroupExpander", StringComparison.Ordinal)))
+                    expander.IsExpanded = expanded;
+            }
+            finally { _applyingGroupExpansion = false; }
+        }
+
+        private void ScrollToMatch(GrepMatch match)
+        {
+            if (match == null) return;
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                try { ResultsGrid.ScrollIntoView(match); }
+                catch { }
+                ScrollViewer viewer = FindVisualDescendants<ScrollViewer>(ResultsGrid).FirstOrDefault();
+                viewer?.ScrollToEnd();
+            }), DispatcherPriority.Background);
+        }
+
+        private void RecordGroupStates(System.Collections.IEnumerable groups, bool expanded)
+        {
+            if (groups == null) return;
+            foreach (object item in groups)
+            {
+                var group = item as CollectionViewGroup;
+                if (group == null) continue;
+                _resultGroupStates[Convert.ToString(group.Name) ?? string.Empty] = expanded;
+                if (!group.IsBottomLevel) RecordGroupStates(group.Items, expanded);
+            }
+        }
+
+        private void GroupHeader_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (e.OriginalSource is Button) return;
+            var expander = FindAncestor<Expander>(sender as DependencyObject);
+            if (expander == null) return;
+            expander.IsExpanded = !expander.IsExpanded;
+            e.Handled = true;
+        }
+
+        private void RemoveGroup_Click(object sender, RoutedEventArgs e)
+        {
+            e.Handled = true;
+            string key = GroupKeyFromSender(sender as DependencyObject);
+            if (!string.IsNullOrEmpty(key)) ViewModel.RemoveGroup(key);
+        }
+
+        private void CopyGroupPath_Click(object sender, RoutedEventArgs e)
+        {
+            string key = GroupKeyFromSender(sender as DependencyObject);
+            if (!string.IsNullOrEmpty(key)) ViewModel.CopyGroupPath(key);
+        }
+
+        private void OpenGroupFolder_Click(object sender, RoutedEventArgs e)
+        {
+            string key = GroupKeyFromSender(sender as DependencyObject);
+            if (!string.IsNullOrEmpty(key)) ViewModel.OpenGroupFolder(key);
+        }
+
+        private static string GroupKeyFromSender(DependencyObject source)
+        {
+            var menuItem = source as MenuItem;
+            var menu = menuItem?.Parent as ContextMenu;
+            DependencyObject start = menu?.PlacementTarget as DependencyObject ?? source;
+            var expander = FindAncestor<Expander>(start);
+            if (expander == null && menuItem != null)
+                expander = FindAncestor<Expander>(menuItem);
+            return expander == null ? string.Empty : ResultGroupKey(expander);
+        }
+
+        private static T FindAncestor<T>(DependencyObject current) where T : DependencyObject
+        {
+            while (current != null)
+            {
+                var match = current as T;
+                if (match != null) return match;
+                current = System.Windows.Media.VisualTreeHelper.GetParent(current);
+            }
+            return null;
+        }
+
+        private void SaveResults()
+        {
+            var dialog = new SaveFileDialog
+            {
+                Filter = Strings.Grep_SaveFilter,
+                FileName = "grep-results.txt",
+                AddExtension = true,
+                DefaultExt = "txt"
+            };
+            if (dialog.ShowDialog(this) != true) return;
+            try { ViewModel.SaveResultsTo(dialog.FileName); }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ErrorMessages.English(ex), Title, MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         /// <summary>Enumerates visual descendants of the requested type.</summary>
@@ -148,6 +266,47 @@ namespace DesktopIniManager.Views
             {
                 ResultsGrid.Columns[index].MinWidth = mins[index];
                 ResultsGrid.Columns[index].Width = new DataGridLength(saved ? widths[index] : defaults[index]);
+            }
+        }
+
+        private void MatchLine_Loaded(object sender, RoutedEventArgs e)
+        {
+            ApplyMatchHighlight(sender as TextBlock);
+        }
+
+        private void MatchLine_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            ApplyMatchHighlight(sender as TextBlock);
+        }
+
+        private static void ApplyMatchHighlight(TextBlock block)
+        {
+            if (block == null) return;
+            var match = block.DataContext as GrepMatch;
+            string text = match?.LineText ?? string.Empty;
+            string needle = match?.Highlight;
+            block.Inlines.Clear();
+            if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(needle))
+            {
+                block.Text = text;
+                return;
+            }
+            int start = 0;
+            while (start < text.Length)
+            {
+                int index = text.IndexOf(needle, start, StringComparison.CurrentCultureIgnoreCase);
+                if (index < 0)
+                {
+                    block.Inlines.Add(new Run(text.Substring(start)));
+                    break;
+                }
+                if (index > start) block.Inlines.Add(new Run(text.Substring(start, index - start)));
+                block.Inlines.Add(new Run(text.Substring(index, needle.Length))
+                {
+                    Foreground = Brushes.Red,
+                    FontWeight = FontWeights.SemiBold
+                });
+                start = index + needle.Length;
             }
         }
     }

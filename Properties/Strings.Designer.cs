@@ -1878,6 +1878,15 @@ namespace DesktopIniManager.Properties {
         }
         
         /// <summary>
+        /// Text|*.txt|All files|*.* のようなローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Grep_SaveFilter {
+            get {
+                return ResourceManager.GetString("Grep_SaveFilter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         /// Double-click an icon to select it のようなローカライズされた文字列を検索します。
         /// </summary>
         public static string Icon_Hint {

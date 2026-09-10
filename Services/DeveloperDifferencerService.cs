@@ -64,6 +64,8 @@ namespace DesktopIniManager.Services
         public string Stage { get; set; }
         public int Completed { get; set; }
         public int Total { get; set; }
+        public int Phase { get; set; }
+        public int PhaseCount { get; set; } = 3;
     }
 
     internal sealed class DiffSnapshot
@@ -145,7 +147,7 @@ namespace DesktopIniManager.Services
             return result;
         }
 
-        private static Dictionary<string, DiffStamp> ScanSelectedFolder(string root, string relativeFolder, HashSet<string> folders, CancellationToken token)
+        private static Dictionary<string, DiffStamp> ScanSelectedFolder(string root, string relativeFolder, HashSet<string> folders, CancellationToken token, IProgress<DiffProgress> progress = null, string stage = null, int offset = 0, int total = 0)
         {
             var files = new Dictionary<string, DiffStamp>(StringComparer.OrdinalIgnoreCase);
             string baseDirectory = relativeFolder.Length == 0
@@ -156,11 +158,14 @@ namespace DesktopIniManager.Services
 
             var pending = new Stack<string>();
             pending.Push(baseDirectory);
+            int dirsDone = 0;
+            int seen = 0;
 
             while (pending.Count > 0)
             {
                 token.ThrowIfCancellationRequested();
                 string directory = pending.Pop();
+                dirsDone++;
                 string directoryRelative = RelativeFromRoot(root, directory);
                 folders.Add(directoryRelative);
 
@@ -182,10 +187,62 @@ namespace DesktopIniManager.Services
                     if (Protected(relative)) continue;
                     DiffStamp stamp = DiffStamp.Read(file);
                     if (stamp != null) files[relative] = stamp;
+                    seen++;
+                    if (progress != null && stage != null && ((seen & 15) == 0))
+                        progress.Report(ReportCompare(stage, offset + files.Count, total));
                 }
             }
 
+            if (progress != null && stage != null)
+                progress.Report(ReportCompare(stage, offset + files.Count, total));
             return files;
+        }
+
+        private static int CountFiles(string root, CancellationToken token, IProgress<DiffProgress> progress, string stage)
+        {
+            if (!Directory.Exists(root)) return 0;
+            var pending = new Stack<string>();
+            pending.Push(root.TrimEnd('\\'));
+            int count = 0;
+            while (pending.Count > 0)
+            {
+                token.ThrowIfCancellationRequested();
+                string directory = pending.Pop();
+                try
+                {
+                    foreach (string childDirectory in Directory.EnumerateDirectories(directory))
+                    {
+                        token.ThrowIfCancellationRequested();
+                        string relative = RelativeFromRoot(root, childDirectory);
+                        if (Protected(relative)) continue;
+                        pending.Push(childDirectory);
+                    }
+                    foreach (string file in Directory.EnumerateFiles(directory))
+                    {
+                        token.ThrowIfCancellationRequested();
+                        string relative = RelativeFromRoot(root, file);
+                        if (Protected(relative)) continue;
+                        count++;
+                        if (progress != null && (count & 63) == 0)
+                            progress.Report(new DiffProgress { Stage = stage + "  " + count.ToString("N0") + " files", Completed = 0, Total = 0 });
+                    }
+                }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+            if (progress != null)
+                progress.Report(new DiffProgress { Stage = stage + "  " + count.ToString("N0") + " files", Completed = 0, Total = 0 });
+            return count;
+        }
+
+        private static DiffProgress ReportCompare(string stage, int completed, int total)
+        {
+            return new DiffProgress
+            {
+                Stage = stage + "  " + completed.ToString("N0") + " / " + Math.Max(1, total).ToString("N0"),
+                Completed = completed,
+                Total = Math.Max(1, total)
+            };
         }
 
         private static string SafeFolderPath(string root, string relativeFolder)
@@ -219,26 +276,36 @@ namespace DesktopIniManager.Services
             source = Root(source); target = Root(target); ValidateRoots(source, target);
             var result = new DiffSnapshot { SourceRoot = source, TargetRoot = target, CompareTimestamp = compareTimestamp };
 
-            progress?.Report(new DiffProgress { Stage = "Scanning source files…" });
-            Dictionary<string, DiffStamp> left = ScanSelectedFolder(source, string.Empty, result.Folders, token);
+            progress?.Report(new DiffProgress { Stage = "Counting source files…", Completed = 0, Total = 0 });
+            int sourceCount = CountFiles(source, token, progress, "Counting source files…");
+            progress?.Report(new DiffProgress { Stage = "Counting target files…", Completed = 0, Total = 0 });
+            int targetCount = CountFiles(target, token, progress, "Counting target files…");
+            int total = Math.Max(1, sourceCount + targetCount);
 
-            progress?.Report(new DiffProgress { Stage = "Scanning target files…" });
-            Dictionary<string, DiffStamp> right = ScanSelectedFolder(target, string.Empty, result.Folders, token);
+            progress?.Report(ReportCompare("Comparing source…", 0, total));
+            Dictionary<string, DiffStamp> left = ScanSelectedFolder(source, string.Empty, result.Folders, token, progress, "Comparing source…", 0, total);
 
-            progress?.Report(new DiffProgress { Stage = "Classifying differences by relative path…" });
-            result.Files = Classify(left, right, true, compareTimestamp, token);
+            progress?.Report(ReportCompare("Comparing target…", left.Count, total));
+            Dictionary<string, DiffStamp> right = ScanSelectedFolder(target, string.Empty, result.Folders, token, progress, "Comparing target…", left.Count, total);
+
+            progress?.Report(ReportCompare("Classifying differences…", total, total));
+            result.Files = Classify(left, right, true, compareTimestamp, token, progress, total);
             return result;
         }
 
-        internal static List<DiffFile> Classify(Dictionary<string, DiffStamp> left, Dictionary<string, DiffStamp> right, bool includeSame = false, bool compareTimestamp = true, CancellationToken token = default(CancellationToken))
+        internal static List<DiffFile> Classify(Dictionary<string, DiffStamp> left, Dictionary<string, DiffStamp> right, bool includeSame = false, bool compareTimestamp = true, CancellationToken token = default(CancellationToken), IProgress<DiffProgress> progress = null, int offset = 0)
         {
             var files = new List<DiffFile>();
-            foreach (string path in left.Keys.Union(right.Keys, StringComparer.OrdinalIgnoreCase).OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
+            string[] paths = left.Keys.Union(right.Keys, StringComparer.OrdinalIgnoreCase).OrderBy(p => p, StringComparer.OrdinalIgnoreCase).ToArray();
+            for (int index = 0; index < paths.Length; index++)
             {
                 token.ThrowIfCancellationRequested();
+                string path = paths[index];
                 if (Protected(path)) continue;
                 DiffStamp a, b; left.TryGetValue(path, out a); right.TryGetValue(path, out b);
                 if (includeSame || !DiffStamp.Same(a, b, compareTimestamp)) files.Add(new DiffFile { RelativePath = path, Source = a, Target = b, CompareTimestamp = compareTimestamp });
+                if (progress != null && index + 1 == paths.Length)
+                    progress.Report(ReportCompare("Classifying differences…", Math.Max(offset, paths.Length), Math.Max(offset, paths.Length)));
             }
             return files;
         }

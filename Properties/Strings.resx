@@ -567,6 +567,12 @@
   <data name="Grep_SearchText" xml:space="preserve">
     <value>Search text</value>
   </data>
+  <data name="Grep_ClearQuery" xml:space="preserve">
+    <value>Clear search text</value>
+  </data>
+  <data name="Grep_ClearResults" xml:space="preserve">
+    <value>Clear result list</value>
+  </data>
   <data name="Grep_LanguageProfile" xml:space="preserve">
     <value>Language profile</value>
   </data>
@@ -581,6 +587,27 @@
   </data>
   <data name="Grep_WholeWord" xml:space="preserve">
     <value>Whole word</value>
+  </data>
+  <data name="Grep_ListFilter" xml:space="preserve">
+    <value>Filter the list (space-separated)</value>
+  </data>
+  <data name="Grep_OpenResults" xml:space="preserve">
+    <value>Open list in editor</value>
+  </data>
+  <data name="Grep_SaveResults" xml:space="preserve">
+    <value>Save list to file</value>
+  </data>
+  <data name="Grep_CopyPath" xml:space="preserve">
+    <value>Copy path</value>
+  </data>
+  <data name="Grep_OpenFolder" xml:space="preserve">
+    <value>Open folder</value>
+  </data>
+  <data name="Grep_RemoveGroup" xml:space="preserve">
+    <value>Remove this group from the list</value>
+  </data>
+  <data name="Grep_SaveFilter" xml:space="preserve">
+    <value>Text|*.txt|All files|*.*</value>
   </data>
   <data name="Grep_Project" xml:space="preserve">
     <value>Project</value>

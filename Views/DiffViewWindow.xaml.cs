@@ -51,6 +51,14 @@ namespace DesktopIniManager.Views
             {
                 if (Owner is DeveloperDifferencerWindow owner) await owner.RefreshFileAsync(difference);
             };
+            ViewModel.VisibleFilesRequested = () =>
+                Owner is DeveloperDifferencerWindow owner
+                    ? owner.GetVisibleComparableFiles()
+                    : Array.Empty<DiffFile>();
+            ViewModel.FileClosed = file =>
+            {
+                if (Owner is DeveloperDifferencerWindow owner) owner.SelectLastViewedFile(file);
+            };
             BuildToolbar();
             Loaded += async (s, e) => await LoadContent();
             Activated += async (s, e) =>

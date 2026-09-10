@@ -25,13 +25,13 @@ namespace DesktopIniManager.Services
                 if (TypeIcons.TryGetValue(extension ?? "", out cached)) return cached;
 
                 var info = new ShellFileInfo();
-                SHGetFileInfo("file" + extension, 0x80, ref info, (uint)Marshal.SizeOf(typeof(ShellFileInfo)), 0x100 | 0x1 | 0x10);
+                SHGetFileInfo("file" + extension, 0x80, ref info, (uint)Marshal.SizeOf(typeof(ShellFileInfo)), 0x100 | 0x10);
                 if (info.Icon != IntPtr.Zero)
                 {
                     try
                     {
                         var bitmap = Imaging.CreateBitmapSourceFromHIcon(
-                            info.Icon, Int32Rect.Empty, BitmapSizeOptions.FromWidthAndHeight(24, 24));
+                            info.Icon, Int32Rect.Empty, BitmapSizeOptions.FromWidthAndHeight(48, 48));
                         bitmap.Freeze();
                         cached = bitmap;
                     }

@@ -54,6 +54,8 @@ namespace DesktopIniManager.ViewModels
         public event Action<int> JumpRequested;
         internal Func<DiffFile, Task> RefreshFileRequested { get; set; }
         internal Func<Task> ReloadRequested { get; set; }
+        internal Func<IReadOnlyList<DiffFile>> VisibleFilesRequested { get; set; }
+        internal Action<DiffFile> FileClosed { get; set; }
         internal DiffViewModel(DiffSnapshot snapshot, DiffFile file, IUserDialogService dialogs)
         {
             this.dialogs = dialogs;
@@ -73,6 +75,7 @@ namespace DesktopIniManager.ViewModels
         internal void Close()
         {
             externalDiffPending = false;
+            FileClosed?.Invoke(File);
             if (string.IsNullOrWhiteSpace(ExternalDiff)) return;
             ExternalDiffHistoryRequested?.Invoke();
             SettingsService.SaveExternalDiff(ExternalDiff.Trim());
@@ -144,14 +147,22 @@ namespace DesktopIniManager.ViewModels
         }
         private async Task NavigateFileAsync(int direction)
         {
-            var candidates = Snapshot.Files.Where(candidate => candidate.Kind != DiffKind.Same && !DiffMedia.IsBinary(candidate.RelativePath))
-                .OrderBy(candidate => candidate.RelativePath, StringComparer.CurrentCultureIgnoreCase).ToList();
+            var requested = VisibleFilesRequested?.Invoke();
+            var candidates = (requested == null
+                ? Snapshot.Files.Where(IsVisibleComparableFile)
+                : requested.Where(IsVisibleComparableFile)).ToList();
             if (candidates.Count == 0) return;
             int index = candidates.FindIndex(candidate => ReferenceEquals(candidate, File) || string.Equals(candidate.RelativePath, File.RelativePath, StringComparison.OrdinalIgnoreCase));
+            if (candidates.Count == 1 && index == 0) return;
             index = index < 0 ? (direction > 0 ? 0 : candidates.Count - 1) : (index + direction + candidates.Count) % candidates.Count;
             externalDiffPending = false;
             File = candidates[index];
             if (ReloadRequested != null) await ReloadRequested();
+        }
+
+        private static bool IsVisibleComparableFile(DiffFile candidate)
+        {
+            return candidate != null && !DiffMedia.IsBinary(candidate.RelativePath);
         }
         internal static string[] ReadText(string path)
         {

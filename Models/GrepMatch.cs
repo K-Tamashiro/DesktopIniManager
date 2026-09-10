@@ -10,5 +10,6 @@ namespace DesktopIniManager.Models
         public int LineNumber { get; set; }
         public int ColumnNumber { get; set; }
         public string LineText { get; set; }
+        public string Highlight { get; set; }
     }
 }

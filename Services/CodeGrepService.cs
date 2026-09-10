@@ -1,4 +1,4 @@
-﻿using DesktopIniManager.Models;
+using DesktopIniManager.Models;
 using FastVolumeIndex;
 using System;
 using System.Collections.Concurrent;
@@ -53,7 +53,8 @@ namespace DesktopIniManager.Services
                             RelativePath = scope == null ? file : MakeRelativePath(scope, file),
                             LineNumber = lineNumber,
                             ColumnNumber = match.Index + 1,
-                            LineText = line.Trim()
+                            LineText = line.Trim(),
+                            Highlight = match.Value
                         };
                         matches.Add(found);
                         matchFound?.Invoke(found);

@@ -17,8 +17,16 @@
         public string Name { get; }
         public string Extension { get; }
 
-        public System.Windows.Media.ImageSource Icon =>
-            _icon ?? (_icon = Services.FileIconService.GetIcon(Path));
+        public System.Windows.Media.ImageSource Icon
+        {
+            get
+            {
+                if (_icon != null) return _icon;
+                try { _icon = Services.FileIconService.GetIcon(Path); }
+                catch { }
+                return _icon;
+            }
+        }
 
         public bool IsSearchMatch { get; }
     }

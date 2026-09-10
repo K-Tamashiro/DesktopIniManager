@@ -822,7 +822,8 @@
                 <Grid
                   x:Name="FilePanelProgress"
                   Width="160"
-                  Height="5">
+                  Height="5"
+                  ClipToBounds="True">
                   <Border Background="{DynamicResource HeaderBackground}" CornerRadius="3" />
                   <Border
                     x:Name="FilePanelMarquee"

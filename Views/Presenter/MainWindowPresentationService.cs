@@ -424,15 +424,19 @@ namespace DesktopIniManager.Views
             ApplyFileIconSize(true);
         }
 
-        private void ApplyFileIconSize(bool large)
+        private async void ApplyFileIconSize(bool large)
         {
             _largeFileIcons = large;
+            ViewModel.IsFileBusy = true;
+            await Dispatcher.Yield(DispatcherPriority.Render);
             FileList.Visibility = Visibility.Collapsed;
             FileIconList.Visibility = Visibility.Visible;
             FileIconList.ItemsPanel = (ItemsPanelTemplate)FindResource(large ? "FileIconLargePanel" : "FileIconSmallPanel");
             FileIconList.ItemTemplate = (DataTemplate)FindResource(large ? "FileIconLargeTemplate" : "FileIconSmallTemplate");
             HighlightFileViewButtons(list: false, large: large);
-            ShowIconLayoutBusy();
+            FileIconList.UpdateLayout();
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            ViewModel.IsFileBusy = false;
         }
 
         private void HighlightFileViewButtons(bool list, bool large)

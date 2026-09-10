@@ -269,7 +269,28 @@
           Height="86"
           Background="Transparent"
           BorderThickness="0"
-          Foreground="{DynamicResource Ink}" />
+          Foreground="{DynamicResource Ink}"
+          HorizontalContentAlignment="Stretch"
+          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+          <ListBox.ItemContainerStyle>
+            <Style TargetType="ListBoxItem">
+              <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+              <Setter Property="Padding" Value="0,2" />
+              <Setter Property="Focusable" Value="False" />
+              <Setter Property="Background" Value="Transparent" />
+            </Style>
+          </ListBox.ItemContainerStyle>
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <CheckBox
+                VerticalAlignment="Center"
+                Content="{Binding FolderPath}"
+                Foreground="{DynamicResource Ink}"
+                IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                IsEnabled="{Binding DataContext.CanEdit, RelativeSource={RelativeSource AncestorType=Window}}" />
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
         <StackPanel Grid.Column="1" Margin="12,0,0,0">
           <Button
             Command="{Binding ReloadScopesCommand}"
@@ -298,9 +319,9 @@
     <Grid Grid.Row="2" Margin="0,14,0,10">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="2*" />
+        <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="180" />
         <ColumnDefinition Width="2*" />
-        <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
       <StackPanel>
         <TextBlock
@@ -314,39 +335,28 @@
           VerticalContentAlignment="Center"
           HistoryKey="Grep-Query" />
       </StackPanel>
-      <StackPanel Grid.Column="1" Margin="12,0,0,0">
-        <TextBlock
-          Margin="0,0,0,5"
-          Foreground="{DynamicResource Muted}"
-          Text="{loc:L Grep_LanguageProfile}" />
-        <ComboBox
-          x:Name="ProfileBox" IsEnabled="{Binding CanEdit}" ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}"
-          Height="36"
-          Padding="8,4"
-          VerticalContentAlignment="Center"
-          />
-      </StackPanel>
-      <StackPanel Grid.Column="2" Margin="12,0,0,0">
-        <TextBlock
-          Margin="0,0,0,5"
-          Foreground="{DynamicResource Muted}"
-          Text="{loc:L Grep_IncludedExtensions}" />
-        <history:HistoryTextBox
-          x:Name="ExtensionsText" Text="{Binding Extensions, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-          Height="36"
-          Padding="8,4"
-          VerticalContentAlignment="Center"
-          HistoryKey="Grep-Extensions"
-          IsReadOnly="{Binding IsProfileReadOnly}" />
-      </StackPanel>
       <StackPanel
-        Grid.Column="3"
-        Margin="12,0,0,0"
+        Grid.Column="1"
+        Margin="8,0,0,0"
         VerticalAlignment="Bottom"
         Orientation="Horizontal">
         <Button
+          x:Name="ClearQueryButton"
+          Height="36"
+          MinWidth="36"
+          Background="{DynamicResource Secondary}"
+          Command="{Binding ClearQueryCommand}"
+          Style="{StaticResource IconButton}"
+          ToolTip="{loc:L Grep_ClearQuery}">
+          <TextBlock
+            FontFamily="Segoe MDL2 Assets"
+            FontSize="12"
+            Text="&#xE711;" />
+        </Button>
+        <Button
           x:Name="SearchButton"
           Height="36"
+          Margin="8,0,0,0"
           Command="{Binding SearchCommand}"
           Style="{StaticResource IconTextButton}"
           ToolTip="{loc:L Common_Search}">
@@ -363,19 +373,88 @@
           </StackPanel>
         </Button>
         <Button
+          x:Name="ClearResultsButton"
+          Height="36"
+          Margin="8,0,0,0"
+          Background="{DynamicResource Secondary}"
+          Command="{Binding ClearResultsCommand}"
+          Style="{StaticResource IconTextButton}"
+          ToolTip="{loc:L Grep_ClearResults}">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock
+              VerticalAlignment="Center"
+              FontFamily="Segoe MDL2 Assets"
+              FontSize="15"
+              Text="&#xE74D;" />
+            <TextBlock
+              Margin="6,0,0,0"
+              VerticalAlignment="Center"
+              Text="{loc:L Common_Clear}" />
+          </StackPanel>
+        </Button>
+        <Button
           x:Name="CancelButton"
+          Height="36"
           Margin="8,0,0,0"
           Background="{DynamicResource Secondary}"
           Command="{Binding CancelCommand}"
-          Content="&#xE711;"
-          IsEnabled="{Binding IsSearching}"
-          Style="{StaticResource IconButton}"
-          ToolTip="{loc:L Common_Cancel}" />
+          Style="{StaticResource IconTextButton}"
+          ToolTip="{loc:L Common_Cancel}">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock
+              VerticalAlignment="Center"
+              FontFamily="Segoe MDL2 Assets"
+              FontSize="15"
+              Text="&#xE711;" />
+            <TextBlock
+              Margin="6,0,0,0"
+              VerticalAlignment="Center"
+              Text="{loc:L Common_Cancel}" />
+          </StackPanel>
+        </Button>
+      </StackPanel>
+      <StackPanel Grid.Column="2" Margin="12,0,0,0">
+        <TextBlock
+          Margin="0,0,0,5"
+          Foreground="{DynamicResource Muted}"
+          Text="{loc:L Grep_LanguageProfile}" />
+        <ComboBox
+          x:Name="ProfileBox" IsEnabled="{Binding CanEdit}" ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}"
+          Height="36"
+          Padding="8,4"
+          VerticalContentAlignment="Center"
+          />
+      </StackPanel>
+      <StackPanel Grid.Column="3" Margin="12,0,0,0">
+        <TextBlock
+          Margin="0,0,0,5"
+          Foreground="{DynamicResource Muted}"
+          Text="{loc:L Grep_IncludedExtensions}" />
+        <history:HistoryTextBox
+          x:Name="ExtensionsText" Text="{Binding Extensions, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+          Height="36"
+          Padding="8,4"
+          VerticalContentAlignment="Center"
+          HistoryKey="Grep-Extensions"
+          IsEnabled="{Binding CanEdit}" />
       </StackPanel>
     </Grid>
     <DockPanel Grid.Row="3" Margin="0,0,0,10">
       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
         <Button
+          Command="{Binding OpenResultsInEditorCommand}"
+          Content="&#xE8A5;"
+          Style="{StaticResource IconButton}"
+          ToolTip="{loc:L Grep_OpenResults}" />
+        <Button
+          Margin="5,0,0,0"
+          Background="{DynamicResource Secondary}"
+          Command="{Binding SaveResultsCommand}"
+          Content="&#xE74E;"
+          Style="{StaticResource IconButton}"
+          ToolTip="{loc:L Grep_SaveResults}" />
+        <Button
+          Margin="12,0,0,0"
           Command="{Binding ExpandResultGroupsCommand}"
           Content="&#xE70D;"
           Style="{StaticResource IconButton}"
@@ -388,15 +467,29 @@
           Style="{StaticResource IconButton}"
           ToolTip="{loc:L Common_Collapse}" />
       </StackPanel>
-      <CheckBox x:Name="RegexBox" IsChecked="{Binding UseRegex}" Content="{loc:L Grep_Regex}" />
-      <CheckBox
-        x:Name="MatchCaseBox" IsChecked="{Binding MatchCase}"
-        Margin="18,0,0,0"
-        Content="{loc:L Grep_MatchCase}" />
-      <CheckBox
-        x:Name="WholeWordBox" IsChecked="{Binding WholeWord}"
-        Margin="18,0,0,0"
-        Content="{loc:L Grep_WholeWord}" />
+      <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+        <CheckBox x:Name="RegexBox" IsChecked="{Binding UseRegex}" Content="{loc:L Grep_Regex}" />
+        <CheckBox
+          x:Name="MatchCaseBox" IsChecked="{Binding MatchCase}"
+          Margin="18,0,0,0"
+          Content="{loc:L Grep_MatchCase}" />
+        <CheckBox
+          x:Name="WholeWordBox" IsChecked="{Binding WholeWord}"
+          Margin="18,0,0,0"
+          Content="{loc:L Grep_WholeWord}" />
+      </StackPanel>
+      <history:HistoryTextBox
+        x:Name="FilterBox"
+        Margin="18,0,12,0"
+        Height="36"
+        Padding="8,2"
+        VerticalAlignment="Center"
+        VerticalContentAlignment="Center"
+        CaretBrush="{DynamicResource Ink}"
+        FontSize="13"
+        HistoryKey="Grep-ListFilter"
+        Text="{Binding ListFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+        ToolTip="{loc:L Grep_ListFilter}" />
     </DockPanel>
     <Border
       Grid.Row="4"
@@ -413,9 +506,10 @@
         HeadersVisibility="Column"
         IsReadOnly="True"
         MinColumnWidth="56"
+        EnableRowVirtualization="True"
         VirtualizingPanel.IsVirtualizing="True"
         VirtualizingPanel.IsVirtualizingWhenGrouping="True"
-        VirtualizingPanel.VirtualizationMode="Recycling"
+        VirtualizingPanel.VirtualizationMode="Standard"
         ScrollViewer.CanContentScroll="True"
         RowHeaderWidth="0"
         SelectionMode="Single"
@@ -440,12 +534,69 @@
                       <Expander
                         x:Name="ResultGroupExpander"
                         Collapsed="ResultGroupExpander_Collapsed"
+                        DataContextChanged="ResultGroupExpander_DataContextChanged"
                         Expanded="ResultGroupExpander_Expanded"
                         IsExpanded="True"
                         Loaded="ResultGroupExpander_Loaded">
-                        <Expander.Header>
-                          <ContentPresenter />
-                        </Expander.Header>
+                        <Expander.Template>
+                          <ControlTemplate TargetType="{x:Type Expander}">
+                            <DockPanel LastChildFill="True">
+                              <Border
+                                DockPanel.Dock="Top"
+                                Margin="0,3,0,2"
+                                Background="#2F4F4F"
+                                BorderBrush="{DynamicResource Line}"
+                                BorderThickness="0,0,0,1"
+                                MouseLeftButtonDown="GroupHeader_Click">
+                                <Border.ContextMenu>
+                                  <ContextMenu>
+                                    <MenuItem Click="CopyGroupPath_Click" Header="{loc:L Grep_CopyPath}" />
+                                    <MenuItem Click="OpenGroupFolder_Click" Header="{loc:L Grep_OpenFolder}" />
+                                  </ContextMenu>
+                                </Border.ContextMenu>
+                                <Grid>
+                                  <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                  </Grid.ColumnDefinitions>
+                                  <Button
+                                    Width="28"
+                                    Height="28"
+                                    Margin="4,2,2,2"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Click="RemoveGroup_Click"
+                                    Style="{StaticResource IconButton}"
+                                    ToolTip="{loc:L Grep_RemoveGroup}">
+                                    <TextBlock
+                                      FontFamily="Segoe MDL2 Assets"
+                                      FontSize="12"
+                                      Foreground="{DynamicResource Ink}"
+                                      Text="&#xE711;" />
+                                  </Button>
+                                  <TextBlock
+                                    Grid.Column="1"
+                                    Margin="4,6,10,6"
+                                    VerticalAlignment="Center"
+                                    FontSize="14"
+                                    FontWeight="Bold"
+                                    Foreground="{DynamicResource Ink}"
+                                    TextTrimming="CharacterEllipsis">
+                                    <Run Text="{Binding Name, Mode=OneWay}" />
+                                    <Run Foreground="{DynamicResource Muted}" Text=" -" />
+                                    <Run Foreground="{DynamicResource Muted}" Text="{Binding ItemCount, Mode=OneWay}" />
+                                  </TextBlock>
+                                </Grid>
+                              </Border>
+                              <ContentPresenter x:Name="ExpandSite" ContentSource="Content" />
+                            </DockPanel>
+                            <ControlTemplate.Triggers>
+                              <Trigger Property="IsExpanded" Value="False">
+                                <Setter TargetName="ExpandSite" Property="Visibility" Value="Collapsed" />
+                              </Trigger>
+                            </ControlTemplate.Triggers>
+                          </ControlTemplate>
+                        </Expander.Template>
                         <ItemsPresenter />
                       </Expander>
                     </ControlTemplate>
@@ -455,19 +606,7 @@
             </GroupStyle.ContainerStyle>
             <GroupStyle.HeaderTemplate>
               <DataTemplate>
-                <Border
-                  Margin="0,3,0,2"
-                  Padding="5,4"
-                  Background="{DynamicResource Secondary}"
-                  CornerRadius="4">
-                  <TextBlock
-                    HorizontalAlignment="Stretch"
-                    FontSize="14"
-                    FontWeight="Bold"
-                    Foreground="{DynamicResource Ink}"
-                    Text="{Binding Name}"
-                    TextTrimming="CharacterEllipsis" />
-                </Border>
+                <TextBlock Text="{Binding Name}" />
               </DataTemplate>
             </GroupStyle.HeaderTemplate>
           </GroupStyle>
@@ -533,11 +672,20 @@
             Binding="{Binding ColumnNumber}"
             ElementStyle="{StaticResource NumericCellStyle}"
             Header="{loc:L Grep_Column}" />
-          <DataGridTextColumn
+          <DataGridTemplateColumn
             Width="550"
             MinWidth="200"
-            Binding="{Binding LineText}"
-            Header="{loc:L Grep_Match}" />
+            Header="{loc:L Grep_Match}">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate>
+                <TextBlock
+                  VerticalAlignment="Center"
+                  TextTrimming="CharacterEllipsis"
+                  DataContextChanged="MatchLine_DataContextChanged"
+                  Loaded="MatchLine_Loaded" />
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
         </DataGrid.Columns>
       </DataGrid>
     </Border>

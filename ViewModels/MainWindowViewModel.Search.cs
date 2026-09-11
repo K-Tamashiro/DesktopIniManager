@@ -190,11 +190,56 @@ namespace DesktopIniManager.ViewModels
                     ? _pathIndex.ProjectFiles
                     : (IReadOnlyList<string>)new string[0];
 
+                List<string> solutions = projectFiles
+                    .Where(path => !string.IsNullOrWhiteSpace(path)
+                        && string.Equals(Path.GetExtension(path), ".sln", StringComparison.OrdinalIgnoreCase))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                CountLabel = string.Format(Strings.Main_NItems, 0);
+                Status = solutions.Count == 0
+                    ? Strings.Main_BuildingTree
+                    : string.Format(Strings.Main_SolutionsFound, 0) + " / " + solutions.Count.ToString("N0");
+
                 return await Task.Run(() =>
                 {
-                    List<FolderMatch> fromIndex = SolutionTreeService.BuildFromProjectFiles(projectFiles, token);
-                    if (fromIndex.Count > 0) return fromIndex;
-                    return SolutionTreeService.Build(root, token);
+                    if (solutions.Count == 0)
+                    {
+                        List<FolderMatch> scanned = SolutionTreeService.Build(root, token);
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            CountLabel = string.Format(Strings.Main_NItems, scanned.Count);
+                            Status = string.Format(Strings.Main_SolutionsFound, scanned.Count);
+                        }), System.Windows.Threading.DispatcherPriority.Background);
+                        return scanned;
+                    }
+
+                    var built = new List<FolderMatch>(solutions.Count);
+                    int lastReport = Environment.TickCount;
+                    for (int index = 0; index < solutions.Count; index++)
+                    {
+                        token.ThrowIfCancellationRequested();
+                        string path = solutions[index];
+                        List<FolderMatch> parsed = SolutionTreeService.BuildFromProjectFiles(new[] { path }, token);
+                        built.AddRange(parsed);
+
+                        int now = Environment.TickCount;
+                        if (index == solutions.Count - 1 || unchecked(now - lastReport) >= 120)
+                        {
+                            lastReport = now;
+                            int count = built.Count;
+                            string name = Path.GetFileName(path);
+                            Dispatcher.BeginInvoke(new Action(() =>
+                            {
+                                CountLabel = string.Format(Strings.Main_NItems, count);
+                                Status = string.Format(Strings.Main_SolutionsFound, count)
+                                    + " / " + solutions.Count.ToString("N0")
+                                    + "  " + name;
+                            }), System.Windows.Threading.DispatcherPriority.Background);
+                        }
+                    }
+
+                    return built;
                 }, token);
             }
             finally

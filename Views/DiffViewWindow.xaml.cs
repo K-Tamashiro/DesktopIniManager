@@ -14,6 +14,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Documents;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 
@@ -24,7 +25,7 @@ namespace DesktopIniManager.Views
         internal DiffViewModel ViewModel { get; }
         private List<int> hunks => ViewModel.Hunks;
         private List<DiffLine> lines => ViewModel.Lines;
-        private ListBox leftList, rightList;
+        private RichTextBox leftList, rightList;
         private ScrollViewer leftScroll, rightScroll;
         private Canvas map;
         private Thumb viewportThumb;
@@ -166,19 +167,17 @@ namespace DesktopIniManager.Views
                 if (!await ViewModel.LoadContentAsync() || !IsLoaded) return;
                 if (ViewModel.IsImage) { await RenderImages(); return; }
                 sharedTextWidth = MeasureSharedTextWidth();
-                leftList = MakeList("LeftDisplay", true);
-                rightList = MakeList("RightDisplay", false);
-                body.Children.Add(leftList);
-                Grid.SetColumn(rightList, 2);
-                body.Children.Add(rightList);
+                FrameworkElement leftHost = MakeHost(true, out leftList);
+                FrameworkElement rightHost = MakeHost(false, out rightList);
+                body.Children.Add(leftHost);
+                Grid.SetColumn(rightHost, 2);
+                body.Children.Add(rightHost);
                 map = new Canvas();
                 map.SetResourceReference(Panel.BackgroundProperty, "CardBackground");
                 Grid.SetColumn(map, 1);
                 body.Children.Add(map);
                 map.SizeChanged += (s, e) => DrawMap();
                 DrawMap();
-                leftList.SelectionChanged += (s, e) => SyncSelection(leftList, rightList);
-                rightList.SelectionChanged += (s, e) => SyncSelection(rightList, leftList);
                 leftList.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(ScrollChanged));
                 rightList.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(ScrollChanged));
                 if (hunks.Count > 0)
@@ -201,7 +200,7 @@ namespace DesktopIniManager.Views
             if (lines == null || lines.Count == 0) return 0;
 
             string longest = lines
-                .SelectMany(line => new[] { line.LeftDisplay ?? string.Empty, line.RightDisplay ?? string.Empty })
+                .SelectMany(line => new[] { line.Left ?? string.Empty, line.Right ?? string.Empty })
                 .OrderByDescending(text => text.Length)
                 .FirstOrDefault() ?? string.Empty;
 
@@ -210,57 +209,100 @@ namespace DesktopIniManager.Views
             return formatted.WidthIncludingTrailingWhitespace + 24;
         }
 
-        private ListBox MakeList(string property, bool sourceSide)
+        private FrameworkElement MakeHost(bool sourceSide, out RichTextBox box)
         {
-            var list = new ListBox
+            var font = new FontFamily("Consolas, Yu Gothic UI, Meiryo UI");
+            var gutter = new TextBlock
             {
-                ItemsSource = lines,
-                FontFamily = new FontFamily("Consolas, Yu Gothic UI, Meiryo UI"),
+                FontFamily = font,
                 FontSize = 13,
-                BorderThickness = new Thickness(1),
-                Padding = new Thickness(0)
+                LineHeight = 22,
+                TextAlignment = TextAlignment.Right,
+                Padding = new Thickness(8, 0, 8, 0),
+                IsHitTestVisible = false
             };
-            list.SetResourceReference(Control.BackgroundProperty, "CardBackground");
-            list.SetResourceReference(Control.ForegroundProperty, "Ink");
-            list.SetResourceReference(Control.BorderBrushProperty, "Line");
-            ScrollViewer.SetHorizontalScrollBarVisibility(list, ScrollBarVisibility.Auto);
-            ScrollViewer.SetVerticalScrollBarVisibility(list, ScrollBarVisibility.Hidden);
+            gutter.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
+            gutter.SetResourceReference(TextBlock.BackgroundProperty, "CardBackground");
 
-            var text = new FrameworkElementFactory(typeof(TextBox));
-            text.SetBinding(TextBox.TextProperty, new Binding(property) { Mode = BindingMode.OneWay });
-            text.SetValue(TextBoxBase.IsReadOnlyProperty, true);
-            text.SetValue(TextBoxBase.IsReadOnlyCaretVisibleProperty, true);
-            text.SetValue(TextBoxBase.IsUndoEnabledProperty, false);
-            text.SetValue(Control.BackgroundProperty, Brushes.Transparent);
-            text.SetValue(Control.BorderThicknessProperty, new Thickness(0));
-            text.SetValue(Control.PaddingProperty, new Thickness(0));
-            text.SetValue(TextBox.TextWrappingProperty, TextWrapping.NoWrap);
-            text.SetValue(ScrollViewer.HorizontalScrollBarVisibilityProperty, ScrollBarVisibility.Disabled);
-            text.SetValue(ScrollViewer.VerticalScrollBarVisibilityProperty, ScrollBarVisibility.Disabled);
-            text.SetValue(FrameworkElement.HeightProperty, 22.0);
-            text.SetValue(FrameworkElement.MinWidthProperty, sharedTextWidth);
-            text.SetValue(Control.ForegroundProperty, new DynamicResourceExtension("Ink"));
-            list.ItemTemplate = new DataTemplate { VisualTree = text };
+            var numbers = new System.Text.StringBuilder();
+            foreach (DiffLine line in lines)
+            {
+                int number = sourceSide ? line.LeftNumber : line.RightNumber;
+                if (numbers.Length > 0) numbers.Append('\n');
+                numbers.Append(number == 0 ? string.Empty : number.ToString());
+            }
+            gutter.Text = numbers.ToString();
 
-            var style = new Style(typeof(ListBoxItem));
-            style.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(6, 0, 6, 0)));
-            style.Setters.Add(new Setter(Control.BackgroundProperty, Brushes.Transparent));
-            style.Setters.Add(new Setter(Control.ForegroundProperty, new DynamicResourceExtension("Ink")));
-            style.Setters.Add(new Setter(Control.BorderThicknessProperty, new Thickness(0)));
-            style.Setters.Add(new Setter(Control.HorizontalContentAlignmentProperty, HorizontalAlignment.Stretch));
-            BindKind(style, DiffLineKind.Removed, sourceSide ? "DiffRemoved" : "DiffRemovedEmpty");
-            BindKind(style, DiffLineKind.Added, sourceSide ? "DiffAddedEmpty" : "DiffAdded");
-            BindKind(style, DiffLineKind.Modified, sourceSide ? "DiffRemoved" : "DiffAdded");
-            list.ItemContainerStyle = style;
-            return list;
+            box = MakePane(sourceSide, font);
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.Children.Add(gutter);
+            Grid.SetColumn(box, 1);
+            grid.Children.Add(box);
+
+            var host = new Border { Child = grid, BorderThickness = new Thickness(1) };
+            host.SetResourceReference(Border.BorderBrushProperty, "Line");
+            host.SetResourceReference(Border.BackgroundProperty, "CardBackground");
+            return host;
         }
 
-        /// <summary>Adds a row-color trigger for a specific line difference.</summary>
-        private static void BindKind(Style style, DiffLineKind kind, string resource)
+        private RichTextBox MakePane(bool sourceSide, FontFamily font)
         {
-            var trigger = new DataTrigger { Binding = new Binding("Kind"), Value = kind };
-            trigger.Setters.Add(new Setter(Control.BackgroundProperty, new DynamicResourceExtension(resource)));
-            style.Triggers.Add(trigger);
+            var box = new RichTextBox
+            {
+                IsReadOnly = true,
+                IsUndoEnabled = false,
+                AcceptsReturn = true,
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(6, 0, 6, 0),
+                FontFamily = font,
+                FontSize = 13,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
+                AutoWordSelection = false
+            };
+            box.SetResourceReference(Control.BackgroundProperty, "CardBackground");
+            box.SetResourceReference(Control.ForegroundProperty, "Ink");
+            box.SetResourceReference(TextBoxBase.SelectionBrushProperty, "ThemeSelected");
+
+            var document = new FlowDocument
+            {
+                PagePadding = new Thickness(0),
+                TextAlignment = TextAlignment.Left,
+                LineHeight = 22,
+                PageWidth = Math.Max(sharedTextWidth + 24, 200)
+            };
+            document.SetResourceReference(FlowDocument.BackgroundProperty, "CardBackground");
+            document.SetResourceReference(FlowDocument.ForegroundProperty, "Ink");
+
+            foreach (DiffLine line in lines)
+            {
+                string text = sourceSide ? line.Left : line.Right;
+                text = (text ?? string.Empty).Replace("\t", "    ");
+                var paragraph = new Paragraph(new Run(string.IsNullOrEmpty(text) ? " " : text))
+                {
+                    Margin = new Thickness(0),
+                    Padding = new Thickness(0),
+                    LineHeight = 22,
+                    TextAlignment = TextAlignment.Left
+                };
+                string resource = LineBrushKey(line.Kind, sourceSide);
+                if (resource != null)
+                    paragraph.SetResourceReference(TextElement.BackgroundProperty, resource);
+                document.Blocks.Add(paragraph);
+            }
+
+            box.Document = document;
+            return box;
+        }
+
+        private static string LineBrushKey(DiffLineKind kind, bool sourceSide)
+        {
+            if (kind == DiffLineKind.Removed) return sourceSide ? "DiffRemoved" : "DiffRemovedEmpty";
+            if (kind == DiffLineKind.Added) return sourceSide ? "DiffAddedEmpty" : "DiffAdded";
+            if (kind == DiffLineKind.Modified) return sourceSide ? "DiffRemoved" : "DiffAdded";
+            return null;
         }
 
         private Brush ThemeBrush(string key, Color fallback)
@@ -289,8 +331,28 @@ namespace DesktopIniManager.Views
             }, 0);
         }
 
-        private void SyncSelection(ListBox from, ListBox to)
-        { if (selecting) return; selecting = true; to.SelectedIndex = from.SelectedIndex; current = hunks.FindLastIndex(i => i <= from.SelectedIndex); selecting = false; }
+        private void Jump(int index)
+        {
+            if (lines == null || index < 0 || index >= lines.Count) return;
+            ScrollPaneToLine(leftList, index);
+            ScrollPaneToLine(rightList, index);
+            current = hunks.IndexOf(index);
+        }
+
+        private static void ScrollPaneToLine(RichTextBox box, int index)
+        {
+            if (box?.Document == null) return;
+            int i = 0;
+            foreach (Block block in box.Document.Blocks)
+            {
+                if (i == index)
+                {
+                    block.BringIntoView();
+                    return;
+                }
+                i++;
+            }
+        }
 
         private static ScrollViewer FindScroll(DependencyObject parent)
         {
@@ -393,9 +455,6 @@ namespace DesktopIniManager.Views
             if (rightScroll == null) rightScroll = FindScroll(rightList);
             UpdateViewport(leftScroll);
         }
-
-        private void Jump(int index)
-        { leftList.SelectedIndex = rightList.SelectedIndex = index; leftList.ScrollIntoView(lines[index]); rightList.ScrollIntoView(lines[index]); current = hunks.IndexOf(index); }
 
         private async Task RenderImages()
         {

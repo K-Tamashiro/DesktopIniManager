@@ -72,6 +72,56 @@ namespace DesktopIniManager.Views
             _window.Closing += OnClosing;
             _window.Closed += OnClosed;
             ViewModel.InteractionRequested += HandleInteraction;
+            _window.AllowDrop = true;
+            _window.PreviewDragEnter += FolderDropPreview;
+            _window.PreviewDragOver += FolderDropPreview;
+            _window.PreviewDrop += MainWindow_Drop;
+        }
+
+        private static void FolderDropPreview(object sender, DragEventArgs e)
+        {
+            if (e.Data == null || !e.Data.GetDataPresent(DataFormats.FileDrop))
+                return;
+
+            e.Effects = DragDropEffects.Copy;
+            e.Handled = true;
+        }
+
+        private static List<string> FoldersFromDrop(IDataObject data)
+        {
+            var folders = new List<string>();
+            if (data == null || !data.GetDataPresent(DataFormats.FileDrop))
+                return folders;
+
+            var paths = data.GetData(DataFormats.FileDrop) as string[] ?? Array.Empty<string>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string path in paths)
+            {
+                if (string.IsNullOrWhiteSpace(path)) continue;
+                string folder = Directory.Exists(path)
+                    ? path
+                    : File.Exists(path) ? Path.GetDirectoryName(path) : null;
+                if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder)) continue;
+                string normalized = Path.GetFullPath(folder)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                if (seen.Add(normalized))
+                    folders.Add(normalized);
+            }
+
+            return folders;
+        }
+
+        private void MainWindow_Drop(object sender, DragEventArgs e)
+        {
+            List<string> folders = FoldersFromDrop(e.Data);
+            if (folders.Count == 0) return;
+
+            ViewModel.RootPath = folders[0];
+            RootBox.CommitHistory();
+            SettingsService.SaveSearchRoot(folders[0]);
+            ShowTextEnd(RootBox);
+            ViewModel.SelectDroppedFolders(folders);
+            e.Handled = true;
         }
         private void HandleInteraction(MainWindowAction action, object parameter)
         {
@@ -267,7 +317,17 @@ namespace DesktopIniManager.Views
 
         private void Close() => _window.Close();
 
-        private void OnClosed(object sender, EventArgs e) { _filterTimer.Stop(); ViewModel.CancelOperations(); _grepWindow?.Close(); SettingsService.SaveIconLibraryPath(ViewModel.IconLibraryPath); SettingsService.SaveSearchQuery(ViewModel.Query); SettingsService.SaveSearchRoot(ViewModel.RootPath); }
+        private void OnClosed(object sender, EventArgs e)
+        {
+            _filterTimer.Stop();
+            ViewModel.CancelOperations();
+            try { _grepWindow?.Close(); } catch { }
+            try { _differencerWindow?.Close(); } catch { }
+            SettingsService.SaveIconLibraryPath(ViewModel.IconLibraryPath);
+            SettingsService.SaveSearchQuery(ViewModel.Query);
+            SettingsService.SaveSearchRoot(ViewModel.RootPath);
+            SaveMainWindowPlacement();
+        }
 
         private bool _languageReady;
 
@@ -785,28 +845,66 @@ namespace DesktopIniManager.Views
 
         private void RestoreWindowPlacement(string[] arguments)
         {
-            if (!TryReadArgument(arguments, "--window-left", out double left)
-                || !TryReadArgument(arguments, "--window-top", out double top)
-                || !TryReadArgument(arguments, "--window-width", out double width)
-                || !TryReadArgument(arguments, "--window-height", out double height))
+            double left = 0, top = 0, width = 0, height = 0;
+            int state = 0;
+            bool fromCommandLine = TryReadArgument(arguments, "--window-left", out left)
+                && TryReadArgument(arguments, "--window-top", out top)
+                && TryReadArgument(arguments, "--window-width", out width)
+                && TryReadArgument(arguments, "--window-height", out height);
+            if (fromCommandLine)
+            {
+                if (arguments.Any(argument => string.Equals(argument, "--window-maximized", StringComparison.OrdinalIgnoreCase)))
+                    state = (int)WindowState.Maximized;
+            }
+            else if (!SettingsService.TryLoadMainWindowPlacement(out left, out top, out width, out height, out state))
                 return;
 
-            if (width < _window.MinWidth || height < _window.MinHeight)
-                return;
+            ApplyPlacement(_window, left, top, width, height, state);
+        }
 
+        private void SaveMainWindowPlacement()
+        {
+            Rect bounds = _window.WindowState == WindowState.Normal
+                ? new Rect(_window.Left, _window.Top, _window.Width, _window.Height)
+                : _window.RestoreBounds;
+            int state = _window.WindowState == WindowState.Minimized
+                ? (int)WindowState.Normal
+                : (int)_window.WindowState;
+            SettingsService.SaveMainWindowPlacement(bounds.Left, bounds.Top, bounds.Width, bounds.Height, state);
+        }
+
+        private void OverlayOnMain(Window child)
+        {
+            if (child == null) return;
+            Rect bounds = _window.WindowState == WindowState.Normal
+                ? new Rect(_window.Left, _window.Top, _window.Width, _window.Height)
+                : _window.RestoreBounds;
+            ApplyPlacement(child, bounds.Left, bounds.Top, bounds.Width, bounds.Height,
+                _window.WindowState == WindowState.Minimized ? (int)WindowState.Normal : (int)_window.WindowState);
+        }
+
+        private void ApplyPlacement(Window window, double left, double top, double width, double height, int state)
+        {
+            if (window == null) return;
+            width = Math.Max(window.MinWidth, width);
+            height = Math.Max(window.MinHeight, height);
             var requested = new Rect(left, top, width, height);
-            var virtualDesktop = new Rect(SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenTop,
-                SystemParameters.VirtualScreenWidth, SystemParameters.VirtualScreenHeight);
+            var virtualDesktop = new Rect(
+                SystemParameters.VirtualScreenLeft,
+                SystemParameters.VirtualScreenTop,
+                SystemParameters.VirtualScreenWidth,
+                SystemParameters.VirtualScreenHeight);
             if (!requested.IntersectsWith(virtualDesktop))
                 return;
 
-            _window.WindowStartupLocation = WindowStartupLocation.Manual;
-            _window.Left = left;
-            _window.Top = top;
-            _window.Width = width;
-            _window.Height = height;
-            if (arguments.Any(argument => string.Equals(argument, "--window-maximized", StringComparison.OrdinalIgnoreCase)))
-                _window.WindowState = WindowState.Maximized;
+            window.WindowStartupLocation = WindowStartupLocation.Manual;
+            window.WindowState = WindowState.Normal;
+            window.Left = left;
+            window.Top = top;
+            window.Width = width;
+            window.Height = height;
+            if (state == (int)WindowState.Maximized)
+                window.WindowState = WindowState.Maximized;
         }
 
         private static bool TryReadArgument(string[] arguments, string name, out double value)
@@ -823,25 +921,31 @@ namespace DesktopIniManager.Views
         {
             if (_differencerWindow == null)
             {
-                _differencerWindow = new DeveloperDifferencerWindow { Owner = _window };
+                _differencerWindow = new DeveloperDifferencerWindow();
                 _differencerWindow.Closed += (s, args) => _differencerWindow = null;
+                OverlayOnMain(_differencerWindow);
                 _differencerWindow.Show();
             }
-            else WindowActivationService.BringToFront(_differencerWindow);
+            else
+            {
+                OverlayOnMain(_differencerWindow);
+                WindowActivationService.BringToFront(_differencerWindow);
+            }
         }
 
         private void OpenGrep(IReadOnlyList<string> scopes)
         {
             if (_grepWindow == null)
             {
-                _grepWindow = new GrepWindow(ViewModel.GetSelectedGrepScopes, scopes) { Owner = _window };
+                _grepWindow = new GrepWindow(ViewModel.GetSelectedGrepScopes, scopes);
                 _grepWindow.Closed += (closedSender, args) => _grepWindow = null;
+                OverlayOnMain(_grepWindow);
                 _grepWindow.Show();
             }
             else
             {
                 _grepWindow.SetExplicitScopes(scopes);
-                if (_grepWindow.WindowState == WindowState.Minimized) _grepWindow.WindowState = WindowState.Normal;
+                OverlayOnMain(_grepWindow);
                 WindowActivationService.BringToFront(_grepWindow);
             }
         }

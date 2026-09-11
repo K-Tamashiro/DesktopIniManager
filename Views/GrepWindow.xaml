@@ -478,18 +478,34 @@
           Margin="18,0,0,0"
           Content="{loc:L Grep_WholeWord}" />
       </StackPanel>
-      <history:HistoryTextBox
-        x:Name="FilterBox"
-        Margin="18,0,12,0"
-        Height="36"
-        Padding="8,2"
-        VerticalAlignment="Center"
-        VerticalContentAlignment="Center"
-        CaretBrush="{DynamicResource Ink}"
-        FontSize="13"
-        HistoryKey="Grep-ListFilter"
-        Text="{Binding ListFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-        ToolTip="{loc:L Grep_ListFilter}" />
+      <DockPanel Margin="18,0,12,0" VerticalAlignment="Center">
+        <Button
+          x:Name="ClearListFilterButton"
+          DockPanel.Dock="Right"
+          Height="36"
+          MinWidth="36"
+          Margin="8,0,0,0"
+          Background="{DynamicResource Secondary}"
+          Command="{Binding ClearListFilterCommand}"
+          Style="{StaticResource IconButton}"
+          ToolTip="{loc:L Grep_ClearQuery}">
+          <TextBlock
+            FontFamily="Segoe MDL2 Assets"
+            FontSize="12"
+            Text="&#xE711;" />
+        </Button>
+        <history:HistoryTextBox
+          x:Name="FilterBox"
+          Height="36"
+          Padding="8,2"
+          VerticalAlignment="Center"
+          VerticalContentAlignment="Center"
+          CaretBrush="{DynamicResource Ink}"
+          FontSize="13"
+          HistoryKey="Grep-ListFilter"
+          Text="{Binding ListFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+          ToolTip="{loc:L Grep_ListFilter}" />
+      </DockPanel>
     </DockPanel>
     <Border
       Grid.Row="4"
@@ -502,7 +518,9 @@
         BorderThickness="0"
         CanUserResizeColumns="True"
         Foreground="{DynamicResource Ink}"
-        GridLinesVisibility="Horizontal"
+        GridLinesVisibility="None"
+        HorizontalGridLinesBrush="Transparent"
+        VerticalGridLinesBrush="Transparent"
         HeadersVisibility="Column"
         IsReadOnly="True"
         MinColumnWidth="56"
@@ -513,7 +531,8 @@
         ScrollViewer.CanContentScroll="True"
         RowHeaderWidth="0"
         SelectionMode="Single"
-        SelectionUnit="FullRow">
+        SelectionUnit="FullRow"
+        RowHeight="28">
         <DataGrid.InputBindings>
           <MouseBinding MouseAction="LeftDoubleClick" Command="{Binding OpenMatchCommand}" />
         </DataGrid.InputBindings>
@@ -543,10 +562,9 @@
                             <DockPanel LastChildFill="True">
                               <Border
                                 DockPanel.Dock="Top"
-                                Margin="0,3,0,2"
+                                Margin="0,1,0,1"
                                 Background="#2F4F4F"
-                                BorderBrush="{DynamicResource Line}"
-                                BorderThickness="0,0,0,1"
+                                BorderThickness="0"
                                 MouseLeftButtonDown="GroupHeader_Click">
                                 <Border.ContextMenu>
                                   <ContextMenu>
@@ -576,7 +594,7 @@
                                   </Button>
                                   <TextBlock
                                     Grid.Column="1"
-                                    Margin="4,6,10,6"
+                                    Margin="4,4,10,4"
                                     VerticalAlignment="Center"
                                     FontSize="14"
                                     FontWeight="Bold"
@@ -624,6 +642,11 @@
           <Style TargetType="DataGridRow">
             <Setter Property="Foreground" Value="{DynamicResource Ink}" />
             <Setter Property="Background" Value="{DynamicResource CardBackground}" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
             <Style.Triggers>
               <Trigger Property="IsSelected" Value="True">
                 <Setter Property="Background" Value="{DynamicResource ThemeSelected}" />
@@ -635,7 +658,9 @@
           <Style TargetType="DataGridCell">
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-            <Setter Property="Padding" Value="0" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
             <Style.Triggers>
               <Trigger Property="IsSelected" Value="True">
                 <Setter Property="Background" Value="Transparent" />

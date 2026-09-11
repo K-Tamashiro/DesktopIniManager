@@ -92,9 +92,9 @@
                   ScrollViewer.VerticalScrollBarVisibility="Auto">
                   <ListBox.ItemTemplate>
                     <DataTemplate>
-                      <TextBlock
-                        Text="{Binding}"
-                        TextTrimming="CharacterEllipsis"
+                      <views:PathEndTextBlock
+                        HorizontalAlignment="Stretch"
+                        FullText="{Binding}"
                         ToolTip="{Binding}" />
                     </DataTemplate>
                   </ListBox.ItemTemplate>

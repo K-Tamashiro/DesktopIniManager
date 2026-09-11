@@ -13,6 +13,7 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
+using System.IO;
 using DesktopIniManager.Properties;
 
 namespace DesktopIniManager.Views
@@ -38,6 +39,10 @@ namespace DesktopIniManager.Views
             ViewModel.CloseRequested += Close;
             ViewModel.ResultGroupsExpansionRequested += SetResultGroupsExpanded;
             ViewModel.Initialize(initialScopes);
+            AllowDrop = true;
+            PreviewDragEnter += FolderDropPreview;
+            PreviewDragOver += FolderDropPreview;
+            PreviewDrop += GrepWindow_Drop;
             ApplyGrepColumnWidths(ViewModel.ColumnWidths);
             HookPathBox(EditorBox);
             HookPathBox(EditorArgumentsBox);
@@ -51,6 +56,47 @@ namespace DesktopIniManager.Views
                 ShowTextEnd(EditorBox);
                 ShowTextEnd(EditorArgumentsBox);
             };
+        }
+
+        private static void FolderDropPreview(object sender, DragEventArgs e)
+        {
+            if (e.Data == null || !e.Data.GetDataPresent(DataFormats.FileDrop))
+                return;
+
+            e.Effects = DragDropEffects.Copy;
+            e.Handled = true;
+        }
+
+        private void GrepWindow_Drop(object sender, DragEventArgs e)
+        {
+            List<string> folders = FoldersFromDrop(e.Data);
+            if (folders.Count == 0) return;
+            ViewModel.AddDroppedFolders(folders);
+            e.Handled = true;
+        }
+
+        private static List<string> FoldersFromDrop(IDataObject data)
+        {
+            var folders = new List<string>();
+            if (data == null || !data.GetDataPresent(DataFormats.FileDrop))
+                return folders;
+
+            var paths = data.GetData(DataFormats.FileDrop) as string[] ?? Array.Empty<string>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string path in paths)
+            {
+                if (string.IsNullOrWhiteSpace(path)) continue;
+                string folder = Directory.Exists(path)
+                    ? path
+                    : File.Exists(path) ? Path.GetDirectoryName(path) : null;
+                if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder)) continue;
+                string normalized = Path.GetFullPath(folder)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                if (seen.Add(normalized))
+                    folders.Add(normalized);
+            }
+
+            return folders;
         }
 
         private void HookPathBox(TextBox box)

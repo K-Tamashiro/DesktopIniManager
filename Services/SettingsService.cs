@@ -21,6 +21,7 @@ namespace DesktopIniManager.Services
         private static readonly string GrepColumnWidthsPath = Path.Combine(SettingsDirectory, "grep-column-widths.txt");
         private static readonly string GrepFreeExtensionsPath = Path.Combine(SettingsDirectory, "grep-free-extensions.txt");
         private static readonly string TreeDensityPath = Path.Combine(SettingsDirectory, "tree-density.txt");
+        private static readonly string MainWindowPlacementPath = Path.Combine(SettingsDirectory, "main-window.txt");
 
         public static string LoadIconLibraryPath()
         {
@@ -192,6 +193,33 @@ namespace DesktopIniManager.Services
                 command.IndexOf("Mery", StringComparison.OrdinalIgnoreCase) >= 0)
                 return "/l {line} /c {column} \"{file}\"";
             return "--goto \"{file}:{line}:{column}\"";
+        }
+
+        public static bool TryLoadMainWindowPlacement(out double left, out double top, out double width, out double height, out int state)
+        {
+            left = top = width = height = 0;
+            state = 0;
+            string text = ReadSetting(MainWindowPlacementPath, null);
+            if (string.IsNullOrWhiteSpace(text)) return false;
+            string[] parts = text.Split(',');
+            if (parts.Length < 4) return false;
+            if (!double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out left)) return false;
+            if (!double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out top)) return false;
+            if (!double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out width)) return false;
+            if (!double.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out height)) return false;
+            if (parts.Length >= 5)
+                int.TryParse(parts[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out state);
+            return width > 0 && height > 0;
+        }
+
+        public static void SaveMainWindowPlacement(double left, double top, double width, double height, int state)
+        {
+            WriteSetting(MainWindowPlacementPath, string.Join(",",
+                left.ToString("R", CultureInfo.InvariantCulture),
+                top.ToString("R", CultureInfo.InvariantCulture),
+                width.ToString("R", CultureInfo.InvariantCulture),
+                height.ToString("R", CultureInfo.InvariantCulture),
+                state.ToString(CultureInfo.InvariantCulture)));
         }
 
         private static string ReadSetting(string path, string fallback)

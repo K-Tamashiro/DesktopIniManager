@@ -12,6 +12,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
+using System.IO;
 
 namespace DesktopIniManager.Views
 {
@@ -55,9 +56,78 @@ namespace DesktopIniManager.Views
                 StringOverlay.CultureChanged -= OnCultureChanged;
                 ViewModel.Close();
             };
+            AllowDrop = true;
+            PreviewDragEnter += FolderDropPreview;
+            PreviewDragOver += FolderDropPreview;
+            PreviewDrop += Differencer_Drop;
             Loaded += (s, e) => ViewModel.SetFilePanelBusy(false);
             StringOverlay.CultureChanged += OnCultureChanged;
             ViewModel.RestoreState();
+        }
+
+        private static void FolderDropPreview(object sender, DragEventArgs e)
+        {
+            if (e.Data == null || !e.Data.GetDataPresent(DataFormats.FileDrop))
+                return;
+            e.Effects = DragDropEffects.Copy;
+            e.Handled = true;
+        }
+
+        private void Differencer_Drop(object sender, DragEventArgs e)
+        {
+            List<string> folders = FoldersFromDrop(e.Data);
+            if (folders.Count == 0) return;
+
+            Point point = e.GetPosition(this);
+            bool toTarget = IsOver(TargetBox, point) || (!IsOver(SourceBox, point) && point.X >= ActualWidth / 2.0);
+            if (toTarget)
+            {
+                ViewModel.TargetPath = folders[0];
+                TargetBox.CommitHistory();
+            }
+            else
+            {
+                ViewModel.SourcePath = folders[0];
+                SourceBox.CommitHistory();
+            }
+            e.Handled = true;
+        }
+
+        private bool IsOver(FrameworkElement element, Point windowPoint)
+        {
+            if (element == null) return false;
+            try
+            {
+                Point origin = element.TransformToAncestor(this).Transform(new Point(0, 0));
+                return new Rect(origin, element.RenderSize).Contains(windowPoint);
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+        }
+
+        private static List<string> FoldersFromDrop(IDataObject data)
+        {
+            var folders = new List<string>();
+            if (data == null || !data.GetDataPresent(DataFormats.FileDrop))
+                return folders;
+
+            var paths = data.GetData(DataFormats.FileDrop) as string[] ?? Array.Empty<string>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string path in paths)
+            {
+                if (string.IsNullOrWhiteSpace(path)) continue;
+                string folder = Directory.Exists(path)
+                    ? path
+                    : File.Exists(path) ? Path.GetDirectoryName(path) : null;
+                if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder)) continue;
+                string normalized = Path.GetFullPath(folder)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                if (seen.Add(normalized))
+                    folders.Add(normalized);
+            }
+            return folders;
         }
 
         private void OnCultureChanged(object sender, EventArgs e)

@@ -341,6 +341,29 @@ namespace DesktopIniManager.ViewModels
         }
 
 
+        internal int SelectDroppedFolders(IReadOnlyList<string> folders)
+        {
+            if (folders == null || folders.Count == 0) return 0;
+
+            int selected = 0;
+            List<FolderMatch> nodes = Flatten(CurrentTreeRoots()).ToList();
+            foreach (string folder in folders)
+            {
+                string normalized = NormalizeFolderPath(folder);
+                FolderMatch node = nodes.FirstOrDefault(item =>
+                    !string.IsNullOrWhiteSpace(item.Path)
+                    && string.Equals(NormalizeFolderPath(item.Path), normalized, StringComparison.OrdinalIgnoreCase));
+                if (node == null) continue;
+
+                for (FolderMatch ancestor = node.Parent; ancestor != null; ancestor = ancestor.Parent)
+                    ancestor.IsExpanded = true;
+                node.SetSelected(true);
+                selected++;
+            }
+
+            return selected;
+        }
+
         internal void RestoreFolderTrees()
         {
             try

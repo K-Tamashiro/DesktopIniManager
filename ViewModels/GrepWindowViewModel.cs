@@ -65,7 +65,10 @@ namespace DesktopIniManager.ViewModels
             set
             {
                 if (SetProperty(ref _listFilter, value))
+                {
                     Results?.Refresh();
+                    ClearListFilterCommand?.NotifyCanExecuteChanged();
+                }
             }
         }
         private GrepMatch _selectedMatch = null;
@@ -98,6 +101,7 @@ namespace DesktopIniManager.ViewModels
         public AsyncRelayCommand SearchCommand { get; }
         public RelayCommand CancelCommand { get; }
         public RelayCommand ClearQueryCommand { get; }
+        public RelayCommand ClearListFilterCommand { get; }
         public RelayCommand ClearResultsCommand { get; }
         public RelayCommand ReloadScopesCommand { get; }
         public RelayCommand OpenMatchCommand { get; }
@@ -123,6 +127,7 @@ namespace DesktopIniManager.ViewModels
             SearchCommand = new AsyncRelayCommand(SearchAsync, ex => _dialogs.Show(ErrorMessages.English(ex), DialogTitle), () => !IsSearching);
             CancelCommand = new RelayCommand(Cancel, () => IsSearching && !IsCancelling);
             ClearQueryCommand = new RelayCommand(() => Query = string.Empty, () => !string.IsNullOrEmpty(Query));
+            ClearListFilterCommand = new RelayCommand(() => ListFilter = string.Empty, () => !string.IsNullOrEmpty(ListFilter));
             ClearResultsCommand = new RelayCommand(ClearResults, () => !IsSearching && _matches.Count > 0);
             ReloadScopesCommand = new RelayCommand(ReloadFromMainWindow, () => !IsSearching);
             OpenMatchCommand = new RelayCommand(OpenMatch);
@@ -184,6 +189,13 @@ namespace DesktopIniManager.ViewModels
         {
             if (_searchCts != null) { Status = Strings.Grep_CancelBeforeChange; return; }
             SetScopes(scopes);
+        }
+
+        public void AddDroppedFolders(IReadOnlyList<string> folders)
+        {
+            if (_searchCts != null) { Status = Strings.Grep_CancelBeforeChange; return; }
+            if (folders == null || folders.Count == 0) return;
+            SetScopes(_scopes.Select(item => item.FolderPath).Concat(folders));
         }
 
         public void ReloadFromMainWindow()
@@ -351,19 +363,13 @@ namespace DesktopIniManager.ViewModels
 
         private static IEnumerable<string> NormalizeScopes(IEnumerable<string> paths)
         {
-            var result = new List<string>();
-            foreach (string path in (paths ?? Enumerable.Empty<string>()).Where(Directory.Exists)
-                .Select(path => Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar)).Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(path => path.Length))
-            {
-                if (!result.Any(parent => IsAncestor(parent, path))) result.Add(path);
-            }
-            return result.OrderBy(path => path, StringComparer.CurrentCultureIgnoreCase);
-        }
+            List<string> selected = (paths ?? Enumerable.Empty<string>())
+                .Where(path => !string.IsNullOrWhiteSpace(path) && Directory.Exists(path))
+                .Select(MainWindowViewModel.NormalizeFolderPath)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
-        private static bool IsAncestor(string parent, string child)
-        {
-            return child.StartsWith(parent.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+            return MainWindowViewModel.ExcludeNestedFolders(selected);
         }
 
         internal async Task SearchAsync()

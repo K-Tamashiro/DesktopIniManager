@@ -220,4 +220,89 @@ namespace DesktopIniManager.Views
             HistoryItemApplied?.Invoke(this, EventArgs.Empty);
         }
     }
+
+    public sealed class PathEndTextBlock : TextBlock
+    {
+        public static readonly DependencyProperty FullTextProperty = DependencyProperty.Register(
+            nameof(FullText), typeof(string), typeof(PathEndTextBlock),
+            new PropertyMetadata(null, (sender, args) => ((PathEndTextBlock)sender).UpdateText(double.NaN)));
+
+        public string FullText
+        {
+            get { return (string)GetValue(FullTextProperty); }
+            set { SetValue(FullTextProperty, value); }
+        }
+
+        private bool _updating;
+
+        public PathEndTextBlock()
+        {
+            TextTrimming = TextTrimming.None;
+            TextWrapping = TextWrapping.NoWrap;
+            HorizontalAlignment = HorizontalAlignment.Stretch;
+            Loaded += (sender, args) => UpdateText(AvailableWidth());
+            SizeChanged += (sender, args) => UpdateText(AvailableWidth());
+        }
+
+        private double AvailableWidth()
+        {
+            DependencyObject current = this;
+            while (current != null)
+            {
+                if (current is ListBoxItem item && item.ActualWidth > 0)
+                    return Math.Max(0, item.ActualWidth - item.Padding.Left - item.Padding.Right);
+                current = VisualTreeHelper.GetParent(current);
+            }
+
+            return ActualWidth;
+        }
+
+        private void UpdateText(double width)
+        {
+            if (_updating) return;
+
+            string value = FullText ?? string.Empty;
+            if (double.IsNaN(width) || double.IsInfinity(width) || width <= 0)
+                width = ActualWidth;
+
+            string next = value;
+            if (width > 0 && MeasureWidth(value) > width)
+            {
+                const string ellipsis = "...";
+                if (MeasureWidth(ellipsis) >= width)
+                    next = ellipsis;
+                else
+                {
+                    int low = 0;
+                    int high = value.Length;
+                    while (low < high)
+                    {
+                        int mid = (low + high + 1) / 2;
+                        string candidate = ellipsis + value.Substring(value.Length - mid);
+                        if (MeasureWidth(candidate) <= width) low = mid;
+                        else high = mid - 1;
+                    }
+                    next = low == 0 ? ellipsis : ellipsis + value.Substring(value.Length - low);
+                }
+            }
+
+            if (Text == next) return;
+            _updating = true;
+            try { Text = next; }
+            finally { _updating = false; }
+        }
+
+        private double MeasureWidth(string value)
+        {
+            var text = new FormattedText(
+                value ?? string.Empty,
+                System.Globalization.CultureInfo.CurrentCulture,
+                FlowDirection.LeftToRight,
+                new Typeface(FontFamily, FontStyle, FontWeight, FontStretch),
+                FontSize,
+                Foreground ?? Brushes.Black,
+                VisualTreeHelper.GetDpi(this).PixelsPerDip);
+            return text.Width;
+        }
+    }
 }

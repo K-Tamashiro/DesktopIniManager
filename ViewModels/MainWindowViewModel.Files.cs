@@ -237,36 +237,48 @@ namespace DesktopIniManager.ViewModels
 
         internal IReadOnlyList<string> GetSelectedGrepScopes()
         {
-            List<string> selected = CurrentItems()
-                .Where(item => item.IsActionable && item.IsSelected && Directory.Exists(item.Path))
-                .Select(item => Path.GetFullPath(item.Path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+            // Walk the live tree, not the folder-filter flat list.
+            // Same-branch children are dropped only when a selected ancestor already covers them.
+            List<string> selected = Flatten(CurrentTreeRoots())
+                .Where(item => item.IsActionable && item.IsSelected && !string.IsNullOrWhiteSpace(item.Path) && Directory.Exists(item.Path))
+                .Select(item => NormalizeFolderPath(item.Path))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            var selectedSet = new HashSet<string>(selected, StringComparer.OrdinalIgnoreCase);
+            return ExcludeNestedFolders(selected);
+        }
+
+        internal static string NormalizeFolderPath(string path)
+        {
+            return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+
+        internal static IReadOnlyList<string> ExcludeNestedFolders(IReadOnlyList<string> folders)
+        {
             var scopes = new List<string>();
-
-            foreach (string path in selected)
+            foreach (string path in folders
+                .OrderBy(candidate => candidate.Length)
+                .ThenBy(candidate => candidate, StringComparer.OrdinalIgnoreCase))
             {
-                bool hasSelectedAncestor = false;
-                string parent = Path.GetDirectoryName(path);
-
-                while (!string.IsNullOrEmpty(parent))
-                {
-                    if (selectedSet.Contains(parent.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)))
-                    {
-                        hasSelectedAncestor = true;
-                        break;
-                    }
-                    parent = Path.GetDirectoryName(parent);
-                }
-
-                if (!hasSelectedAncestor)
-                    scopes.Add(path);
+                if (scopes.Any(parent => IsFolderAncestor(parent, path)))
+                    continue;
+                scopes.Add(path);
             }
 
             scopes.Sort(StringComparer.CurrentCultureIgnoreCase);
             return scopes;
+        }
+
+        internal static bool IsFolderAncestor(string parent, string child)
+        {
+            if (string.IsNullOrEmpty(parent) || string.IsNullOrEmpty(child))
+                return false;
+            if (string.Equals(parent, child, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            string prefix = parent.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                            + Path.DirectorySeparatorChar;
+            return child.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
         }
 
     }

@@ -61,7 +61,15 @@ namespace DesktopIniManager.ViewModels
         private string _rootPath = string.Empty;
         public string RootPath { get => _rootPath; set => SetProperty(ref _rootPath, value); }
         private string _query = string.Empty;
-        public string Query { get => _query; set => SetProperty(ref _query, value); }
+        public string Query
+        {
+            get => _query;
+            set
+            {
+                if (SetProperty(ref _query, value))
+                    ClearQueryCommand?.NotifyCanExecuteChanged();
+            }
+        }
         private string _iconLibraryPath = string.Empty;
         public string IconLibraryPath { get => _iconLibraryPath; set => SetProperty(ref _iconLibraryPath, value); }
         private string _folderFilter = string.Empty;
@@ -97,6 +105,7 @@ namespace DesktopIniManager.ViewModels
         public RelayCommand ApplyCommand { get; }
         public RelayCommand RemoveCommand { get; }
         public RelayCommand GrepCommand { get; }
+        public RelayCommand ClearQueryCommand { get; }
         internal MainWindowViewModel(StartupState startup, Dispatcher dispatcher, IUserDialogService dialogs)
         {
             _startup = startup; Dispatcher = dispatcher; _dialogs = dialogs;
@@ -113,6 +122,7 @@ namespace DesktopIniManager.ViewModels
             ApplyCommand = new RelayCommand(Apply, () => !IsSearching);
             RemoveCommand = new RelayCommand(Remove, () => !IsSearching);
             GrepCommand = new RelayCommand(Grep, () => !IsSearching);
+            ClearQueryCommand = new RelayCommand(() => Query = string.Empty, () => !string.IsNullOrEmpty(Query));
         }
 
         public event Action<MainWindowAction, object> InteractionRequested;

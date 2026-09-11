@@ -1,25 +1,14 @@
 using DesktopIniManager.Models;
 using DesktopIniManager.Services;
-using Microsoft.Win32;
 using System;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
-using System.Globalization;
 using System.Linq;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Interop;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Media.Animation;
-using System.Windows.Controls;
-using System.Windows.Threading;
-using FastVolumeIndex;
 using DesktopIniManager.Properties;
 
 namespace DesktopIniManager.ViewModels
@@ -46,9 +35,12 @@ namespace DesktopIniManager.ViewModels
                 items.Add(item);
         }
 
+        internal IEnumerable<FolderMatch> SelectableFolders() =>
+            CurrentItems().Where(item => item.IsActionable && !item.IsHidden && !item.IsFilterHidden);
+
         internal void InvertSelection()
         {
-            foreach (FolderMatch item in CurrentItems().Where(item => item.IsActionable && !item.IsHidden && !item.IsFilterHidden))
+            foreach (FolderMatch item in SelectableFolders())
                 item.SetSelected(!item.IsSelected);
         }
 
@@ -62,7 +54,10 @@ namespace DesktopIniManager.ViewModels
 
         internal void ShowSolutionView() => ShowTreeView(1);
 
-        internal void UpdateVisibleCount() { CountLabel = string.Format(_solutionView ? Strings.Main_NItems : Strings.Main_NFolders, CurrentItems().Count(item => !item.IsHidden && !item.IsFilterHidden)); }
+        internal void UpdateVisibleCount()
+        {
+            CountLabel = string.Format(_solutionView ? Strings.Main_NItems : Strings.Main_NFolders, CurrentItems().Count(item => !item.IsHidden && !item.IsFilterHidden));
+        }
 
         internal System.Collections.Generic.IEnumerable<FolderMatch> CurrentItems() => _filteredViewItems ?? Flatten(_treeView == 0 ? _treeRoots : _treeView == 1 ? _solutionRoots : _searchRoots).ToList();
 

@@ -23,7 +23,15 @@ namespace DesktopIniManager.Views
         {
             if (stage.Text != message) previous.Text = stage.Text;
             stage.Text = message;
-            progress.Value = completed;
+            if (!progress.IsIndeterminate)
+                progress.Value = completed;
+        }
+
+        internal void SetBusy(bool busy)
+        {
+            progress.IsIndeterminate = busy;
+            if (!busy)
+                progress.Value = Math.Min(progress.Maximum, Math.Max(progress.Value, 3));
         }
     }
 }

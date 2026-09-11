@@ -15,6 +15,8 @@
   WindowStartupLocation="CenterOwner">
   <Window.Resources>
     <BooleanToVisibilityConverter x:Key="MvvmBooleanToVisibility"/>
+    <history:GrepGroupDirectoryConverter x:Key="GrepGroupDirectory"/>
+    <history:GrepGroupFileConverter x:Key="GrepGroupFile"/>
     <Style TargetType="{x:Type ComboBoxItem}">
       <Setter Property="Foreground" Value="{DynamicResource Ink}" />
       <Setter Property="Background" Value="{DynamicResource CardBackground}" />
@@ -313,6 +315,12 @@
             Margin="0,9,0,0"
             HorizontalAlignment="Center"
             Foreground="{DynamicResource Muted}" />
+          <CheckBox
+            Margin="0,8,0,0"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            IsChecked="{Binding AllScopesSelected, Mode=TwoWay}"
+            IsEnabled="{Binding CanEdit}" />
         </StackPanel>
       </Grid>
     </Border>
@@ -479,6 +487,12 @@
           Content="{loc:L Grep_WholeWord}" />
       </StackPanel>
       <DockPanel Margin="18,0,12,0" VerticalAlignment="Center">
+        <TextBlock
+          DockPanel.Dock="Left"
+          Margin="0,0,8,0"
+          VerticalAlignment="Center"
+          Foreground="{DynamicResource Muted}"
+          Text="GREP Filter" />
         <Button
           x:Name="ClearListFilterButton"
           DockPanel.Dock="Right"
@@ -563,13 +577,21 @@
                               <Border
                                 DockPanel.Dock="Top"
                                 Margin="0,1,0,1"
-                                Background="#2F4F4F"
+                                Background="{DynamicResource HeaderBackground}"
                                 BorderThickness="0"
                                 MouseLeftButtonDown="GroupHeader_Click">
                                 <Border.ContextMenu>
                                   <ContextMenu>
-                                    <MenuItem Click="CopyGroupPath_Click" Header="{loc:L Grep_CopyPath}" />
-                                    <MenuItem Click="OpenGroupFolder_Click" Header="{loc:L Grep_OpenFolder}" />
+                                    <MenuItem Click="CopyGroupPath_Click" Header="{loc:L Grep_CopyPath}">
+                                      <MenuItem.Icon>
+                                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="{DynamicResource Ink}" HorizontalAlignment="Center" VerticalAlignment="Center" Text="&#xE8C8;" />
+                                      </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Click="OpenGroupFolder_Click" Header="{loc:L Grep_OpenFolder}">
+                                      <MenuItem.Icon>
+                                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="{DynamicResource Ink}" HorizontalAlignment="Center" VerticalAlignment="Center" Text="&#xE8B7;" />
+                                      </MenuItem.Icon>
+                                    </MenuItem>
                                   </ContextMenu>
                                 </Border.ContextMenu>
                                 <Grid>
@@ -600,7 +622,8 @@
                                     FontWeight="Bold"
                                     Foreground="{DynamicResource Ink}"
                                     TextTrimming="CharacterEllipsis">
-                                    <Run Text="{Binding Name, Mode=OneWay}" />
+                                    <Run Text="{Binding Name, Mode=OneWay, Converter={StaticResource GrepGroupDirectory}}" />
+                                    <Run Foreground="{DynamicResource Muted}" Text="{Binding Name, Mode=OneWay, Converter={StaticResource GrepGroupFile}}" />
                                     <Run Foreground="{DynamicResource Muted}" Text=" -" />
                                     <Run Foreground="{DynamicResource Muted}" Text="{Binding ItemCount, Mode=OneWay}" />
                                   </TextBlock>

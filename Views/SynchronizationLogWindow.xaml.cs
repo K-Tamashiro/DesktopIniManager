@@ -1,7 +1,6 @@
 using System;
 using System.Windows;
 using DesktopIniManager.Services;
-using DesktopIniManager.ViewModels;
 
 namespace DesktopIniManager.Views
 {

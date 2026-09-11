@@ -6,15 +6,8 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
-using System.Windows.Interop;
 using System.Windows.Media;
-using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
-using System.Windows.Threading;
-using System.Xml.Serialization;
 
 namespace DesktopIniManager.ViewModels
 {
@@ -238,6 +231,24 @@ namespace DesktopIniManager.ViewModels
         public DiffSide Source { get { return source ?? (source = new DiffSide { Info = File.SourceInfo, Root = SourceRoot, Relative = File.RelativePath, Exists = File.Source != null }); } set { source = value; } }
         public DiffSide Target { get { return target ?? (target = new DiffSide { Info = File.TargetInfo, Root = TargetRoot, Relative = File.RelativePath, Exists = File.Target != null }); } set { target = value; } }
         public string Extension { get { return Path.GetExtension(File.RelativePath); } }
+        public string PathDirectory
+        {
+            get
+            {
+                string relative = File == null ? string.Empty : File.RelativePath ?? string.Empty;
+                string directory = Path.GetDirectoryName(relative);
+                if (string.IsNullOrEmpty(directory)) return string.Empty;
+                return directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    + Path.DirectorySeparatorChar;
+            }
+        }
+        public string PathFileName
+        {
+            get
+            {
+                return File == null ? string.Empty : Path.GetFileName(File.RelativePath ?? string.Empty);
+            }
+        }
         public ImageSource StatusIcon { get { return DifferencerStatusIcons.GetFileIcon(File.Kind); } }
         public System.Windows.Media.ImageSource Icon { get; private set; }
         private bool previewLoaded;

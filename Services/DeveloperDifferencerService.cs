@@ -2,12 +2,9 @@ using Microsoft.Win32.SafeHandles;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Diagnostics;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading;
 
 namespace DesktopIniManager.Services
@@ -20,15 +17,24 @@ namespace DesktopIniManager.Services
         public long ModifiedUtcSeconds => ModifiedUtc.Ticks / TimeSpan.TicksPerSecond;
         public static DiffStamp Read(string path)
         {
-            // GetAttributes distinguishes missing files from access/IO errors.
+            if (string.IsNullOrWhiteSpace(path)) return null;
             FileAttributes attributes;
             try { attributes = File.GetAttributes(path); }
             catch (FileNotFoundException) { return null; }
             catch (DirectoryNotFoundException) { return null; }
-            if ((attributes & (FileAttributes.Directory | FileAttributes.ReparsePoint)) != 0)
-                throw new IOException("Not a regular file: " + path);
-            var file = new FileInfo(path);
-            return new DiffStamp { Size = file.Length, ModifiedUtc = file.LastWriteTimeUtc };
+            catch (UnauthorizedAccessException) { return null; }
+            catch (IOException) { return null; }
+            if ((attributes & FileAttributes.Directory) != 0)
+                return null;
+            try
+            {
+                var file = new FileInfo(path);
+                return new DiffStamp { Size = file.Length, ModifiedUtc = file.LastWriteTimeUtc };
+            }
+            catch (FileNotFoundException) { return null; }
+            catch (DirectoryNotFoundException) { return null; }
+            catch (UnauthorizedAccessException) { return null; }
+            catch (IOException) { return null; }
         }
         public static bool Same(DiffStamp a, DiffStamp b)
         { return Same(a, b, true); }
@@ -172,7 +178,16 @@ namespace DesktopIniManager.Services
                 foreach (string childDirectory in Directory.EnumerateDirectories(directory))
                 {
                     token.ThrowIfCancellationRequested();
-                    FileAttributes attributes = File.GetAttributes(childDirectory);
+                    try
+                    {
+                        FileAttributes attributes = File.GetAttributes(childDirectory);
+                        if ((attributes & FileAttributes.Directory) == 0) continue;
+                    }
+                    catch (FileNotFoundException) { continue; }
+                    catch (DirectoryNotFoundException) { continue; }
+                    catch (UnauthorizedAccessException) { continue; }
+                    catch (IOException) { continue; }
+
                     string relative = RelativeFromRoot(root, childDirectory);
                     if (Protected(relative)) continue;
                     folders.Add(relative);
@@ -182,7 +197,6 @@ namespace DesktopIniManager.Services
                 foreach (string file in Directory.EnumerateFiles(directory))
                 {
                     token.ThrowIfCancellationRequested();
-                    FileAttributes attributes = File.GetAttributes(file);
                     string relative = RelativeFromRoot(root, file);
                     if (Protected(relative)) continue;
                     DiffStamp stamp = DiffStamp.Read(file);

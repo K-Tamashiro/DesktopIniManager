@@ -1,23 +1,11 @@
 using DesktopIniManager.Models;
 using DesktopIniManager.Services;
-using Microsoft.Win32;
 using System;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
-using System.IO;
-using System.Globalization;
-using System.Linq;
-using System.Reflection;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Interop;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Media.Animation;
-using System.Windows.Controls;
 using System.Windows.Threading;
 using FastVolumeIndex;
 using DesktopIniManager.Properties;
@@ -80,6 +68,17 @@ namespace DesktopIniManager.ViewModels
         public string Status { get => _status; set => SetProperty(ref _status, value); }
         private string _countLabel = Strings.Main_ZeroMatches;
         public string CountLabel { get => _countLabel; set => SetProperty(ref _countLabel, value); }
+        private bool _allFoldersSelected;
+        public bool AllFoldersSelected
+        {
+            get => _allFoldersSelected;
+            set
+            {
+                if (!SetProperty(ref _allFoldersSelected, value)) return;
+                foreach (FolderMatch item in SelectableFolders())
+                    item.SetSelected(value);
+            }
+        }
         private ImageSource _selectedIcon = null;
         public ImageSource SelectedIcon { get => _selectedIcon; set => SetProperty(ref _selectedIcon, value); }
         private string _selectedIconLabel = Strings.Main_NotSelected;

@@ -12,6 +12,7 @@ using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Interop;
 using System.Windows.Threading;
 using System.IO;
 using DesktopIniManager.Properties;
@@ -24,6 +25,7 @@ namespace DesktopIniManager.Views
         private bool _resultGroupsExpanded = true;
         private bool _applyingGroupExpansion;
         private readonly Dictionary<string, bool> _resultGroupStates = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        private HwndSource _inputSource;
 
         public GrepWindow(Func<IReadOnlyList<string>> scopeProvider, IReadOnlyList<string> initialScopes)
         {
@@ -48,6 +50,17 @@ namespace DesktopIniManager.Views
             HookPathBox(EditorArgumentsBox);
             // Re-selecting the same history item must also restore its preset arguments.
             EditorBox.HistoryItemApplied += (sender, args) => ViewModel.ApplyEditorPresetCommand.Execute(null);
+            ResultsGrid.PreviewMouseWheel += ResultsGrid_PreviewMouseWheel;
+            SourceInitialized += (sender, args) =>
+            {
+                _inputSource = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
+                _inputSource?.AddHook(HorizontalWheelMessage);
+            };
+            Closed += (sender, args) =>
+            {
+                _inputSource?.RemoveHook(HorizontalWheelMessage);
+                _inputSource = null;
+            };
             Loaded += (sender, args) =>
             {
                 ApplyGrepColumnWidths(ViewModel.ColumnWidths);
@@ -97,6 +110,38 @@ namespace DesktopIniManager.Views
             }
 
             return folders;
+        }
+
+        private void ResultsGrid_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            if ((Keyboard.Modifiers & ModifierKeys.Shift) == 0) return;
+            if (ScrollResultsHorizontally(-e.Delta)) e.Handled = true;
+        }
+
+        private bool ScrollResultsHorizontally(int delta)
+        {
+            ScrollViewer viewer = FindVisualDescendants<ScrollViewer>(ResultsGrid).FirstOrDefault();
+            if (viewer == null) return false;
+            viewer.ScrollToHorizontalOffset(viewer.HorizontalOffset + delta * 48.0 / 120);
+            return true;
+        }
+
+        private IntPtr HorizontalWheelMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            const int MouseHorizontalWheel = 0x020E;
+            if (message != MouseHorizontalWheel) return IntPtr.Zero;
+            if (ResultsGrid == null) return IntPtr.Zero;
+
+            long coordinates = lParam.ToInt64();
+            var point = ResultsGrid.PointFromScreen(new Point(
+                unchecked((short)(coordinates & 0xffff)),
+                unchecked((short)((coordinates >> 16) & 0xffff))));
+            if (point.X < 0 || point.Y < 0 || point.X >= ResultsGrid.ActualWidth || point.Y >= ResultsGrid.ActualHeight)
+                return IntPtr.Zero;
+
+            int delta = unchecked((short)((wParam.ToInt64() >> 16) & 0xffff));
+            handled = ScrollResultsHorizontally(delta);
+            return IntPtr.Zero;
         }
 
         private void HookPathBox(TextBox box)
@@ -355,5 +400,41 @@ namespace DesktopIniManager.Views
                 start = index + needle.Length;
             }
         }
+    }
+
+    internal sealed class GrepGroupDirectoryConverter : System.Windows.Data.IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            SplitGroupPath(value as string, out string directory, out _);
+            return directory;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture) =>
+            Binding.DoNothing;
+
+        internal static void SplitGroupPath(string name, out string directory, out string fileName)
+        {
+            directory = name ?? string.Empty;
+            fileName = string.Empty;
+            if (string.IsNullOrEmpty(name)) return;
+
+            int separator = name.LastIndexOfAny(new[] { '\\', '/' });
+            if (separator < 0) return;
+            directory = name.Substring(0, separator + 1);
+            fileName = name.Substring(separator + 1);
+        }
+    }
+
+    internal sealed class GrepGroupFileConverter : System.Windows.Data.IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            GrepGroupDirectoryConverter.SplitGroupPath(value as string, out _, out string fileName);
+            return fileName;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture) =>
+            Binding.DoNothing;
     }
 }

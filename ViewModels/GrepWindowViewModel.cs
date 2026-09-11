@@ -58,6 +58,17 @@ namespace DesktopIniManager.ViewModels
         public string Status { get => _status; set => SetProperty(ref _status, value); }
         private string _scopeCountLabel = string.Empty;
         public string ScopeCountLabel { get => _scopeCountLabel; set => SetProperty(ref _scopeCountLabel, value); }
+        private bool _allScopesSelected = true;
+        public bool AllScopesSelected
+        {
+            get => _allScopesSelected;
+            set
+            {
+                if (!SetProperty(ref _allScopesSelected, value)) return;
+                foreach (GrepScopeItem item in _scopes)
+                    item.IsEnabled = value;
+            }
+        }
         private string _listFilter = string.Empty;
         public string ListFilter
         {

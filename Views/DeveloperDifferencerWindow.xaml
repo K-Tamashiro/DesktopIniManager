@@ -13,7 +13,7 @@
   Foreground="{DynamicResource Ink}"
   WindowStartupLocation="CenterOwner">
   <Window.Resources>
-    <BooleanToVisibilityConverter x:Key="MvvmBooleanToVisibility"/>
+    <BooleanToVisibilityConverter x:Key="MvvmBooleanToVisibility" />
     <SolidColorBrush x:Key="SourceColor" Color="#E8B949" />
     <SolidColorBrush x:Key="TargetColor" Color="#2878BF" />
     <SolidColorBrush x:Key="CleanColor" Color="#28784B" />
@@ -311,12 +311,13 @@
           VerticalAlignment="Center"
           Text="{loc:L Common_Source}" />
         <history:HistoryTextBox
-          x:Name="SourceBox" Text="{Binding SourcePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+          x:Name="SourceBox"
           Grid.Column="1"
           Margin="0,0,8,6"
           BorderBrush="{StaticResource SourceColor}"
           BorderThickness="4,1,1,1"
-          HistoryKey="Differencer-Source" />
+          HistoryKey="Differencer-Source"
+          Text="{Binding SourcePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
         <Button
           Grid.Column="2"
           Margin="0,0,0,6"
@@ -329,13 +330,14 @@
           VerticalAlignment="Center"
           Text="{loc:L Common_Target}" />
         <history:HistoryTextBox
-          x:Name="TargetBox" Text="{Binding TargetPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+          x:Name="TargetBox"
           Grid.Row="1"
           Grid.Column="1"
           Margin="0,0,8,0"
           BorderBrush="{StaticResource TargetColor}"
           BorderThickness="4,1,1,1"
-          HistoryKey="Differencer-Target" />
+          HistoryKey="Differencer-Target"
+          Text="{Binding TargetPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
         <Button
           Grid.Row="1"
           Grid.Column="2"
@@ -377,11 +379,12 @@
             Style="{StaticResource IconButton}"
             ToolTip="{loc:L Differencer_CancelCompare}" />
           <CheckBox
-            x:Name="CompareTimestampBox" IsEnabled="{Binding CanEdit}"
+            x:Name="CompareTimestampBox"
             Margin="12,0,0,0"
             VerticalAlignment="Center"
             Content="{loc:L Differencer_CompareDates}"
             IsChecked="{Binding CompareTimestamp}"
+            IsEnabled="{Binding CanEdit}"
             ToolTip="{loc:L Differencer_CompareDatesTip}" />
           <Button
             x:Name="CleanSolutionButton"
@@ -408,16 +411,16 @@
           HorizontalAlignment="Right"
           Orientation="Horizontal">
           <TextBlock
-            x:Name="CountText" Text="{Binding CountLabel}"
+            x:Name="CountText"
             Margin="16,0,0,0"
-            VerticalAlignment="Center" />
+            VerticalAlignment="Center"
+            Text="{Binding CountLabel}" />
           <Button
             x:Name="ForwardButton"
             Margin="12,0,0,0"
             Background="{StaticResource SourceColor}"
             Command="{Binding ForwardCommand}"
             Foreground="#20252B"
-
             Style="{StaticResource DifferencerActionButton}">
             <StackPanel Orientation="Horizontal">
               <TextBlock
@@ -436,7 +439,6 @@
             Margin="8,0,0,0"
             Background="{StaticResource TargetColor}"
             Command="{Binding ReverseCommand}"
-
             Style="{StaticResource DifferencerActionButton}">
             <StackPanel Orientation="Horizontal">
               <TextBlock
@@ -455,12 +457,15 @@
     </StackPanel>
     <StackPanel Margin="0,10,0,0" DockPanel.Dock="Bottom">
       <ProgressBar
-        x:Name="CompareProgress" Value="{Binding ProgressValue}" Maximum="{Binding ProgressMaximum}" IsIndeterminate="{Binding ProgressIndeterminate}"
+        x:Name="CompareProgress"
         Height="6"
         Margin="0,0,0,6"
         Background="{DynamicResource HeaderBackground}"
         Foreground="{DynamicResource Accent}"
-        Visibility="{Binding IsProgressVisible, Converter={StaticResource MvvmBooleanToVisibility}}" />
+        IsIndeterminate="{Binding ProgressIndeterminate}"
+        Maximum="{Binding ProgressMaximum}"
+        Visibility="{Binding IsProgressVisible, Converter={StaticResource MvvmBooleanToVisibility}}"
+        Value="{Binding ProgressValue}" />
       <TextBlock
         x:Name="StatusText"
         Text="{Binding Status}"
@@ -620,12 +625,15 @@
             </WrapPanel>
           </Border>
           <TreeView
-            x:Name="FolderTree" Focusable="{Binding CanEdit}" IsHitTestVisible="{Binding CanEdit}" ItemsSource="{Binding FolderItems}"
+            x:Name="FolderTree"
             HorizontalContentAlignment="Stretch"
             Background="{DynamicResource CardBackground}"
             BorderThickness="0"
+            Focusable="{Binding CanEdit}"
             Foreground="{DynamicResource Ink}"
+            IsHitTestVisible="{Binding CanEdit}"
             ItemContainerStyle="{StaticResource FolderItemStyle}"
+            ItemsSource="{Binding FolderItems}"
             ScrollViewer.CanContentScroll="True"
             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
             SelectedItemChanged="FolderChanged"
@@ -716,11 +724,14 @@
           </Border>
           <Grid>
             <ListView
-              x:Name="FilesGrid" Focusable="{Binding CanEdit}" IsHitTestVisible="{Binding CanEdit}" ItemsSource="{Binding FileItems}"
+              x:Name="FilesGrid"
               Background="{DynamicResource CardBackground}"
               BorderThickness="0"
+              Focusable="{Binding CanEdit}"
               Foreground="{DynamicResource Ink}"
+              IsHitTestVisible="{Binding CanEdit}"
               ItemContainerStyle="{StaticResource FileListItemStyle}"
+              ItemsSource="{Binding FileItems}"
               MouseDoubleClick="OpenDiff"
               ScrollViewer.CanContentScroll="True"
               ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -770,15 +781,13 @@
                   <GridViewColumn Width="200" Header="{loc:L Common_Name}">
                     <GridViewColumn.CellTemplate>
                       <DataTemplate>
-                        <StackPanel VerticalAlignment="Center" ToolTip="{Binding File.RelativePath}">
-                          <TextBlock Text="{Binding File.Name}" TextTrimming="CharacterEllipsis" />
-                          <TextBlock
-                            Margin="0,3,0,0"
-                            FontSize="10"
-                            Foreground="{DynamicResource Muted}"
-                            Text="{Binding File.RelativePath}"
-                            TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
+                        <TextBlock
+                          VerticalAlignment="Center"
+                          TextTrimming="CharacterEllipsis"
+                          ToolTip="{Binding File.RelativePath}">
+                          <Run Text="{Binding PathDirectory, Mode=OneWay}" />
+                          <Run Foreground="{DynamicResource Muted}" Text="{Binding PathFileName, Mode=OneWay}" />
+                        </TextBlock>
                       </DataTemplate>
                     </GridViewColumn.CellTemplate>
                   </GridViewColumn>

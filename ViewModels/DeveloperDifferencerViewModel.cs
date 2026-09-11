@@ -165,7 +165,7 @@ namespace DesktopIniManager.ViewModels
         }
         internal void SetFilePanelBusy(bool busyPanel, string message = null)
         { IsFileBusy = busyPanel; if (message != null) BusyMessage = message; }
-        internal void ShowError(Exception error) => dialogs.Show(ErrorMessages.English(error), "MFT Differencer", MessageBoxButton.OK, MessageBoxImage.Error);
+        internal void ShowError(Exception error) => dialogs.Show(ErrorMessages.English(error), Strings.App_Title, MessageBoxButton.OK, MessageBoxImage.Error);
         internal void Close()
         {
             closed = true;

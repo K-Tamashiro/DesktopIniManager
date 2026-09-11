@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.IO;
 using System.Threading;
 using System.Windows;
 using System.Windows.Threading;
@@ -38,6 +39,28 @@ namespace DesktopIniManager
                 await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
                 var main = new MainWindow(state);
                 MainWindow = main;
+                if (!string.IsNullOrWhiteSpace(main.ViewModel.RootPath)
+                    && Directory.Exists(main.ViewModel.RootPath.Trim()))
+                {
+                    splash.Report(Strings.Splash_BuildingWorkspace, 3);
+                    splash.SetBusy(true);
+                    System.ComponentModel.PropertyChangedEventHandler onStatus = (sender, args) =>
+                    {
+                        if (args.PropertyName == nameof(main.ViewModel.Status)
+                            && !string.IsNullOrWhiteSpace(main.ViewModel.Status))
+                            splash.Report(main.ViewModel.Status, 3);
+                    };
+                    main.ViewModel.PropertyChanged += onStatus;
+                    try
+                    {
+                        await main.ViewModel.PrepareTreesAtStartupAsync();
+                    }
+                    finally
+                    {
+                        main.ViewModel.PropertyChanged -= onStatus;
+                        splash.SetBusy(false);
+                    }
+                }
                 var rendered = new TaskCompletionSource<bool>();
                 EventHandler onRendered = null;
                 onRendered = (sender, args) => { main.ContentRendered -= onRendered; rendered.TrySetResult(true); };

@@ -1,6 +1,5 @@
 <Window
   x:Class="DesktopIniManager.Views.CleanSolutionsWindow"
-  x:ClassModifier="internal"
   xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
   xmlns:history="clr-namespace:DesktopIniManager.Views"
@@ -8,20 +7,28 @@
   Title="{loc:L Differencer_CleanSolutionsTitle}"
   Width="760"
   Height="480"
-  WindowStartupLocation="CenterOwner"
+  x:ClassModifier="internal"
   Background="{DynamicResource WindowBackground}"
-  Foreground="{DynamicResource Ink}">
+  Foreground="{DynamicResource Ink}"
+  WindowStartupLocation="CenterOwner">
   <Window.Resources>
     <SolidColorBrush x:Key="SourceColor" Color="#E8B949" />
     <SolidColorBrush x:Key="TargetColor" Color="#2878BF" />
     <SolidColorBrush x:Key="CleanColor" Color="#28784B" />
-    <Style x:Key="DifferencerActionButton" BasedOn="{StaticResource IconTextButton}" TargetType="Button">
+    <Style
+      x:Key="DifferencerActionButton"
+      BasedOn="{StaticResource IconTextButton}"
+      TargetType="Button">
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="Button">
             <Grid x:Name="Frame">
               <Border Background="{TemplateBinding Background}" CornerRadius="10" />
-              <Border x:Name="Highlight" Background="White" CornerRadius="10" Opacity="0" />
+              <Border
+                x:Name="Highlight"
+                Background="White"
+                CornerRadius="10"
+                Opacity="0" />
               <Border Padding="{TemplateBinding Padding}">
                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
               </Border>

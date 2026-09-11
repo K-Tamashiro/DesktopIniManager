@@ -27,17 +27,17 @@
           Text="{x:Static res:Strings.Icon_Title}" />
         <TextBlock
           x:Name="FilePathText"
-          Text="{Binding FilePath}"
           Margin="0,4,120,0"
           Foreground="{DynamicResource Muted}"
+          Text="{Binding FilePath}"
           TextTrimming="CharacterEllipsis" />
       </StackPanel>
       <TextBlock
         x:Name="CountText"
-        Text="{Binding CountLabel}"
         HorizontalAlignment="Right"
         VerticalAlignment="Bottom"
-        Foreground="{DynamicResource Muted}" />
+        Foreground="{DynamicResource Muted}"
+        Text="{Binding CountLabel}" />
     </Grid>
     <Border
       Grid.Row="1"
@@ -47,16 +47,16 @@
       BorderThickness="1">
       <ListBox
         x:Name="GroupList"
-        ItemsSource="{Binding Groups}"
-        SelectedItem="{Binding SelectedGroup, Mode=TwoWay}"
         HorizontalContentAlignment="Stretch"
         Background="{DynamicResource CardBackground}"
         BorderThickness="0"
         Foreground="{DynamicResource Ink}"
+        ItemsSource="{Binding Groups}"
         MouseDoubleClick="GroupList_MouseDoubleClick"
         ScrollViewer.CanContentScroll="False"
         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
         ScrollViewer.VerticalScrollBarVisibility="Visible"
+        SelectedItem="{Binding SelectedGroup, Mode=TwoWay}"
         SelectionMode="Single">
         <ListBox.ItemsPanel>
           <ItemsPanelTemplate>

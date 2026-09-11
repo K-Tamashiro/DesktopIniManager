@@ -26,9 +26,22 @@ namespace DesktopIniManager.ViewModels
 {
     internal sealed partial class MainWindowViewModel
     {
-        internal async Task SearchAsync()
+        private int _statusEpoch;
+
+        internal Task PrepareTreesAtStartupAsync()
+        {
+            if (string.IsNullOrWhiteSpace(RootPath) || !Directory.Exists(RootPath.Trim()))
+                return Task.CompletedTask;
+            _pendingSearchQuery = ".git";
+            return SearchAsync(quietMissingRoot: true);
+        }
+
+        internal Task SearchAsync() => SearchAsync(false);
+
+        internal async Task SearchAsync(bool quietMissingRoot)
         {
             // Snapshot bindable state before starting background work.
+            int statusEpoch = ++_statusEpoch;
             SearchHistoryRequested?.Invoke();
             string root = RootPath.Trim();
             string visibleQuery = Query.Trim();
@@ -41,7 +54,12 @@ namespace DesktopIniManager.ViewModels
             _pendingSearchQuery = null;
             SettingsService.SaveSearchRoot(root);
             SettingsService.SaveSearchQuery(visibleQuery);
-            if (!Directory.Exists(root)) { _dialogs.Show(Strings.Main_LocationMissing, Strings.App_Title); return; }
+            if (!Directory.Exists(root))
+            {
+                if (!quietMissingRoot)
+                    _dialogs.Show(Strings.Main_LocationMissing, Strings.App_Title);
+                return;
+            }
             _searchCts?.Cancel();
             var searchCts = new CancellationTokenSource();
             _searchCts = searchCts;
@@ -105,6 +123,7 @@ namespace DesktopIniManager.ViewModels
             catch (Exception ex) { _dialogs.Show(ErrorMessages.English(ex), Strings.App_Title); Status = Strings.Main_SearchFailed; }
             finally
             {
+                _statusEpoch++;
                 if (ReferenceEquals(_searchCts, searchCts)) { _searchCts = null; SetSearching(false); }
                 searchCts.Dispose();
             }
@@ -118,7 +137,11 @@ namespace DesktopIniManager.ViewModels
                 var matches = new List<FolderMatch>();
                 new FolderSearchService().Search(root, query,
                     item => { item.IconPreview = string.Equals(item.Reason, "Folder", StringComparison.Ordinal) ? defaultFolderIcon : FolderIconService.GetFolderIcon(item.Path); matches.Add(item); },
-                    count => Dispatcher.BeginInvoke(new Action(() => Status = string.Format(Strings.Main_ScanningFolders, count.ToString("N0")))), token);
+                    count => Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (!IsSearching) return;
+                        Status = string.Format(Strings.Main_ScanningFolders, count.ToString("N0"));
+                    })), token);
                 token.ThrowIfCancellationRequested();
                 return matches;
             });
@@ -136,10 +159,18 @@ namespace DesktopIniManager.ViewModels
                         int now = Environment.TickCount;
                         if (unchecked(now - lastReport) < 125) return;
                         lastReport = now;
-                        Dispatcher.BeginInvoke(new Action(() => Status = string.Format(Strings.Main_IndexedFoldersEllipsis, count.ToString("N0"))), System.Windows.Threading.DispatcherPriority.Background);
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            if (!IsSearching) return;
+                            Status = string.Format(Strings.Main_IndexedFoldersEllipsis, count.ToString("N0"));
+                        }), System.Windows.Threading.DispatcherPriority.Background);
                     }, token);
                 token.ThrowIfCancellationRequested();
-                Dispatcher.BeginInvoke(new Action(() => Status = Strings.Main_BuildingTree));
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (!IsSearching) return;
+                    Status = Strings.Main_BuildingTree;
+                }));
                 List<FolderMatch> matches = new FastFolderSearchService().Search(paths, query, token);
                 foreach (FolderMatch item in matches) item.IconPreview = defaultFolderIcon;
                 return new StandardSearchResult(paths, matches);
@@ -208,6 +239,7 @@ namespace DesktopIniManager.ViewModels
                         List<FolderMatch> scanned = SolutionTreeService.Build(root, token);
                         Dispatcher.BeginInvoke(new Action(() =>
                         {
+                            if (!IsSearching) return;
                             CountLabel = string.Format(Strings.Main_NItems, scanned.Count);
                             Status = string.Format(Strings.Main_SolutionsFound, scanned.Count);
                         }), System.Windows.Threading.DispatcherPriority.Background);
@@ -231,6 +263,7 @@ namespace DesktopIniManager.ViewModels
                             string name = Path.GetFileName(path);
                             Dispatcher.BeginInvoke(new Action(() =>
                             {
+                                if (!IsSearching) return;
                                 CountLabel = string.Format(Strings.Main_NItems, count);
                                 Status = string.Format(Strings.Main_SolutionsFound, count)
                                     + " / " + solutions.Count.ToString("N0")

@@ -27,7 +27,7 @@ namespace DesktopIniManager.ViewModels
 
         private static ImageSource[] Load()
         {
-            var result = new ImageSource[88];
+            var result = new ImageSource[90];
             try
             {
                 string baseDir = AppDomain.CurrentDomain.BaseDirectory;

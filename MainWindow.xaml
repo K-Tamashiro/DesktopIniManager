@@ -1177,8 +1177,18 @@
         </Grid>
       </Border>
     </Grid>
-    <StackPanel Grid.Row="2" Margin="0,10,0,0">
+    <Grid Grid.Row="2" Margin="0,10,0,0">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+      </Grid.RowDefinitions>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="350" />
+        <ColumnDefinition Width="22" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
       <ProgressBar
+        Grid.ColumnSpan="3"
         x:Name="SearchProgress"
         Height="6"
         Margin="0,0,0,6"
@@ -1206,11 +1216,10 @@
           </ControlTemplate>
         </ProgressBar.Template>
       </ProgressBar>
-      <DockPanel LastChildFill="False">
-        <StackPanel
-          VerticalAlignment="Center"
-          DockPanel.Dock="Left"
-          Orientation="Horizontal">
+      <StackPanel
+        Grid.Row="1"
+        VerticalAlignment="Center"
+        Orientation="Horizontal">
           <Button
             x:Name="ResetButton"
             Background="Transparent"
@@ -1233,7 +1242,11 @@
             VerticalAlignment="Center"
             Foreground="{DynamicResource Muted}"
             Text="{Binding Status}" />
-        </StackPanel>
+      </StackPanel>
+      <DockPanel
+        Grid.Row="1"
+        Grid.Column="2"
+        LastChildFill="True">
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
           <ComboBox
             x:Name="LanguageBox"
@@ -1302,7 +1315,47 @@
               Stretch="Uniform" />
           </Button>
         </StackPanel>
+        <DockPanel
+          Height="36"
+          Margin="0,0,16,0"
+          MinWidth="220"
+          VerticalAlignment="Center">
+          <Button
+            x:Name="BrowseScriptButton"
+            Width="36"
+            Height="36"
+            Margin="8,0,0,0"
+            Background="Transparent"
+            DockPanel.Dock="Right"
+            Style="{StaticResource IconButton}"
+            ToolTip="Browse — pick script">
+            <Image
+              x:Name="BrowseScriptIcon"
+              RenderOptions.BitmapScalingMode="HighQuality"
+              Stretch="Uniform" />
+          </Button>
+          <Button
+            x:Name="RunScriptButton"
+            Width="36"
+            Height="36"
+            Margin="8,0,0,0"
+            Background="Transparent"
+            DockPanel.Dock="Right"
+            Style="{StaticResource IconButton}"
+            ToolTip="Run — execute command">
+            <Image
+              x:Name="RunScriptIcon"
+              RenderOptions.BitmapScalingMode="HighQuality"
+              Stretch="Uniform" />
+          </Button>
+          <history:HistoryTextBox
+            x:Name="ScriptBox"
+            Height="36"
+            VerticalAlignment="Center"
+            HistoryKey="Main-Script"
+            ToolTip="Command. %d = folder, %f = file path, %n = file name" />
+        </DockPanel>
       </DockPanel>
-    </StackPanel>
+    </Grid>
   </Grid>
 </Window>

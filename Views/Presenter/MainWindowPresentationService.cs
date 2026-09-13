@@ -15,6 +15,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using System.Windows.Threading;
 using DesktopIniManager.Properties;
 using System.Runtime.Versioning;
@@ -41,6 +42,7 @@ namespace DesktopIniManager.Views
         private bool _updatingToggles;
         private CheckBox AddToGitIgnoreBox => _window.AddToGitIgnoreBox;
         private HistoryTextBox FolderFilterBox => _window.FolderFilterBox;
+        private HistoryTextBox ScriptBox => _window.ScriptBox;
         private TreeView ResultsTree => _window.ResultsTree;
         private Border TreePanelBusy => _window.TreePanelBusy;
         private Button FileListViewButton => _window.FileListViewButton;
@@ -58,9 +60,17 @@ namespace DesktopIniManager.Views
             _window.ResultsTree.SelectedItemChanged += ResultsTree_SelectedItemChanged;
             _window.FileList.SelectionChanged += FileList_SelectionChanged;
             _window.FileList.MouseDoubleClick += FileList_MouseDoubleClick;
+            _window.FileList.ContextMenuOpening += FileList_ContextMenuOpening;
             _window.FileIconList.SelectionChanged += FileList_SelectionChanged;
             _window.FileIconList.MouseDoubleClick += FileList_MouseDoubleClick;
+            _window.FileIconList.ContextMenuOpening += FileList_ContextMenuOpening;
             _window.LanguageBox.SelectionChanged += LanguageBox_SelectionChanged;
+            _window.RunScriptButton.Click += (sender, args) => RunScriptCommand();
+            _window.BrowseScriptButton.Click += (sender, args) => BrowseScriptCommand();
+            _window.ScriptBox.PreviewKeyDown += ScriptBox_PreviewKeyDown;
+            _window.RunScriptButton.ToolTip = ScriptText("Main_RunScript", "Run  —  execute the command (%d folder / %f file / %n name)");
+            _window.BrowseScriptButton.ToolTip = ScriptText("Main_BrowseScript", "Browse  —  pick .bat / .cmd / .ps1 / .vbs");
+            _window.ScriptBox.ToolTip = ScriptText("Main_ScriptTooltip", "Command. %d = folder, %f = file path, %n = file name. Quote as \"%d\" to wrap.");
             _window.Closing += OnClosing;
             _window.Closed += OnClosed;
             ViewModel.InteractionRequested += HandleInteraction;
@@ -169,7 +179,7 @@ namespace DesktopIniManager.Views
             bool darkMode = startup != null ? startup.DarkMode : SettingsService.LoadDarkMode();
             _window.DataContext = ViewModel;
             ConnectView();
-            ViewModel.SearchHistoryRequested += () => { RootBox.CommitHistory(); QueryBox.CommitHistory(); IconPathBox.CommitHistory(); };
+            ViewModel.SearchHistoryRequested += () => { RootBox.CommitHistory(); QueryBox.CommitHistory(); IconPathBox.CommitHistory(); ScriptBox.CommitHistory(); };
             ViewModel.SearchRootSelectionRequested += SelectSearchRootForFileList;
             ViewModel.FileScrollRequested += item => { FileList.ScrollIntoView(item); FileIconList.ScrollIntoView(item); };
             ViewModel.OpenGrepRequested += OpenGrep;
@@ -302,6 +312,276 @@ namespace DesktopIniManager.Views
                 Process.Start(new ProcessStartInfo(file.Path) { UseShellExecute = true });
             }
             catch (Exception ex) { ViewModel.ShowError(Strings.Main_OpenFileFailed, ex); }
+        }
+
+        private static readonly HashSet<string> ScriptExtensions =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".ps1", ".bat", ".cmd", ".vbs" };
+
+        private void FileList_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+        {
+            var list = sender as Selector;
+            if (list == null) return;
+            var file = list.SelectedItem as FileListItem;
+            bool canRun = file != null && ScriptExtensions.Contains(file.Extension ?? string.Empty);
+
+            if (list.ContextMenu == null)
+            {
+                var runIcon = new TextBlock
+                {
+                    FontFamily = new FontFamily("Segoe MDL2 Assets"),
+                    FontSize = 15,
+                    Text = "\uE768",
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                runIcon.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
+                var run = new MenuItem
+                {
+                    Header = ScriptText("Main_RunScript", "Run script"),
+                    Icon = runIcon
+                };
+                run.Click += (s, args) => RunSelectedScript(
+                    ((s as MenuItem)?.Parent as ContextMenu)?.PlacementTarget is Selector owner
+                        ? owner.SelectedItem as FileListItem
+                        : file);
+                var menu = new ContextMenu();
+                menu.Items.Add(run);
+                list.ContextMenu = menu;
+            }
+
+            if (list.ContextMenu.Items.Count > 0 && list.ContextMenu.Items[0] is MenuItem item)
+                item.IsEnabled = canRun;
+        }
+
+        private void RunSelectedScript(FileListItem file)
+        {
+            if (file == null || !File.Exists(file.Path)) return;
+
+            string workDir = Path.GetDirectoryName(file.Path);
+            if (string.IsNullOrEmpty(workDir) || !Directory.Exists(workDir))
+            {
+                ViewModel.ShowError(StringOverlay.Get("Main_RunScriptFailed"), new DirectoryNotFoundException(workDir));
+                return;
+            }
+
+            string ext = file.Extension ?? string.Empty;
+            string command;
+            if (ext.Equals(".ps1", StringComparison.OrdinalIgnoreCase))
+            {
+                command = "\"" + file.Path + "\"";
+            }
+            else if (ext.Equals(".bat", StringComparison.OrdinalIgnoreCase)
+                  || ext.Equals(".cmd", StringComparison.OrdinalIgnoreCase))
+            {
+                command = "\"" + file.Path + "\"";
+            }
+            else if (ext.Equals(".vbs", StringComparison.OrdinalIgnoreCase))
+            {
+                command = "cscript.exe //nologo \"" + file.Path + "\"";
+            }
+            else return;
+
+            try
+            {
+                StartKeepOpenConsole(workDir, command);
+                ViewModel.Status = string.Format(StringOverlay.Get("Main_RunScriptStarted"), file.Name);
+            }
+            catch (Exception ex)
+            {
+                ViewModel.ShowError(ScriptText("Main_RunScriptFailed", "Could not run the script."), ex);
+            }
+        }
+
+        private static string ScriptText(string key, string fallback)
+        {
+            string value = StringOverlay.Get(key);
+            return string.IsNullOrEmpty(value) || value == key ? fallback : value;
+        }
+
+        private void ScriptBox_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                e.Handled = true;
+                RunScriptCommand();
+            }
+        }
+
+        private void BrowseScriptCommand()
+        {
+            try
+            {
+                var dialog = new OpenFileDialog
+                {
+                    Filter = "Scripts (*.bat;*.cmd;*.ps1;*.vbs)|*.bat;*.cmd;*.ps1;*.vbs|All files (*.*)|*.*",
+                    CheckFileExists = true
+                };
+                string current = (ScriptBox.Text ?? string.Empty).Trim();
+                string first = FirstToken(current);
+                if (File.Exists(first))
+                {
+                    dialog.InitialDirectory = Path.GetDirectoryName(first);
+                    dialog.FileName = Path.GetFileName(first);
+                }
+                if (dialog.ShowDialog(_window) != true) return;
+                string quoted = QuoteIfNeeded(dialog.FileName);
+                ScriptBox.Text = quoted + " \"%d\"";
+                ScriptBox.CaretIndex = ScriptBox.Text.Length;
+                ScriptBox.CommitHistory();
+                ScriptBox.Focus();
+            }
+            catch (Exception ex)
+            {
+                ViewModel.ShowError(ScriptText("Main_RunScriptFailed", "Could not run the script."), ex);
+            }
+        }
+
+        private void RunScriptCommand()
+        {
+            string template = (ScriptBox.Text ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(template))
+            {
+                ViewModel.Status = StringOverlay.Get("Main_ScriptEmpty");
+                return;
+            }
+
+            string dir = ViewModel.FilePanelPath;
+            if (string.IsNullOrWhiteSpace(dir))
+                dir = (ResultsTree.SelectedItem as FolderMatch)?.Path;
+            FileListItem selectedFile = (FileList.SelectedItem as FileListItem)
+                ?? (FileIconList.SelectedItem as FileListItem);
+            string file = selectedFile?.Path;
+
+            bool needsDir = ContainsToken(template, "d");
+            bool needsFile = ContainsToken(template, "f") || ContainsToken(template, "n");
+            if (needsDir && (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir)))
+            {
+                ViewModel.ShowError(StringOverlay.Get("Main_ScriptMissingDir"), new DirectoryNotFoundException(dir ?? string.Empty));
+                return;
+            }
+            if (needsFile && (string.IsNullOrWhiteSpace(file) || !File.Exists(file)))
+            {
+                ViewModel.ShowError(StringOverlay.Get("Main_ScriptMissingFile"), new FileNotFoundException(file ?? string.Empty));
+                return;
+            }
+
+            string command = ExpandScriptTokens(template, dir, file);
+            MessageBoxResult answer = new UserDialogService(_window).Show(
+                command + "\n\n" + StringOverlay.Get("Main_ScriptConfirmAsk"),
+                StringOverlay.Get("Main_RunScript"),
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Question);
+            if (answer != MessageBoxResult.OK) return;
+
+            string workDir = dir;
+            string exe = FirstToken(command);
+            if (File.Exists(exe))
+                workDir = Path.GetDirectoryName(exe);
+            if (string.IsNullOrEmpty(workDir) || !Directory.Exists(workDir))
+                workDir = Environment.CurrentDirectory;
+
+            try
+            {
+                StartKeepOpenConsole(workDir, command);
+                ScriptBox.CommitHistory();
+                ViewModel.Status = string.Format(StringOverlay.Get("Main_RunScriptStarted"), command);
+            }
+            catch (Exception ex)
+            {
+                ViewModel.ShowError(ScriptText("Main_RunScriptFailed", "Could not run the script."), ex);
+            }
+        }
+
+        private static void StartKeepOpenConsole(string workDir, string command)
+        {
+            if (string.IsNullOrWhiteSpace(command)) return;
+            string folder = string.IsNullOrEmpty(workDir) ? Environment.CurrentDirectory : workDir;
+            string exe = FirstToken(command);
+            string args = RestAfterFirstToken(command);
+            string powershell = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.System),
+                "WindowsPowerShell", "v1.0", "powershell.exe");
+
+            var psi = new ProcessStartInfo
+            {
+                WorkingDirectory = folder,
+                UseShellExecute = true
+            };
+
+            if (exe.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase))
+            {
+                psi.FileName = powershell;
+                psi.Arguments = "-NoExit -NoProfile -ExecutionPolicy Bypass -File \"" + exe + "\""
+                    + (string.IsNullOrEmpty(args) ? string.Empty : " " + args);
+            }
+            else
+            {
+                psi.FileName = Path.Combine(Environment.SystemDirectory, "cmd.exe");
+                psi.Arguments = "/d /k " + command;
+            }
+
+            Process.Start(psi);
+        }
+
+        private static string RestAfterFirstToken(string command)
+        {
+            if (string.IsNullOrWhiteSpace(command)) return string.Empty;
+            string text = command.Trim();
+            if (text[0] == '"')
+            {
+                int end = text.IndexOf('"', 1);
+                return end < 0 ? string.Empty : text.Substring(end + 1).TrimStart();
+            }
+            int space = text.IndexOfAny(new[] { ' ', '\t' });
+            return space < 0 ? string.Empty : text.Substring(space + 1).TrimStart();
+        }
+
+        private static bool ContainsToken(string template, string name)
+        {
+            if (string.IsNullOrEmpty(template)) return false;
+            return template.IndexOf("%" + name, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static string ExpandScriptTokens(string template, string dir, string file)
+        {
+            string quotedDir = string.IsNullOrEmpty(dir) ? "\"%d\"" : "\"" + dir + "\"";
+            string quotedFile = string.IsNullOrEmpty(file) ? "\"%f\"" : "\"" + file + "\"";
+            string name = string.IsNullOrEmpty(file) ? null : Path.GetFileName(file);
+            string quotedName = string.IsNullOrEmpty(name) ? "\"%n\"" : "\"" + name + "\"";
+            return template
+                .Replace("\"%d\"", quotedDir)
+                .Replace("\"%D\"", quotedDir)
+                .Replace("\"%f\"", quotedFile)
+                .Replace("\"%F\"", quotedFile)
+                .Replace("\"%n\"", quotedName)
+                .Replace("\"%N\"", quotedName)
+                .Replace("%d", dir ?? "%d")
+                .Replace("%D", dir ?? "%D")
+                .Replace("%f", file ?? "%f")
+                .Replace("%F", file ?? "%F")
+                .Replace("%n", name ?? "%n")
+                .Replace("%N", name ?? "%N");
+        }
+
+        private static string FirstToken(string command)
+        {
+            if (string.IsNullOrWhiteSpace(command)) return string.Empty;
+            string text = command.Trim();
+            if (text[0] == '"')
+            {
+                int end = text.IndexOf('"', 1);
+                return end > 0 ? text.Substring(1, end - 1) : text.Trim('"');
+            }
+            int space = text.IndexOfAny(new[] { ' ', '\t' });
+            return space < 0 ? text : text.Substring(0, space);
+        }
+
+        private static string QuoteIfNeeded(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return path;
+            if (path.IndexOfAny(new[] { ' ', '\t' }) >= 0 && !(path.StartsWith("\"") && path.EndsWith("\"")))
+                return "\"" + path + "\"";
+            return path;
         }
 
         private DeveloperDifferencerWindow _differencerWindow;
@@ -488,6 +768,8 @@ namespace DesktopIniManager.Views
             SetToolbarIcon(_window.DifferencerButtonIcon, 51);
             SetToolbarIcon(_window.GrepButtonIcon, 71);
             SetToolbarIcon(_window.ApplyButtonIcon, 34);
+            SetToolbarIcon(_window.RunScriptIcon, 34);
+            SetToolbarIcon(_window.BrowseScriptIcon, 62);
             SetToolbarIcon(_window.ResetButtonIcon, 70);
             SetToolbarIcon(_window.ChooseRootIcon, 62);
             SetToolbarIcon(_window.ClearQueryIcon, 25);
@@ -678,6 +960,7 @@ namespace DesktopIniManager.Views
         private void FileList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_syncingTreeFromFile) return;
+            if (Mouse.RightButton == MouseButtonState.Pressed) return;
             FileListItem file = (sender as System.Windows.Controls.Primitives.Selector)?.SelectedItem as FileListItem;
             if (file == null) return;
             RevealFolderInCurrentTree(Path.GetDirectoryName(file.Path));

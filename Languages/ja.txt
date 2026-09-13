@@ -133,6 +133,16 @@ Main_LocationSet=検索場所を {0} に設定しました
 Main_ExplorerFailed=エクスプローラーでフォルダを開けませんでした。
 Main_FilesHeader=ファイル — {0}
 Main_OpenFileFailed=ファイルを開けませんでした。
+Main_RunScript=スクリプト実行
+Main_RunScriptStarted={0} を実行しました
+Main_RunScriptFailed=スクリプトを実行できませんでした。
+Main_BrowseScript=スクリプトを選ぶ
+Main_ScriptTooltip=実行するコマンド。%d=選択中のフォルダ、%f=選択中のファイル（フルパス）、%n=ファイル名。"" で囲むと引用符付きで渡します。
+Main_ScriptFilter=スクリプト|*.bat;*.cmd;*.ps1;*.vbs|すべてのファイル|*.*
+Main_ScriptEmpty=実行するコマンドが空です。
+Main_ScriptMissingDir=選択中のフォルダがありません。
+Main_ScriptMissingFile=選択中のファイルがありません。
+Main_ScriptConfirmAsk=このコマンドを実行しますか。
 Main_SelectOneFolder=フォルダを1つ以上選択してください。
 Main_ConfirmApply=選択したアイコンを {0} フォルダに適用しますか？
 Main_AppliedTo={0} フォルダに適用しました

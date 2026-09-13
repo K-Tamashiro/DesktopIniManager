@@ -135,6 +135,16 @@ Main_LocationSet=搜索位置已设为 {0}
 Main_ExplorerFailed=无法在资源管理器中打开该文件夹。
 Main_FilesHeader=文件 — {0}
 Main_OpenFileFailed=无法打开文件。
+Main_RunScript=运行脚本
+Main_RunScriptStarted=已运行 {0}
+Main_RunScriptFailed=无法运行脚本。
+Main_BrowseScript=选择脚本
+Main_ScriptTooltip=要执行的命令。%d=当前文件夹，%f=当前文件。用 "" 包围时以引号传递路径。
+Main_ScriptFilter=脚本|*.bat;*.cmd;*.ps1;*.vbs|所有文件|*.*
+Main_ScriptEmpty=命令为空。
+Main_ScriptMissingDir=未选择文件夹。
+Main_ScriptMissingFile=未选择文件。
+Main_ScriptConfirmAsk=要执行此命令吗？
 Main_SelectOneFolder=请至少选择一个文件夹。
 Main_ConfirmApply=要将所选图标应用到 {0} 个文件夹吗？
 Main_AppliedTo=已应用到 {0} 个文件夹

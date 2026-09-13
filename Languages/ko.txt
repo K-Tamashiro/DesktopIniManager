@@ -135,6 +135,16 @@ Main_LocationSet=검색 위치를 {0}(으)로 설정했습니다
 Main_ExplorerFailed=탐색기에서 폴더를 열 수 없습니다.
 Main_FilesHeader=파일 — {0}
 Main_OpenFileFailed=파일을 열 수 없습니다.
+Main_RunScript=스크립트 실행
+Main_RunScriptStarted={0}을(를) 실행했습니다
+Main_RunScriptFailed=스크립트를 실행할 수 없습니다.
+Main_BrowseScript=스크립트 선택
+Main_ScriptTooltip=실행할 명령입니다. %d=선택한 폴더, %f=선택한 파일. ""로 감싸면 경로를 따옴표로 전달합니다.
+Main_ScriptFilter=스크립트|*.bat;*.cmd;*.ps1;*.vbs|모든 파일|*.*
+Main_ScriptEmpty=실행할 명령이 비어 있습니다.
+Main_ScriptMissingDir=선택한 폴더가 없습니다.
+Main_ScriptMissingFile=선택한 파일이 없습니다.
+Main_ScriptConfirmAsk=이 명령을 실행할까요?
 Main_SelectOneFolder=폴더를 하나 이상 선택하세요.
 Main_ConfirmApply=선택한 아이콘을 폴더 {0}개에 적용할까요?
 Main_AppliedTo=폴더 {0}개에 적용했습니다

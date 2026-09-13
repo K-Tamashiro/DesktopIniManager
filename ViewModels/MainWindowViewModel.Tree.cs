@@ -17,7 +17,10 @@ namespace DesktopIniManager.ViewModels
     {
 
         internal static bool IsDroppedTreeFolder(string name) =>
-            string.Equals(name, ".vs", StringComparison.OrdinalIgnoreCase);
+            string.Equals(name, ".vs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, ".git", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, ".vscode", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, ".idea", StringComparison.OrdinalIgnoreCase);
 
         internal static bool IsDroppedTreePath(string path)
         {

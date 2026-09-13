@@ -474,9 +474,12 @@ namespace DesktopIniManager.Views
             if (answer != MessageBoxResult.OK) return;
 
             string workDir = dir;
-            string exe = FirstToken(command);
-            if (File.Exists(exe))
-                workDir = Path.GetDirectoryName(exe);
+            if (string.IsNullOrEmpty(workDir) || !Directory.Exists(workDir))
+            {
+                string exe = FirstToken(command);
+                if (File.Exists(exe))
+                    workDir = Path.GetDirectoryName(exe);
+            }
             if (string.IsNullOrEmpty(workDir) || !Directory.Exists(workDir))
                 workDir = Environment.CurrentDirectory;
 

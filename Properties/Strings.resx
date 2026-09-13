@@ -712,7 +712,28 @@
     <value>Existing files may be overwritten or removed.</value>
   </data>
   <data name="Differencer_Synchronize" xml:space="preserve">
-    <value>Synchronize</value>
+    <value>Start synchronization</value>
+  </data>
+  <data name="Differencer_Source" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="Differencer_Target" xml:space="preserve">
+    <value>Target</value>
+  </data>
+  <data name="Differencer_Copy" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="Differencer_Overwrite" xml:space="preserve">
+    <value>Overwrite</value>
+  </data>
+  <data name="Differencer_Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Differencer_File" xml:space="preserve">
+    <value>file</value>
+  </data>
+  <data name="Differencer_Files" xml:space="preserve">
+    <value>files</value>
   </data>
   <data name="Differencer_Synchronizing" xml:space="preserve">
     <value>Synchronizing — {0}</value>
@@ -936,12 +957,6 @@
   </data>
   <data name="Diff_Next" xml:space="preserve">
     <value>Next</value>
-  </data>
-  <data name="Diff_PreviousFile" xml:space="preserve">
-    <value>Previous difference file</value>
-  </data>
-  <data name="Diff_NextFile" xml:space="preserve">
-    <value>Next difference file</value>
   </data>
   <data name="Diff_PreviousFile" xml:space="preserve">
     <value>Previous difference file</value>

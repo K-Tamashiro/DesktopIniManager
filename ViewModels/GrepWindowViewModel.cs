@@ -428,10 +428,27 @@ namespace DesktopIniManager.ViewModels
             finally { _resultTimer.Stop(); if (ReferenceEquals(_searchCts, cts)) _searchCts = null; SetSearching(false); cts.Dispose(); }
         }
 
+        private void ResetMatches()
+        {
+            ResultGroupsResetRequested?.Invoke();
+            if (Results != null)
+            {
+                using (Results.DeferRefresh())
+                    _matches.Clear();
+            }
+            else
+                _matches.Clear();
+            NotifyListCommands();
+        }
+
         private void DrainPendingMatches(int maximum)
         {
             int count = 0; GrepMatch match; GrepMatch last = null;
-            while (count++ < maximum && _pendingMatches.TryDequeue(out match)) { _matches.Add(match); last = match; }
+            while (count++ < maximum && _pendingMatches.TryDequeue(out match))
+            {
+                _matches.Add(match);
+                last = match;
+            }
             if (last != null)
             {
                 NotifyListCommands();

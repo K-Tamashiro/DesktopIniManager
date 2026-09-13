@@ -69,15 +69,6 @@ namespace DesktopIniManager.Services
             }
         }
 
-        public static void ClearCache()
-        {
-            lock (CacheLock)
-            {
-                IconCache.Clear();
-                _defaultFolderIcon = null;
-            }
-        }
-
         private static BitmapSource GetIcon(string path, bool useFileAttributes)
         {
             ShellFileInfo info = new ShellFileInfo();

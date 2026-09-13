@@ -36,8 +36,9 @@ namespace DesktopIniManager.Views
         private HistoryTextBox RootBox => _window.RootBox;
         private HistoryTextBox QueryBox => _window.QueryBox;
         private HistoryTextBox IconPathBox => _window.IconPathBox;
-        private Button CompactTreeButton => _window.CompactTreeButton;
-        private Button ComfortableTreeButton => _window.ComfortableTreeButton;
+        private ToggleButton NodeExpandToggle => _window.NodeExpandToggle;
+        private ToggleButton TreeDensityToggle => _window.TreeDensityToggle;
+        private bool _updatingToggles;
         private CheckBox AddToGitIgnoreBox => _window.AddToGitIgnoreBox;
         private HistoryTextBox FolderFilterBox => _window.FolderFilterBox;
         private TreeView ResultsTree => _window.ResultsTree;
@@ -47,10 +48,8 @@ namespace DesktopIniManager.Views
         private Button FileIconSmallButton => _window.FileIconSmallButton;
         private ListView FileList => _window.FileList;
         private ListBox FileIconList => _window.FileIconList;
-        private Border FilePanelBusy => _window.FilePanelBusy;
         private ProgressBar SearchProgress => _window.SearchProgress;
         private Button ResetButton => _window.ResetButton;
-        private TextBlock ResetButtonLabel => _window.ResetButtonLabel;
         private ComboBox LanguageBox => _window.LanguageBox;
 
         private void ConnectView()
@@ -69,6 +68,16 @@ namespace DesktopIniManager.Views
             _window.PreviewDragEnter += FolderDropPreview;
             _window.PreviewDragOver += FolderDropPreview;
             _window.PreviewDrop += MainWindow_Drop;
+            if (NodeExpandToggle != null)
+            {
+                NodeExpandToggle.Checked += NodeExpandToggle_Changed;
+                NodeExpandToggle.Unchecked += NodeExpandToggle_Changed;
+            }
+            if (TreeDensityToggle != null)
+            {
+                TreeDensityToggle.Checked += TreeDensityToggle_Changed;
+                TreeDensityToggle.Unchecked += TreeDensityToggle_Changed;
+            }
         }
 
         private static void FolderDropPreview(object sender, DragEventArgs e)
@@ -193,6 +202,7 @@ namespace DesktopIniManager.Views
                 }
                 ShowTextEnd(RootBox);
                 ShowTextEnd(IconPathBox);
+                ApplyMainToolbarIcons();
                 WindowActivationService.BringToFront(_window);
                 if (runGitSearch) Dispatcher.BeginInvoke(new Action(() => ViewModel.GitSearchCommand.Execute(null)));
                 else if (runSearch) Dispatcher.BeginInvoke(new Action(() => ViewModel.SearchCommand.Execute(null)));
@@ -371,13 +381,12 @@ namespace DesktopIniManager.Views
         {
             if (ResetButton == null) return;
             string language = StringOverlay.ResolveCulture().TwoLetterISOLanguageName;
-            string label, tip;
-            if (language == "ja") { label = "リセット"; tip = "設定・履歴・フォルダー一覧を初期化します"; }
-            else if (language == "zh") { label = "重置"; tip = "清除设置、历史和文件夹列表"; }
-            else if (language == "ko") { label = "초기화"; tip = "설정, 기록, 폴더 목록을 초기화합니다"; }
-            else { label = "Reset"; tip = "Clear settings, history, and folder lists"; }
+            string tip;
+            if (language == "ja") tip = "設定・履歴・フォルダー一覧を初期化します";
+            else if (language == "zh") tip = "清除设置、历史和文件夹列表";
+            else if (language == "ko") tip = "설정, 기록, 폴더 목록을 초기화합니다";
+            else tip = "Clear settings, history, and folder lists";
             ResetButton.ToolTip = tip;
-            if (ResetButtonLabel != null) ResetButtonLabel.Text = label;
         }
 
         private void Reset()
@@ -454,10 +463,71 @@ namespace DesktopIniManager.Views
 
         private void HighlightTreeDensityButtons()
         {
-            System.Windows.Media.Brush selected = (System.Windows.Media.Brush)FindResource("ThemeSelected");
-            System.Windows.Media.Brush secondary = (System.Windows.Media.Brush)FindResource("Secondary");
-            if (CompactTreeButton != null) CompactTreeButton.Background = ViewModel.TreeCompact ? selected : secondary;
-            if (ComfortableTreeButton != null) ComfortableTreeButton.Background = ViewModel.TreeCompact ? secondary : selected;
+            if (TreeDensityToggle == null) return;
+            _updatingToggles = true;
+            TreeDensityToggle.IsChecked = !ViewModel.TreeCompact;
+            TreeDensityToggle.ToolTip = ViewModel.TreeCompact ? Strings.Main_TreeCompact : Strings.Main_TreeComfortable;
+            _updatingToggles = false;
+            if (_window.TreeDensityIcon != null)
+                _window.TreeDensityIcon.Source = DifferencerStatusIcons.GetCustomIcon(ViewModel.TreeCompact ? 35 : 36);
+        }
+
+        private void ApplyMainToolbarIcons()
+        {
+            UpdateNodeExpandIcon();
+            HighlightTreeDensityButtons();
+            SetToolbarIcon(_window.FolderFilterIcon, 57);
+            SetToolbarIcon(_window.HideSelectedIcon, 46);
+            SetToolbarIcon(_window.UnhideIcon, 47);
+            SetToolbarIcon(_window.ClearFolderFilterIcon, 25);
+            SetToolbarIcon(_window.FileListViewIcon, 37);
+            SetToolbarIcon(_window.FileIconLargeIcon, 38);
+            SetToolbarIcon(_window.FileIconSmallIcon, 39);
+            SetToolbarIcon(_window.InvertSelectionIcon, 48);
+            SetToolbarIcon(_window.RemoveButtonIcon, 50);
+            SetToolbarIcon(_window.DifferencerButtonIcon, 51);
+            SetToolbarIcon(_window.GrepButtonIcon, 71);
+            SetToolbarIcon(_window.ApplyButtonIcon, 34);
+            SetToolbarIcon(_window.ResetButtonIcon, 70);
+            SetToolbarIcon(_window.ChooseRootIcon, 62);
+            SetToolbarIcon(_window.ClearQueryIcon, 25);
+            SetToolbarIcon(_window.GitSearchIcon, 31);
+            SetToolbarIcon(_window.SearchButtonIcon, 29);
+            SetToolbarIcon(_window.CancelButtonIcon, 24);
+            SetToolbarIcon(_window.ChooseIconLibraryIcon, 61);
+            SetToolbarIcon(_window.ChooseIconButtonIcon, 87);
+            SetToolbarIcon(_window.CloseWindowIcon, 26);
+            UpdateThemeIcons();
+        }
+
+        private static void SetToolbarIcon(System.Windows.Controls.Image image, int index)
+        {
+            if (image != null)
+                image.Source = DifferencerStatusIcons.GetCustomIcon(index);
+        }
+
+        private void NodeExpandToggle_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_updatingToggles) return;
+            bool expanded = NodeExpandToggle.IsChecked == true;
+            if (expanded) ViewModel.ExpandAllCommand.Execute(null);
+            else ViewModel.CollapseAllCommand.Execute(null);
+            NodeExpandToggle.ToolTip = expanded ? Strings.Common_Collapse : Strings.Common_Expand;
+            UpdateNodeExpandIcon();
+        }
+
+        private void TreeDensityToggle_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_updatingToggles) return;
+            if (TreeDensityToggle.IsChecked == true) ComfortableTree();
+            else CompactTree();
+        }
+
+        private void UpdateNodeExpandIcon()
+        {
+            if (_window.NodeExpandIcon == null) return;
+            bool expanded = NodeExpandToggle != null && NodeExpandToggle.IsChecked == true;
+            _window.NodeExpandIcon.Source = DifferencerStatusIcons.GetCustomIcon(expanded ? 56 : 55);
         }
 
         private void FileListView()
@@ -499,19 +569,6 @@ namespace DesktopIniManager.Views
             if (FileListViewButton != null) FileListViewButton.Background = list ? selected : secondary;
             if (FileIconLargeButton != null) FileIconLargeButton.Background = !list && large ? selected : secondary;
             if (FileIconSmallButton != null) FileIconSmallButton.Background = !list && !large ? selected : secondary;
-        }
-
-        private void ShowIconLayoutBusy()
-        {
-            if (ViewModel.Files.Count < 40) return;
-            SetFilePanelBusy(true);
-            Dispatcher.BeginInvoke(new Action(() => SetFilePanelBusy(false)), System.Windows.Threading.DispatcherPriority.ContextIdle);
-        }
-
-        private void SetFilePanelBusy(bool busy)
-        {
-            if (FilePanelBusy != null)
-                ViewModel.IsFileBusy = busy;
         }
 
         private void FolderFilter_TextChanged(object sender, TextChangedEventArgs e)
@@ -573,6 +630,13 @@ namespace DesktopIniManager.Views
                 ViewModel.IsTreeBusy = busy;
         }
 
+        private void UpdateThemeIcons()
+        {
+            bool dark = DarkThemeButton != null && DarkThemeButton.IsChecked == true;
+            SetToolbarIcon(_window.LightThemeIcon, dark ? 43 : 42);
+            SetToolbarIcon(_window.DarkThemeIcon, dark ? 44 : 45);
+        }
+
         private void LightTheme() => SetTheme(false);
 
         private void DarkTheme() => SetTheme(true);
@@ -582,6 +646,7 @@ namespace DesktopIniManager.Views
             ThemeService.Apply(dark);
             LightThemeButton.IsChecked = !dark;
             DarkThemeButton.IsChecked = dark;
+            UpdateThemeIcons();
             SettingsService.SaveDarkMode(dark);
             HighlightTreeDensityButtons();
             HighlightFileViewButtons(FileList.Visibility == Visibility.Visible, _largeFileIcons);
@@ -753,55 +818,6 @@ namespace DesktopIniManager.Views
                     return true;
             }
             return false;
-        }
-
-        private static TreeViewItem BringFolderIntoView(TreeView tree, FolderMatch target)
-        {
-            if (tree == null || target == null) return null;
-            var path = new List<FolderMatch>();
-            for (FolderMatch node = target; node != null; node = node.Parent)
-            {
-                node.IsExpanded = true;
-                path.Add(node);
-            }
-            path.Reverse();
-            tree.UpdateLayout();
-            return ContainerAlongPath(tree, path);
-        }
-
-        private static TreeViewItem ContainerAlongPath(ItemsControl parent, List<FolderMatch> path)
-        {
-            TreeViewItem current = null;
-            ItemsControl host = parent;
-            foreach (FolderMatch node in path)
-            {
-                if (host == null) return null;
-                host.ApplyTemplate();
-                host.UpdateLayout();
-                var generator = host.ItemContainerGenerator;
-                if (generator.Status != System.Windows.Controls.Primitives.GeneratorStatus.ContainersGenerated)
-                    return null;
-
-                var item = generator.ContainerFromItem(node) as TreeViewItem;
-                if (item == null)
-                {
-                    int index = host.Items.IndexOf(node);
-                    if (index >= 0)
-                        item = generator.ContainerFromIndex(index) as TreeViewItem;
-                }
-                if (item == null)
-                {
-                    // Bring the parent into view and retry when virtualization has not created the item yet.
-                    if (current != null) current.BringIntoView();
-                    return null;
-                }
-
-                item.IsExpanded = true;
-                item.UpdateLayout();
-                current = item;
-                host = item;
-            }
-            return current;
         }
 
         private static void ScrollTreeItemIntoView(TreeView tree, TreeViewItem item)

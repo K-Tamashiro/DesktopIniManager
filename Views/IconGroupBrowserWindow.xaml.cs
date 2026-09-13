@@ -15,6 +15,10 @@ namespace DesktopIniManager.Views
             InitializeComponent();
             DataContext = ViewModel;
             ViewModel.SelectionConfirmed += () => DialogResult = true;
+            if (CancelButtonIcon != null)
+                CancelButtonIcon.Source = DifferencerStatusIcons.GetCustomIcon(25);
+            if (SelectButtonIcon != null)
+                SelectButtonIcon.Source = DifferencerStatusIcons.GetCustomIcon(34);
             Loaded += (sender, args) => { if (GroupList.SelectedItem != null) GroupList.ScrollIntoView(GroupList.SelectedItem); };
         }
 

@@ -1,5 +1,4 @@
 using DesktopIniManager.Models;
-using FastVolumeIndex;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -151,13 +150,6 @@ namespace DesktopIniManager.Services
             try { new UTF8Encoding(false, true).GetString(sample, 0, count); return new UTF8Encoding(false); }
             catch (DecoderFallbackException) { return CodePagesEncodingProvider.Instance.GetEncoding(932); }
         }
-
-        private static bool ContainsIgnoredDirectory(string file, string root)
-        {
-            string relative = MakeRelativePath(root, file);
-            return relative.Split(Path.DirectorySeparatorChar).Any(part => IgnoredDirectories.Contains(part));
-        }
-
 
         private static string FindScope(string path, IReadOnlyList<string> orderedScopes)
         {

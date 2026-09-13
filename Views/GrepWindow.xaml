@@ -14,9 +14,9 @@
   Icon="../DesktopIniManager.ico"
   WindowStartupLocation="CenterOwner">
   <Window.Resources>
-    <BooleanToVisibilityConverter x:Key="MvvmBooleanToVisibility"/>
-    <history:GrepGroupDirectoryConverter x:Key="GrepGroupDirectory"/>
-    <history:GrepGroupFileConverter x:Key="GrepGroupFile"/>
+    <BooleanToVisibilityConverter x:Key="MvvmBooleanToVisibility" />
+    <history:GrepGroupDirectoryConverter x:Key="GrepGroupDirectory" />
+    <history:GrepGroupFileConverter x:Key="GrepGroupFile" />
     <Style TargetType="{x:Type ComboBoxItem}">
       <Setter Property="Foreground" Value="{DynamicResource Ink}" />
       <Setter Property="Background" Value="{DynamicResource CardBackground}" />
@@ -243,11 +243,15 @@
           Margin="8,0,0,0"
           HorizontalAlignment="Right"
           VerticalAlignment="Center"
-          Background="{DynamicResource Secondary}"
+          Background="Transparent"
           Command="{Binding CloseCommand}"
-          Content="&#xE8BB;"
           Style="{StaticResource IconButton}"
-          ToolTip="{loc:L Common_Close}" />
+          ToolTip="{loc:L Common_Close}">
+          <Image
+            x:Name="CloseButtonIcon"
+            RenderOptions.BitmapScalingMode="HighQuality"
+            Stretch="Uniform" />
+        </Button>
       </Grid>
       <TextBlock
         Grid.Row="1"
@@ -267,12 +271,13 @@
           <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
         <ListBox
-          x:Name="ScopeList" ItemsSource="{Binding Scopes}"
+          x:Name="ScopeList"
           Height="86"
+          HorizontalContentAlignment="Stretch"
           Background="Transparent"
           BorderThickness="0"
           Foreground="{DynamicResource Ink}"
-          HorizontalContentAlignment="Stretch"
+          ItemsSource="{Binding Scopes}"
           ScrollViewer.HorizontalScrollBarVisibility="Disabled">
           <ListBox.ItemContainerStyle>
             <Style TargetType="ListBoxItem">
@@ -295,26 +300,22 @@
         </ListBox>
         <StackPanel Grid.Column="1" Margin="12,0,0,0">
           <Button
+            x:Name="ReloadScopesButton"
+            Background="Transparent"
             Command="{Binding ReloadScopesCommand}"
-            Style="{StaticResource IconTextButton}"
+            Style="{StaticResource IconButton}"
             ToolTip="{loc:L Grep_ReloadSelection}">
-            <StackPanel Orientation="Horizontal">
-              <TextBlock
-                VerticalAlignment="Center"
-                FontFamily="Segoe MDL2 Assets"
-                FontSize="15"
-                Text="&#xE72C;" />
-              <TextBlock
-                Margin="6,0,0,0"
-                VerticalAlignment="Center"
-                Text="{loc:L Grep_Reload}" />
-            </StackPanel>
+            <Image
+              x:Name="ReloadScopesIcon"
+              RenderOptions.BitmapScalingMode="HighQuality"
+              Stretch="Uniform" />
           </Button>
           <TextBlock
-            x:Name="ScopeCountText" Text="{Binding ScopeCountLabel}"
+            x:Name="ScopeCountText"
             Margin="0,9,0,0"
             HorizontalAlignment="Center"
-            Foreground="{DynamicResource Muted}" />
+            Foreground="{DynamicResource Muted}"
+            Text="{Binding ScopeCountLabel}" />
           <CheckBox
             Margin="0,8,0,0"
             HorizontalAlignment="Center"
@@ -337,11 +338,12 @@
           Foreground="{DynamicResource Muted}"
           Text="{loc:L Grep_SearchText}" />
         <history:HistoryTextBox
-          x:Name="QueryBox" Text="{Binding Query, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+          x:Name="QueryBox"
           Height="36"
           Padding="8,4"
           VerticalContentAlignment="Center"
-          HistoryKey="Grep-Query" />
+          HistoryKey="Grep-Query"
+          Text="{Binding Query, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
       </StackPanel>
       <StackPanel
         Grid.Column="1"
@@ -352,73 +354,53 @@
           x:Name="ClearQueryButton"
           Height="36"
           MinWidth="36"
-          Background="{DynamicResource Secondary}"
+          Background="Transparent"
           Command="{Binding ClearQueryCommand}"
           Style="{StaticResource IconButton}"
           ToolTip="{loc:L Grep_ClearQuery}">
-          <TextBlock
-            FontFamily="Segoe MDL2 Assets"
-            FontSize="12"
-            Text="&#xE711;" />
+          <Image
+            x:Name="ClearQueryIcon"
+            RenderOptions.BitmapScalingMode="HighQuality"
+            Stretch="Uniform" />
         </Button>
         <Button
           x:Name="SearchButton"
           Height="36"
           Margin="8,0,0,0"
+          Background="Transparent"
           Command="{Binding SearchCommand}"
-          Style="{StaticResource IconTextButton}"
+          Style="{StaticResource IconButton}"
           ToolTip="{loc:L Common_Search}">
-          <StackPanel Orientation="Horizontal">
-            <TextBlock
-              VerticalAlignment="Center"
-              FontFamily="Segoe MDL2 Assets"
-              FontSize="15"
-              Text="&#xE721;" />
-            <TextBlock
-              Margin="6,0,0,0"
-              VerticalAlignment="Center"
-              Text="{loc:L Common_Search}" />
-          </StackPanel>
+          <Image
+            x:Name="SearchButtonIcon"
+            RenderOptions.BitmapScalingMode="HighQuality"
+            Stretch="Uniform" />
         </Button>
         <Button
           x:Name="ClearResultsButton"
           Height="36"
           Margin="8,0,0,0"
-          Background="{DynamicResource Secondary}"
+          Background="Transparent"
           Command="{Binding ClearResultsCommand}"
-          Style="{StaticResource IconTextButton}"
+          Style="{StaticResource IconButton}"
           ToolTip="{loc:L Grep_ClearResults}">
-          <StackPanel Orientation="Horizontal">
-            <TextBlock
-              VerticalAlignment="Center"
-              FontFamily="Segoe MDL2 Assets"
-              FontSize="15"
-              Text="&#xE74D;" />
-            <TextBlock
-              Margin="6,0,0,0"
-              VerticalAlignment="Center"
-              Text="{loc:L Common_Clear}" />
-          </StackPanel>
+          <Image
+            x:Name="ClearResultsIcon"
+            RenderOptions.BitmapScalingMode="HighQuality"
+            Stretch="Uniform" />
         </Button>
         <Button
           x:Name="CancelButton"
           Height="36"
           Margin="8,0,0,0"
-          Background="{DynamicResource Secondary}"
+          Background="Transparent"
           Command="{Binding CancelCommand}"
-          Style="{StaticResource IconTextButton}"
+          Style="{StaticResource IconButton}"
           ToolTip="{loc:L Common_Cancel}">
-          <StackPanel Orientation="Horizontal">
-            <TextBlock
-              VerticalAlignment="Center"
-              FontFamily="Segoe MDL2 Assets"
-              FontSize="15"
-              Text="&#xE711;" />
-            <TextBlock
-              Margin="6,0,0,0"
-              VerticalAlignment="Center"
-              Text="{loc:L Common_Cancel}" />
-          </StackPanel>
+          <Image
+            x:Name="CancelButtonIcon"
+            RenderOptions.BitmapScalingMode="HighQuality"
+            Stretch="Uniform" />
         </Button>
       </StackPanel>
       <StackPanel Grid.Column="2" Margin="12,0,0,0">
@@ -427,11 +409,13 @@
           Foreground="{DynamicResource Muted}"
           Text="{loc:L Grep_LanguageProfile}" />
         <ComboBox
-          x:Name="ProfileBox" IsEnabled="{Binding CanEdit}" ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}"
+          x:Name="ProfileBox"
           Height="36"
           Padding="8,4"
           VerticalContentAlignment="Center"
-          />
+          IsEnabled="{Binding CanEdit}"
+          ItemsSource="{Binding Profiles}"
+          SelectedItem="{Binding SelectedProfile}" />
       </StackPanel>
       <StackPanel Grid.Column="3" Margin="12,0,0,0">
         <TextBlock
@@ -439,74 +423,95 @@
           Foreground="{DynamicResource Muted}"
           Text="{loc:L Grep_IncludedExtensions}" />
         <history:HistoryTextBox
-          x:Name="ExtensionsText" Text="{Binding Extensions, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+          x:Name="ExtensionsText"
           Height="36"
           Padding="8,4"
           VerticalContentAlignment="Center"
           HistoryKey="Grep-Extensions"
-          IsEnabled="{Binding CanEdit}" />
+          IsEnabled="{Binding CanEdit}"
+          Text="{Binding Extensions, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
       </StackPanel>
     </Grid>
     <DockPanel Grid.Row="3" Margin="0,0,0,10">
       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
         <Button
+          x:Name="OpenResultsButton"
+          Background="Transparent"
           Command="{Binding OpenResultsInEditorCommand}"
-          Content="&#xE8A5;"
           Style="{StaticResource IconButton}"
-          ToolTip="{loc:L Grep_OpenResults}" />
+          ToolTip="{loc:L Grep_OpenResults}">
+          <Image
+            x:Name="OpenResultsIcon"
+            RenderOptions.BitmapScalingMode="HighQuality"
+            Stretch="Uniform" />
+        </Button>
         <Button
+          x:Name="SaveResultsButton"
           Margin="5,0,0,0"
-          Background="{DynamicResource Secondary}"
+          Background="Transparent"
           Command="{Binding SaveResultsCommand}"
-          Content="&#xE74E;"
           Style="{StaticResource IconButton}"
-          ToolTip="{loc:L Grep_SaveResults}" />
-        <Button
+          ToolTip="{loc:L Grep_SaveResults}">
+          <Image
+            x:Name="SaveResultsIcon"
+            RenderOptions.BitmapScalingMode="HighQuality"
+            Stretch="Uniform" />
+        </Button>
+        <ToggleButton
+          x:Name="ResultGroupsToggle"
           Margin="12,0,0,0"
-          Command="{Binding ExpandResultGroupsCommand}"
-          Content="&#xE70D;"
-          Style="{StaticResource IconButton}"
-          ToolTip="{loc:L Common_Expand}" />
-        <Button
-          Margin="5,0,0,0"
-          Background="{DynamicResource Secondary}"
-          Command="{Binding CollapseResultGroupsCommand}"
-          Content="&#xE70E;"
-          Style="{StaticResource IconButton}"
-          ToolTip="{loc:L Common_Collapse}" />
+          Style="{StaticResource IconToggleButton}"
+          ToolTip="{loc:L Common_Expand}">
+          <Image
+            x:Name="ResultGroupsIcon"
+            RenderOptions.BitmapScalingMode="HighQuality"
+            Stretch="Uniform" />
+        </ToggleButton>
       </StackPanel>
-      <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
-        <CheckBox x:Name="RegexBox" IsChecked="{Binding UseRegex}" Content="{loc:L Grep_Regex}" />
+      <StackPanel
+        VerticalAlignment="Center"
+        DockPanel.Dock="Left"
+        Orientation="Horizontal">
         <CheckBox
-          x:Name="MatchCaseBox" IsChecked="{Binding MatchCase}"
-          Margin="18,0,0,0"
-          Content="{loc:L Grep_MatchCase}" />
+          x:Name="RegexBox"
+          Content="{loc:L Grep_Regex}"
+          IsChecked="{Binding UseRegex}" />
         <CheckBox
-          x:Name="WholeWordBox" IsChecked="{Binding WholeWord}"
+          x:Name="MatchCaseBox"
           Margin="18,0,0,0"
-          Content="{loc:L Grep_WholeWord}" />
+          Content="{loc:L Grep_MatchCase}"
+          IsChecked="{Binding MatchCase}" />
+        <CheckBox
+          x:Name="WholeWordBox"
+          Margin="18,0,0,0"
+          Content="{loc:L Grep_WholeWord}"
+          IsChecked="{Binding WholeWord}" />
       </StackPanel>
       <DockPanel Margin="18,0,12,0" VerticalAlignment="Center">
-        <TextBlock
-          DockPanel.Dock="Left"
+        <Image
+          x:Name="GrepFilterLabelIcon"
+          Width="28"
+          Height="28"
           Margin="0,0,8,0"
           VerticalAlignment="Center"
-          Foreground="{DynamicResource Muted}"
-          Text="GREP Filter" />
+          DockPanel.Dock="Left"
+          RenderOptions.BitmapScalingMode="HighQuality"
+          Stretch="Uniform"
+          ToolTip="{loc:L Grep_ListFilter}" />
         <Button
           x:Name="ClearListFilterButton"
-          DockPanel.Dock="Right"
           Height="36"
           MinWidth="36"
           Margin="8,0,0,0"
-          Background="{DynamicResource Secondary}"
+          Background="Transparent"
           Command="{Binding ClearListFilterCommand}"
+          DockPanel.Dock="Right"
           Style="{StaticResource IconButton}"
           ToolTip="{loc:L Grep_ClearQuery}">
-          <TextBlock
-            FontFamily="Segoe MDL2 Assets"
-            FontSize="12"
-            Text="&#xE711;" />
+          <Image
+            x:Name="ClearListFilterIcon"
+            RenderOptions.BitmapScalingMode="HighQuality"
+            Stretch="Uniform" />
         </Button>
         <history:HistoryTextBox
           x:Name="FilterBox"
@@ -526,29 +531,31 @@
       BorderBrush="{DynamicResource Line}"
       BorderThickness="1">
       <DataGrid
-        x:Name="ResultsGrid" ItemsSource="{Binding Results}" SelectedItem="{Binding SelectedMatch}"
+        x:Name="ResultsGrid"
         AutoGenerateColumns="False"
         Background="{DynamicResource CardBackground}"
         BorderThickness="0"
         CanUserResizeColumns="True"
+        EnableRowVirtualization="True"
         Foreground="{DynamicResource Ink}"
         GridLinesVisibility="None"
-        HorizontalGridLinesBrush="Transparent"
-        VerticalGridLinesBrush="Transparent"
         HeadersVisibility="Column"
+        HorizontalGridLinesBrush="Transparent"
         IsReadOnly="True"
+        ItemsSource="{Binding Results}"
         MinColumnWidth="56"
-        EnableRowVirtualization="True"
-        VirtualizingPanel.IsVirtualizing="True"
-        VirtualizingPanel.IsVirtualizingWhenGrouping="True"
-        VirtualizingPanel.VirtualizationMode="Standard"
-        ScrollViewer.CanContentScroll="True"
         RowHeaderWidth="0"
+        RowHeight="28"
+        ScrollViewer.CanContentScroll="True"
+        SelectedItem="{Binding SelectedMatch}"
         SelectionMode="Single"
         SelectionUnit="FullRow"
-        RowHeight="28">
+        VerticalGridLinesBrush="Transparent"
+        VirtualizingPanel.IsVirtualizing="True"
+        VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+        VirtualizingPanel.VirtualizationMode="Standard">
         <DataGrid.InputBindings>
-          <MouseBinding MouseAction="LeftDoubleClick" Command="{Binding OpenMatchCommand}" />
+          <MouseBinding Command="{Binding OpenMatchCommand}" MouseAction="LeftDoubleClick" />
         </DataGrid.InputBindings>
         <DataGrid.Resources>
           <Style x:Key="NumericCellStyle" TargetType="TextBlock">
@@ -575,21 +582,33 @@
                           <ControlTemplate TargetType="{x:Type Expander}">
                             <DockPanel LastChildFill="True">
                               <Border
-                                DockPanel.Dock="Top"
                                 Margin="0,1,0,1"
                                 Background="{DynamicResource HeaderBackground}"
                                 BorderThickness="0"
+                                DockPanel.Dock="Top"
                                 MouseLeftButtonDown="GroupHeader_Click">
                                 <Border.ContextMenu>
                                   <ContextMenu>
                                     <MenuItem Click="CopyGroupPath_Click" Header="{loc:L Grep_CopyPath}">
                                       <MenuItem.Icon>
-                                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="{DynamicResource Ink}" HorizontalAlignment="Center" VerticalAlignment="Center" Text="&#xE8C8;" />
+                                        <TextBlock
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          FontFamily="Segoe MDL2 Assets"
+                                          FontSize="15"
+                                          Foreground="{DynamicResource Ink}"
+                                          Text="&#xE8C8;" />
                                       </MenuItem.Icon>
                                     </MenuItem>
                                     <MenuItem Click="OpenGroupFolder_Click" Header="{loc:L Grep_OpenFolder}">
                                       <MenuItem.Icon>
-                                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="{DynamicResource Ink}" HorizontalAlignment="Center" VerticalAlignment="Center" Text="&#xE8B7;" />
+                                        <TextBlock
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          FontFamily="Segoe MDL2 Assets"
+                                          FontSize="15"
+                                          Foreground="{DynamicResource Ink}"
+                                          Text="&#xE8B7;" />
                                       </MenuItem.Icon>
                                     </MenuItem>
                                   </ContextMenu>
@@ -728,9 +747,9 @@
               <DataTemplate>
                 <TextBlock
                   VerticalAlignment="Center"
-                  TextTrimming="CharacterEllipsis"
                   DataContextChanged="MatchLine_DataContextChanged"
-                  Loaded="MatchLine_Loaded" />
+                  Loaded="MatchLine_Loaded"
+                  TextTrimming="CharacterEllipsis" />
               </DataTemplate>
             </DataGridTemplateColumn.CellTemplate>
           </DataGridTemplateColumn>
@@ -781,35 +800,43 @@
           Foreground="{DynamicResource Muted}"
           Text="{loc:L Grep_EditorArguments}" />
         <history:HistoryTextBox
-          x:Name="EditorBox" Text="{Binding EditorPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+          x:Name="EditorBox"
           Grid.Row="1"
           Grid.Column="2"
           HorizontalContentAlignment="Left"
           HistoryKey="Grep-Editor"
           PreserveOrder="True"
+          Text="{Binding EditorPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
           TextAlignment="Left"
           TextWrapping="NoWrap"
           ToolTip="{loc:L Grep_EditorExecutable}" />
         <history:HistoryTextBox
-          x:Name="EditorArgumentsBox" Text="{Binding EditorArguments, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+          x:Name="EditorArgumentsBox"
           Grid.Row="1"
           Grid.Column="3"
           Margin="8,0,0,0"
           HorizontalContentAlignment="Left"
           HistoryKey="Grep-EditorArguments"
           PreserveOrder="True"
+          Text="{Binding EditorArguments, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
           TextAlignment="Left"
           TextWrapping="NoWrap" />
         <Button
+          x:Name="BrowseEditorButton"
           Grid.Row="1"
           Grid.Column="4"
           Height="36"
           Margin="8,0,0,0"
           VerticalAlignment="Stretch"
+          Background="Transparent"
           Command="{Binding BrowseEditorCommand}"
-          Content="&#xE8B7;"
           Style="{StaticResource IconButton}"
-          ToolTip="{loc:L Grep_BrowseEditor}" />
+          ToolTip="{loc:L Grep_BrowseEditor}">
+          <Image
+            x:Name="BrowseEditorIcon"
+            RenderOptions.BitmapScalingMode="HighQuality"
+            Stretch="Uniform" />
+        </Button>
       </Grid>
     </StackPanel>
   </Grid>

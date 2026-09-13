@@ -1,4 +1,5 @@
 using DesktopIniManager.Models;
+using DesktopIniManager.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -148,7 +149,7 @@ namespace DesktopIniManager.Services
                 Path = solutionDirectory,
                 Reason = "Solution · " + entries.Values.Count(item => !IsSolutionFolder(item)) + " projects",
                 IsActionable = false,
-                IconPreview = FolderIconService.GetFolderIcon(solutionDirectory)
+                IconPreview = DifferencerStatusIcons.GetSolutionIcon() ?? FolderIconService.GetFolderIcon(solutionDirectory)
             };
 
             foreach (var pair in nodes)

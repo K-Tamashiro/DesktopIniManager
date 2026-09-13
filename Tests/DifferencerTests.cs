@@ -9,12 +9,20 @@ using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Markup;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
 internal static class DifferencerTests
 {
     private static int checks;
+    private static DeveloperDifferencerWindow CreateDifferencerWindow()
+    {
+        var result = new DeveloperDifferencerWindow();
+        // Controls inherit DataContext asynchronously before the window is shown.
+        result.Dispatcher.Invoke(new Action(() => { }), DispatcherPriority.ApplicationIdle);
+        return result;
+    }
     private static void BuildTree(DeveloperDifferencerWindow window, IEnumerable<string> paths, IEnumerable<string> expanded, string selected)
     {
         var task = (System.Threading.Tasks.Task)typeof(DeveloperDifferencerViewModel)
@@ -154,9 +162,20 @@ internal static class DifferencerTests
             var fileSystemComparison = DeveloperDifferencerService.Compare(source, target);
             Check(fileSystemComparison.Files.All(f => !DeveloperDifferencerService.Protected(f.RelativePath)) && fileSystemComparison.Folders.All(p => !DeveloperDifferencerService.Protected(p)), "file-system scan excludes protected folders");
             Check(fileSystemComparison.Files.Any(f => f.RelativePath == "stale"), "file-system scan finds expected difference");
-            var app = new DesktopIniManager.App(); app.InitializeComponent();
+            // Load only the application's resources, never its startup/scan lifecycle.
+            typeof(Application).GetField("_resourceAssembly", BindingFlags.Static | BindingFlags.NonPublic)
+                .SetValue(null, typeof(DesktopIniManager.MainWindow).Assembly);
+            var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+            var resourceXml = new System.Xml.XmlDocument();
+            resourceXml.Load(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TestAssets", "App.xaml"));
+            var resourceNamespaces = new System.Xml.XmlNamespaceManager(resourceXml.NameTable);
+            resourceNamespaces.AddNamespace("p", "http://schemas.microsoft.com/winfx/2006/xaml/presentation");
+            string resourceText = resourceXml.SelectSingleNode("p:Application/p:Application.Resources/p:ResourceDictionary", resourceNamespaces).OuterXml;
+            var resourceContext = new ParserContext();
+            resourceContext.XmlnsDictionary.Add("x", "http://schemas.microsoft.com/winfx/2006/xaml");
+            app.Resources = (ResourceDictionary)XamlReader.Parse(resourceText.Replace("Source=\"Themes/", "Source=\"/DesktopIniManager;component/Themes/"), resourceContext);
             typeof(DeveloperDifferencerViewModel).GetField("StatePath", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, Path.Combine(artifacts, "state.xml"));
-            var window = new DeveloperDifferencerWindow();
+            var window = CreateDifferencerWindow();
             window.ViewModel.SourcePath = source; window.ViewModel.TargetPath = target;
             Write(source, "nested\\child\\changed.txt", "new");
             var display = Snapshot(source, target, "stale", "forward\\unchecked", "nested\\child\\changed.txt");
@@ -179,7 +198,7 @@ internal static class DifferencerTests
             var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap)); using (var stream = File.Create(Path.Combine(artifacts, "window.png"))) encoder.Save(stream);
             typeof(DeveloperDifferencerViewModel).GetField("selectedFolder", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(window.ViewModel, "nested");
             typeof(DeveloperDifferencerViewModel).GetMethod("SaveState", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(window.ViewModel, null);
-            var restored = new DeveloperDifferencerWindow();
+            var restored = CreateDifferencerWindow();
             Check(((TextBox)restored.FindName("SourceBox")).Text == source, "WPF window restores roots");
             Check(((TreeView)restored.FindName("FolderTree")).Items.Count == 0 && !((Button)restored.FindName("ForwardButton")).IsEnabled, "comparison restores roots but requires a fresh comparison");
             int unrelatedNotifications = 0;
@@ -238,7 +257,7 @@ internal static class DifferencerTests
             typeof(DeveloperDifferencerViewModel).GetMethod("ClearComparisonView", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(window.ViewModel, null);
             Check(liveTree.Items.Count == 0 && ((ListView)window.FindName("FilesGrid")).Items.Count == 0, "comparison start clears both visible lists immediately");
             Check(filteredRoot.Children.Any(f => f.Path == "identicalOnly"), "clearing the view preserves the saved base hierarchy");
-            var filterWindow = new DeveloperDifferencerWindow();
+            var filterWindow = CreateDifferencerWindow();
             Check(((CheckBox)filterWindow.FindName("SameFilter")).IsChecked == false && ((CheckBox)filterWindow.FindName("DifferentFilter")).IsChecked == true && ((CheckBox)filterWindow.FindName("SourceOnlyFilter")).IsChecked == true && ((CheckBox)filterWindow.FindName("TargetOnlyFilter")).IsChecked == true, "category filters default to differences and both one-sided categories");
             var filterFiles = DeveloperDifferencerService.Classify(
                 new Dictionary<string, DiffStamp>(StringComparer.OrdinalIgnoreCase) { { "parent\\same\\file.txt", stamp }, { "parent\\different\\file.txt", stamp }, { "parent\\left\\file.txt", stamp } },
@@ -249,11 +268,14 @@ internal static class DifferencerTests
             typeof(DeveloperDifferencerViewModel).GetField("rows", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(filterWindow.ViewModel, filterFiles.Select(f => new DiffRow { File = f, SourceRoot = display.SourceRoot, TargetRoot = display.TargetRoot }).ToList());
             BuildTree(filterWindow, filterFiles.Select(f => Path.GetDirectoryName(f.RelativePath)), new[] { "", "parent" }, "");
             var leftOnly = filterFiles.Single(f => f.Kind == DiffKind.SourceOnly); leftOnly.Selected = true;
+            Check(((DiffFolder)((TreeView)filterWindow.FindName("FolderTree")).Items[0]).SelectedCount == 1,
+                "individual checkbox updates the comparison selection count");
             var filterNames = new[] { "SameFilter", "DifferentFilter", "SourceOnlyFilter", "TargetOnlyFilter" };
             Action<int> setMask = mask =>
             {
                 for (int i = 0; i < 4; i++) ((CheckBox)filterWindow.FindName(filterNames[i])).SetCurrentValue(System.Windows.Controls.Primitives.ToggleButton.IsCheckedProperty, (mask & (1 << i)) != 0);
                 filterWindow.ViewModel.ApplyCategoryFilter();
+                filterWindow.Dispatcher.Invoke(new Action(() => { }), DispatcherPriority.ApplicationIdle);
             };
             for (int mask = 0; mask < 16; mask++)
             {
@@ -266,12 +288,12 @@ internal static class DifferencerTests
             setMask((int)DiffKind.Same);
             var sameRoot = (DiffFolder)((TreeView)filterWindow.FindName("FolderTree")).Items[0];
             var sameFile = filterFiles.Single(f => f.Kind == DiffKind.Same); sameFile.Selected = true;
-            Check(!sameFile.Selected && !sameRoot.CanSelect && ((TextBlock)filterWindow.FindName("CountText")).Text.Contains("1 hidden"), "identical files cannot be selected for sync; hidden selections remain visible in the count");
+            Check(!sameFile.Selected && !sameRoot.CanSelect && ((TextBlock)filterWindow.FindName("CountText")).Text.Contains("1 hidden"), "identical files cannot be selected for sync; hidden selections remain visible in the count: selected=" + sameFile.Selected + ", canSelect=" + sameRoot.CanSelect + ", count=" + filterWindow.ViewModel.CountLabel + ", text=" + ((TextBlock)filterWindow.FindName("CountText")).Text);
             setMask((int)(DiffKind.SourceOnly | DiffKind.TargetOnly)); sameRoot.Checked = true;
             setMask((int)DiffKind.SourceOnly); sameRoot.Checked = false;
             Check(!leftOnly.Selected && filterFiles.Single(f => f.Kind == DiffKind.TargetOnly).Selected, "folder checkbox changes only currently enabled categories");
             filterWindow.Close();
-            var buildWindow = new DeveloperDifferencerWindow();
+            var buildWindow = CreateDifferencerWindow();
             var buildFiles = new[] { "src/main.cs", "nested/OBJ/generated.cs", "bin/app.dll", "nested/obj/bin/both.txt", "objects/keep.cs", "obj" }
                 .Select(p => new DiffFile { RelativePath = p.Replace('/', '\\'), Source = stamp }).ToList();
             var buildSnapshot = new DiffSnapshot { SourceRoot = root, TargetRoot = DeveloperDifferencerService.Root(target), Files = buildFiles };
@@ -295,15 +317,19 @@ internal static class DifferencerTests
             buildFiles[1].Selected = true;
             ((CheckBox)buildWindow.FindName("ObjFilter")).SetCurrentValue(System.Windows.Controls.Primitives.ToggleButton.IsCheckedProperty, false);
             buildWindow.ViewModel.ApplyBuildFolderFilter();
+            buildWindow.Dispatcher.Invoke(new Action(() => { }), DispatcherPriority.ApplicationIdle);
             Check(buildFiles[1].Selected && ((TextBlock)buildWindow.FindName("CountText")).Text.Contains("1 hidden"), "explicitly selected OBJ file retains its checkbox with hidden count");
             buildWindow.Close();
-            var cancelWindow = new DeveloperDifferencerWindow();
+            var cancelWindow = CreateDifferencerWindow();
             cancelWindow.ViewModel.SourcePath = source;
             cancelWindow.ViewModel.TargetPath = target;
             System.Threading.SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
             var compareTask = (System.Threading.Tasks.Task)typeof(DeveloperDifferencerViewModel).GetMethod("CompareAsync", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(cancelWindow.ViewModel, null);
+            ((Button)cancelWindow.FindName("CancelCompareButton")).GetBindingExpression(UIElement.IsEnabledProperty).UpdateTarget();
             Check(((Button)cancelWindow.FindName("CancelCompareButton")).IsEnabled, "comparison enables its cancel button");
-            ((Button)cancelWindow.FindName("CancelCompareButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var cancelButton = (Button)cancelWindow.FindName("CancelCompareButton");
+            Check(cancelButton.Command != null && cancelButton.Command.CanExecute(cancelButton.CommandParameter), "cancel button has an executable command binding");
+            cancelButton.Command.Execute(cancelButton.CommandParameter);
             var cancelWait = System.Diagnostics.Stopwatch.StartNew();
             while (!compareTask.IsCompleted && cancelWait.ElapsedMilliseconds < 5000)
             {
@@ -311,6 +337,7 @@ internal static class DifferencerTests
                 Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() => frame.Continue = false));
                 Dispatcher.PushFrame(frame);
             }
+            cancelWindow.Dispatcher.Invoke(new Action(() => { }), DispatcherPriority.ApplicationIdle);
             Check(compareTask.IsCompleted && !cancelWindow.IsWorking && ((TextBlock)cancelWindow.FindName("StatusText")).Text == "Compare cancelled",
                 "cancel button stops comparison and returns to idle");
             Check(((TreeView)cancelWindow.FindName("FolderTree")).Items.Count == 0 && ((ListView)cancelWindow.FindName("FilesGrid")).Items.Count == 0

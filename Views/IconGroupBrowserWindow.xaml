@@ -125,39 +125,28 @@
         Text="{x:Static res:Strings.Icon_Hint}" />
       <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
         <Button
+          x:Name="CancelButton"
           Margin="0,0,8,0"
-          Background="{DynamicResource Secondary}"
+          Background="Transparent"
           IsCancel="True"
-          Style="{StaticResource IconTextButton}"
+          Style="{StaticResource IconButton}"
           ToolTip="{x:Static res:Strings.Common_Cancel}">
-          <StackPanel Orientation="Horizontal">
-            <TextBlock
-              VerticalAlignment="Center"
-              FontFamily="Segoe MDL2 Assets"
-              FontSize="15"
-              Text="&#xE711;" />
-            <TextBlock
-              Margin="6,0,0,0"
-              VerticalAlignment="Center"
-              Text="{x:Static res:Strings.Common_Cancel}" />
-          </StackPanel>
+          <Image
+            x:Name="CancelButtonIcon"
+            RenderOptions.BitmapScalingMode="HighQuality"
+            Stretch="Uniform" />
         </Button>
         <Button
+          x:Name="SelectButton"
+          Background="Transparent"
           Command="{Binding SelectCommand}"
           IsDefault="True"
-          Style="{StaticResource IconTextButton}"
+          Style="{StaticResource IconButton}"
           ToolTip="{x:Static res:Strings.Common_Select}">
-          <StackPanel Orientation="Horizontal">
-            <TextBlock
-              VerticalAlignment="Center"
-              FontFamily="Segoe MDL2 Assets"
-              FontSize="15"
-              Text="&#xE73E;" />
-            <TextBlock
-              Margin="6,0,0,0"
-              VerticalAlignment="Center"
-              Text="{x:Static res:Strings.Common_Select}" />
-          </StackPanel>
+          <Image
+            x:Name="SelectButtonIcon"
+            RenderOptions.BitmapScalingMode="HighQuality"
+            Stretch="Uniform" />
         </Button>
       </StackPanel>
     </Grid>

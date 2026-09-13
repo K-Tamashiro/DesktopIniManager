@@ -70,8 +70,6 @@ namespace DesktopIniManager.Services
         public string Stage { get; set; }
         public int Completed { get; set; }
         public int Total { get; set; }
-        public int Phase { get; set; }
-        public int PhaseCount { get; set; } = 3;
     }
 
     internal sealed class DiffSnapshot
@@ -127,30 +125,6 @@ namespace DesktopIniManager.Services
         }
         private static void CheckComponents(string path)
         {
-        }
-        /// <summary>Compares one relative folder beneath two development roots.</summary>
-        public static DiffSnapshot CompareFolder(string sourceRoot, string targetRoot, string relativeFolder, bool compareTimestamp = true, CancellationToken token = default(CancellationToken))
-        {
-            token.ThrowIfCancellationRequested();
-            sourceRoot = Root(sourceRoot);
-            targetRoot = Root(targetRoot);
-            ValidateRoots(sourceRoot, targetRoot);
-
-            relativeFolder = (relativeFolder ?? string.Empty).Trim().Trim('\\', '/');
-            if (relativeFolder.Length > 0 && Protected(relativeFolder))
-                throw new IOException("Protected folder: " + relativeFolder);
-
-            var result = new DiffSnapshot
-            {
-                SourceRoot = sourceRoot,
-                TargetRoot = targetRoot,
-                CompareTimestamp = compareTimestamp
-            };
-
-            Dictionary<string, DiffStamp> left = ScanSelectedFolder(sourceRoot, relativeFolder, result.Folders, token);
-            Dictionary<string, DiffStamp> right = ScanSelectedFolder(targetRoot, relativeFolder, result.Folders, token);
-            result.Files = Classify(left, right, true, compareTimestamp, token);
-            return result;
         }
 
         private static Dictionary<string, DiffStamp> ScanSelectedFolder(string root, string relativeFolder, HashSet<string> folders, CancellationToken token, IProgress<DiffProgress> progress = null, string stage = null, int offset = 0, int total = 0)
@@ -322,17 +296,6 @@ namespace DesktopIniManager.Services
                     progress.Report(ReportCompare("Classifying differences…", Math.Max(offset, paths.Length), Math.Max(offset, paths.Length)));
             }
             return files;
-        }
-        private static string ScanPath(string root, string relative)
-        {
-            if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative) || relative.Contains(':') || Protected(relative) ||
-                relative.Replace('/', '\\').Split('\\').Any(p => p == ".." || p == "." || p.Length == 0 || p.EndsWith(" ") || p.EndsWith(".")))
-                throw new IOException("Protected or invalid relative path: " + relative);
-
-            string path = Path.GetFullPath(Path.Combine(root, relative));
-            if (!path.StartsWith(root, StringComparison.OrdinalIgnoreCase) || Protected(path))
-                throw new IOException("Refused a path outside the root or inside .git.");
-            return path;
         }
         /// <summary>Returns the synchronization operation required for a difference.</summary>
         public static string Operation(DiffFile file, bool toTarget)

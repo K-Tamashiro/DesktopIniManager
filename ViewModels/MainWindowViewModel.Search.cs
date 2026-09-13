@@ -1,23 +1,12 @@
 using DesktopIniManager.Models;
 using DesktopIniManager.Services;
-using Microsoft.Win32;
 using System;
-using System.Collections.ObjectModel;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
-using System.Globalization;
 using System.Linq;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Interop;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Media.Animation;
-using System.Windows.Controls;
 using System.Windows.Threading;
 using FastVolumeIndex;
 using DesktopIniManager.Properties;
@@ -104,6 +93,7 @@ namespace DesktopIniManager.ViewModels
                     AssignParents(solution);
                     _solutionRoots.Add(solution);
                 }
+                ApplySolutionRootIcons(_solutionRoots);
                 if (!searchOnly)
                 {
                     _folderTreeRoot = root;
@@ -127,24 +117,6 @@ namespace DesktopIniManager.ViewModels
                 if (ReferenceEquals(_searchCts, searchCts)) { _searchCts = null; SetSearching(false); }
                 searchCts.Dispose();
             }
-        }
-
-        internal Task<List<FolderMatch>> RunStandardSearch(string root, string query, CancellationToken token)
-        {
-            ImageSource defaultFolderIcon = FolderIconService.GetDefaultFolderIcon();
-            return Task.Run(() =>
-            {
-                var matches = new List<FolderMatch>();
-                new FolderSearchService().Search(root, query,
-                    item => { item.IconPreview = string.Equals(item.Reason, "Folder", StringComparison.Ordinal) ? defaultFolderIcon : FolderIconService.GetFolderIcon(item.Path); matches.Add(item); },
-                    count => Dispatcher.BeginInvoke(new Action(() =>
-                    {
-                        if (!IsSearching) return;
-                        Status = string.Format(Strings.Main_ScanningFolders, count.ToString("N0"));
-                    })), token);
-                token.ThrowIfCancellationRequested();
-                return matches;
-            });
         }
 
         private Task<StandardSearchResult> RunStandardIndexedSearch(string root, string query, CancellationToken token)
@@ -194,21 +166,6 @@ namespace DesktopIniManager.ViewModels
                     await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
                 }
             }
-        }
-
-        internal Task<List<FolderMatch>> RunFolderList(string root, CancellationToken token)
-        {
-            ImageSource defaultFolderIcon = FolderIconService.GetDefaultFolderIcon();
-            return Task.Run(() =>
-            {
-                var folders = new List<FolderMatch>();
-                foreach (string folder in Directory.EnumerateDirectories(root))
-                {
-                    token.ThrowIfCancellationRequested();
-                    folders.Add(new FolderMatch { Path = folder, Reason = "Folder", IconPreview = defaultFolderIcon });
-                }
-                return folders;
-            });
         }
 
         internal async Task<List<FolderMatch>> BuildSolutions(string root, CancellationToken token)

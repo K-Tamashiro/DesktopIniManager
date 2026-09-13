@@ -35,7 +35,7 @@ namespace DesktopIniManager.Views
             ViewModel.DialogTitle = Title;
             ViewModel.SearchHistoryRequested += () => { QueryBox.CommitHistory(); ExtensionsText.CommitHistory(); };
             ViewModel.MatchScrollRequested += ScrollToMatch;
-            ViewModel.ResultGroupsResetRequested += () => { _resultGroupsExpanded = true; _resultGroupStates.Clear(); };
+            ViewModel.ResultGroupsResetRequested += () => { _resultGroupStates.Clear(); };
             ViewModel.BrowseEditorRequested += BrowseEditor;
             ViewModel.SaveResultsRequested += SaveResults;
             ViewModel.CloseRequested += Close;
@@ -68,6 +68,14 @@ namespace DesktopIniManager.Views
                 QueryBox.Focus();
                 ShowTextEnd(EditorBox);
                 ShowTextEnd(EditorArgumentsBox);
+                ApplyGrepIcons();
+                if (ResultGroupsToggle != null)
+                {
+                    ResultGroupsToggle.IsChecked = _resultGroupsExpanded;
+                    ResultGroupsToggle.Checked += ResultGroupsToggle_Changed;
+                    ResultGroupsToggle.Unchecked += ResultGroupsToggle_Changed;
+                    UpdateResultGroupsIcon();
+                }
             };
         }
 
@@ -212,8 +220,16 @@ namespace DesktopIniManager.Views
         private void SetResultGroupsExpanded(bool expanded)
         {
             _resultGroupsExpanded = expanded;
+            if (ResultGroupsToggle != null && ResultGroupsToggle.IsChecked != expanded)
+            {
+                _updatingGroupToggle = true;
+                ResultGroupsToggle.IsChecked = expanded;
+                _updatingGroupToggle = false;
+                UpdateResultGroupsIcon();
+            }
             _resultGroupStates.Clear();
-            RecordGroupStates(ResultsGrid.Items.Groups, expanded);
+            if (ResultsGrid == null)
+                return;
             _applyingGroupExpansion = true;
             try
             {
@@ -221,12 +237,13 @@ namespace DesktopIniManager.Views
                     .Where(item => string.Equals(item.Name, "ResultGroupExpander", StringComparison.Ordinal)))
                     expander.IsExpanded = expanded;
             }
+            catch (InvalidOperationException) { }
             finally { _applyingGroupExpansion = false; }
         }
 
         private void ScrollToMatch(GrepMatch match)
         {
-            if (match == null) return;
+            if (match == null || ResultsGrid == null) return;
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 try { ResultsGrid.ScrollIntoView(match); }
@@ -399,6 +416,46 @@ namespace DesktopIniManager.Views
                 });
                 start = index + needle.Length;
             }
+        }
+
+        private bool _updatingGroupToggle;
+
+        private void ApplyGrepIcons()
+        {
+            SetIcon(CloseButtonIcon, 26);
+            SetIcon(ReloadScopesIcon, 69);
+            SetIcon(ClearQueryIcon, 25);
+            SetIcon(SearchButtonIcon, 30);
+            SetIcon(ClearResultsIcon, 49);
+            SetIcon(CancelButtonIcon, 24);
+            SetIcon(GrepFilterLabelIcon, 57);
+            SetIcon(ClearListFilterIcon, 25);
+            SetIcon(OpenResultsIcon, 81);
+            SetIcon(SaveResultsIcon, 82);
+            SetIcon(BrowseEditorIcon, 80);
+            UpdateResultGroupsIcon();
+        }
+
+        private static void SetIcon(Image image, int index)
+        {
+            if (image != null)
+                image.Source = DifferencerStatusIcons.GetCustomIcon(index);
+        }
+
+        private void ResultGroupsToggle_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_updatingGroupToggle) return;
+            if (ResultGroupsToggle.IsChecked == true) ViewModel.ExpandResultGroupsCommand.Execute(null);
+            else ViewModel.CollapseResultGroupsCommand.Execute(null);
+            UpdateResultGroupsIcon();
+        }
+
+        private void UpdateResultGroupsIcon()
+        {
+            bool expanded = ResultGroupsToggle != null && ResultGroupsToggle.IsChecked == true;
+            SetIcon(ResultGroupsIcon, expanded ? 56 : 55);
+            if (ResultGroupsToggle != null)
+                ResultGroupsToggle.ToolTip = expanded ? Strings.Common_Collapse : Strings.Common_Expand;
         }
     }
 

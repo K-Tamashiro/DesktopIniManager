@@ -164,7 +164,20 @@
               Background="{TemplateBinding Background}"
               BorderBrush="{TemplateBinding BorderBrush}"
               BorderThickness="{TemplateBinding BorderThickness}">
-              <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" />
+              <Grid>
+                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" />
+                <Thumb
+                  x:Name="PART_HeaderGripper"
+                  Width="6"
+                  HorizontalAlignment="Right"
+                  Cursor="SizeWE">
+                  <Thumb.Template>
+                    <ControlTemplate TargetType="Thumb">
+                      <Border Background="Transparent" />
+                    </ControlTemplate>
+                  </Thumb.Template>
+                </Thumb>
+              </Grid>
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsMouseOver" Value="True">
@@ -292,9 +305,13 @@
           HorizontalAlignment="Right"
           VerticalAlignment="Center"
           Command="{Binding CloseCommand}"
-          Content="&#xE711;"
           Style="{StaticResource IconButton}"
-          ToolTip="{loc:L Common_Close}" />
+          ToolTip="{loc:L Common_Close}">
+          <Image
+            x:Name="CloseButtonIcon"
+            RenderOptions.BitmapScalingMode="HighQuality"
+            Stretch="Uniform" />
+        </Button>
       </Grid>
       <Grid x:Name="RootControls" IsEnabled="{Binding CanEdit}">
         <Grid.ColumnDefinitions>
@@ -306,10 +323,16 @@
           <RowDefinition />
           <RowDefinition />
         </Grid.RowDefinitions>
-        <TextBlock
+        <Image
+          x:Name="SourceLabelIcon"
+          Width="28"
+          Height="28"
           Margin="0,0,12,6"
+          HorizontalAlignment="Left"
           VerticalAlignment="Center"
-          Text="{loc:L Common_Source}" />
+          RenderOptions.BitmapScalingMode="HighQuality"
+          Stretch="Uniform"
+          ToolTip="{loc:L Common_Source}" />
         <history:HistoryTextBox
           x:Name="SourceBox"
           Grid.Column="1"
@@ -319,16 +342,29 @@
           HistoryKey="Differencer-Source"
           Text="{Binding SourcePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
         <Button
+          x:Name="BrowseSourceButton"
           Grid.Column="2"
           Margin="0,0,0,6"
+          Background="Transparent"
           Command="{Binding BrowseSourceCommand}"
-          Content="&#xE8B7;"
           Style="{StaticResource IconButton}"
-          ToolTip="{loc:L Common_Browse}" />
-        <TextBlock
+          ToolTip="{loc:L Common_Browse}">
+          <Image
+            x:Name="BrowseSourceIcon"
+            RenderOptions.BitmapScalingMode="HighQuality"
+            Stretch="Uniform" />
+        </Button>
+        <Image
+          x:Name="TargetLabelIcon"
           Grid.Row="1"
+          Width="28"
+          Height="28"
+          Margin="0,0,12,0"
+          HorizontalAlignment="Left"
           VerticalAlignment="Center"
-          Text="{loc:L Common_Target}" />
+          RenderOptions.BitmapScalingMode="HighQuality"
+          Stretch="Uniform"
+          ToolTip="{loc:L Common_Target}" />
         <history:HistoryTextBox
           x:Name="TargetBox"
           Grid.Row="1"
@@ -339,12 +375,18 @@
           HistoryKey="Differencer-Target"
           Text="{Binding TargetPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
         <Button
+          x:Name="BrowseTargetButton"
           Grid.Row="1"
           Grid.Column="2"
+          Background="Transparent"
           Command="{Binding BrowseTargetCommand}"
-          Content="&#xE8B7;"
           Style="{StaticResource IconButton}"
-          ToolTip="{loc:L Common_Browse}" />
+          ToolTip="{loc:L Common_Browse}">
+          <Image
+            x:Name="BrowseTargetIcon"
+            RenderOptions.BitmapScalingMode="HighQuality"
+            Stretch="Uniform" />
+        </Button>
       </Grid>
       <Grid Margin="0,10">
         <Grid.ColumnDefinitions>
@@ -355,29 +397,28 @@
         <StackPanel Orientation="Horizontal">
           <Button
             x:Name="CompareButton"
+            Background="Transparent"
             Command="{Binding CompareCommand}"
-            Style="{StaticResource DifferencerActionButton}">
-            <StackPanel Orientation="Horizontal">
-              <TextBlock
-                VerticalAlignment="Center"
-                FontFamily="Segoe MDL2 Assets"
-                FontSize="15"
-                Text="&#xE721;" />
-              <TextBlock
-                Margin="6,0,0,0"
-                VerticalAlignment="Center"
-                Text="{loc:L Common_Compare}" />
-            </StackPanel>
+            Style="{StaticResource IconButton}"
+            ToolTip="{loc:L Common_Compare}">
+            <Image
+              x:Name="CompareButtonIcon"
+              RenderOptions.BitmapScalingMode="HighQuality"
+              Stretch="Uniform" />
           </Button>
           <Button
             x:Name="CancelCompareButton"
             Margin="8,0,0,0"
-            Background="{DynamicResource Secondary}"
+            Background="Transparent"
             Command="{Binding CancelCommand}"
-            Content="&#xE711;"
             IsEnabled="{Binding CanCancel}"
             Style="{StaticResource IconButton}"
-            ToolTip="{loc:L Differencer_CancelCompare}" />
+            ToolTip="{loc:L Differencer_CancelCompare}">
+            <Image
+              x:Name="CancelCompareIcon"
+              RenderOptions.BitmapScalingMode="HighQuality"
+              Stretch="Uniform" />
+          </Button>
           <CheckBox
             x:Name="CompareTimestampBox"
             Margin="12,0,0,0"
@@ -389,21 +430,14 @@
           <Button
             x:Name="CleanSolutionButton"
             Margin="12,0,0,0"
-            Background="{StaticResource CleanColor}"
+            Background="Transparent"
             Command="{Binding CleanCommand}"
-            Style="{StaticResource DifferencerActionButton}"
+            Style="{StaticResource IconButton}"
             ToolTip="{loc:L Differencer_CleanTip}">
-            <StackPanel Orientation="Horizontal">
-              <TextBlock
-                VerticalAlignment="Center"
-                FontFamily="Segoe MDL2 Assets"
-                FontSize="15"
-                Text="&#xE75C;" />
-              <TextBlock
-                Margin="6,0,0,0"
-                VerticalAlignment="Center"
-                Text="{loc:L Differencer_CleanSolution}" />
-            </StackPanel>
+            <Image
+              x:Name="CleanSolutionIcon"
+              RenderOptions.BitmapScalingMode="HighQuality"
+              Stretch="Uniform" />
           </Button>
         </StackPanel>
         <StackPanel
@@ -418,39 +452,26 @@
           <Button
             x:Name="ForwardButton"
             Margin="12,0,0,0"
-            Background="{StaticResource SourceColor}"
+            Background="Transparent"
             Command="{Binding ForwardCommand}"
-            Foreground="#20252B"
-            Style="{StaticResource DifferencerActionButton}">
-            <StackPanel Orientation="Horizontal">
-              <TextBlock
-                VerticalAlignment="Center"
-                FontFamily="Segoe MDL2 Assets"
-                FontSize="15"
-                Text="&#xE74B;" />
-              <TextBlock
-                Margin="6,0,0,0"
-                VerticalAlignment="Center"
-                Text="{loc:L Differencer_SourceToTarget}" />
-            </StackPanel>
+            Style="{StaticResource IconButton}"
+            ToolTip="{loc:L Differencer_SourceToTarget}">
+            <Image
+              x:Name="ForwardButtonIcon"
+              RenderOptions.BitmapScalingMode="HighQuality"
+              Stretch="Uniform" />
           </Button>
           <Button
             x:Name="ReverseButton"
             Margin="8,0,0,0"
-            Background="{StaticResource TargetColor}"
+            Background="Transparent"
             Command="{Binding ReverseCommand}"
-            Style="{StaticResource DifferencerActionButton}">
-            <StackPanel Orientation="Horizontal">
-              <TextBlock
-                VerticalAlignment="Center"
-                FontFamily="Segoe MDL2 Assets"
-                FontSize="15"
-                Text="&#xE74A;" />
-              <TextBlock
-                Margin="6,0,0,0"
-                VerticalAlignment="Center"
-                Text="{loc:L Differencer_TargetToSource}" />
-            </StackPanel>
+            Style="{StaticResource IconButton}"
+            ToolTip="{loc:L Differencer_TargetToSource}">
+            <Image
+              x:Name="ReverseButtonIcon"
+              RenderOptions.BitmapScalingMode="HighQuality"
+              Stretch="Uniform" />
           </Button>
         </StackPanel>
       </Grid>
@@ -488,34 +509,25 @@
             DockPanel.Dock="Top">
             <DockPanel>
               <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                <Button
-                  Command="{Binding ExpandAllCommand}"
-                  Content="&#xE70D;"
-                  Style="{StaticResource IconButton}"
-                  ToolTip="{loc:L Common_Expand}" />
-                <Button
-                  Margin="5,0,0,0"
-                  Background="{DynamicResource Secondary}"
-                  Command="{Binding CollapseAllCommand}"
-                  Content="&#xE70E;"
-                  Style="{StaticResource IconButton}"
-                  ToolTip="{loc:L Common_Collapse}" />
-                <Button
-                  Margin="10,0,0,0"
-                  Background="{DynamicResource Secondary}"
-                  Command="{Binding CompactTreeCommand}"
-                  Content="a"
-                  FontSize="13"
-                  Style="{StaticResource TypeSizeButton}"
-                  ToolTip="{loc:L Main_TreeCompact}" />
-                <Button
-                  Margin="5,0,0,0"
-                  Background="{DynamicResource Secondary}"
-                  Command="{Binding ComfortableTreeCommand}"
-                  Content="A"
-                  FontSize="17"
-                  Style="{StaticResource TypeSizeButton}"
-                  ToolTip="{loc:L Main_TreeComfortable}" />
+                <ToggleButton
+                  x:Name="NodeExpandToggle"
+                  Style="{StaticResource IconToggleButton}"
+                  ToolTip="{loc:L Common_Expand}">
+                  <Image
+                    x:Name="NodeExpandIcon"
+                    RenderOptions.BitmapScalingMode="HighQuality"
+                    Stretch="Uniform" />
+                </ToggleButton>
+                <ToggleButton
+                  x:Name="TreeDensityToggle"
+                  Margin="8,0,0,0"
+                  Style="{StaticResource IconToggleButton}"
+                  ToolTip="{loc:L Main_TreeComfortable}">
+                  <Image
+                    x:Name="TreeDensityIcon"
+                    RenderOptions.BitmapScalingMode="HighQuality"
+                    Stretch="Uniform" />
+                </ToggleButton>
               </StackPanel>
               <TextBlock
                 VerticalAlignment="Center"
@@ -742,8 +754,8 @@
               VirtualizingStackPanel.IsVirtualizing="True"
               VirtualizingStackPanel.VirtualizationMode="Recycling">
               <ListView.View>
-                <GridView>
-                  <GridViewColumn Width="44" Header="{loc:L Common_Sync}">
+                <GridView AllowsColumnReorder="False">
+                  <GridViewColumn Width="45" Header="{loc:L Common_Sync}">
                     <GridViewColumn.CellTemplate>
                       <DataTemplate>
                         <CheckBox
@@ -754,7 +766,7 @@
                       </DataTemplate>
                     </GridViewColumn.CellTemplate>
                   </GridViewColumn>
-                  <GridViewColumn Width="36" Header="">
+                  <GridViewColumn Width="35" Header="">
                     <GridViewColumn.CellTemplate>
                       <DataTemplate>
                         <Image
@@ -766,7 +778,7 @@
                       </DataTemplate>
                     </GridViewColumn.CellTemplate>
                   </GridViewColumn>
-                  <GridViewColumn Width="36" Header="">
+                  <GridViewColumn Width="35" Header="">
                     <GridViewColumn.CellTemplate>
                       <DataTemplate>
                         <Image
@@ -778,24 +790,22 @@
                       </DataTemplate>
                     </GridViewColumn.CellTemplate>
                   </GridViewColumn>
-                  <GridViewColumn Width="200" Header="{loc:L Common_Name}">
+                  <GridViewColumn Width="330" Header="{loc:L Common_Name}">
                     <GridViewColumn.CellTemplate>
                       <DataTemplate>
                         <TextBlock
                           VerticalAlignment="Center"
+                          Text="{Binding PathFileName, Mode=OneWay}"
                           TextTrimming="CharacterEllipsis"
-                          ToolTip="{Binding File.RelativePath}">
-                          <Run Text="{Binding PathDirectory, Mode=OneWay}" />
-                          <Run Foreground="{DynamicResource Muted}" Text="{Binding PathFileName, Mode=OneWay}" />
-                        </TextBlock>
+                          ToolTip="{Binding File.RelativePath}" />
                       </DataTemplate>
                     </GridViewColumn.CellTemplate>
                   </GridViewColumn>
                   <GridViewColumn
-                    Width="60"
+                    Width="70"
                     DisplayMemberBinding="{Binding Extension}"
                     Header="{loc:L Common_Type}" />
-                  <GridViewColumn Width="110" Header="{loc:L Common_State}">
+                  <GridViewColumn Width="70" Header="{loc:L Common_State}">
                     <GridViewColumn.CellTemplate>
                       <DataTemplate>
                         <TextBlock
@@ -805,14 +815,14 @@
                       </DataTemplate>
                     </GridViewColumn.CellTemplate>
                   </GridViewColumn>
-                  <GridViewColumn Width="210" Header="{loc:L Common_Source}">
+                  <GridViewColumn Width="125" Header="{loc:L Common_Source}">
                     <GridViewColumn.CellTemplate>
                       <DataTemplate>
                         <ContentControl Content="{Binding Source}" ContentTemplate="{StaticResource SideTemplate}" />
                       </DataTemplate>
                     </GridViewColumn.CellTemplate>
                   </GridViewColumn>
-                  <GridViewColumn Width="210" Header="{loc:L Common_Target}">
+                  <GridViewColumn Width="125" Header="{loc:L Common_Target}">
                     <GridViewColumn.CellTemplate>
                       <DataTemplate>
                         <ContentControl Content="{Binding Target}" ContentTemplate="{StaticResource SideTemplate}" />

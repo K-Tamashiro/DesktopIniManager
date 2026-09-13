@@ -1,407 +1,212 @@
-![DesktopIniManager](docs/images/app-overview-dark.png)
+# DesktopIniManager v3.0.0 — DIR edition
 
-# DesktopIniManager
+DesktopIniManager is a Windows workspace for exploring development folders,
+browsing Visual Studio solutions, searching source code, comparing working
+trees, and applying custom folder icons through `desktop.ini`.
 
-DesktopIniManager is a Windows developer tool for exploring development
-folders, understanding project structure, searching source code, and
-applying custom folder icons through `desktop.ini`.
+**v3.0.0 is the DIR edition.** Workspace acquisition uses the Windows
+`dir /s /b` command to build a reusable path index. Grep and folder comparison
+use ordinary file-system access. This edition does not read the NTFS MFT
+and does not require elevation just to enumerate folders.
 
-It brings Physical, Solution, and Search views together in one workspace,
-with Scoped Code Grep, folder icon management, live UI language switching,
-light/dark themes, and an MFT Differencer for comparing and synchronizing
-local working trees.
+![DesktopIniManager DIR edition](docs/images/physical-tree-dark.png)
 
-![Physical tree in dark mode](docs/images/physical-tree-dark.png)
+## Download and requirements
 
-## Download
+Release package: **DesktopIniManager-v3.0.0-DIR-win-x64.zip**
 
-[<img src="docs/images/download.png" alt="Download DesktopIniManager v2.0.3" width="200" height="45">](https://github.com/K-Tamashiro/DesktopIniManager/releases/download/v2.0.3/DesktopIniManager-v2.0.3-win-x64.zip)
+Download the asset from [GitHub Releases](https://github.com/K-Tamashiro/DesktopIniManager/releases)
+when v3.0.0 is published. A locally generated package is placed in `release/`.
+See the [v3.0.0 release notes](docs/releases/v3.0.0-DIR.md).
 
-Download `DesktopIniManager-v2.0.3-win-x64.zip`, extract it to a
-writable folder, and run `DesktopIniManager.exe`.
+- Windows 10 or Windows 11, x64.
+- The release ZIP includes the .NET 10 runtime; no separate runtime installation is needed.
+- Read access to the folders being inspected; write access for icon changes and synchronization.
+- MSBuild is required only for **Clean solution**. External editors/diff tools are optional.
 
-Release notes for each version are published on the
-[GitHub Releases](https://github.com/K-Tamashiro/DesktopIniManager/releases)
-page.
+Extract the ZIP into a new folder and run `DesktopIniManager.exe`.
+Keep the accompanying DLLs, runtime files, `Assets`, and `Languages` together.
+When upgrading from v2.x, use a fresh extraction directory to avoid mixing
+.NET Framework and .NET 10 files.
 
-### Requirements
+Network and cloud-backed locations depend on their provider, connectivity,
+permissions, and availability of file contents. They are not covered by a
+blanket compatibility guarantee. Make cloud files available locally before
+reading or synchronizing them.
 
-- Windows 10 or Windows 11, x64
-- .NET 10 Desktop Runtime (x64) for builds from this source tree; self-contained publishing does not require a separately installed runtime. The v2.0.3 download above remains a .NET Framework 4.8 release.
-- Administrator permission when `Use fast NTFS search` is enabled
-- Local NTFS folders for supported comparison and synchronization.
-  Cloud/virtual drives (including Google Drive), network paths, and NAS are
-  unsupported. Elevation does not make these equivalent to local NTFS.
+## Three retained workspace views
 
-## What DesktopIniManager does
+### Physical and repository acquisition
 
-### Project workspace
+Choose a search location and use the repository-acquisition button to build
+the **Physical** and **Solution** trees. The Physical view shows the on-disk
+folder structure, repository markers, and summaries of files in each folder.
+A saved, valid search root is acquired while the splash screen is displayed
+at the next startup.
 
-Development work often requires several separate tools: Explorer for the
-physical layout, Visual Studio for the logical solution structure, a
-file-search tool, a Grep tool, and another utility for folder
-customization.
-
-DesktopIniManager brings those views together around the development
-folder itself.
-
-The **Physical**, **Solution**, and **Search** tabs are independent.
-Running a search does not destroy the folder or solution tree already
-acquired, so you can move between the actual disk structure, the Visual
-Studio-oriented structure, and temporary search results without
-rebuilding your working context.
-
-### MFT Differencer
-
-Open **MFT Diff** to compare two working trees, inspect readonly text/image
-diffs, and synchronize checked files in either direction. `.git` is excluded.
-MFT enumeration requires local NTFS and administrator permissions; when MFT
-enumeration is unavailable, comparison falls back to a file-system scan.
-See [usage, safeguards, and regression tests](docs/mft-differencer.md).
-
-## Three retained project views
-
-### Physical
-
-The Physical tab shows the actual folder hierarchy on disk. It is the
-base view for understanding where projects, assets, output folders,
-documents, and other resources physically exist.
-
-Selecting a folder displays its files in the right pane.
-
-![Physical tree](docs/images/physical-tree-dark.png)
+![Repository workspace](docs/images/repository-tree-dark.png)
 
 ### Solution
 
-The Solution tab reconstructs the logical structure from Visual Studio
-solution and project information. This makes it possible to compare the
-structure developers see in Visual Studio with the real physical folder
-layout.
+The Solution view presents the projects reconstructed from Visual Studio
+solution files. Switch between Physical and Solution while retaining the
+workspace. Solution parsing reports progress and the current solution.
 
-![Solution tree](docs/images/solution-tree-dark.png)
+![Solution view](docs/images/solution-tree-dark.png)
 
 ### Search
 
-Search results have their own tab instead of replacing the current
-folder tree. Searches can therefore be repeated while the Physical and
-Solution views remain available.
+Search has its own results tree. Temporary searches and filters do not replace
+the acquired Physical and Solution trees. Use keywords or extensions to find
+folders and files, then narrow the displayed results with the filter field.
 
-Multiple keywords/extensions can be used to narrow the result set.
+![Search view](docs/images/search-tree-dark.png)
 
-![Search results](docs/images/search-tree-dark.png)
-
-## Fast NTFS search
-
-`Use fast NTFS search` reads the local NTFS Master File Table rather
-than recursively opening every directory.
-
-DesktopIniManager uses `FastVolumeIndex.Core` to build an in-memory
-representation of the volume and then constructs the required
-folder/path indexes from that data.
-
-This is particularly useful when the search root contains large
-repositories or many development projects.
-
-Direct NTFS volume access requires administrator permission. Standard
-filesystem traversal remains available when fast NTFS search cannot be
-used.
-
-## Project analysis
-
-`GIT` acquisition identifies development repositories and analyzes the
-folders below them.
-
-DesktopIniManager recognizes common development structures including:
-
-- `.sln`, `.slnx`
-- `.csproj`, `.vbproj`, `.fsproj`, `.vcxproj`
-- `.vbp`, `.dproj`, `.dpr`
-- `package.json`, `composer.json`, `pyproject.toml`
-- `Cargo.toml`, `go.mod`, `pom.xml`
-- Gradle, CMake, Make, and related project markers
-
-Generated and dependency folders such as `.git`, `.vs`, `bin`, `obj`,
-`node_modules`, `vendor`, `dist`, and `target` are excluded where
-appropriate.
+Tree controls support selection/inversion, expansion/collapse, hiding/restoring
+folders, and compact display. The file pane offers list, large-icon, and
+small-icon layouts. Paths and search terms have independent input histories;
+long history paths prioritize the end of the path.
 
 ## Scoped Code Search
 
-DesktopIniManager includes a non-modal Grep window designed specifically
-for project work.
-
-Instead of searching an entire development drive and then filtering a
-large number of unrelated hits, select only the project folders you need
-and run Grep against those scopes.
+Select the projects or folders you need and open Grep. Scopes from different
+tree branches are retained; a selected ancestor covers its selected descendants.
+Folders can also be dropped into the Grep window.
 
 ![Scoped Code Search](docs/images/scoped-code-search.png)
 
-Features include:
+- Multiple scopes and language profiles, with editable extension filters.
+- Plain-text or regular-expression search, match case, and whole word.
+- File, line, column, and matching text in grouped, filterable results.
+- Progress and cancellation, result export, and input history.
+- External editor presets including MIFES, Hidemaru, Mery, and VS Code.
 
-- Multiple selected project/folder scopes
-- Parent/child scope de-duplication
-- C# / WPF and other language profiles
-- Editable included extensions
-- Regular expressions
-- Match case
-- Whole word
-- File, line, column, and matched-text display
-- Configurable external editor with saved history
-- Preset launchers for MIFES, Hidemaru, Mery, and VS Code
-- Line/column arguments such as MIFES `/+{line}@{column} "{file}"`
+## Developer Differencer
 
-## File view
+Open **Developer Differencer** using the comparison button at the bottom
+of the main window. Choose Source and Target roots, compare them, and select
+the differences to synchronize in either direction.
 
-Selecting a folder in the tree displays the files physically contained
-in that folder.
+![Developer Differencer](docs/images/mft-differencer.png)
 
-The file pane supports list and icon layouts, and matching files can be
-visually identified when working from Search results. Files can be
-opened directly with their associated application.
+Files are matched by relative path and compared by size and, when
+**Compare dates** is enabled, last-write time at whole-second precision.
+This does not compare file contents or hashes. With dates disabled,
+equal-sized files are classified as identical.
 
-![Folder and file view](docs/images/folder-icon-apply-dark.png)
+Combine **Same / Diff / Left / Right** filters and optionally include
+`obj` and `bin`. Folder selection follows the visible difference categories;
+previously checked files remain selected when hidden by a filter. The root
+shows files from all levels. **Update** refreshes already-listed direct
+files in the selected folder; use Compare to discover new files.
 
-## Folder icon management
+Synchronization presents copy, overwrite, and delete counts before execution.
+**A checked file present only on the receiving side is deleted from that side.**
+Review the direction and selection before confirming. Identical files are
+viewable but are not synchronization candidates. Metadata directories
+`.git`, `.vs`, and `.vscode` are excluded.
 
-The original purpose of DesktopIniManager remains fully integrated.
+### Diff View
 
-Choose an ICO, ICL, DLL, or EXE resource and apply the selected icon to
-one or more folders. The bundled `Assets/folder_set.icl` provides a
-ready-to-use development-oriented folder set.
+![Side-by-side Diff View](docs/images/mft-diff-view.png)
 
-![Icon resource browser](docs/images/icon-picker-dark.png)
+Text comparison includes line numbers, colored changes, linked scrolling,
+a central difference map, and navigation between changes. Text can be
+selected across lines without copying the displayed line numbers.
+Image comparison provides shared zoom, Fit, and 100% views.
 
-For each selected folder, DesktopIniManager:
+Diff View is read only. Open either file in its associated application,
+or send both files to an external diff tool. External diff presets include
+VS Code, MIFES, WinMerge, and Visual Studio; changed files are refreshed
+when returning to the viewer.
 
-1. Writes `[.ShellClassInfo]` and `IconResource` to `desktop.ini`.
-2. Marks `desktop.ini` as Hidden and System.
-3. Applies the folder attributes required by Explorer customization.
-4. Refreshes Explorer after the batch operation.
-5. Optionally adds `desktop.ini` to `.gitignore`.
+### Clean solution
 
-`Remove` deletes the customization and restores the folder to its normal
-icon state.
+Choose solutions and configurations to run MSBuild Clean before comparing
+again. Solutions containing the running application are excluded from Clean.
+To clean DesktopIniManager itself, run the extracted release from a separate
+directory outside that solution.
 
-## Light and dark themes
+See the [comparison and synchronization guide](docs/mft-differencer.md)
+for details and limitations.
 
-The complete workspace can be switched between dark and light themes.
+## Folder icons
+
+Choose an ICO, ICL, DLL, or EXE resource, select folders, and apply the icon.
+The bundled `Assets/folder_set.icl` contains development-oriented folder icons.
+
+![Icon picker](docs/images/icon-picker-dark.png)
+
+DesktopIniManager writes `IconResource` in `desktop.ini`, sets the necessary
+file/folder attributes, and refreshes Explorer. It can also add `desktop.ini`
+to `.gitignore`. Remove clears the customization.
+
+![Folder icon management](docs/images/folder-icon-apply-dark.png)
+
+## Themes and languages
+
+Switch between light and dark themes. English, Japanese, Simplified Chinese,
+and Korean can be selected without restarting; the choice is retained.
 
 ![Light theme](docs/images/physical-tree-light.png)
 
-## Live UI language switching
+| English | Japanese |
+| --- | --- |
+| ![English](docs/images/language-english.png) | ![Japanese](docs/images/language-japanese.png) |
 
-DesktopIniManager supports live UI language switching without restarting the
-application. The selected language is retained for the next launch.
+| Simplified Chinese | Korean |
+| --- | --- |
+| ![Simplified Chinese](docs/images/language-chinese.png) | ![Korean](docs/images/language-korean.png) |
 
-Supported UI languages are English, Japanese, Simplified Chinese, and Korean.
+## Build and package
 
-### English
+Use the .NET 10 SDK on Windows, or Visual Studio with .NET 10/WPF support.
 
-![DesktopIniManager in English](docs/images/language-english.png)
-
-### Japanese
-
-![DesktopIniManager in Japanese](docs/images/language-japanese.png)
-
-### Simplified Chinese
-
-![DesktopIniManager in Simplified Chinese](docs/images/language-chinese.png)
-
-### Korean
-
-![DesktopIniManager in Korean](docs/images/language-korean.png)
-
-## mftree command-line tool
-
-The release package includes `mftree.exe`, a command-line tool powered by
-`FastVolumeIndex.Core`.
-
-Run it from an administrator terminal:
-
-``` powershell
-mftree
-mftree /f
-mftree "E:\Develop"
-mftree "E:\Develop" /f
-```
-
-The default form prints folders. `/f` includes files, providing an
-MFT-backed alternative for quickly inspecting large directory trees.
-
-Add the extracted release directory to `PATH` if you want to invoke
-`mftree` from any location.
-
-## Typical workflow
-
-1. Choose the development root.
-2. Enable fast NTFS search when working on a local NTFS volume.
-3. Run `GIT` to acquire the Physical and Solution structures.
-4. Switch between Physical and Solution without rebuilding either tree.
-5. Use Search for temporary folder/file filtering.
-6. Select only the required projects and run Scoped Code Search.
-7. Inspect files in the right pane or open a match in the configured
-   editor.
-8. Apply project-specific folder icons where visual identification in
-   Explorer is useful.
-
-## Build from source
-
-For the current refactoring checkpoint and remaining SMVVM work, see
-[SMVVM progress](docs/smvvm-progress.md).
-
-Requirements:
-
-- Visual Studio 2026 with .NET 10 support, or the .NET 10 SDK
-- .NET desktop development workload
-- .NET 10 SDK
-
-Build on Windows:
-
-``` powershell
+```powershell
 dotnet build DesktopIniManager.sln -c Release
+pwsh -File scripts/Build-Release.ps1
 ```
 
-The solution contains the DesktopIniManager application and reusable
-`FastVolumeIndex.Core`. The `mftree` CLI source is absent from this checkout
-and is not built by this solution.
+The packaging script publishes a self-contained Windows x64 application to a
+fresh staging directory, validates its version and required files, and writes:
 
-Application release output is written to `bin\Release\net10.0-windows\win-x64\`,
-including the configured assets, languages and documentation. Distribute the
-complete publish directory, including DLL, deps.json and runtimeconfig.json files.
-
-To publish with the runtime included:
-
-``` powershell
-dotnet publish DesktopIniManager.csproj -c Release -r win-x64 --self-contained true -o release/net10-win-x64
+```text
+release/
+  DesktopIniManager-v3.0.0-DIR-win-x64.zip
+  DesktopIniManager-v3.0.0-DIR-win-x64.zip.sha256
+  RELEASE_NOTES_v3.0.0-DIR.md
 ```
 
-The standalone regression harness is built and run separately:
+The ZIP contains the application at its root:
 
-``` powershell
-dotnet run --project Tests/DesktopIniManager.DifferencerTests.csproj -c Release
-```
-
-The .NET 10 migration changes have not yet been built or executed. Validate
-startup, themes/languages, Shift-JIS Grep and text diffs, folder icons, search,
-and comparison/synchronization on disposable folders before publishing a release.
-
-## Release package contents
-
-``` text
+```text
 DesktopIniManager.exe
+DesktopIniManager.dll
+DesktopIniManager.deps.json
+DesktopIniManager.runtimeconfig.json
 FastVolumeIndex.Core.dll
-mftree.exe
+.NET runtime files and runtime license notices
 Assets/
   folder_set.icl
-  MftDifferencer_iconset.icl
+  DeveloperDifferencer_iconset.icl
   Flag.icl
 Languages/
 README.md
+RELEASE_NOTES.md
 docs/
 ```
 
-## Version
+The application and `FastVolumeIndex.Core` are the two solution projects.
+The library retains its historical name; this edition's workspace acquisition
+uses DIR. The deleted `FastVolumeIndex.Cli` / `mftree.exe` is not included.
 
-Current release: **DesktopIniManager 2.0.3**
+The standalone regression harness is separate from the application solution:
 
-## MFT Differencer
+```powershell
+dotnet build Tests/DesktopIniManager.DifferencerTests.csproj -c Release
+dotnet run --project Tests/DesktopIniManager.DifferencerTests.csproj -c Release --no-build
+```
 
-Open **MFT Diff** from the main window to compare two folder trees, inspect
-their differences, and synchronize only the files you select. Source and
-Target identify the left and right roots; either side can be the source of
-a synchronization operation. Git history remains separate: `.git` files
-and directories are excluded from comparison and synchronization.
-
-### Compare and select files
-
-![MFT Differencer showing folder filters and a name-sorted file list](docs/images/mft-differencer.png)
-
-Choose **Source** and **Target**, then click **Compare**. Progress appears
-at the bottom of the window. Files are matched by their paths relative to
-each root and classified using size and, when **Compare dates** is enabled,
-last-write time. This is a metadata comparison, not a content or hash check.
-Turning off **Compare dates** treats equal-sized files as identical even
-when their timestamps differ.
-
-Use the **Update** button to refresh files that already belong to the
-selected folder (direct children in the current comparison list). This is a
-lightweight re-check, not a full re-enumeration of the tree.
-
-- **Same / Diff / Left / Right** can be combined to filter the folder tree
-  and file list. Initially, **Diff**, **Left**, and **Right** are enabled.
-  Relevant parent folders remain visible.
-- **OBJ / BIN** use the added icon-library entries and are both off by default.
-  Folders named `obj` or `bin` at any depth and their contents stay hidden until
-  enabled. Folder selection excludes these hidden files; files explicitly
-  selected before hiding them retain their checks and appear in the hidden
-  selection count.
-- Select the root to see matching files from all levels in **Name** order.
-  Selecting a folder narrows that list while preserving its order. Files
-  with the same name are ordered by relative path.
-- Source and Target show timestamps, file sizes, and **NEW / OLD** where
-  applicable. Supported images also show thumbnails and image dimensions.
-- Check a folder to select the differences of the currently displayed
-  categories beneath it, or check individual files. Selections survive
-  filtering; identical files are available for viewing only.
-
-### Read-only Diff View
-
-![Read-only Diff View with highlighted changes and a draggable viewport frame in the central map](docs/images/mft-diff-view.png)
-
-Double-click a file to open **Diff View**. Text is displayed side by side
-with line numbers and colored additions, removals, and changes. **Prev**
-and **Next**, or a marker in the central difference map, navigate between
-changed sections.
-
-The frame in the central map shows the current visible range. Drag it up
-or down to scroll both panes together. The frame also follows ordinary
-scrolling and window resizing. Vertical scrollbars are hidden; the mouse
-wheel still scrolls vertically. A horizontal/side wheel or **Shift + wheel**
-scrolls horizontally, with both panes linked.
-
-Images use a side-by-side view with shared zoom and aligned positions.
-Images initially fit both panes; **Fit** and **100%** control their shared zoom.
-Executables, DLLs, `.cache`, and other recognized binary formats show an English
-unsupported-file message without opening Diff View. Unknown extensions are
-also checked for binary content when read.
-**Open Source** and **Open Target** open the corresponding file with its
-Windows-associated application. **Open Ext Diff** sends both files to the
-selected external diff command. Presets are provided for VS Code, MIFES,
-WinMerge, and Visual Studio, and the last selected command is retained. When
-an externally edited file changes, DIM refreshes the affected file and reloads
-Diff View. Diff View itself remains read only.
-
-### Clean solutions before synchronization
-
-Click **Clean solution**, next to **Compare dates**, to choose solutions
-under Source and Target and the configurations to clean (initially
-`Debug;Release`). DIM runs MSBuild's **Clean** target, records the results,
-and compares the folders again afterward.
-
-**Warning: do not clean the solution from whose build output DIM is
-currently running.** Cleaning that solution can delete runtime dependencies
-such as `FastVolumeIndex.Core.dll`, causing an assembly-not-found error
-when DIM compares again. DIM disables solutions containing its running
-application folder and also refuses to clean them at execution time.
-
-To clean DIM's own solution, copy the complete release package, including
-its DLLs and `Assets` folder, to a separate folder outside both comparison
-roots and start DIM there. If a previous clean has already removed a DLL,
-restore the complete release package or rebuild DIM, then restart it.
-
-### Synchronize selected differences
-
-Choose **Source to Target** (down arrow) or **Target to Source** (up arrow), then review the file count
-and the copy, overwrite, and delete totals before running synchronization.
-Only checked differences are processed, including checked files currently
-hidden by a filter.
-
-Files present only on the sending side are copied; files that differ on
-both sides are overwritten. **A checked file present only on the receiving
-side is deleted from that side.** Results and failures are recorded in the
-sync log, and comparison runs again afterward to refresh remaining
-differences.
-
-After copying or replacing a file, DIM sets the destination timestamp and
-verifies its size, timestamp, or expected absence before logging success.
-Google Drive's virtual drive can round timestamps, so cloud copies can fail
-this verification even when the file contents were copied.
+The older [SMVVM progress memo](docs/smvvm-progress.md) is historical.
+v3.0.0 includes the subsequent refactoring, UI finishing, unused-code cleanup,
+and updated screenshots.

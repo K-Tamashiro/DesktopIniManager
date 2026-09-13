@@ -27,16 +27,21 @@ namespace DesktopIniManager.Views
         private RichTextBox leftList, rightList;
         private ScrollViewer leftScroll, rightScroll;
         private Canvas map;
+        private Border hunkOverlay;
+        private int hunkStart = -1;
+        private int hunkEnd = -1;
         private Thumb viewportThumb;
         private double viewportDragTop;
         private double sharedTextWidth;
+        private const double DiffLineHeight = 22;
         private HwndSource inputSource;
         private int current { get => ViewModel.CurrentHunk; set => ViewModel.CurrentHunk = value; }
-        private bool scrolling, selecting;
+        private bool scrolling;
+        private bool imagePanning;
+        private Point imagePanLast;
         private SizeChangedEventHandler imageFitHandler;
 
         internal DiffSnapshot Snapshot => ViewModel.Snapshot;
-        internal DiffFile Difference => ViewModel.File;
 
         internal DiffViewWindow(DiffSnapshot snapshot, DiffFile file)
         {
@@ -46,6 +51,10 @@ namespace DesktopIniManager.Views
             ViewModel.JumpRequested += Jump;
             ViewModel.ReloadRequested = LoadContent;
             ViewModel.CloseRequested += Close;
+            if (CloseButtonIcon != null)
+                CloseButtonIcon.Source = DifferencerStatusIcons.GetCustomIcon(26);
+            if (ExternalDiffLabelIcon != null)
+                ExternalDiffLabelIcon.Source = DifferencerStatusIcons.GetCustomIcon(52);
             ViewModel.ExternalDiffHistoryRequested += () => externalDiffBox.CommitHistory();
             ViewModel.RefreshFileRequested = async difference =>
             {
@@ -91,16 +100,15 @@ namespace DesktopIniManager.Views
             fileNavigationPanel.Children.Clear();
             if (!ViewModel.IsImage)
             {
-                AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(20), StringOverlay.Get(""), ViewModel.PreviousHunkCommand);
-                AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(21), StringOverlay.Get(""), ViewModel.NextHunkCommand);
+                AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(33), StringOverlay.Get("Diff_PreviousHunk"), ViewModel.PreviousHunkCommand);
+                AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(32), StringOverlay.Get("Diff_NextHunk"), ViewModel.NextHunkCommand);
             }
-            AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(17), StringOverlay.Get("Diff_OpenSource"), ViewModel.OpenSourceCommand);
-            AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(17), StringOverlay.Get("Diff_OpenTarget"), ViewModel.OpenTargetCommand);
-            var openExtDiffButton = AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(17), "Open Ext Diff", ViewModel.OpenExternalDiffCommand);
-            openExtDiffButton.SetResourceReference(Control.BackgroundProperty, "ExternalDiffButton");
-            openExtDiffButton.SetResourceReference(Control.ForegroundProperty, "ExternalDiffButtonForeground");
-            AddButton(fileNavigationPanel, DifferencerStatusIcons.GetCustomIcon(18), StringOverlay.Get(""), ViewModel.PreviousFileCommand);
-            AddButton(fileNavigationPanel, DifferencerStatusIcons.GetCustomIcon(19), StringOverlay.Get(""), ViewModel.NextFileCommand);
+            AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(53), StringOverlay.Get("Diff_OpenSource"), ViewModel.OpenSourceCommand);
+            AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(54), StringOverlay.Get("Diff_OpenTarget"), ViewModel.OpenTargetCommand);
+            var openExtDiffButton = AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(52), "Open Ext Diff", ViewModel.OpenExternalDiffCommand);
+            openExtDiffButton.Background = Brushes.Transparent;
+            AddButton(fileNavigationPanel, DifferencerStatusIcons.GetCustomIcon(40), StringOverlay.Get("Diff_PreviousFile"), ViewModel.PreviousFileCommand);
+            AddButton(fileNavigationPanel, DifferencerStatusIcons.GetCustomIcon(41), StringOverlay.Get("Diff_NextFile"), ViewModel.NextFileCommand);
         }
 
         private bool ScrollHorizontally(int delta)
@@ -160,6 +168,8 @@ namespace DesktopIniManager.Views
             leftList = rightList = null;
             leftScroll = rightScroll = null;
             map = null;
+            hunkOverlay = null;
+            hunkStart = hunkEnd = -1;
             viewportThumb = null;
             try
             {
@@ -177,8 +187,22 @@ namespace DesktopIniManager.Views
                 body.Children.Add(map);
                 map.SizeChanged += (s, e) => DrawMap();
                 DrawMap();
+                hunkOverlay = new Border
+                {
+                    BorderThickness = new Thickness(2),
+                    Background = Brushes.Transparent,
+                    IsHitTestVisible = false,
+                    Visibility = Visibility.Collapsed,
+                    SnapsToDevicePixels = true
+                };
+                hunkOverlay.BorderBrush = new SolidColorBrush(Color.FromRgb(255, 210, 0));
+                Grid.SetColumnSpan(hunkOverlay, 3);
+                Panel.SetZIndex(hunkOverlay, 2);
+                body.Children.Add(hunkOverlay);
                 leftList.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(ScrollChanged));
                 rightList.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(ScrollChanged));
+                leftList.PreviewMouseLeftButtonDown += DiffPane_PreviewMouseLeftButtonDown;
+                rightList.PreviewMouseLeftButtonDown += DiffPane_PreviewMouseLeftButtonDown;
                 if (hunks.Count > 0)
                 {
                     _ = Dispatcher.BeginInvoke(new Action(() =>
@@ -215,7 +239,7 @@ namespace DesktopIniManager.Views
             {
                 FontFamily = font,
                 FontSize = 13,
-                LineHeight = 22,
+                LineHeight = DiffLineHeight,
                 TextAlignment = TextAlignment.Right,
                 Padding = new Thickness(8, 0, 8, 0),
                 IsHitTestVisible = false
@@ -269,8 +293,9 @@ namespace DesktopIniManager.Views
             {
                 PagePadding = new Thickness(0),
                 TextAlignment = TextAlignment.Left,
-                LineHeight = 22,
-                PageWidth = Math.Max(sharedTextWidth + 24, 200)
+                LineHeight = DiffLineHeight,
+                PageWidth = Math.Max(sharedTextWidth + 24, 200),
+                PageHeight = Math.Max(DiffLineHeight * Math.Max(1, lines == null ? 1 : lines.Count) + 24, 200)
             };
             document.SetResourceReference(FlowDocument.BackgroundProperty, "CardBackground");
             document.SetResourceReference(FlowDocument.ForegroundProperty, "Ink");
@@ -283,7 +308,7 @@ namespace DesktopIniManager.Views
                 {
                     Margin = new Thickness(0),
                     Padding = new Thickness(0),
-                    LineHeight = 22,
+                    LineHeight = DiffLineHeight,
                     TextAlignment = TextAlignment.Left
                 };
                 string resource = LineBrushKey(line.Kind, sourceSide);
@@ -304,38 +329,105 @@ namespace DesktopIniManager.Views
             return null;
         }
 
-        private Brush ThemeBrush(string key, Color fallback)
+        private void DiffPane_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            return TryFindResource(key) as Brush ?? new SolidColorBrush(fallback);
+            var box = sender as RichTextBox;
+            if (box == null || lines == null || lines.Count == 0) return;
+
+            if (leftScroll == null) leftScroll = FindScroll(leftList);
+            if (rightScroll == null) rightScroll = FindScroll(rightList);
+            ScrollViewer scroll = box == rightList ? rightScroll : leftScroll;
+            if (scroll == null) scroll = FindScroll(box);
+            if (scroll == null) return;
+
+            double y = e.GetPosition(box).Y + scroll.VerticalOffset;
+            int index = (int)Math.Floor(y / DiffLineHeight);
+            if (index < 0 || index >= lines.Count) return;
+            if (lines[index].Kind == DiffLineKind.Unchanged) return;
+            SelectHunk(index, scrollToStart: false);
         }
 
-        /// <summary>Returns the theme brush used for a line difference.</summary>
-        private Brush ColorFor(DiffLineKind kind)
-        {
-            if (kind == DiffLineKind.Added) return ThemeBrush("DiffAdded", Color.FromRgb(0x1A, 0x3F, 0x32));
-            if (kind == DiffLineKind.Removed) return ThemeBrush("DiffRemoved", Color.FromRgb(0x5A, 0x24, 0x30));
-            return ThemeBrush("DiffAdded", Color.FromRgb(0x1A, 0x3F, 0x32));
-        }
+        private void Jump(int index) => SelectHunk(index, scrollToStart: true);
 
-        /// <summary>Returns the overview-map brush used for a line difference.</summary>
-        private Brush MapBrush(DiffLineKind kind)
-        {
-            if (kind != DiffLineKind.Modified) return ColorFor(kind);
-            return new LinearGradientBrush(new GradientStopCollection
-            {
-                new GradientStop(((SolidColorBrush)ThemeBrush("DiffRemoved", Color.FromRgb(0x5A, 0x24, 0x30))).Color, 0),
-                new GradientStop(((SolidColorBrush)ThemeBrush("DiffRemoved", Color.FromRgb(0x5A, 0x24, 0x30))).Color, 0.5),
-                new GradientStop(((SolidColorBrush)ThemeBrush("DiffAdded", Color.FromRgb(0x1A, 0x3F, 0x32))).Color, 0.5),
-                new GradientStop(((SolidColorBrush)ThemeBrush("DiffAdded", Color.FromRgb(0x1A, 0x3F, 0x32))).Color, 1)
-            }, 0);
-        }
-
-        private void Jump(int index)
+        private void SelectHunk(int index, bool scrollToStart)
         {
             if (lines == null || index < 0 || index >= lines.Count) return;
-            ScrollPaneToLine(leftList, index);
-            ScrollPaneToLine(rightList, index);
-            current = hunks.IndexOf(index);
+            int start = index;
+            while (start > 0 && lines[start - 1].Kind != DiffLineKind.Unchanged)
+                start--;
+            if (lines[start].Kind == DiffLineKind.Unchanged)
+            {
+                start = index;
+                while (start < lines.Count && lines[start].Kind == DiffLineKind.Unchanged)
+                    start++;
+                if (start >= lines.Count) return;
+            }
+            int end = start + 1;
+            while (end < lines.Count && lines[end].Kind != DiffLineKind.Unchanged)
+                end++;
+
+            hunkStart = start;
+            hunkEnd = end;
+            int hunkIndex = hunks.IndexOf(start);
+            if (hunkIndex < 0)
+            {
+                hunkIndex = hunks.FindLastIndex(item => item <= start);
+                if (hunkIndex < 0) hunkIndex = 0;
+            }
+            current = hunkIndex;
+
+            if (scrollToStart)
+            {
+                ScrollPaneToLine(leftList, start);
+                ScrollPaneToLine(rightList, start);
+            }
+            Dispatcher.BeginInvoke(new Action(UpdateHunkOverlay), DispatcherPriority.Loaded);
+        }
+
+        private void UpdateHunkOverlay()
+        {
+            if (hunkOverlay == null || hunkStart < 0 || hunkEnd <= hunkStart || lines == null)
+            {
+                if (hunkOverlay != null) hunkOverlay.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            if (leftScroll == null) leftScroll = FindScroll(leftList);
+            if (leftScroll == null)
+            {
+                hunkOverlay.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            Point viewTop = leftScroll.TranslatePoint(new Point(0, 0), body);
+            double offset = leftScroll.VerticalOffset;
+            double viewHeight = leftScroll.ViewportHeight;
+            if (viewHeight <= 0) viewHeight = body.ActualHeight;
+            double hunkTop = viewTop.Y + hunkStart * DiffLineHeight - offset;
+            double hunkBottom = viewTop.Y + hunkEnd * DiffLineHeight - offset;
+            double clipTop = viewTop.Y;
+            double clipBottom = viewTop.Y + viewHeight;
+
+            if (hunkBottom <= clipTop || hunkTop >= clipBottom)
+            {
+                hunkOverlay.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            bool showTopEdge = hunkTop >= clipTop - 0.5;
+            bool showBottomEdge = hunkBottom <= clipBottom + 0.5;
+            double y = Math.Max(clipTop, hunkTop);
+            double bottom = Math.Min(clipBottom, hunkBottom);
+            double height = bottom - y;
+            if (height < 1)
+            {
+                hunkOverlay.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            hunkOverlay.BorderThickness = new Thickness(2, showTopEdge ? 2 : 0, 2, showBottomEdge ? 2 : 0);
+            hunkOverlay.Margin = new Thickness(0, y, 0, Math.Max(0, body.ActualHeight - y - height));
+            hunkOverlay.Visibility = Visibility.Visible;
         }
 
         private static void ScrollPaneToLine(RichTextBox box, int index)
@@ -369,6 +461,7 @@ namespace DesktopIniManager.Views
             if (rightScroll == null) rightScroll = FindScroll(rightList);
             if (from != leftScroll && from != rightScroll) return;
             UpdateViewport(from);
+            UpdateHunkOverlay();
             if (e.VerticalChange == 0 && e.HorizontalChange == 0) return;
             var to = from == leftScroll ? rightScroll : leftScroll; if (to == null) return;
             scrolling = true; to.ScrollToVerticalOffset(from.VerticalOffset); to.ScrollToHorizontalOffset(from.HorizontalOffset); scrolling = false;
@@ -465,12 +558,32 @@ namespace DesktopIniManager.Views
             var leftCanvas = ImageCanvas(left, width, height); var rightCanvas = ImageCanvas(right, width, height);
             leftScroll = ThemedViewer(leftCanvas);
             rightScroll = ThemedViewer(rightCanvas);
+            EnableImagePan(leftScroll);
+            EnableImagePan(rightScroll);
             body.Children.Add(leftScroll);
             Grid.SetColumn(rightScroll, 2);
             body.Children.Add(rightScroll);
             leftScroll.ScrollChanged += ScrollChanged;
             rightScroll.ScrollChanged += ScrollChanged;
-            var zoom = new Slider { Minimum = 0.001, Maximum = 16, Value = 1, Width = 170, ToolTip = "Shared zoom for Source and Target", VerticalAlignment = VerticalAlignment.Center };
+            var zoom = new Slider
+            {
+                Minimum = 0.05,
+                Maximum = 16,
+                Value = 1,
+                Width = 180,
+                ToolTip = "Shared zoom for Source and Target",
+                VerticalAlignment = VerticalAlignment.Center,
+                Style = TryFindResource("ZoomSlider") as Style
+            };
+            var zoomLabel = new TextBlock
+            {
+                MinWidth = 48,
+                Margin = new Thickness(8, 0, 4, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                FontWeight = FontWeights.SemiBold,
+                Text = "100%"
+            };
+            zoomLabel.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
             bool fitToWindow = true, fitting = false;
             Action fit = () =>
             {
@@ -486,14 +599,54 @@ namespace DesktopIniManager.Views
             if (wrapper != null)
             {
                 wrapper.Children.Clear();
-                wrapper.Children.Add(new TextBlock { Text = StringOverlay.Get("Diff_Zoom"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
-                wrapper.Children.Add(zoom);
-                AddButton(wrapper, "\uE9A6", StringOverlay.Get("Diff_Fit"), () => { fitToWindow = true; fit(); });
-                AddButton(wrapper, "\uE91F", "100%", () => { fitToWindow = false; zoom.Value = 1; });
+                var chrome = new Border
+                {
+                    CornerRadius = new CornerRadius(18),
+                    Padding = new Thickness(10, 4, 12, 4),
+                    Margin = new Thickness(0, 0, 8, 8),
+                    Child = new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        VerticalAlignment = VerticalAlignment.Center
+                    }
+                };
+                chrome.SetResourceReference(Border.BackgroundProperty, "CardBackground");
+                chrome.SetResourceReference(Border.BorderBrushProperty, "Line");
+                chrome.BorderThickness = new Thickness(1);
+                var chromeRow = (StackPanel)chrome.Child;
+                var zoomTitle = new TextBlock
+                {
+                    Text = StringOverlay.Get("Diff_Zoom"),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(2, 0, 8, 0),
+                    FontWeight = FontWeights.SemiBold
+                };
+                zoomTitle.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
+                chromeRow.Children.Add(zoomTitle);
+                chromeRow.Children.Add(ImageZoomStepButton("\uE738", "Zoom out", () =>
+                {
+                    fitToWindow = false;
+                    zoom.Value = Math.Max(zoom.Minimum, zoom.Value / 1.25);
+                }));
+                chromeRow.Children.Add(zoom);
+                chromeRow.Children.Add(ImageZoomStepButton("\uE710", "Zoom in", () =>
+                {
+                    fitToWindow = false;
+                    zoom.Value = Math.Min(zoom.Maximum, zoom.Value * 1.25);
+                }));
+                chromeRow.Children.Add(zoomLabel);
+                wrapper.Children.Add(chrome);
+                AddIconActionButton(wrapper, DifferencerStatusIcons.GetCustomIcon(72), StringOverlay.Get("Diff_Fit"), () => { fitToWindow = true; fit(); });
+                AddIconActionButton(wrapper, DifferencerStatusIcons.GetCustomIcon(73), "100%", () => { fitToWindow = false; zoom.Value = 1; });
                 wrapper.Visibility = Visibility.Visible;
             }
-            zoom.ValueChanged += (s, e) => { leftCanvas.LayoutTransform = new ScaleTransform(e.NewValue, e.NewValue); rightCanvas.LayoutTransform = new ScaleTransform(e.NewValue, e.NewValue); };
-            zoom.ValueChanged += (s, e) => { if (!fitting) fitToWindow = false; };
+            zoom.ValueChanged += (s, e) =>
+            {
+                leftCanvas.LayoutTransform = new ScaleTransform(e.NewValue, e.NewValue);
+                rightCanvas.LayoutTransform = new ScaleTransform(e.NewValue, e.NewValue);
+                zoomLabel.Text = string.Format("{0:0}%", e.NewValue * 100);
+                if (!fitting) fitToWindow = false;
+            };
             imageFitHandler = (s, e) => fit();
             body.SizeChanged += imageFitHandler;
             await Dispatcher.InvokeAsync(fit, System.Windows.Threading.DispatcherPriority.Loaded);
@@ -506,7 +659,9 @@ namespace DesktopIniManager.Views
                 Content = content,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
-                BorderThickness = new Thickness(1)
+                BorderThickness = new Thickness(1),
+                Cursor = Cursors.SizeAll,
+                PanningMode = PanningMode.Both
             };
             viewer.SetResourceReference(Control.BackgroundProperty, "CardBackground");
             viewer.SetResourceReference(Control.ForegroundProperty, "Ink");
@@ -514,9 +669,97 @@ namespace DesktopIniManager.Views
             return viewer;
         }
 
+        private void EnableImagePan(ScrollViewer viewer)
+        {
+            if (viewer == null) return;
+            viewer.PreviewMouseLeftButtonDown += ImageViewer_PreviewMouseLeftButtonDown;
+            viewer.PreviewMouseMove += ImageViewer_PreviewMouseMove;
+            viewer.PreviewMouseLeftButtonUp += ImageViewer_PreviewMouseLeftButtonUp;
+            viewer.LostMouseCapture += (s, e) => StopImagePan();
+        }
+
+        private void ImageViewer_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (FindAncestor<System.Windows.Controls.Primitives.ScrollBar>(e.OriginalSource as DependencyObject) != null)
+                return;
+            var viewer = sender as ScrollViewer;
+            if (viewer == null) return;
+            imagePanning = true;
+            imagePanLast = e.GetPosition(viewer);
+            viewer.CaptureMouse();
+            viewer.Cursor = Cursors.SizeAll;
+            e.Handled = true;
+        }
+
+        private void ImageViewer_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (!imagePanning || e.LeftButton != MouseButtonState.Pressed) return;
+            var viewer = sender as ScrollViewer;
+            if (viewer == null) return;
+            Point now = e.GetPosition(viewer);
+            Vector delta = now - imagePanLast;
+            imagePanLast = now;
+            if (leftScroll == null || rightScroll == null) return;
+            scrolling = true;
+            leftScroll.ScrollToHorizontalOffset(leftScroll.HorizontalOffset - delta.X);
+            leftScroll.ScrollToVerticalOffset(leftScroll.VerticalOffset - delta.Y);
+            rightScroll.ScrollToHorizontalOffset(rightScroll.HorizontalOffset - delta.X);
+            rightScroll.ScrollToVerticalOffset(rightScroll.VerticalOffset - delta.Y);
+            scrolling = false;
+            e.Handled = true;
+        }
+
+        private void ImageViewer_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (!imagePanning) return;
+            StopImagePan();
+            e.Handled = true;
+        }
+
+        private void StopImagePan()
+        {
+            if (!imagePanning) return;
+            imagePanning = false;
+            if (leftScroll != null && leftScroll.IsMouseCaptured) leftScroll.ReleaseMouseCapture();
+            if (rightScroll != null && rightScroll.IsMouseCaptured) rightScroll.ReleaseMouseCapture();
+        }
+
+        private static T FindAncestor<T>(DependencyObject current) where T : DependencyObject
+        {
+            while (current != null)
+            {
+                if (current is T match) return match;
+                current = VisualTreeHelper.GetParent(current);
+            }
+            return null;
+        }
+
+        private Button ImageZoomStepButton(string glyph, string tip, Action action)
+        {
+            var button = new Button
+            {
+                Content = new TextBlock
+                {
+                    Text = glyph,
+                    FontFamily = new FontFamily("Segoe MDL2 Assets"),
+                    FontSize = 12,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                },
+                Width = 28,
+                Height = 28,
+                Margin = new Thickness(2, 0, 2, 0),
+                Background = Brushes.Transparent,
+                ToolTip = tip,
+                Style = TryFindResource("IconButton") as Style
+            };
+            button.Click += (s, e) => action();
+            return button;
+        }
+
         private static Canvas ImageCanvas(BitmapSource image, double width, double height)
         {
-            var canvas = new Canvas { Width = width, Height = height };
+            var canvas = new Canvas { Width = width, Height = height, Cursor = Cursors.SizeAll };
             canvas.SetResourceReference(Panel.BackgroundProperty, "CardBackground");
             if (image != null) canvas.Children.Add(new Image { Source = image, Width = image.PixelWidth, Height = image.PixelHeight, Stretch = Stretch.Fill });
             else canvas.Children.Add(new TextBlock { Text = "Missing", Margin = new Thickness(12) });
@@ -525,13 +768,46 @@ namespace DesktopIniManager.Views
 
         private Button AddButton(Panel panel, ImageSource icon, string text, ICommand command)
         {
-            var content = new StackPanel { Orientation = Orientation.Horizontal };
-            if (icon != null)
-                content.Children.Add(new Image { Source = icon, Width = 16, Height = 16, Stretch = Stretch.Uniform, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) });
-            content.Children.Add(new TextBlock { Text = text, VerticalAlignment = VerticalAlignment.Center });
-            var button = new Button { Content = content, Style = TryFindResource("IconTextButton") as Style, ToolTip = text, Margin = new Thickness(0, 0, 8, 8) };
-            System.Windows.Automation.AutomationProperties.SetName(button, text);
+            var image = new Image
+            {
+                Source = icon,
+                Stretch = Stretch.Uniform,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            RenderOptions.SetBitmapScalingMode(image, BitmapScalingMode.HighQuality);
+            var button = new Button
+            {
+                Content = image,
+                Style = TryFindResource("IconButton") as Style,
+                Background = Brushes.Transparent,
+                ToolTip = text,
+                Margin = new Thickness(0, 0, 8, 8)
+            };
+            System.Windows.Automation.AutomationProperties.SetName(button, text ?? string.Empty);
             button.Command = command;
+            panel.Children.Add(button);
+            return button;
+        }
+
+        private Button AddIconActionButton(Panel panel, ImageSource icon, string text, Action action)
+        {
+            var image = new Image
+            {
+                Source = icon,
+                Stretch = Stretch.Uniform,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            RenderOptions.SetBitmapScalingMode(image, BitmapScalingMode.HighQuality);
+            var button = new Button
+            {
+                Content = image,
+                Style = TryFindResource("IconButton") as Style,
+                Background = Brushes.Transparent,
+                ToolTip = text,
+                Margin = new Thickness(0, 0, 8, 8)
+            };
+            System.Windows.Automation.AutomationProperties.SetName(button, text ?? string.Empty);
+            button.Click += (s, e) => action();
             panel.Children.Add(button);
             return button;
         }

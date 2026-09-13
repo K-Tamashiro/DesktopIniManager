@@ -27,7 +27,7 @@ namespace DesktopIniManager.ViewModels
 
         private static ImageSource[] Load()
         {
-            var result = new ImageSource[23]; // 0〜22まで拡張
+            var result = new ImageSource[88];
             try
             {
                 string baseDir = AppDomain.CurrentDomain.BaseDirectory;
@@ -57,7 +57,8 @@ namespace DesktopIniManager.ViewModels
         public static ImageSource GetFileIcon(DiffKind kind) { return Get(Index(kind, 4)); }
         public static ImageSource GetBuildFolderIcon(bool obj) { return Get(obj ? 8 : 9); }
         public static ImageSource GetRefreshIcon() { return Get(10); }
-        public static ImageSource GetCustomIcon(int index) { return Get(index); } // 追加
+        public static ImageSource GetCustomIcon(int index) { return Get(index); }
+        public static ImageSource GetSolutionIcon() { return Get(22) ?? Get(21); }
         // ...
         private static int Index(DiffKind kind, int offset)
         {
@@ -231,17 +232,6 @@ namespace DesktopIniManager.ViewModels
         public DiffSide Source { get { return source ?? (source = new DiffSide { Info = File.SourceInfo, Root = SourceRoot, Relative = File.RelativePath, Exists = File.Source != null }); } set { source = value; } }
         public DiffSide Target { get { return target ?? (target = new DiffSide { Info = File.TargetInfo, Root = TargetRoot, Relative = File.RelativePath, Exists = File.Target != null }); } set { target = value; } }
         public string Extension { get { return Path.GetExtension(File.RelativePath); } }
-        public string PathDirectory
-        {
-            get
-            {
-                string relative = File == null ? string.Empty : File.RelativePath ?? string.Empty;
-                string directory = Path.GetDirectoryName(relative);
-                if (string.IsNullOrEmpty(directory)) return string.Empty;
-                return directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                    + Path.DirectorySeparatorChar;
-            }
-        }
         public string PathFileName
         {
             get

@@ -165,9 +165,6 @@ namespace DesktopIniManager.ViewModels
 
         private readonly Dispatcher Dispatcher;
         private readonly IUserDialogService _dialogs;
-        public ObservableCollection<FolderMatch> PhysicalRoots => _treeRoots;
-        public ObservableCollection<FolderMatch> SolutionRoots => _solutionRoots;
-        public ObservableCollection<FolderMatch> SearchRoots => _searchRoots;
         public ObservableCollection<FileListItem> Files => _files;
         public int SelectedIconIndex => _selectedIconIndex;
         public FolderMatch SearchTabRoot => _searchRoots.Count == 0 ? null : _searchRoots[0];

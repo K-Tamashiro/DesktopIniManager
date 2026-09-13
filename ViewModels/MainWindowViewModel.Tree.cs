@@ -15,9 +15,32 @@ namespace DesktopIniManager.ViewModels
 {
     internal sealed partial class MainWindowViewModel
     {
-        internal void SortPhysicalTree()
+
+        internal static bool IsDroppedTreeFolder(string name) =>
+            string.Equals(name, ".vs", StringComparison.OrdinalIgnoreCase);
+
+        internal static bool IsDroppedTreePath(string path)
         {
-            SortCollection(_treeRoots);
+            if (string.IsNullOrWhiteSpace(path)) return false;
+            string[] parts = path.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+            return parts.Any(part => IsDroppedTreeFolder(part));
+        }
+
+        internal static bool IsInitiallyCollapsedFolder(FolderMatch item)
+        {
+            string name = item?.Name;
+            return string.Equals(name, "bin", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, "obj", StringComparison.OrdinalIgnoreCase);
+        }
+
+        internal static void CollapseBuildOutputFolders(IEnumerable<FolderMatch> items)
+        {
+            if (items == null) return;
+            foreach (FolderMatch item in items)
+            {
+                if (IsInitiallyCollapsedFolder(item))
+                    item.IsExpanded = false;
+            }
         }
 
         internal static void SortCollection(ObservableCollection<FolderMatch> items)
@@ -36,23 +59,46 @@ namespace DesktopIniManager.ViewModels
         }
 
         internal IEnumerable<FolderMatch> SelectableFolders() =>
-            CurrentItems().Where(item => item.IsActionable && !item.IsHidden && !item.IsFilterHidden);
+            CurrentItems().Where(item => !item.IsHidden && !item.IsFilterHidden);
 
         internal void InvertSelection()
         {
             foreach (FolderMatch item in SelectableFolders())
                 item.SetSelected(!item.IsSelected);
+            SyncAllFoldersSelectedFlag();
         }
 
         internal void ExpandAll() { foreach (var item in CurrentItems()) item.IsExpanded = true; }
 
         internal void CollapseAll() { foreach (var item in CurrentItems()) item.IsExpanded = false; }
 
-        internal void ShowTreeView(int view) { if (view != 2) _baseTreeView = view; _treeView = view; _solutionView = view == 1; OnPropertyChanged(nameof(SelectedTreeView)); TreeItems = view == 0 ? _treeRoots : view == 1 ? _solutionRoots : _searchRoots; _ = ApplyFolderFilterAsync(); UpdateVisibleCount(); Status = view == 0 ? string.Format(Strings.Main_FoldersFound, _results.Count) : view == 1 ? string.Format(Strings.Main_SolutionsFound, _solutionRoots.Count) : string.Format(Strings.Main_SearchResults, _searchResultCount); }
+        internal void ShowTreeView(int view)
+        {
+            if (view != 2) _baseTreeView = view;
+            _treeView = view;
+            _solutionView = view == 1;
+            OnPropertyChanged(nameof(SelectedTreeView));
+            TreeItems = view == 0 ? _treeRoots : view == 1 ? _solutionRoots : _searchRoots;
+            _ = ApplyFolderFilterAsync();
+            UpdateVisibleCount();
+            SyncAllFoldersSelectedFlag();
+            Status = view == 0
+                ? string.Format(Strings.Main_FoldersFound, _results.Count)
+                : view == 1
+                    ? string.Format(Strings.Main_SolutionsFound, _solutionRoots.Count)
+                    : string.Format(Strings.Main_SearchResults, _searchResultCount);
+        }
+
+        internal void SyncAllFoldersSelectedFlag()
+        {
+            IEnumerable<FolderMatch> items = SelectableFolders();
+            bool all = items.Any() && items.All(item => item.IsSelected);
+            if (_allFoldersSelected == all) return;
+            _allFoldersSelected = all;
+            OnPropertyChanged(nameof(AllFoldersSelected));
+        }
 
         internal void RefreshTreeItemsSource() { TreeItems = _treeView == 0 ? _treeRoots : _treeView == 1 ? _solutionRoots : _searchRoots; }
-
-        internal void ShowSolutionView() => ShowTreeView(1);
 
         internal void UpdateVisibleCount()
         {
@@ -89,55 +135,9 @@ namespace DesktopIniManager.ViewModels
             }
         }
 
-        internal void AddTreeResult(FolderMatch item)
-        {
-            FolderMatch parent = _results
-                .Where(candidate => IsAncestorPath(candidate.Path, item.Path))
-                .OrderByDescending(candidate => candidate.Path.Length)
-                .FirstOrDefault();
-            _results.Add(item);
-            if (parent == null) { item.Parent = null; _treeRoots.Add(item); }
-            else { item.Parent = parent; parent.Children.Add(item); }
-
-            // Re-parent roots that arrived before their newly discovered ancestor.
-            foreach (FolderMatch root in _treeRoots.Where(candidate => !ReferenceEquals(candidate, item) && IsAncestorPath(item.Path, candidate.Path)).ToList())
-            {
-                _treeRoots.Remove(root);
-                root.Parent = item;
-                item.Children.Add(root);
-            }
-            CountLabel = string.Format(Strings.Main_NMatches, _results.Count);
-        }
-
-        internal void AddTreeResults(IEnumerable<FolderMatch> items)
-        {
-            bool physicalViewVisible = ReferenceEquals(TreeItems, _treeRoots);
-            if (physicalViewVisible) TreeItems = null;
-            var byPath = new Dictionary<string, FolderMatch>(StringComparer.OrdinalIgnoreCase);
-            try
-            {
-                foreach (FolderMatch item in items.OrderBy(item => item.Path.Length).ThenBy(item => item.Path, StringComparer.CurrentCultureIgnoreCase))
-                {
-                    _results.Add(item);
-                    byPath[item.Path.TrimEnd(Path.DirectorySeparatorChar)] = item;
-                    string parentPath = Path.GetDirectoryName(item.Path.TrimEnd(Path.DirectorySeparatorChar));
-                    FolderMatch parent = null;
-                    while (!string.IsNullOrEmpty(parentPath))
-                    {
-                        if (byPath.TryGetValue(parentPath.TrimEnd(Path.DirectorySeparatorChar), out parent)) break;
-                        parentPath = Path.GetDirectoryName(parentPath);
-                    }
-                    if (parent == null) { item.Parent = null; _treeRoots.Add(item); }
-                    else { item.Parent = parent; parent.Children.Add(item); }
-                }
-            }
-            finally { if (physicalViewVisible) TreeItems = _treeRoots; }
-            CountLabel = string.Format(Strings.Main_NMatches, _results.Count);
-        }
-
         internal async Task AddTreeResultsAsync(IEnumerable<FolderMatch> items, CancellationToken token, bool intoSearch = false)
         {
-            List<FolderMatch> source = items.ToList();
+            List<FolderMatch> source = items.Where(item => !IsDroppedTreePath(item.Path)).ToList();
             Status = string.Format(Strings.Main_BuildingRows, source.Count.ToString("N0"));
             TreeBuildResult built = await Task.Run(() =>
             {
@@ -160,8 +160,11 @@ namespace DesktopIniManager.ViewModels
                     else { item.Parent = parent; parent.Children.Add(item); }
                 }
                 foreach (FolderMatch root in roots) SortCollection(root.Children);
-                foreach (FolderMatch item in source) item.IsExpanded = false;
-                foreach (FolderMatch root in roots) root.IsExpanded = true;
+                foreach (FolderMatch item in source)
+                    item.IsExpanded = false;
+                foreach (FolderMatch root in roots)
+                    root.IsExpanded = !IsInitiallyCollapsedFolder(root);
+                CollapseBuildOutputFolders(source);
                 roots.Sort((left, right) =>
                 {
                     int name = StringComparer.CurrentCultureIgnoreCase.Compare(left.Name, right.Name);
@@ -187,16 +190,13 @@ namespace DesktopIniManager.ViewModels
             CountLabel = string.Format(Strings.Main_NFolders, _results.Count);
         }
 
-        internal static bool IsAncestorPath(string parent, string child)
-        {
-            string prefix = parent.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
-            return child.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
-        }
-
         internal void HideSelected()
         {
             foreach (FolderMatch item in CurrentItems())
-                item.IsHidden = !item.IsSelected;
+            {
+                if (item.IsSelected)
+                    item.IsHidden = true;
+            }
             UpdateVisibleCount();
         }
 
@@ -359,6 +359,17 @@ namespace DesktopIniManager.ViewModels
             return selected;
         }
 
+        internal static void ApplySolutionRootIcons(IEnumerable<FolderMatch> roots)
+        {
+            var icon = DifferencerStatusIcons.GetSolutionIcon();
+            if (icon == null || roots == null) return;
+            foreach (FolderMatch root in roots)
+            {
+                if (root != null)
+                    root.IconPreview = icon;
+            }
+        }
+
         internal void RestoreFolderTrees()
         {
             try
@@ -371,6 +382,7 @@ namespace DesktopIniManager.ViewModels
                 var solution = _startup != null ? _startup.Solution : FolderTreeStateService.Restore(state.Solution, icons: icons);
                 foreach (var node in physical) _treeRoots.Add(node);
                 foreach (var node in solution) _solutionRoots.Add(node);
+                ApplySolutionRootIcons(_solutionRoots);
                 foreach (var node in Flatten(_treeRoots)) _results.Add(node);
                 _physicalCurrent = _results.FirstOrDefault(node => node.IsCurrent);
                 _solutionCurrent = Flatten(_solutionRoots).FirstOrDefault(node => node.IsCurrent);

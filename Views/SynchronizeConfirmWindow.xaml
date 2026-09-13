@@ -56,11 +56,32 @@
       <RowDefinition Height="Auto" />
       <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
-    <TextBlock
-      FontSize="24"
-      FontWeight="SemiBold"
-      Foreground="{DynamicResource Accent}"
-      Text="Synchronize selected files" />
+    <Grid>
+      <TextBlock
+        x:Name="HeadingText"
+        Margin="0,0,120,0"
+        FontSize="24"
+        FontWeight="SemiBold"
+        Foreground="{DynamicResource Accent}" />
+      <StackPanel
+        HorizontalAlignment="Right"
+        VerticalAlignment="Center"
+        Orientation="Horizontal">
+        <Image
+          x:Name="DirectionLeftIcon"
+          Width="48"
+          Height="48"
+          Margin="0,0,8,0"
+          RenderOptions.BitmapScalingMode="HighQuality"
+          Stretch="Uniform" />
+        <Image
+          x:Name="DirectionRightIcon"
+          Width="48"
+          Height="48"
+          RenderOptions.BitmapScalingMode="HighQuality"
+          Stretch="Uniform" />
+      </StackPanel>
+    </Grid>
     <TextBlock
       x:Name="SummaryText"
       Grid.Row="1"
@@ -76,7 +97,7 @@
       CornerRadius="6">
       <Grid>
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="70" />
+          <ColumnDefinition Width="Auto" />
           <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
@@ -84,21 +105,21 @@
           <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <TextBlock
+          x:Name="SourceLabelText"
           Margin="0,0,12,8"
           FontWeight="SemiBold"
-          Foreground="{DynamicResource Muted}"
-          Text="Source" />
+          Foreground="{DynamicResource Muted}" />
         <TextBlock
           x:Name="SourcePathText"
           Grid.Column="1"
           Margin="0,0,0,8"
           TextTrimming="CharacterEllipsis" />
         <TextBlock
+          x:Name="TargetLabelText"
           Grid.Row="1"
           Margin="0,0,12,0"
           FontWeight="SemiBold"
-          Foreground="{DynamicResource Muted}"
-          Text="Target" />
+          Foreground="{DynamicResource Muted}" />
         <TextBlock
           x:Name="TargetPathText"
           Grid.Row="1"
@@ -139,18 +160,19 @@
         VerticalAlignment="Center"
         FontSize="12"
         Foreground="{DynamicResource Muted}"
-        Text="Existing files may be overwritten or removed." />
+        x:Name="WarningText" />
       <Button
         x:Name="CancelButton"
         Grid.Column="1"
-        Height="34"
-        MinWidth="96"
+        Width="36"
+        Height="36"
+        MinWidth="36"
         Margin="12,0,0,0"
-        Background="{DynamicResource Secondary}"
+        Background="Transparent"
         Click="Cancel_Click"
-        Foreground="{DynamicResource Ink}"
         IsCancel="True"
-        Style="{DynamicResource DifferencerActionButton}" />
+        Style="{StaticResource IconButton}"
+        ToolTip="Cancel" />
       <Button
         x:Name="SyncButton"
         Grid.Column="2"

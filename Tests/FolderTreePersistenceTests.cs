@@ -57,15 +57,19 @@ internal static class FolderTreePersistenceTests
         Nodes(first, "_searchRoots").Add(new FolderMatch { Path = "search-only" });
         first.ViewModel.ShowTreeView(2);
         Save(first);
-        Check(FolderTreeStateService.Load().Icons.Count == 1, "shared icons are stored once for both trees");
+        var stored = FolderTreeStateService.Load();
+        Check(stored.Icons.Count == 2 && stored.Physical.Single().Icon == stored.Physical.Single().Children.Single().Icon
+            && stored.Solution.Single().Icon != stored.Physical.Single().Icon,
+            "physical folders share one stored icon and solution roots retain their dedicated icon");
         var second = new MainWindow();
-        Check(ReferenceEquals(Nodes(second, "_treeRoots").Single().IconPreview, Nodes(second, "_solutionRoots").Single().IconPreview),
-            "icons are restored and shared without rescanning directories");
+        Check(ReferenceEquals(Nodes(second, "_treeRoots").Single().IconPreview, Nodes(second, "_treeRoots").Single().Children.Single().IconPreview)
+            && ReferenceEquals(Nodes(second, "_solutionRoots").Single().IconPreview, DifferencerStatusIcons.GetSolutionIcon()),
+            "physical icons are restored and shared while solution roots use the solution icon");
         Check(Nodes(second, "_treeRoots").Single().Children.Single().IsCurrent && Nodes(second, "_searchRoots").Count == 0,
             "Search view cannot replace base trees or their current folder");
         Check(!Nodes(second, "_treeRoots").Single().Children.Single().IsFilterHidden,
             "temporary filtering is not persisted");
-        second.ViewModel._rebuildingFolderTrees = true;
+        typeof(MainWindowViewModel).GetField("_rebuildingFolderTrees", Private).SetValue(second.ViewModel, true);
         Nodes(second, "_treeRoots").Clear();
         Save(second);
         Check(FolderTreeStateService.Load().Physical.Single().Children.Count == 1,

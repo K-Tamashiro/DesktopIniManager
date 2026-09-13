@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace DesktopIniManager.Services
 {
@@ -15,8 +14,6 @@ namespace DesktopIniManager.Services
         public DiffLineKind Kind { get; set; }
         public int LeftNumber { get; set; }
         public int RightNumber { get; set; }
-        public string LeftDisplay { get { return (LeftNumber == 0 ? "" : LeftNumber.ToString()).PadLeft(6) + "  " + (Left ?? "").Replace("\t", "    "); } }
-        public string RightDisplay { get { return (RightNumber == 0 ? "" : RightNumber.ToString()).PadLeft(6) + "  " + (Right ?? "").Replace("\t", "    "); } }
     }
     internal static class DiffTextService
     {

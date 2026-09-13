@@ -1,8 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Globalization;
-using System.Linq;
 using System.Text;
 
 namespace DesktopIniManager.Services
@@ -118,44 +116,6 @@ namespace DesktopIniManager.Services
             if (string.IsNullOrEmpty(args))
                 args = DefaultEditorArguments(command);
             WriteSetting(EditorArgumentsPath, args);
-        }
-
-        public static List<string> LoadHistory(string key)
-        {
-            var result = new List<string>();
-            string raw = ReadSetting(HistoryPath(key), null);
-            if (string.IsNullOrWhiteSpace(raw)) return result;
-            foreach (string line in raw.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
-            {
-                string value = line.Trim();
-                if (value.Length == 0) continue;
-                if (string.Equals(key, "editor", StringComparison.OrdinalIgnoreCase) &&
-                    value.IndexOf("sakura", StringComparison.OrdinalIgnoreCase) >= 0)
-                    continue;
-                if (result.Any(item => string.Equals(item, value, StringComparison.OrdinalIgnoreCase))) continue;
-                result.Add(value);
-                if (result.Count >= 20) break;
-            }
-            return result;
-        }
-
-        public static void SaveHistory(string key, IList<string> items)
-        {
-            if (items == null) return;
-            var lines = items
-                .Select(item => (item ?? string.Empty).Trim())
-                .Where(item => item.Length > 0)
-                .Where(item => !string.Equals(key, "editor", StringComparison.OrdinalIgnoreCase) ||
-                               item.IndexOf("sakura", StringComparison.OrdinalIgnoreCase) < 0)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Take(20);
-            WriteSetting(HistoryPath(key), string.Join(Environment.NewLine, lines));
-        }
-
-        private static string HistoryPath(string key)
-        {
-            string safe = string.Join("_", (key ?? "item").Split(Path.GetInvalidFileNameChars()));
-            return Path.Combine(SettingsDirectory, "history-" + safe + ".txt");
         }
 
         public static string LoadGrepProfile() => ReadSetting(GrepProfilePath, null);

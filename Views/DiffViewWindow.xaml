@@ -44,11 +44,15 @@
         x:Name="CloseButton"
         Grid.Column="2"
         VerticalAlignment="Center"
+        Background="Transparent"
         Command="{Binding CloseCommand}"
-        Content="&#xE711;"
-        FontFamily="Segoe MDL2 Assets"
         Style="{DynamicResource IconButton}"
-        ToolTip="{loc:L Common_Close}" />
+        ToolTip="{loc:L Common_Close}">
+        <Image
+          x:Name="CloseButtonIcon"
+          RenderOptions.BitmapScalingMode="HighQuality"
+          Stretch="Uniform" />
+      </Button>
     </Grid>
 
     <Grid Margin="0,0,0,4" DockPanel.Dock="Top">
@@ -67,11 +71,15 @@
           <ColumnDefinition Width="Auto" />
           <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
-        <TextBlock
+        <Image
+          x:Name="ExternalDiffLabelIcon"
+          Width="28"
+          Height="28"
           Margin="0,0,10,0"
           VerticalAlignment="Center"
-          Foreground="{DynamicResource Muted}"
-          Text="External Diff" />
+          RenderOptions.BitmapScalingMode="HighQuality"
+          Stretch="Uniform"
+          ToolTip="External Diff" />
         <history:HistoryTextBox
           x:Name="externalDiffBox"
           Grid.Column="1"

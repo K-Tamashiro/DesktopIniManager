@@ -9,12 +9,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
-using System.Windows.Interop;
-using System.Windows.Media;
-using System.Windows.Media.Animation;
-using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using System.Xml.Serialization;
 
@@ -67,7 +61,6 @@ namespace DesktopIniManager.ViewModels
         private string treeSource, treeTarget;
         public DiffSnapshot Snapshot => snapshot;
         public IReadOnlyDictionary<string, DiffFolder> Folders => folders;
-        public string SelectedFolderPath => selectedFolder;
         public void SelectFolder(string path)
         {
             if (syncingTreeFromFile) return;
@@ -471,160 +464,6 @@ namespace DesktopIniManager.ViewModels
         }
 
         internal void UpdateRefreshButtonState() { CanRefresh = !IsBusy && !comparing && snapshot != null && SelectedFolderHasDirectFiles(); RefreshCommand.NotifyCanExecuteChanged(); }
-
-        internal void RemoveFileFromFolderHierarchy(DiffFile file)
-        {
-            string path = Path.GetDirectoryName(file.RelativePath) ?? string.Empty;
-            while (true)
-            {
-                DiffFolder folder;
-                if (folders.TryGetValue(path, out folder))
-                    folder.Files.Remove(file);
-                if (path.Length == 0) break;
-                path = Path.GetDirectoryName(path) ?? string.Empty;
-            }
-        }
-
-        internal void AddFileToFolderHierarchy(DiffFile file)
-        {
-            string path = Path.GetDirectoryName(file.RelativePath) ?? string.Empty;
-            while (true)
-            {
-                DiffFolder folder;
-                if (folders.TryGetValue(path, out folder))
-                    folder.Files.Add(file);
-                if (path.Length == 0) break;
-                path = Path.GetDirectoryName(path) ?? string.Empty;
-            }
-        }
-
-        internal void UpdateSelectedFolderNodes(string requestedFolder, HashSet<string> refreshedFolders, Func<string, bool> inSelectedFolder)
-        {
-            var desired = new HashSet<string>(refreshedFolders ?? new HashSet<string>(), StringComparer.OrdinalIgnoreCase);
-            if (requestedFolder.Length == 0)
-                desired.Add(string.Empty);
-
-            string[] stale = folders.Keys
-                .Where(path => path.Length > 0 && inSelectedFolder(path) && !desired.Contains(path))
-                .OrderByDescending(path => path.Length)
-                .ToArray();
-
-            foreach (string path in stale)
-            {
-                DiffFolder node;
-                if (!folders.TryGetValue(path, out node)) continue;
-                string parentPath = Path.GetDirectoryName(path) ?? string.Empty;
-                DiffFolder parent;
-                if (folders.TryGetValue(parentPath, out parent))
-                    parent.Children.Remove(node);
-                folders.Remove(path);
-            }
-
-            foreach (string path in desired
-                .Where(path => path.Length > 0)
-                .OrderBy(path => path.Count(ch => ch == '\\'))
-                .ThenBy(path => path, StringComparer.OrdinalIgnoreCase))
-            {
-                DiffFolder node;
-                if (!folders.TryGetValue(path, out node))
-                {
-                    node = CreateFolderNode(path, string.Equals(path, requestedFolder, StringComparison.OrdinalIgnoreCase));
-                    folders.Add(path, node);
-                    string parentPath = Path.GetDirectoryName(path) ?? string.Empty;
-                    DiffFolder parent;
-                    if (folders.TryGetValue(parentPath, out parent))
-                        parent.Children.Add(node);
-                }
-                UpdateFolderExistence(node);
-            }
-
-            DiffFolder root;
-            if (folders.TryGetValue(string.Empty, out root))
-                UpdateFolderExistence(root);
-        }
-
-        internal DiffFolder CreateFolderNode(string path, bool expanded)
-        {
-            var node = new DiffFolder
-            {
-                Path = path,
-                Expanded = expanded,
-                Active = false
-            };
-            node.IncludeFile = IncludeBuildFolderFile;
-            node.Toggle = (folder, value) =>
-            {
-                bulk = true;
-                foreach (DiffFile file in folder.Files)
-                    if (file.CanSync && IncludeBuildFolderFile(file) && (file.Kind & kindMask) != 0)
-                        file.Selected = value;
-                bulk = false;
-                RefreshChecks();
-            };
-            UpdateFolderExistence(node);
-            return node;
-        }
-
-        internal void UpdateFolderExistence(DiffFolder node)
-        {
-            string sourcePath = node.Path.Length == 0
-                ? snapshot.SourceRoot.TrimEnd('\\')
-                : System.IO.Path.Combine(snapshot.SourceRoot, node.Path);
-            string targetPath = node.Path.Length == 0
-                ? snapshot.TargetRoot.TrimEnd('\\')
-                : System.IO.Path.Combine(snapshot.TargetRoot, node.Path);
-
-            node.SourceExists = Directory.Exists(sourcePath);
-            node.TargetExists = Directory.Exists(targetPath);
-            node.SourceEmpty = node.SourceExists && !Directory.EnumerateFileSystemEntries(sourcePath).Any();
-            node.TargetEmpty = node.TargetExists && !Directory.EnumerateFileSystemEntries(targetPath).Any();
-        }
-
-        internal void RefreshSelectedFolderPresentation(string requestedFolder, Func<string, bool> inSelectedFolder)
-        {
-            Func<string, bool> isAncestor = path =>
-                path.Length == 0 ||
-                requestedFolder.Length == 0 ||
-                string.Equals(path, requestedFolder, StringComparison.OrdinalIgnoreCase) ||
-                requestedFolder.StartsWith(path + "\\", StringComparison.OrdinalIgnoreCase);
-
-            DiffFolder[] affected = folders.Values
-                .Where(folder => inSelectedFolder(folder.Path) || isAncestor(folder.Path))
-                .ToArray();
-
-            foreach (DiffFolder folder in affected)
-            {
-                folder.Refresh();
-                folder.Mask = kindMask;
-                folder.Visible = folder.Path.Length == 0 || folder.CountFor(kindMask) > 0;
-                folder.Label = (folder.Path.Length == 0 ? RootLabel() : Path.GetFileName(folder.Path)) +
-                               " (" + folder.CountFor(kindMask) + ")";
-            }
-
-            foreach (DiffFolder folder in affected.OrderByDescending(folder => folder.Path.Length))
-                folder.UpdateDisplayChildren();
-
-            cachedVisibleFolders = new HashSet<string>(
-                folders.Values
-                    .Where(folder => folder.Path.Length == 0 || folder.CountFor(DiffKind.Differences) > 0)
-                    .Select(folder => folder.Path),
-                StringComparer.OrdinalIgnoreCase);
-        }
-
-        internal void SelectNearestExistingFolder(string path)
-        {
-            string current = path ?? string.Empty;
-            while (!folders.ContainsKey(current) && current.Length > 0)
-                current = Path.GetDirectoryName(current) ?? string.Empty;
-
-            foreach (DiffFolder folder in folders.Values)
-                if (folder.Active) folder.Active = false;
-
-            selectedFolder = folders.ContainsKey(current) ? current : string.Empty;
-            DiffFolder selected;
-            if (folders.TryGetValue(selectedFolder, out selected))
-                selected.Active = true;
-        }
 
         internal void CancelCompare()
         {

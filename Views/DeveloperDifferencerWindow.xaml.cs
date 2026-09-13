@@ -49,6 +49,18 @@ namespace DesktopIniManager.Views
             RefreshCompareIcon.Source = DifferencerStatusIcons.GetRefreshIcon();
             ObjFilterIcon.Source = DifferencerStatusIcons.GetBuildFolderIcon(true);
             BinFilterIcon.Source = DifferencerStatusIcons.GetBuildFolderIcon(false);
+            ApplyToolbarIcons();
+            if (NodeExpandToggle != null)
+            {
+                NodeExpandToggle.Checked += NodeExpandToggle_Changed;
+                NodeExpandToggle.Unchecked += NodeExpandToggle_Changed;
+            }
+            if (TreeDensityToggle != null)
+            {
+                TreeDensityToggle.IsChecked = !ViewModel.TreeCompact;
+                TreeDensityToggle.Checked += TreeDensityToggle_Changed;
+                TreeDensityToggle.Unchecked += TreeDensityToggle_Changed;
+            }
             // HistoryTextBox persists Source/Target via HistoryKey.
             Closing += (s, e) => { if (ViewModel.IsBusy) { e.Cancel = true; return; } ViewModel.SaveState(); };
             Closed += (s, e) =>
@@ -289,6 +301,58 @@ namespace DesktopIniManager.Views
             // Keep the row hit test in the View so headers and scrollbars cannot open a viewer.
             if (!(ItemsControl.ContainerFromElement(FilesGrid, e.OriginalSource as DependencyObject) is ListViewItem)) return;
             ViewModel.OpenDiffCommand.Execute(null);
+        }
+
+        private void ApplyToolbarIcons()
+        {
+            SetIcon(CloseButtonIcon, 26);
+            SetIcon(SourceLabelIcon, 61);
+            SetIcon(TargetLabelIcon, 60);
+            SetIcon(BrowseSourceIcon, 74);
+            SetIcon(BrowseTargetIcon, 75);
+            SetIcon(CompareButtonIcon, 84);
+            SetIcon(CancelCompareIcon, 24);
+            SetIcon(CleanSolutionIcon, 83);
+            SetIcon(ForwardButtonIcon, 85);
+            SetIcon(ReverseButtonIcon, 86);
+            UpdateNodeExpandIcon();
+            UpdateDensityIcon();
+        }
+
+        private static void SetIcon(Image image, int index)
+        {
+            if (image != null)
+                image.Source = DifferencerStatusIcons.GetCustomIcon(index);
+        }
+
+        private void NodeExpandToggle_Changed(object sender, RoutedEventArgs e)
+        {
+            if (NodeExpandToggle.IsChecked == true) ViewModel.ExpandAllCommand.Execute(null);
+            else ViewModel.CollapseAllCommand.Execute(null);
+            UpdateNodeExpandIcon();
+        }
+
+        private void TreeDensityToggle_Changed(object sender, RoutedEventArgs e)
+        {
+            if (TreeDensityToggle.IsChecked == true) ViewModel.ComfortableTreeCommand.Execute(null);
+            else ViewModel.CompactTreeCommand.Execute(null);
+            UpdateDensityIcon();
+        }
+
+        private void UpdateNodeExpandIcon()
+        {
+            bool expanded = NodeExpandToggle != null && NodeExpandToggle.IsChecked == true;
+            SetIcon(NodeExpandIcon, expanded ? 56 : 55);
+            if (NodeExpandToggle != null)
+                NodeExpandToggle.ToolTip = expanded ? Strings.Common_Collapse : Strings.Common_Expand;
+        }
+
+        private void UpdateDensityIcon()
+        {
+            bool compact = ViewModel.TreeCompact;
+            SetIcon(TreeDensityIcon, compact ? 35 : 36);
+            if (TreeDensityToggle != null)
+                TreeDensityToggle.ToolTip = compact ? Strings.Main_TreeCompact : Strings.Main_TreeComfortable;
         }
     }
 }

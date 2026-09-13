@@ -104,18 +104,6 @@ namespace DesktopIniManager.ViewModels
             }
         }
 
-        internal string[] FilesInFolder(string path)
-        {
-            VolumePathNode node = _pathIndex?.Find(path);
-            if (node != null)
-                return node.Files.Select(file => file.Path).ToArray();
-            // Avoid disk enumeration while an index exists because cloud folders can block.
-            if (_pathIndex != null)
-                return Array.Empty<string>();
-            try { return Directory.EnumerateFiles(path).OrderBy(item => item, StringComparer.CurrentCultureIgnoreCase).ToArray(); }
-            catch { return Array.Empty<string>(); }
-        }
-
         internal static string[] CollectFilesUnder(VolumePathIndex index, string folderPath, CancellationToken token)
         {
             if (index == null || string.IsNullOrEmpty(folderPath))
@@ -138,7 +126,12 @@ namespace DesktopIniManager.ViewModels
                     if (paths.Count >= MaxFileListItems) goto Done;
                 }
                 for (int i = node.Directories.Count - 1; i >= 0; i--)
-                    stack.Push(node.Directories[i]);
+                {
+                    VolumePathNode child = node.Directories[i];
+                    if (IsDroppedTreeFolder(child.Name))
+                        continue;
+                    stack.Push(child);
+                }
             }
         Done:
             paths.Sort(StringComparer.CurrentCultureIgnoreCase);
@@ -169,28 +162,10 @@ namespace DesktopIniManager.ViewModels
             return paths.ToArray();
         }
 
-        internal string[] CollectSearchTabFiles(FolderMatch folder)
-        {
-            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var paths = new List<string>();
-            var stack = new Stack<FolderMatch>();
-            stack.Push(folder);
-            while (stack.Count > 0)
-            {
-                FolderMatch node = stack.Pop();
-                foreach (string path in FilesInFolder(node.Path))
-                    if (seen.Add(path)) paths.Add(path);
-                for (int index = node.Children.Count - 1; index >= 0; index--)
-                    stack.Push(node.Children[index]);
-            }
-            paths.Sort(StringComparer.CurrentCultureIgnoreCase);
-            return paths.ToArray();
-        }
-
 
         internal void Grep()
         {
-            var visible = CurrentItems()
+            var visible = Flatten(CurrentTreeRoots())
                 .Where(item => item.IsActionable && !item.IsHidden && !item.IsFilterHidden && Directory.Exists(item.Path))
                 .ToList();
 

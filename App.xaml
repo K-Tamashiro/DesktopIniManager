@@ -61,11 +61,72 @@
         <Setter Property="Height" Value="36" />
         <Setter Property="Padding" Value="0" />
         <Setter Property="MinWidth" Value="36" />
+        <Setter Property="Background" Value="Transparent" />
         <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
         <Setter Property="FontSize" Value="16" />
         <Setter Property="FontWeight" Value="Normal" />
         <Setter Property="HorizontalContentAlignment" Value="Center" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
+      </Style>
+      <Style x:Key="ZoomSlider" TargetType="Slider">
+        <Setter Property="Height" Value="28" />
+        <Setter Property="MinHeight" Value="28" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="IsMoveToPointEnabled" Value="True" />
+        <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="Slider">
+              <Grid Height="28" SnapsToDevicePixels="True">
+                <Border
+                  Height="8"
+                  Margin="10,0"
+                  VerticalAlignment="Center"
+                  Background="{DynamicResource HeaderBackground}"
+                  CornerRadius="4" />
+                <Track x:Name="PART_Track">
+                  <Track.DecreaseRepeatButton>
+                    <RepeatButton Command="Slider.DecreaseLarge" IsTabStop="False">
+                      <RepeatButton.Template>
+                        <ControlTemplate TargetType="RepeatButton">
+                          <Border
+                            Height="8"
+                            Margin="10,0,0,0"
+                            VerticalAlignment="Center"
+                            Background="{DynamicResource Accent}"
+                            CornerRadius="4,0,0,4" />
+                        </ControlTemplate>
+                      </RepeatButton.Template>
+                    </RepeatButton>
+                  </Track.DecreaseRepeatButton>
+                  <Track.IncreaseRepeatButton>
+                    <RepeatButton Command="Slider.IncreaseLarge" IsTabStop="False">
+                      <RepeatButton.Template>
+                        <ControlTemplate TargetType="RepeatButton">
+                          <Border Background="Transparent" />
+                        </ControlTemplate>
+                      </RepeatButton.Template>
+                    </RepeatButton>
+                  </Track.IncreaseRepeatButton>
+                  <Track.Thumb>
+                    <Thumb Width="18" Height="18">
+                      <Thumb.Template>
+                        <ControlTemplate TargetType="Thumb">
+                          <Grid>
+                            <Ellipse
+                              Fill="{DynamicResource Accent}"
+                              Stroke="White"
+                              StrokeThickness="2" />
+                          </Grid>
+                        </ControlTemplate>
+                      </Thumb.Template>
+                    </Thumb>
+                  </Track.Thumb>
+                </Track>
+              </Grid>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
       </Style>
       <Style
         x:Key="TypeSizeButton"
@@ -73,6 +134,41 @@
         TargetType="Button">
         <Setter Property="FontFamily" Value="Segoe UI" />
         <Setter Property="FontWeight" Value="SemiBold" />
+      </Style>
+      <Style x:Key="IconToggleButton" TargetType="ToggleButton">
+        <Setter Property="Width" Value="36" />
+        <Setter Property="Height" Value="36" />
+        <Setter Property="MinWidth" Value="36" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Background" Value="{DynamicResource Secondary}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="ToggleButton">
+              <Border
+                x:Name="Bd"
+                Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="4">
+                <ContentPresenter
+                  Margin="2"
+                  HorizontalAlignment="Stretch"
+                  VerticalAlignment="Stretch" />
+              </Border>
+              <ControlTemplate.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                  <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ThemeSelected}" />
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                  <Setter TargetName="Bd" Property="Opacity" Value="0.9" />
+                </Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
       </Style>
       <Style
         x:Key="IconTextButton"

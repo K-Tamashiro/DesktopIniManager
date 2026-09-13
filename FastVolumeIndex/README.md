@@ -27,4 +27,4 @@ The former `FastVolumeIndex.Cli` project has been removed, and
 `mftree.exe` is not part of the v3.0.0 release package.
 
 The main [DesktopIniManager README](../README.md) describes application
-usage and self-contained release packaging.
+usage and framework-dependent release packaging.

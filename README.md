@@ -20,12 +20,12 @@ when v3.0.0 is published. A locally generated package is placed in `release/`.
 See the [v3.0.0 release notes](docs/releases/v3.0.0-DIR.md).
 
 - Windows 10 or Windows 11, x64.
-- The release ZIP includes the .NET 10 runtime; no separate runtime installation is needed.
+- .NET 10 Desktop Runtime (x64) must be installed separately.
 - Read access to the folders being inspected; write access for icon changes and synchronization.
 - MSBuild is required only for **Clean solution**. External editors/diff tools are optional.
 
 Extract the ZIP into a new folder and run `DesktopIniManager.exe`.
-Keep the accompanying DLLs, runtime files, `Assets`, and `Languages` together.
+Keep the accompanying application DLLs, JSON files, `Assets`, and `Languages` together.
 When upgrading from v2.x, use a fresh extraction directory to avoid mixing
 .NET Framework and .NET 10 files.
 
@@ -167,14 +167,13 @@ dotnet build DesktopIniManager.sln -c Release
 pwsh -File scripts/Build-Release.ps1
 ```
 
-The packaging script publishes a self-contained Windows x64 application to a
-fresh staging directory, validates its version and required files, and writes:
+The packaging script publishes a framework-dependent Windows x64 application to a
+fresh staging directory, validates its version and exact file layout, and writes:
 
 ```text
 release/
   DesktopIniManager-v3.0.0-DIR-win-x64.zip
   DesktopIniManager-v3.0.0-DIR-win-x64.zip.sha256
-  RELEASE_NOTES_v3.0.0-DIR.md
 ```
 
 The ZIP contains the application at its root:
@@ -185,14 +184,12 @@ DesktopIniManager.dll
 DesktopIniManager.deps.json
 DesktopIniManager.runtimeconfig.json
 FastVolumeIndex.Core.dll
-.NET runtime files and runtime license notices
 Assets/
   folder_set.icl
   DeveloperDifferencer_iconset.icl
   Flag.icl
 Languages/
 README.md
-RELEASE_NOTES.md
 docs/
 ```
 

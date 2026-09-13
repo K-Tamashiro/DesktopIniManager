@@ -768,8 +768,8 @@ namespace DesktopIniManager.Views
             SetToolbarIcon(_window.DifferencerButtonIcon, 51);
             SetToolbarIcon(_window.GrepButtonIcon, 71);
             SetToolbarIcon(_window.ApplyButtonIcon, 34);
-            SetToolbarIcon(_window.RunScriptIcon, 34);
-            SetToolbarIcon(_window.BrowseScriptIcon, 62);
+            SetToolbarIcon(_window.RunScriptIcon, 89);
+            SetToolbarIcon(_window.BrowseScriptIcon, 88);
             SetToolbarIcon(_window.ResetButtonIcon, 70);
             SetToolbarIcon(_window.ChooseRootIcon, 62);
             SetToolbarIcon(_window.ClearQueryIcon, 25);

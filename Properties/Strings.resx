@@ -358,6 +358,18 @@
   <data name="Main_OpenInExplorer" xml:space="preserve">
     <value>Open in Explorer</value>
   </data>
+  <data name="Main_TreeToEditor" xml:space="preserve">
+    <value>tree &gt; text editor</value>
+  </data>
+  <data name="Main_TreeFilesToEditor" xml:space="preserve">
+    <value>tree /f &gt; text editor</value>
+  </data>
+  <data name="Main_TreeOpened" xml:space="preserve">
+    <value>Opened {0} in the editor. {1}</value>
+  </data>
+  <data name="Main_TreeFailed" xml:space="preserve">
+    <value>Could not open {0} results in the editor.</value>
+  </data>
   <data name="Main_GrepThisFolder" xml:space="preserve">
     <value>Grep this folder</value>
   </data>

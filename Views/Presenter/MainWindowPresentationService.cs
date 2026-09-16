@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Globalization;
+using System.Text;
 using System.Linq;
 using System.Windows;
 using System.Windows.Interop;
@@ -18,6 +19,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Threading;
 using DesktopIniManager.Properties;
+using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 
 namespace DesktopIniManager.Views
@@ -146,6 +148,8 @@ namespace DesktopIniManager.Views
                 case MainWindowAction.ChooseIcon: ChooseIcon(); break;
                 case MainWindowAction.UseAsSearchLocation: UseAsSearchLocation(parameter as FolderMatch); break;
                 case MainWindowAction.OpenExplorer: OpenExplorer(parameter as FolderMatch); break;
+                case MainWindowAction.TreeToEditor: TreeToEditor(parameter as FolderMatch, false); break;
+                case MainWindowAction.TreeFilesToEditor: TreeToEditor(parameter as FolderMatch, true); break;
                 case MainWindowAction.GrepFolder: GrepFolder(parameter as FolderMatch); break;
                 case MainWindowAction.CompactTree: CompactTree(); break;
                 case MainWindowAction.ComfortableTree: ComfortableTree(); break;
@@ -294,6 +298,124 @@ namespace DesktopIniManager.Views
             if (folder == null || !Directory.Exists(folder.Path)) return;
             try { Process.Start(new ProcessStartInfo("explorer.exe", "\"" + folder.Path + "\"") { UseShellExecute = true }); }
             catch (Exception ex) { ViewModel.ShowError(Strings.Main_ExplorerFailed, ex); }
+        }
+
+        private void TreeToEditor(FolderMatch folder, bool includeFiles)
+        {
+            if (folder == null) return;
+
+            string label = includeFiles ? "tree /f" : "tree";
+            string outputPath = Path.Combine(
+                Path.GetTempPath(),
+                includeFiles ? "DesktopIniManager-tree-f.txt" : "DesktopIniManager-tree.txt");
+
+            try
+            {
+                var text = new StringBuilder();
+                WriteContainedTree(text, folder, includeFiles);
+                File.WriteAllText(outputPath, text.ToString(), new UTF8Encoding(true));
+                OpenTextInEditor(outputPath);
+                ViewModel.Status = string.Format(StringOverlay.Get("Main_TreeOpened"), label, folder.Path);
+            }
+            catch (Exception ex)
+            {
+                ViewModel.ShowError(string.Format(StringOverlay.Get("Main_TreeFailed"), label), ex);
+            }
+        }
+
+        private void WriteContainedTree(StringBuilder text, FolderMatch folder, bool includeFiles)
+        {
+            if (folder == null) return;
+            WriteVolumeHeader(text, folder.Path);
+            string root = Path.GetPathRoot(folder.Path);
+            text.AppendLine(!string.IsNullOrEmpty(root) && root.Length >= 2
+                ? char.ToUpperInvariant(root[0]) + ":."
+                : ".");
+            WriteContainedLevel(text, folder, string.Empty, includeFiles);
+        }
+
+        private void WriteContainedLevel(StringBuilder text, FolderMatch folder, string prefix, bool includeFiles)
+        {
+            IReadOnlyList<string> files = includeFiles
+                ? ViewModel.ContainedFileNames(folder)
+                : Array.Empty<string>();
+            var dirs = new List<FolderMatch>();
+            foreach (FolderMatch child in folder.Children)
+            {
+                if (child.IsHidden || child.IsFilterHidden) continue;
+                dirs.Add(child);
+            }
+
+            for (int i = 0; i < files.Count; i++)
+            {
+                text.Append(prefix);
+                text.Append(dirs.Count > 0 ? "│  " : "    ");
+                text.AppendLine(files[i]);
+            }
+            if (files.Count > 0 && dirs.Count > 0)
+            {
+                text.Append(prefix);
+                text.AppendLine("│");
+            }
+            for (int i = 0; i < dirs.Count; i++)
+            {
+                bool last = i == dirs.Count - 1;
+                text.Append(prefix);
+                text.Append(last ? "└─" : "├─");
+                text.AppendLine(dirs[i].Name);
+                WriteContainedLevel(text, dirs[i], prefix + (last ? "    " : "│   "), includeFiles);
+            }
+        }
+
+        private static void WriteVolumeHeader(StringBuilder text, string path)
+        {
+            string root = Path.GetPathRoot(path);
+            var volumeName = new StringBuilder(261);
+            uint serial = 0;
+            if (!string.IsNullOrEmpty(root))
+                GetVolumeInformation(root, volumeName, volumeName.Capacity, out serial, out _, out _, null, 0);
+
+            string label = volumeName.ToString();
+            string serialText = ((serial >> 16) & 0xFFFF).ToString("X4") + "-" + (serial & 0xFFFF).ToString("X4");
+            bool japanese =
+                StringOverlay.ResolveCulture().TwoLetterISOLanguageName == "ja"
+                || CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ja"
+                || CultureInfo.CurrentCulture.TwoLetterISOLanguageName == "ja";
+            if (japanese)
+            {
+                text.AppendLine("フォルダー パスの一覧:  ボリューム " + label);
+                text.AppendLine("ボリューム シリアル番号は " + serialText + " です");
+            }
+            else
+            {
+                text.AppendLine("Folder PATH listing for volume " + label);
+                text.AppendLine("Volume serial number is " + serialText);
+            }
+        }
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern bool GetVolumeInformation(
+            string lpRootPathName,
+            StringBuilder lpVolumeNameBuffer,
+            int nVolumeNameSize,
+            out uint lpVolumeSerialNumber,
+            out uint lpMaximumComponentLength,
+            out uint lpFileSystemFlags,
+            StringBuilder lpFileSystemNameBuffer,
+            int nFileSystemNameSize);
+
+        private static void OpenTextInEditor(string path)
+        {
+            string editor = GrepWindowViewModel.ExpandEditorPath(SettingsService.LoadEditorPath());
+            if (string.IsNullOrWhiteSpace(editor))
+                editor = "code";
+            string arguments = (SettingsService.LoadEditorArguments() ?? string.Empty)
+                .Replace("{file}", path)
+                .Replace("{line}", "1")
+                .Replace("{column}", "1");
+            if (string.IsNullOrWhiteSpace(arguments))
+                arguments = "\"" + path + "\"";
+            Process.Start(new ProcessStartInfo(editor, arguments) { UseShellExecute = true });
         }
 
         private void GrepFolder(FolderMatch folder)

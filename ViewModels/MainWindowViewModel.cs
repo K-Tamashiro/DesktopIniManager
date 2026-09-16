@@ -3,6 +3,8 @@ using DesktopIniManager.Services;
 using System;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Windows;
 using System.Windows.Media;
@@ -130,6 +132,8 @@ namespace DesktopIniManager.ViewModels
         public ParameterCommand ChooseIconCommand { get; private set; }
         public ParameterCommand UseAsSearchLocationCommand { get; private set; }
         public ParameterCommand OpenExplorerCommand { get; private set; }
+        public ParameterCommand TreeToEditorCommand { get; private set; }
+        public ParameterCommand TreeFilesToEditorCommand { get; private set; }
         public ParameterCommand GrepFolderCommand { get; private set; }
         public ParameterCommand CompactTreeCommand { get; private set; }
         public ParameterCommand ComfortableTreeCommand { get; private set; }
@@ -149,6 +153,8 @@ namespace DesktopIniManager.ViewModels
             ChooseIconCommand = new ParameterCommand(parameter => InteractionRequested?.Invoke(MainWindowAction.ChooseIcon, parameter));
             UseAsSearchLocationCommand = new ParameterCommand(parameter => InteractionRequested?.Invoke(MainWindowAction.UseAsSearchLocation, parameter));
             OpenExplorerCommand = new ParameterCommand(parameter => InteractionRequested?.Invoke(MainWindowAction.OpenExplorer, parameter));
+            TreeToEditorCommand = new ParameterCommand(parameter => InteractionRequested?.Invoke(MainWindowAction.TreeToEditor, parameter));
+            TreeFilesToEditorCommand = new ParameterCommand(parameter => InteractionRequested?.Invoke(MainWindowAction.TreeFilesToEditor, parameter));
             GrepFolderCommand = new ParameterCommand(parameter => InteractionRequested?.Invoke(MainWindowAction.GrepFolder, parameter));
             CompactTreeCommand = new ParameterCommand(parameter => InteractionRequested?.Invoke(MainWindowAction.CompactTree, parameter));
             ComfortableTreeCommand = new ParameterCommand(parameter => InteractionRequested?.Invoke(MainWindowAction.ComfortableTree, parameter));
@@ -223,6 +229,34 @@ namespace DesktopIniManager.ViewModels
         private void SetTreePanelBusy(bool value) => IsTreeBusy = value;
         private void SetFilePanelBusy(bool value) => IsFileBusy = value;
         internal void CancelOperations() { _searchCts?.Cancel(); _fileListCts?.Cancel(); _filterCts?.Cancel(); }
+
+        internal IReadOnlyList<string> ContainedFileNames(FolderMatch folder)
+        {
+            if (folder == null || string.IsNullOrEmpty(folder.Path))
+                return Array.Empty<string>();
+
+            if (_pathIndex != null)
+            {
+                VolumePathNode node = _pathIndex.Find(folder.Path);
+                if (node != null && node.Files != null && node.Files.Count > 0)
+                {
+                    return node.Files
+                        .Select(file => Path.GetFileName(file.Path))
+                        .OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase)
+                        .ToList();
+                }
+            }
+
+            if (string.Equals(FilePanelPath, folder.Path, StringComparison.OrdinalIgnoreCase) && _files.Count > 0)
+            {
+                return _files
+                    .Select(file => file.Name)
+                    .OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase)
+                    .ToList();
+            }
+
+            return Array.Empty<string>();
+        }
 
         internal void ShowError(string message, Exception ex) { Status = message; _dialogs.Show(message + "\n\n" + ErrorMessages.English(ex), Strings.App_Title, MessageBoxButton.OK, MessageBoxImage.Error); }
         internal sealed class StandardSearchResult

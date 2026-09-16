@@ -733,6 +733,34 @@
                             </MenuItem.Icon>
                           </MenuItem>
                           <MenuItem
+                            Command="{Binding PlacementTarget.Tag.TreeToEditorCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+                            CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+                            Header="{loc:L Main_TreeToEditor}">
+                            <MenuItem.Icon>
+                              <TextBlock
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                FontFamily="Segoe MDL2 Assets"
+                                FontSize="15"
+                                Foreground="{DynamicResource Ink}"
+                                Text="&#xE8F1;" />
+                            </MenuItem.Icon>
+                          </MenuItem>
+                          <MenuItem
+                            Command="{Binding PlacementTarget.Tag.TreeFilesToEditorCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+                            CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+                            Header="{loc:L Main_TreeFilesToEditor}">
+                            <MenuItem.Icon>
+                              <TextBlock
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                FontFamily="Segoe MDL2 Assets"
+                                FontSize="15"
+                                Foreground="{DynamicResource Ink}"
+                                Text="&#xE8A5;" />
+                            </MenuItem.Icon>
+                          </MenuItem>
+                          <MenuItem
                             Command="{Binding PlacementTarget.Tag.GrepFolderCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
                             CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
                             Header="{loc:L Main_GrepThisFolder}">

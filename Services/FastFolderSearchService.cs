@@ -1,4 +1,4 @@
-﻿using DesktopIniManager.Models;
+using DesktopIniManager.Models;
 using FastVolumeIndex;
 using System;
 using System.Collections.Generic;
@@ -28,23 +28,84 @@ namespace DesktopIniManager.Services
                 foreach (string key in keys)
                 {
                     token.ThrowIfCancellationRequested();
-                    foreach (VolumePathNode entry in paths.Search(key))
+                    bool extensionQuery = IsExtensionQuery(key);
+                    bool fileNameQuery = !extensionQuery && IsFileNameQuery(key);
+                    if (!extensionQuery)
                     {
-                        string folder = entry.IsDirectory ? entry.Path : entry.Parent?.Path;
-                        VolumePathNode folderNode = !string.IsNullOrEmpty(folder) ? paths.Find(folder) : null;
-                        if (folderNode != null && IsDisplayable(folderNode)) Add(matches, folder, "Name: " + key);
+                        foreach (VolumePathNode entry in paths.Files.Concat(paths.Directories))
+                        {
+                            if (!NameMatches(entry.Name, key, fileNameQuery)) continue;
+                            string folder = FolderPathOf(entry);
+                            VolumePathNode folderNode = !string.IsNullOrEmpty(folder) ? paths.Find(folder) : null;
+                            if (folderNode != null && IsDisplayable(folderNode)) Add(matches, folder, "Name: " + key);
+                        }
                     }
+                    if (fileNameQuery) continue;
                     string extension = "." + key.TrimStart('.');
-                    foreach (var group in paths.FindFiles(new[] { extension }).GroupBy(entry => entry.Parent?.Path, StringComparer.OrdinalIgnoreCase))
-                        if (!string.IsNullOrEmpty(group.Key) && IsDisplayable(paths.Find(group.Key))) Add(matches, group.Key, "Contents: " + extension + " × " + group.Count());
+                    foreach (var group in paths.FindFiles(new[] { extension })
+                        .GroupBy(FolderPathOf, StringComparer.OrdinalIgnoreCase))
+                        if (!string.IsNullOrEmpty(group.Key) && IsDisplayable(paths.Find(group.Key)))
+                            Add(matches, group.Key, "Contents: " + extension + " × " + group.Count());
                 }
             }
             foreach (string path in matches.Keys.ToArray())
-            {
-                VolumePathNode node = paths.Find(path)?.Parent;
-                while (node != null) { if (IsDisplayable(node)) Add(matches, node.Path, "Folder"); node = node.Parent; }
-            }
+                AddAncestors(matches, paths, path);
             return matches.Values.OrderBy(item => item.Path, StringComparer.OrdinalIgnoreCase).ToList();
+        }
+
+        private static bool IsExtensionQuery(string key)
+        {
+            if (string.IsNullOrWhiteSpace(key)) return false;
+            if (key[0] == '.') return key.Length > 1 && key.IndexOf('.', 1) < 0;
+            return false;
+        }
+
+        private static bool IsFileNameQuery(string key)
+        {
+            if (string.IsNullOrWhiteSpace(key) || key[0] == '.') return false;
+            string extension = Path.GetExtension(key);
+            return extension.Length > 1 && key.Length > extension.Length;
+        }
+
+        private static bool NameMatches(string name, string key, bool fileNameQuery)
+        {
+            if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(key)) return false;
+            if (!fileNameQuery)
+                return name.IndexOf(key, StringComparison.OrdinalIgnoreCase) >= 0;
+
+            if (!string.Equals(Path.GetExtension(name), Path.GetExtension(key), StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            return Path.GetFileNameWithoutExtension(name)
+                .IndexOf(Path.GetFileNameWithoutExtension(key), StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static string FolderPathOf(VolumePathNode entry)
+        {
+            if (entry == null) return null;
+            if (entry.IsDirectory) return entry.Path;
+            if (entry.Parent != null) return entry.Parent.Path;
+            string parent = Path.GetDirectoryName(entry.Path);
+            return string.IsNullOrEmpty(parent) ? null : VolumePathIndex.Normalize(parent);
+        }
+
+        private static void AddAncestors(
+            Dictionary<string, FolderMatch> matches, VolumePathIndex paths, string path)
+        {
+            string current = path;
+            while (!string.IsNullOrEmpty(current)
+                && !string.Equals(current, paths.RootPath, StringComparison.OrdinalIgnoreCase))
+            {
+                string parentPath = Path.GetDirectoryName(current);
+                if (string.IsNullOrEmpty(parentPath)) break;
+                parentPath = VolumePathIndex.Normalize(parentPath);
+                if (!VolumePathIndex.IsWithin(parentPath, paths.RootPath)
+                    && !string.Equals(parentPath, paths.RootPath, StringComparison.OrdinalIgnoreCase))
+                    break;
+                VolumePathNode node = paths.Find(parentPath);
+                if (node != null && IsDisplayable(node)) Add(matches, parentPath, "Folder");
+                current = parentPath;
+            }
         }
 
         private static bool IsDisplayable(VolumePathNode node)

@@ -1063,8 +1063,8 @@ namespace DesktopIniManager.Views
 
         private void SelectSearchRootForFileList()
         {
-            if (ViewModel.SearchTabRoot == null) return;
             FolderMatch root = ViewModel.SearchTabRoot;
+            if (root == null) return;
             root.IsExpanded = true;
             Dispatcher.BeginInvoke(new Action(() =>
             {
@@ -1084,18 +1084,23 @@ namespace DesktopIniManager.Views
 
         private void FileList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (_syncingTreeFromFile) return;
             if (Mouse.RightButton == MouseButtonState.Pressed) return;
             FileListItem file = (sender as System.Windows.Controls.Primitives.Selector)?.SelectedItem as FileListItem;
             if (file == null) return;
-            RevealFolderInCurrentTree(Path.GetDirectoryName(file.Path));
+
+            int treeView;
+            FolderMatch target = ViewModel.FindFolderForFile(file.Path, out treeView);
+            if (target == null) return;
+            if (treeView != ViewModel.TreeViewIndex)
+                ViewModel.ShowTreeView(treeView);
+            RevealFolderInCurrentTree(file.Path);
         }
 
         private void RevealFolderInCurrentTree(string directory)
         {
             ObservableCollection<FolderMatch> roots = ViewModel.CurrentTreeRoots();
             if (string.IsNullOrEmpty(directory) || roots.Count == 0) return;
-            FolderMatch target = ViewModel.FindFolderInRoots(roots, directory);
+            FolderMatch target = ViewModel.FindClosestFolderInCurrentTree(directory);
             if (target == null) return;
             for (FolderMatch ancestor = target.Parent; ancestor != null; ancestor = ancestor.Parent)
                 ancestor.IsExpanded = true;

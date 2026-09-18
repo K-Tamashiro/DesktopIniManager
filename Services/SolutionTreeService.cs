@@ -172,14 +172,20 @@ namespace DesktopIniManager.Services
         private static FolderMatch CreateNode(Entry entry, string solutionDirectory, CancellationToken token)
         {
             bool folder = IsSolutionFolder(entry);
-            string physicalPath = folder
-                ? solutionDirectory
+            string projectFile = folder
+                ? null
                 : Path.GetFullPath(Path.Combine(
                     solutionDirectory,
                     entry.RelativePath.Replace('\\', Path.DirectorySeparatorChar)));
 
             if (!folder)
-                physicalPath = Directory.Exists(physicalPath) ? physicalPath : Path.GetDirectoryName(physicalPath);
+                projectFile = ResolveProjectFile(projectFile);
+
+            string physicalPath = folder
+                ? solutionDirectory
+                : (File.Exists(projectFile)
+                    ? Path.GetDirectoryName(projectFile)
+                    : (Directory.Exists(projectFile) ? projectFile : Path.GetDirectoryName(projectFile)));
 
             var node = new FolderMatch
             {
@@ -189,10 +195,6 @@ namespace DesktopIniManager.Services
                 IsActionable = !folder && Directory.Exists(physicalPath),
                 IconPreview = FolderIconService.GetFolderIcon(physicalPath)
             };
-
-            string projectFile = folder
-                ? null
-                : Path.GetFullPath(Path.Combine(solutionDirectory, entry.RelativePath));
 
             if (File.Exists(projectFile))
                 PopulateProject(node, projectFile, token);
@@ -264,9 +266,6 @@ namespace DesktopIniManager.Services
                     files.Add(file);
                 }
             }
-
-            AddVirtual(project, "Properties", directory, "Project properties");
-            AddVirtual(project, "Dependencies", directory, "Dependencies");
 
             var folderNodes = new Dictionary<string, FolderMatch>(StringComparer.OrdinalIgnoreCase)
             {
@@ -364,21 +363,24 @@ namespace DesktopIniManager.Services
             }
         }
 
+        private static string ResolveProjectFile(string projectFile)
+        {
+            if (string.IsNullOrWhiteSpace(projectFile)) return projectFile;
+            if (File.Exists(projectFile)) return projectFile;
+
+            string directory = Path.GetDirectoryName(projectFile);
+            string fileName = Path.GetFileName(projectFile);
+            string projectName = Path.GetFileNameWithoutExtension(projectFile);
+            if (string.IsNullOrEmpty(directory) || string.IsNullOrEmpty(fileName) || string.IsNullOrEmpty(projectName))
+                return projectFile;
+
+            string nested = Path.Combine(directory, projectName, fileName);
+            return File.Exists(nested) ? nested : projectFile;
+        }
+
         private static string NormalizeProjectPath(string value) =>
             value.Replace('/', Path.DirectorySeparatorChar)
                  .Replace('\\', Path.DirectorySeparatorChar);
-
-        private static void AddVirtual(FolderMatch parent, string name, string path, string reason)
-        {
-            parent.Children.Add(new FolderMatch
-            {
-                DisplayName = name,
-                Path = path,
-                Reason = reason,
-                IsActionable = false,
-                IconPreview = FolderIconService.GetFolderIcon(path)
-            });
-        }
 
         private static void AddProjectFile(
             FolderMatch root,

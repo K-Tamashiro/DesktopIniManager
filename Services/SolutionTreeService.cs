@@ -20,6 +20,9 @@ namespace DesktopIniManager.Services
         private static readonly Regex NestedLine = new Regex(
             "^\\s*(?<child>\\{[^}]+\\})\\s*=\\s*(?<parent>\\{[^}]+\\})",
             RegexOptions.Compiled);
+        private static readonly Regex ProjectConfigLine = new Regex(
+            "^\\s*\\{[^}]+\\}\\.(?<pair>[^=]+?)\\.(ActiveCfg|Build\\.0)\\s*=",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex IncludeAttr = new Regex(
             "\\bInclude\\s*=\\s*\"([^\"]+)\"",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -91,12 +94,66 @@ namespace DesktopIniManager.Services
             solutions.Sort((x, y) => StringComparer.CurrentCultureIgnoreCase.Compare(x.Name, y.Name));
             return solutions;
         }
+
+        public static IList<string> ReadBuildConfigurations(string solutionPath)
+        {
+            if (string.IsNullOrWhiteSpace(solutionPath) || !File.Exists(solutionPath))
+                return new string[0];
+
+            var configurations = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+            bool inSolutionConfigs = false;
+            bool inProjectConfigs = false;
+            foreach (string line in File.ReadLines(solutionPath))
+            {
+                if (line.IndexOf("GlobalSection(SolutionConfigurationPlatforms)", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    inSolutionConfigs = true;
+                    inProjectConfigs = false;
+                    continue;
+                }
+                if (line.IndexOf("GlobalSection(ProjectConfigurationPlatforms)", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    inProjectConfigs = true;
+                    inSolutionConfigs = false;
+                    continue;
+                }
+                if ((inSolutionConfigs || inProjectConfigs)
+                    && line.TrimStart().StartsWith("EndGlobalSection", StringComparison.OrdinalIgnoreCase))
+                {
+                    inSolutionConfigs = false;
+                    inProjectConfigs = false;
+                    continue;
+                }
+                if (inSolutionConfigs)
+                {
+                    int equals = line.IndexOf('=');
+                    if (equals > 0)
+                    {
+                        string pair = line.Substring(0, equals).Trim();
+                        if (pair.IndexOf('|') >= 0)
+                            configurations.Add(pair);
+                    }
+                    continue;
+                }
+                if (inProjectConfigs)
+                {
+                    Match config = ProjectConfigLine.Match(line);
+                    if (config.Success)
+                        configurations.Add(config.Groups["pair"].Value.Trim());
+                }
+            }
+            return configurations.ToList();
+        }
+
         private static FolderMatch Parse(string solutionPath, CancellationToken token)
         {
             string solutionDirectory = Path.GetDirectoryName(solutionPath);
             var entries = new Dictionary<string, Entry>(StringComparer.OrdinalIgnoreCase);
             var nested = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var configurations = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
             bool inNested = false;
+            bool inSolutionConfigs = false;
+            bool inProjectConfigs = false;
 
             foreach (string line in File.ReadLines(solutionPath))
             {
@@ -119,12 +176,33 @@ namespace DesktopIniManager.Services
                 if (line.IndexOf("GlobalSection(NestedProjects)", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     inNested = true;
+                    inSolutionConfigs = false;
+                    inProjectConfigs = false;
                     continue;
                 }
 
-                if (inNested && line.TrimStart().StartsWith("EndGlobalSection", StringComparison.OrdinalIgnoreCase))
+                if (line.IndexOf("GlobalSection(SolutionConfigurationPlatforms)", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    inSolutionConfigs = true;
+                    inNested = false;
+                    inProjectConfigs = false;
+                    continue;
+                }
+
+                if (line.IndexOf("GlobalSection(ProjectConfigurationPlatforms)", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    inProjectConfigs = true;
+                    inNested = false;
+                    inSolutionConfigs = false;
+                    continue;
+                }
+
+                if ((inNested || inSolutionConfigs || inProjectConfigs)
+                    && line.TrimStart().StartsWith("EndGlobalSection", StringComparison.OrdinalIgnoreCase))
                 {
                     inNested = false;
+                    inSolutionConfigs = false;
+                    inProjectConfigs = false;
                     continue;
                 }
 
@@ -133,6 +211,26 @@ namespace DesktopIniManager.Services
                     Match relation = NestedLine.Match(line);
                     if (relation.Success)
                         nested[relation.Groups["child"].Value] = relation.Groups["parent"].Value;
+                    continue;
+                }
+
+                if (inSolutionConfigs)
+                {
+                    int equals = line.IndexOf('=');
+                    if (equals > 0)
+                    {
+                        string pair = line.Substring(0, equals).Trim();
+                        if (pair.IndexOf('|') >= 0)
+                            configurations.Add(pair);
+                    }
+                    continue;
+                }
+
+                if (inProjectConfigs)
+                {
+                    Match config = ProjectConfigLine.Match(line);
+                    if (config.Success)
+                        configurations.Add(config.Groups["pair"].Value.Trim());
                 }
             }
 
@@ -147,6 +245,8 @@ namespace DesktopIniManager.Services
             {
                 DisplayName = Path.GetFileName(solutionPath),
                 Path = solutionDirectory,
+                SolutionFile = solutionPath,
+                BuildConfigurations = configurations.ToList(),
                 Reason = "Solution · " + entries.Values.Count(item => !IsSolutionFolder(item)) + " projects",
                 IsActionable = false,
                 IconPreview = DifferencerStatusIcons.GetSolutionIcon() ?? FolderIconService.GetFolderIcon(solutionDirectory)

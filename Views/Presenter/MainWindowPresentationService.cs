@@ -31,6 +31,7 @@ namespace DesktopIniManager.Views
         // --- MainWindowPresentationService.cs ---
 
         private readonly MainWindow _window;
+        private readonly MsBuildMenuModel _msBuildMenu = new MsBuildMenuModel();
         private Dispatcher Dispatcher => _window.Dispatcher;
         private string Title { get => _window.Title; set => _window.Title = value; }
         private object FindResource(object key) => _window.FindResource(key);
@@ -60,6 +61,16 @@ namespace DesktopIniManager.Views
         {
             _window.FolderFilterBox.TextChanged += FolderFilter_TextChanged;
             _window.ResultsTree.SelectedItemChanged += ResultsTree_SelectedItemChanged;
+            _window.ResultsTree.PreviewMouseRightButtonDown += ResultsTree_PreviewMouseRightButtonDown;
+            _window.ResultsTree.AddHandler(FrameworkElement.ContextMenuOpeningEvent, new ContextMenuEventHandler(ResultsTree_ContextMenuOpening), true);
+            ContextMenu treeMenu = _window.Resources["FolderTreeContextMenu"] as ContextMenu;
+            if (treeMenu != null)
+            {
+                MenuItem buildMenu = FindTaggedMenuItem(treeMenu, "dim-msbuild-build");
+                MenuItem rebuildMenu = FindTaggedMenuItem(treeMenu, "dim-msbuild-rebuild");
+                if (buildMenu != null) buildMenu.ItemsSource = _msBuildMenu.BuildItems;
+                if (rebuildMenu != null) rebuildMenu.ItemsSource = _msBuildMenu.RebuildItems;
+            }
             _window.FileList.SelectionChanged += FileList_SelectionChanged;
             _window.FileList.MouseDoubleClick += FileList_MouseDoubleClick;
             _window.FileList.ContextMenuOpening += FileList_ContextMenuOpening;
@@ -185,7 +196,22 @@ namespace DesktopIniManager.Views
             ConnectView();
             ViewModel.SearchHistoryRequested += () => { RootBox.CommitHistory(); QueryBox.CommitHistory(); IconPathBox.CommitHistory(); ScriptBox.CommitHistory(); };
             ViewModel.SearchRootSelectionRequested += SelectSearchRootForFileList;
-            ViewModel.FileScrollRequested += item => { FileList.ScrollIntoView(item); FileIconList.ScrollIntoView(item); };
+            ViewModel.FileScrollRequested += item =>
+            {
+                if (item == null) return;
+                _syncingTreeFromFile = true;
+                try
+                {
+                    FileList.SelectedItem = item;
+                    FileIconList.SelectedItem = item;
+                    FileList.ScrollIntoView(item);
+                    FileIconList.ScrollIntoView(item);
+                }
+                finally
+                {
+                    _syncingTreeFromFile = false;
+                }
+            };
             ViewModel.OpenGrepRequested += OpenGrep;
             ViewModel.PropertyChanged += (sender, args) => { if (args.PropertyName == nameof(ViewModel.IsSearching)) SetSearching(ViewModel.IsSearching); };
             LightThemeButton.IsChecked = !darkMode;
@@ -642,7 +668,7 @@ namespace DesktopIniManager.Views
             else
             {
                 psi.FileName = Path.Combine(Environment.SystemDirectory, "cmd.exe");
-                psi.Arguments = "/d /k " + command;
+                psi.Arguments = "/d /s /k \"" + command + "\"";
             }
 
             Process.Start(psi);
@@ -831,6 +857,7 @@ namespace DesktopIniManager.Views
             DarkThemeButton.IsChecked = false;
             ViewModel.ShowTreeView(0);
             ViewModel.CountLabel = string.Format(Strings.Main_NFolders, 0);
+            ViewModel.SearchHitLabel = "0/0";
             ViewModel.Status = Strings.Common_Ready;
             _languageReady = false;
             StringOverlay.SetCulture("en");
@@ -901,6 +928,8 @@ namespace DesktopIniManager.Views
             SetToolbarIcon(_window.GitSearchIcon, 31);
             SetToolbarIcon(_window.SearchButtonIcon, 29);
             SetToolbarIcon(_window.CancelButtonIcon, 24);
+            SetToolbarIcon(_window.PrevSearchMatchIcon, 33);
+            SetToolbarIcon(_window.NextSearchMatchIcon, 32);
             SetToolbarIcon(_window.ChooseIconLibraryIcon, 61);
             SetToolbarIcon(_window.ChooseIconButtonIcon, 87);
             SetToolbarIcon(_window.CloseWindowIcon, 26);
@@ -1075,6 +1104,260 @@ namespace DesktopIniManager.Views
             }), System.Windows.Threading.DispatcherPriority.Loaded);
         }
 
+        private void ResultsTree_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            PrepareMsBuildMenu(FindFolderFromElement(e.OriginalSource as DependencyObject));
+        }
+
+        private void ResultsTree_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+        {
+            FrameworkElement source = e.OriginalSource as FrameworkElement;
+            FolderMatch folder = FindFolderFromElement(source);
+            PrepareMsBuildMenu(folder);
+            ContextMenu menu = FindContextMenu(source);
+            ApplyMsBuildMenuVisibility(menu);
+        }
+
+        private void PrepareMsBuildMenu(FolderMatch folder)
+        {
+            _msBuildMenu.BuildItems.Clear();
+            _msBuildMenu.RebuildItems.Clear();
+            if (folder == null) return;
+
+            FolderMatch solution = folder.FindSolutionRoot();
+            string sln = solution?.SolutionFile;
+            IList<string> configs = solution?.BuildConfigurations;
+            if (string.IsNullOrWhiteSpace(sln) || !File.Exists(sln))
+            {
+                sln = FindSolutionFile(folder.Path);
+                if (string.IsNullOrWhiteSpace(sln)) return;
+            }
+            if (configs == null || configs.Count == 0)
+                configs = SolutionTreeService.ReadBuildConfigurations(sln);
+            if (configs == null || configs.Count == 0) return;
+
+            if (solution != null)
+            {
+                solution.SolutionFile = sln;
+                solution.BuildConfigurations = configs;
+            }
+
+            foreach (string pair in configs)
+            {
+                string captured = pair;
+                string file = sln;
+                _msBuildMenu.BuildItems.Add(new MsBuildActionItem
+                {
+                    Header = captured,
+                    Command = new RelayCommand(() => RunMsBuild(file, captured, "Build"))
+                });
+                _msBuildMenu.RebuildItems.Add(new MsBuildActionItem
+                {
+                    Header = captured,
+                    Command = new RelayCommand(() => RunMsBuild(file, captured, "Rebuild"))
+                });
+            }
+        }
+
+        private void ApplyMsBuildMenuVisibility(ContextMenu menu)
+        {
+            if (menu == null) return;
+            bool show = _msBuildMenu.BuildItems.Count > 0;
+            Visibility visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            MenuItem buildMenu = FindTaggedMenuItem(menu, "dim-msbuild-build");
+            MenuItem rebuildMenu = FindTaggedMenuItem(menu, "dim-msbuild-rebuild");
+            Separator buildSeparator = FindTaggedSeparator(menu, "dim-msbuild");
+            if (buildMenu != null) buildMenu.Visibility = visibility;
+            if (rebuildMenu != null) rebuildMenu.Visibility = visibility;
+            if (buildSeparator != null) buildSeparator.Visibility = visibility;
+        }
+
+        private static MenuItem FindTaggedMenuItem(ItemsControl menu, string tag)
+        {
+            foreach (object item in menu.Items)
+            {
+                MenuItem menuItem = item as MenuItem;
+                if (menuItem != null && Equals(menuItem.Tag, tag))
+                    return menuItem;
+            }
+            return null;
+        }
+
+        private static Separator FindTaggedSeparator(ItemsControl menu, string tag)
+        {
+            foreach (object item in menu.Items)
+            {
+                Separator separator = item as Separator;
+                if (separator != null && Equals(separator.Tag, tag))
+                    return separator;
+            }
+            return null;
+        }
+
+        private static TextBlock MsBuildMenuIcon(string glyph)
+        {
+            return new TextBlock
+            {
+                Text = glyph,
+                FontFamily = new FontFamily("Segoe MDL2 Assets"),
+                FontSize = 15,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+        }
+
+        private void RunMsBuild(string solutionFile, string configurationPair, string target)
+        {
+            if (string.IsNullOrWhiteSpace(solutionFile) || !File.Exists(solutionFile))
+            {
+                ViewModel.ShowError(ScriptText("Main_MsBuildMissingSln", "Solution file was not found."), new FileNotFoundException(solutionFile ?? string.Empty));
+                return;
+            }
+
+            string configuration = configurationPair;
+            string platform = "Any CPU";
+            int bar = configurationPair.LastIndexOf('|');
+            if (bar >= 0)
+            {
+                configuration = configurationPair.Substring(0, bar);
+                platform = configurationPair.Substring(bar + 1);
+            }
+
+            string msbuild = FindMsBuild();
+            if (string.IsNullOrEmpty(msbuild))
+            {
+                ViewModel.ShowError(ScriptText("Main_MsBuildNotFound", "MSBuild.exe was not found."), new FileNotFoundException("MSBuild.exe"));
+                return;
+            }
+
+            string command = "\"" + msbuild + "\" \"" + solutionFile + "\" /t:" + target
+                + " /p:Configuration=\"" + configuration + "\" /p:Platform=\"" + platform + "\" /m";
+            string workDir = Path.GetDirectoryName(solutionFile);
+            try
+            {
+                StartKeepOpenConsole(workDir, command);
+                ViewModel.Status = string.Format(ScriptText("Main_MsBuildStarted", "Started {0} {1}"), target, configurationPair);
+            }
+            catch (Exception ex)
+            {
+                ViewModel.ShowError(ScriptText("Main_MsBuildFailed", "MSBuild could not be started."), ex);
+            }
+        }
+
+        private static string FindMsBuild()
+        {
+            string vswhere = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+                "Microsoft Visual Studio", "Installer", "vswhere.exe");
+            if (File.Exists(vswhere))
+            {
+                try
+                {
+                    var psi = new ProcessStartInfo
+                    {
+                        FileName = vswhere,
+                        Arguments = "-latest -requires Microsoft.Component.MSBuild -find MSBuild\\**\\Bin\\MSBuild.exe",
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        CreateNoWindow = true
+                    };
+                    using (Process process = Process.Start(psi))
+                    {
+                        if (process != null)
+                        {
+                            string path = (process.StandardOutput.ReadLine() ?? string.Empty).Trim();
+                            process.WaitForExit(4000);
+                            if (File.Exists(path)) return path;
+                        }
+                    }
+                }
+                catch (Exception) { }
+            }
+
+            string[] editions = { "Enterprise", "Professional", "Community", "BuildTools" };
+            string[] years = { "2022", "2019", "2017" };
+            string[] roots =
+            {
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86)
+            };
+            foreach (string root in roots)
+            {
+                foreach (string year in years)
+                {
+                    foreach (string edition in editions)
+                    {
+                        string[] candidates =
+                        {
+                            Path.Combine(root, "Microsoft Visual Studio", year, edition, "MSBuild", "Current", "Bin", "amd64", "MSBuild.exe"),
+                            Path.Combine(root, "Microsoft Visual Studio", year, edition, "MSBuild", "Current", "Bin", "MSBuild.exe")
+                        };
+                        foreach (string candidate in candidates)
+                            if (File.Exists(candidate)) return candidate;
+                    }
+                }
+            }
+            return null;
+        }
+
+        private static FolderMatch FindFolderFromElement(DependencyObject source)
+        {
+            for (DependencyObject current = source; current != null; current = VisualTreeHelper.GetParent(current))
+            {
+                FrameworkElement element = current as FrameworkElement;
+                if (element?.DataContext is FolderMatch folder)
+                    return folder;
+            }
+            return null;
+        }
+
+        private static ContextMenu FindContextMenu(DependencyObject source)
+        {
+            for (DependencyObject current = source; current != null; current = VisualTreeHelper.GetParent(current))
+            {
+                FrameworkElement element = current as FrameworkElement;
+                if (element?.ContextMenu != null)
+                    return element.ContextMenu;
+            }
+            return null;
+        }
+
+        private static void RemoveTaggedMenuItems(ItemsControl menu)
+        {
+            RemoveTaggedMenuItems(menu, "dim-msbuild");
+        }
+
+        private static void RemoveTaggedMenuItems(ItemsControl menu, string tag)
+        {
+            if (menu == null) return;
+            for (int i = menu.Items.Count - 1; i >= 0; i--)
+            {
+                FrameworkElement item = menu.Items[i] as FrameworkElement;
+                if (item != null && Equals(item.Tag, tag))
+                    menu.Items.RemoveAt(i);
+            }
+        }
+
+        private static string FindSolutionFile(string directory)
+        {
+            string current = directory;
+            for (int depth = 0; depth < 8 && !string.IsNullOrWhiteSpace(current); depth++)
+            {
+                if (Directory.Exists(current))
+                {
+                    try
+                    {
+                        string sln = Directory.EnumerateFiles(current, "*.sln").FirstOrDefault();
+                        if (!string.IsNullOrEmpty(sln)) return sln;
+                    }
+                    catch (UnauthorizedAccessException) { }
+                    catch (IOException) { }
+                }
+                current = Path.GetDirectoryName(current);
+            }
+            return null;
+        }
+
         private async void ResultsTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
             if (_syncingTreeFromFile) return;
@@ -1084,15 +1367,12 @@ namespace DesktopIniManager.Views
 
         private void FileList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (_syncingTreeFromFile) return;
             if (Mouse.RightButton == MouseButtonState.Pressed) return;
             FileListItem file = (sender as System.Windows.Controls.Primitives.Selector)?.SelectedItem as FileListItem;
             if (file == null) return;
-
-            int treeView;
-            FolderMatch target = ViewModel.FindFolderForFile(file.Path, out treeView);
-            if (target == null) return;
-            if (treeView != ViewModel.TreeViewIndex)
-                ViewModel.ShowTreeView(treeView);
+            ViewModel.NoteSelectedSearchMatch(file);
+            if (ViewModel.TreeViewIndex != 2) return;
             RevealFolderInCurrentTree(file.Path);
         }
 
@@ -1353,6 +1633,18 @@ namespace DesktopIniManager.Views
                 OverlayOnMain(_differencerWindow);
                 WindowActivationService.BringToFront(_differencerWindow);
             }
+        }
+
+        private sealed class MsBuildMenuModel
+        {
+            public ObservableCollection<MsBuildActionItem> BuildItems { get; } = new ObservableCollection<MsBuildActionItem>();
+            public ObservableCollection<MsBuildActionItem> RebuildItems { get; } = new ObservableCollection<MsBuildActionItem>();
+        }
+
+        private sealed class MsBuildActionItem
+        {
+            public string Header { get; set; }
+            public ICommand Command { get; set; }
         }
 
         private void OpenGrep(IReadOnlyList<string> scopes)

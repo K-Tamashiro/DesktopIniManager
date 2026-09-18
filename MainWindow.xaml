@@ -17,6 +17,119 @@
   WindowStartupLocation="CenterScreen">
   <Window.Resources>
     <BooleanToVisibilityConverter x:Key="MvvmBooleanToVisibility" />
+    <ContextMenu x:Key="FolderTreeContextMenu">
+      <MenuItem
+        Command="{Binding PlacementTarget.Tag.UseAsSearchLocationCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+        CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+        Header="{loc:L Main_UseAsSearchLocation}">
+        <MenuItem.Icon>
+          <TextBlock
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            FontFamily="Segoe MDL2 Assets"
+            FontSize="15"
+            Foreground="{DynamicResource Ink}"
+            Text="&#xE8B7;" />
+        </MenuItem.Icon>
+      </MenuItem>
+      <MenuItem
+        Command="{Binding PlacementTarget.Tag.OpenExplorerCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+        CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+        Header="{loc:L Main_OpenInExplorer}">
+        <MenuItem.Icon>
+          <TextBlock
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            FontFamily="Segoe MDL2 Assets"
+            FontSize="15"
+            Foreground="{DynamicResource Ink}"
+            Text="&#xE8A7;" />
+        </MenuItem.Icon>
+      </MenuItem>
+      <MenuItem
+        Command="{Binding PlacementTarget.Tag.TreeToEditorCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+        CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+        Header="{loc:L Main_TreeToEditor}">
+        <MenuItem.Icon>
+          <TextBlock
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            FontFamily="Segoe MDL2 Assets"
+            FontSize="15"
+            Foreground="{DynamicResource Ink}"
+            Text="&#xE8F1;" />
+        </MenuItem.Icon>
+      </MenuItem>
+      <MenuItem
+        Command="{Binding PlacementTarget.Tag.TreeFilesToEditorCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+        CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+        Header="{loc:L Main_TreeFilesToEditor}">
+        <MenuItem.Icon>
+          <TextBlock
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            FontFamily="Segoe MDL2 Assets"
+            FontSize="15"
+            Foreground="{DynamicResource Ink}"
+            Text="&#xE8A5;" />
+        </MenuItem.Icon>
+      </MenuItem>
+      <MenuItem
+        Command="{Binding PlacementTarget.Tag.GrepFolderCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+        CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+        Header="{loc:L Main_GrepThisFolder}">
+        <MenuItem.Icon>
+          <TextBlock
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            FontFamily="Segoe MDL2 Assets"
+            FontSize="15"
+            Foreground="{DynamicResource Ink}"
+            Text="&#xE721;" />
+        </MenuItem.Icon>
+      </MenuItem>
+      <Separator Tag="dim-msbuild" Visibility="Collapsed" />
+      <MenuItem
+        Tag="dim-msbuild-build"
+        Header="{loc:L Main_MsBuildBuild}"
+        Visibility="Collapsed">
+        <MenuItem.Icon>
+          <TextBlock
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            FontFamily="Segoe MDL2 Assets"
+            FontSize="15"
+            Foreground="{DynamicResource Ink}"
+            Text="&#xE768;" />
+        </MenuItem.Icon>
+        <MenuItem.ItemContainerStyle>
+          <Style TargetType="MenuItem">
+            <Setter Property="Header" Value="{Binding Header}" />
+            <Setter Property="Command" Value="{Binding Command}" />
+          </Style>
+        </MenuItem.ItemContainerStyle>
+      </MenuItem>
+      <MenuItem
+        Tag="dim-msbuild-rebuild"
+        Header="{loc:L Main_MsBuildRebuild}"
+        Visibility="Collapsed">
+        <MenuItem.Icon>
+          <TextBlock
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            FontFamily="Segoe MDL2 Assets"
+            FontSize="15"
+            Foreground="{DynamicResource Ink}"
+            Text="&#xE72C;" />
+        </MenuItem.Icon>
+        <MenuItem.ItemContainerStyle>
+          <Style TargetType="MenuItem">
+            <Setter Property="Header" Value="{Binding Header}" />
+            <Setter Property="Command" Value="{Binding Command}" />
+          </Style>
+        </MenuItem.ItemContainerStyle>
+      </MenuItem>
+    </ContextMenu>
     <Style x:Key="FileListItemStyle" TargetType="{x:Type ListViewItem}">
       <Setter Property="Foreground" Value="{DynamicResource Ink}" />
       <Setter Property="Background" Value="Transparent" />
@@ -39,7 +152,8 @@
               </Trigger>
               <Trigger Property="IsSelected" Value="True">
                 <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource ThemeSelected}" />
-                <Setter TargetName="RowBorder" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                <Setter TargetName="RowBorder" Property="BorderBrush" Value="#FFD400" />
+                <Setter TargetName="RowBorder" Property="BorderThickness" Value="2" />
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -114,7 +228,7 @@
               </Trigger>
               <Trigger Property="IsSelected" Value="True">
                 <Setter TargetName="TileBorder" Property="Background" Value="{DynamicResource ThemeSelected}" />
-                <Setter TargetName="TileBorder" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                <Setter TargetName="TileBorder" Property="BorderBrush" Value="#FFD400" />
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -388,10 +502,19 @@
                 TextAlignment="Left"
                 TextWrapping="NoWrap" />
             </DockPanel>
-            <TextBlock
-              Margin="0,14,0,6"
-              Foreground="{DynamicResource Muted}"
-              Text="{loc:L Main_KeywordsOptional}" />
+            <DockPanel Margin="0,14,0,6">
+              <TextBlock
+                VerticalAlignment="Center"
+                Foreground="{DynamicResource Muted}"
+                Text="{loc:L Main_KeywordsOptional}" />
+              <TextBlock
+                Margin="8,0,0,0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Foreground="{DynamicResource Muted}"
+                Text="{Binding SearchHitLabel}"
+                TextAlignment="Right" />
+            </DockPanel>
             <DockPanel>
               <Button
                 x:Name="ClearQueryButton"
@@ -413,44 +536,71 @@
                 HistoryKey="Main-Query"
                 Text="{Binding Query, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
             </DockPanel>
-            <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
-              <Button
-                x:Name="GitSearchButton"
-                Background="Transparent"
-                Command="{Binding GitSearchCommand}"
-                Style="{StaticResource IconButton}"
-                ToolTip="{loc:L Main_GitSearch}">
-                <Image
-                  x:Name="GitSearchIcon"
-                  RenderOptions.BitmapScalingMode="HighQuality"
-                  Stretch="Uniform" />
-              </Button>
-              <Button
-                x:Name="SearchButton"
-                Margin="8,0,0,0"
-                Background="Transparent"
-                Command="{Binding SearchCommand}"
-                Style="{StaticResource IconButton}"
-                ToolTip="{loc:L Common_Search}">
-                <Image
-                  x:Name="SearchButtonIcon"
-                  RenderOptions.BitmapScalingMode="HighQuality"
-                  Stretch="Uniform" />
-              </Button>
-              <Button
-                x:Name="CancelButton"
-                Margin="8,0,0,0"
-                Background="Transparent"
-                Command="{Binding CancelCommand}"
-                IsEnabled="{Binding IsSearching}"
-                Style="{StaticResource IconButton}"
-                ToolTip="{loc:L Common_Cancel}">
-                <Image
-                  x:Name="CancelButtonIcon"
-                  RenderOptions.BitmapScalingMode="HighQuality"
-                  Stretch="Uniform" />
-              </Button>
-            </StackPanel>
+            <DockPanel Margin="0,12,0,0">
+              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button
+                  x:Name="PrevSearchMatchButton"
+                  Background="Transparent"
+                  Command="{Binding PrevSearchMatchCommand}"
+                  Style="{StaticResource IconButton}"
+                  ToolTip="{loc:L Main_PrevMatch}">
+                  <Image
+                    x:Name="PrevSearchMatchIcon"
+                    RenderOptions.BitmapScalingMode="HighQuality"
+                    Stretch="Uniform" />
+                </Button>
+                <Button
+                  x:Name="NextSearchMatchButton"
+                  Margin="8,0,0,0"
+                  Background="Transparent"
+                  Command="{Binding NextSearchMatchCommand}"
+                  Style="{StaticResource IconButton}"
+                  ToolTip="{loc:L Main_NextMatch}">
+                  <Image
+                    x:Name="NextSearchMatchIcon"
+                    RenderOptions.BitmapScalingMode="HighQuality"
+                    Stretch="Uniform" />
+                </Button>
+              </StackPanel>
+              <StackPanel Orientation="Horizontal">
+                <Button
+                  x:Name="GitSearchButton"
+                  Background="Transparent"
+                  Command="{Binding GitSearchCommand}"
+                  Style="{StaticResource IconButton}"
+                  ToolTip="{loc:L Main_GitSearch}">
+                  <Image
+                    x:Name="GitSearchIcon"
+                    RenderOptions.BitmapScalingMode="HighQuality"
+                    Stretch="Uniform" />
+                </Button>
+                <Button
+                  x:Name="SearchButton"
+                  Margin="8,0,0,0"
+                  Background="Transparent"
+                  Command="{Binding SearchCommand}"
+                  Style="{StaticResource IconButton}"
+                  ToolTip="{loc:L Common_Search}">
+                  <Image
+                    x:Name="SearchButtonIcon"
+                    RenderOptions.BitmapScalingMode="HighQuality"
+                    Stretch="Uniform" />
+                </Button>
+                <Button
+                  x:Name="CancelButton"
+                  Margin="8,0,0,0"
+                  Background="Transparent"
+                  Command="{Binding CancelCommand}"
+                  IsEnabled="{Binding IsSearching}"
+                  Style="{StaticResource IconButton}"
+                  ToolTip="{loc:L Common_Cancel}">
+                  <Image
+                    x:Name="CancelButtonIcon"
+                    RenderOptions.BitmapScalingMode="HighQuality"
+                    Stretch="Uniform" />
+                </Button>
+              </StackPanel>
+            </DockPanel>
             <Separator Margin="0,22" />
             <TextBlock
               FontSize="18"
@@ -700,82 +850,7 @@
                     <Grid
                       Margin="0"
                       Background="{Binding Background, RelativeSource={RelativeSource AncestorType={x:Type TreeViewItem}}}"
-                      Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}"
                       Visibility="{Binding ItemVisibility}">
-                      <Grid.ContextMenu>
-                        <ContextMenu>
-                          <MenuItem
-                            Command="{Binding PlacementTarget.Tag.UseAsSearchLocationCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
-                            CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
-                            Header="{loc:L Main_UseAsSearchLocation}">
-                            <MenuItem.Icon>
-                              <TextBlock
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                FontFamily="Segoe MDL2 Assets"
-                                FontSize="15"
-                                Foreground="{DynamicResource Ink}"
-                                Text="&#xE8B7;" />
-                            </MenuItem.Icon>
-                          </MenuItem>
-                          <MenuItem
-                            Command="{Binding PlacementTarget.Tag.OpenExplorerCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
-                            CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
-                            Header="{loc:L Main_OpenInExplorer}">
-                            <MenuItem.Icon>
-                              <TextBlock
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                FontFamily="Segoe MDL2 Assets"
-                                FontSize="15"
-                                Foreground="{DynamicResource Ink}"
-                                Text="&#xE8A7;" />
-                            </MenuItem.Icon>
-                          </MenuItem>
-                          <MenuItem
-                            Command="{Binding PlacementTarget.Tag.TreeToEditorCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
-                            CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
-                            Header="{loc:L Main_TreeToEditor}">
-                            <MenuItem.Icon>
-                              <TextBlock
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                FontFamily="Segoe MDL2 Assets"
-                                FontSize="15"
-                                Foreground="{DynamicResource Ink}"
-                                Text="&#xE8F1;" />
-                            </MenuItem.Icon>
-                          </MenuItem>
-                          <MenuItem
-                            Command="{Binding PlacementTarget.Tag.TreeFilesToEditorCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
-                            CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
-                            Header="{loc:L Main_TreeFilesToEditor}">
-                            <MenuItem.Icon>
-                              <TextBlock
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                FontFamily="Segoe MDL2 Assets"
-                                FontSize="15"
-                                Foreground="{DynamicResource Ink}"
-                                Text="&#xE8A5;" />
-                            </MenuItem.Icon>
-                          </MenuItem>
-                          <MenuItem
-                            Command="{Binding PlacementTarget.Tag.GrepFolderCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
-                            CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
-                            Header="{loc:L Main_GrepThisFolder}">
-                            <MenuItem.Icon>
-                              <TextBlock
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                FontFamily="Segoe MDL2 Assets"
-                                FontSize="15"
-                                Foreground="{DynamicResource Ink}"
-                                Text="&#xE721;" />
-                            </MenuItem.Icon>
-                          </MenuItem>
-                        </ContextMenu>
-                      </Grid.ContextMenu>
                       <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
@@ -872,6 +947,8 @@
                   <Style TargetType="TreeViewItem">
                     <Setter Property="IsSelected" Value="{Binding IsCurrent, Mode=TwoWay}" />
                     <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                    <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}" />
+                    <Setter Property="ContextMenu" Value="{StaticResource FolderTreeContextMenu}" />
                     <Setter Property="Visibility" Value="{Binding ItemVisibility}" />
                     <Setter Property="Foreground" Value="{DynamicResource Ink}" />
                     <Setter Property="Background" Value="Transparent" />

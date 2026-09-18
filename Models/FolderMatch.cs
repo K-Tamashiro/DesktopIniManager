@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Windows.Media;
 using System.Windows;
@@ -28,6 +29,8 @@ namespace DesktopIniManager.Models
         }
         public bool IsExpanded { get => _isExpanded; set { if (_isExpanded == value) return; _isExpanded = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsExpanded))); } }
         public string Path { get; set; }
+        public string SolutionFile { get; set; }
+        public IList<string> BuildConfigurations { get; set; }
         public string Reason { get => _reason; set { if (_reason == value) return; _reason = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Reason))); } }
         public string DisplayName { get; set; }
         public bool IsActionable { get; set; } = true;
@@ -38,5 +41,15 @@ namespace DesktopIniManager.Models
         public ImageSource IconPreview { get => _iconPreview; set { if (ReferenceEquals(_iconPreview, value)) return; _iconPreview = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IconPreview))); } }
         public string Name => !string.IsNullOrEmpty(DisplayName) ? DisplayName : System.IO.Path.GetFileName(Path.TrimEnd(System.IO.Path.DirectorySeparatorChar));
         public event PropertyChangedEventHandler PropertyChanged;
+
+        public FolderMatch FindSolutionRoot()
+        {
+            for (FolderMatch node = this; node != null; node = node.Parent)
+            {
+                if (!string.IsNullOrWhiteSpace(node.SolutionFile))
+                    return node;
+            }
+            return null;
+        }
     }
 }

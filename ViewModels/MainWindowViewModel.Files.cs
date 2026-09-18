@@ -13,6 +13,82 @@ namespace DesktopIniManager.ViewModels
 {
     internal sealed partial class MainWindowViewModel
     {
+        private string _searchHitLabel = "0/0";
+        private int _searchMatchIndex;
+        private readonly List<FileListItem> _searchMatches = new List<FileListItem>();
+        private RelayCommand _prevSearchMatchCommand;
+        private RelayCommand _nextSearchMatchCommand;
+
+        public string SearchHitLabel
+        {
+            get => _searchHitLabel;
+            set => SetProperty(ref _searchHitLabel, value);
+        }
+
+        public RelayCommand PrevSearchMatchCommand =>
+            _prevSearchMatchCommand ?? (_prevSearchMatchCommand = new RelayCommand(PrevSearchMatch, () => _searchMatches.Count > 0));
+
+        public RelayCommand NextSearchMatchCommand =>
+            _nextSearchMatchCommand ?? (_nextSearchMatchCommand = new RelayCommand(NextSearchMatch, () => _searchMatches.Count > 0));
+
+        internal void SetSearchResultCount(int count)
+        {
+            _searchResultCount = count;
+        }
+
+        private void RefreshSearchHitLabel()
+        {
+            int total = _searchMatches.Count;
+            SearchHitLabel = total == 0
+                ? "0/0"
+                : _searchMatchIndex + "/" + total;
+            PrevSearchMatchCommand.NotifyCanExecuteChanged();
+            NextSearchMatchCommand.NotifyCanExecuteChanged();
+        }
+
+        private void SyncSearchMatches(IEnumerable<FileListItem> items, FileListItem preferred)
+        {
+            _searchMatches.Clear();
+            if (items != null)
+                _searchMatches.AddRange(items.Where(item => item.IsSearchMatch));
+            if (_searchMatches.Count == 0)
+            {
+                _searchMatchIndex = 0;
+                RefreshSearchHitLabel();
+                return;
+            }
+
+            int index = preferred == null ? 0 : _searchMatches.IndexOf(preferred);
+            _searchMatchIndex = index >= 0 ? index + 1 : 1;
+            RefreshSearchHitLabel();
+            FileScrollRequested?.Invoke(_searchMatches[_searchMatchIndex - 1]);
+        }
+
+        internal void NoteSelectedSearchMatch(FileListItem file)
+        {
+            if (file == null || !file.IsSearchMatch) return;
+            int index = _searchMatches.IndexOf(file);
+            if (index < 0) return;
+            _searchMatchIndex = index + 1;
+            RefreshSearchHitLabel();
+        }
+
+        private void PrevSearchMatch()
+        {
+            if (_searchMatches.Count == 0) return;
+            _searchMatchIndex = _searchMatchIndex <= 1 ? _searchMatches.Count : _searchMatchIndex - 1;
+            RefreshSearchHitLabel();
+            FileScrollRequested?.Invoke(_searchMatches[_searchMatchIndex - 1]);
+        }
+
+        private void NextSearchMatch()
+        {
+            if (_searchMatches.Count == 0) return;
+            _searchMatchIndex = _searchMatchIndex >= _searchMatches.Count ? 1 : _searchMatchIndex + 1;
+            RefreshSearchHitLabel();
+            FileScrollRequested?.Invoke(_searchMatches[_searchMatchIndex - 1]);
+        }
+
         internal async Task LoadFilesAsync(FolderMatch folder)
         {
             _fileListCts?.Cancel();
@@ -27,7 +103,12 @@ namespace DesktopIniManager.ViewModels
             }
             FilePanelTitle = folder == null ? Strings.Common_Files : string.Format(Strings.Main_FilesHeader, folder.Name);
             FilePanelPath = folder?.Path;
-            if (folder == null || string.IsNullOrEmpty(folder.Path)) { SetFilePanelBusy(false); return; }
+            if (folder == null || string.IsNullOrEmpty(folder.Path))
+            {
+                SetFilePanelBusy(false);
+                SyncSearchMatches(null, null);
+                return;
+            }
             SetFilePanelBusy(true);
             await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Render);
             string[] searchKeys = (Query ?? string.Empty).Split((char[])null, StringSplitOptions.RemoveEmptyEntries)
@@ -61,7 +142,11 @@ namespace DesktopIniManager.ViewModels
                     else if (treeView == 1)
                         paths = CollectImmediateFiles(folderPath, fileListCts.Token);
                     else
+                    {
                         paths = CollectFilesUnder(index, folderPath, fileListCts.Token);
+                        if (paths.Length == 0)
+                            paths = CollectFilesOnDisk(folderPath, true, fileListCts.Token);
+                    }
 
                     int total = paths.Length;
                     bool truncated = total > MaxFileListItems;
@@ -93,11 +178,7 @@ namespace DesktopIniManager.ViewModels
                 if (loaded.Item3)
                     Status = string.Format("{0:N0} / {1:N0} files", loaded.Item1.Count, loaded.Item2);
 
-                FileListItem firstMatch = loaded.Item1.FirstOrDefault(item => item.IsSearchMatch);
-                if (firstMatch != null)
-                {
-                    FileScrollRequested?.Invoke(firstMatch);
-                }
+                SyncSearchMatches(loaded.Item1, loaded.Item1.FirstOrDefault(item => item.IsSearchMatch));
             }
             catch (OperationCanceledException) { }
             finally
@@ -213,8 +294,12 @@ namespace DesktopIniManager.ViewModels
                 return Array.Empty<string>();
 
             VolumePathNode root = index.Find(folderPath);
-            if (root == null)
+            if (root == null || !root.IsDirectory)
+            {
+                if (Directory.Exists(folderPath))
+                    return CollectFilesOnDisk(folderPath, true, token);
                 return Array.Empty<string>();
+            }
 
             var paths = new List<string>();
             var stack = new Stack<VolumePathNode>();
@@ -241,6 +326,43 @@ namespace DesktopIniManager.ViewModels
             return paths.ToArray();
         }
 
+        internal static string[] CollectFilesOnDisk(string folderPath, bool recursive, CancellationToken token)
+        {
+            if (string.IsNullOrWhiteSpace(folderPath) || !Directory.Exists(folderPath))
+                return Array.Empty<string>();
+
+            var paths = new List<string>();
+            var pending = new Stack<string>();
+            pending.Push(folderPath);
+            while (pending.Count > 0)
+            {
+                token.ThrowIfCancellationRequested();
+                string directory = pending.Pop();
+                try
+                {
+                    foreach (string file in Directory.EnumerateFiles(directory))
+                    {
+                        token.ThrowIfCancellationRequested();
+                        if (Directory.Exists(file)) continue;
+                        paths.Add(file);
+                        if (paths.Count >= MaxFileListItems) goto Done;
+                    }
+                    if (!recursive) continue;
+                    foreach (string child in Directory.EnumerateDirectories(directory))
+                    {
+                        token.ThrowIfCancellationRequested();
+                        if (IsDroppedTreeFolder(Path.GetFileName(child))) continue;
+                        pending.Push(child);
+                    }
+                }
+                catch (UnauthorizedAccessException) { }
+                catch (IOException) { }
+            }
+        Done:
+            paths.Sort(StringComparer.CurrentCultureIgnoreCase);
+            return paths.ToArray();
+        }
+
         internal static string[] CollectSearchFiles(List<string> folderPaths, CancellationToken token)
         {
             if (folderPaths == null || folderPaths.Count == 0)
@@ -251,7 +373,7 @@ namespace DesktopIniManager.ViewModels
             foreach (string folderPath in folderPaths)
             {
                 token.ThrowIfCancellationRequested();
-                foreach (string file in CollectImmediateFiles(folderPath, token))
+                foreach (string file in CollectFilesOnDisk(folderPath, false, token))
                     if (seen.Add(file)) paths.Add(file);
             }
 

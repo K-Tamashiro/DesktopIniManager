@@ -361,6 +361,7 @@
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="26" />
                     <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="16" />
                   </Grid.ColumnDefinitions>
                   <ContentPresenter
                     HorizontalAlignment="Center"
@@ -372,6 +373,34 @@
                     VerticalAlignment="Center"
                     ContentSource="Header"
                     RecognizesAccessKey="True" />
+                  <Path
+                    x:Name="SubmenuArrow"
+                    Grid.Column="2"
+                    Width="5"
+                    Height="9"
+                    Margin="0,0,2,0"
+                    Data="M0,0 L5,4.5 L0,9 Z"
+                    Fill="{DynamicResource Muted}"
+                    Visibility="Collapsed" />
+                  <Popup
+                    x:Name="PART_Popup"
+                    AllowsTransparency="True"
+                    Focusable="False"
+                    HorizontalOffset="4"
+                    IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}"
+                    Placement="Right"
+                    PopupAnimation="Fade">
+                    <Border
+                      Padding="6"
+                      Background="{DynamicResource CardBackground}"
+                      BorderBrush="{DynamicResource Line}"
+                      BorderThickness="1"
+                      CornerRadius="8">
+                      <ScrollViewer CanContentScroll="True">
+                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
+                      </ScrollViewer>
+                    </Border>
+                  </Popup>
                 </Grid>
               </Border>
               <ControlTemplate.Triggers>
@@ -380,6 +409,9 @@
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
                   <Setter TargetName="ItemBorder" Property="Opacity" Value="0.45" />
+                </Trigger>
+                <Trigger Property="HasItems" Value="True">
+                  <Setter TargetName="SubmenuArrow" Property="Visibility" Value="Visible" />
                 </Trigger>
               </ControlTemplate.Triggers>
             </ControlTemplate>

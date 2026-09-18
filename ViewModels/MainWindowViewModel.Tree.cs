@@ -180,7 +180,7 @@ namespace DesktopIniManager.ViewModels
             {
                 _searchRoots.Clear();
                 foreach (FolderMatch root in built.Roots) _searchRoots.Add(root);
-                _searchResultCount = built.Items.Count;
+                SetSearchResultCount(built.Items.Count);
                 RefreshTreeItemsSource();
                 CountLabel = string.Format(Strings.Main_SearchResults, _searchResultCount);
                 return;

@@ -344,5 +344,13 @@ Differencer_LockedPrefix=ロック {0}
 Main_ApplyOk=アイコン設定を適用しました。
 Main_RemoveOk=アイコン設定を削除しました。
 Main_ElevationTooltip=すべてのウィンドウで MFT を使います。オンにすると管理者権限で DIM を再起動することがあります。オフにすると通常走査になります。プロセスの権限自体は外れません。
+Main_PrevMatch=前のヒット
+Main_NextMatch=次のヒット
+Main_MsBuildBuild=ビルド
+Main_MsBuildRebuild=リビルド
+Main_MsBuildMissingSln=ソリューションファイルが見つかりませんでした。
+Main_MsBuildNotFound=MSBuild.exe が見つかりませんでした。
+Main_MsBuildStarted={0} を開始しました {1}
+Main_MsBuildFailed=MSBuild を起動できませんでした。
 
 Common_History=入力履歴 (Alt+↓ / F4)

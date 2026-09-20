@@ -43,6 +43,7 @@ namespace DesktopIniManager.ViewModels
         {
             CancelOperations(); SettingsService.ClearAll(); FolderTreeStateService.Clear();
             _results.Clear(); _treeRoots.Clear(); _solutionRoots.Clear(); _searchRoots.Clear(); _files.Clear();
+            SyncSearchMatches(null, null);
             _pathIndex = null; _searchResultCount = 0; _filteredViewItems = null; _folderTreeRoot = null;
             _physicalCurrent = _solutionCurrent = _searchCurrent = null;
             _selectedIconIndex = 0; _selectedIconPreview = null; _pendingSearchQuery = null; SelectedIcon = null;
@@ -134,6 +135,7 @@ namespace DesktopIniManager.ViewModels
         public ParameterCommand OpenExplorerCommand { get; private set; }
         public ParameterCommand TreeToEditorCommand { get; private set; }
         public ParameterCommand TreeFilesToEditorCommand { get; private set; }
+        public ParameterCommand FileListToEditorCommand { get; private set; }
         public ParameterCommand GrepFolderCommand { get; private set; }
         public ParameterCommand CompactTreeCommand { get; private set; }
         public ParameterCommand ComfortableTreeCommand { get; private set; }
@@ -155,6 +157,7 @@ namespace DesktopIniManager.ViewModels
             OpenExplorerCommand = new ParameterCommand(parameter => InteractionRequested?.Invoke(MainWindowAction.OpenExplorer, parameter));
             TreeToEditorCommand = new ParameterCommand(parameter => InteractionRequested?.Invoke(MainWindowAction.TreeToEditor, parameter));
             TreeFilesToEditorCommand = new ParameterCommand(parameter => InteractionRequested?.Invoke(MainWindowAction.TreeFilesToEditor, parameter));
+            FileListToEditorCommand = new ParameterCommand(parameter => InteractionRequested?.Invoke(MainWindowAction.FileListToEditor, parameter));
             GrepFolderCommand = new ParameterCommand(parameter => InteractionRequested?.Invoke(MainWindowAction.GrepFolder, parameter));
             CompactTreeCommand = new ParameterCommand(parameter => InteractionRequested?.Invoke(MainWindowAction.CompactTree, parameter));
             ComfortableTreeCommand = new ParameterCommand(parameter => InteractionRequested?.Invoke(MainWindowAction.ComfortableTree, parameter));
@@ -238,7 +241,7 @@ namespace DesktopIniManager.ViewModels
             if (_pathIndex != null)
             {
                 VolumePathNode node = _pathIndex.Find(folder.Path);
-                if (node != null && node.Files != null && node.Files.Count > 0)
+                if (node != null && node.Files != null)
                 {
                     return node.Files
                         .Select(file => Path.GetFileName(file.Path))
@@ -250,6 +253,9 @@ namespace DesktopIniManager.ViewModels
             if (string.Equals(FilePanelPath, folder.Path, StringComparison.OrdinalIgnoreCase) && _files.Count > 0)
             {
                 return _files
+                    .Where(file => string.Equals(
+                        NormalizeComparePath(Path.GetDirectoryName(file.Path)),
+                        NormalizeComparePath(folder.Path), StringComparison.OrdinalIgnoreCase))
                     .Select(file => file.Name)
                     .OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase)
                     .ToList();

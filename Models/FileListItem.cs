@@ -10,7 +10,7 @@
             Name = System.IO.Path.GetFileName(path);
             Extension = System.IO.Path.GetExtension(path);
             IsSearchMatch = searchKeys != null && System.Array.Exists(searchKeys,
-                key => Name.IndexOf(key, System.StringComparison.CurrentCultureIgnoreCase) >= 0);
+                key => Services.FastFolderSearchService.FileNameMatches(Name, key));
         }
 
         public string Path { get; }

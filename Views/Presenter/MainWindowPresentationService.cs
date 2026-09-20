@@ -19,7 +19,6 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Threading;
 using DesktopIniManager.Properties;
-using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 
 namespace DesktopIniManager.Views
@@ -73,9 +72,11 @@ namespace DesktopIniManager.Views
             }
             _window.FileList.SelectionChanged += FileList_SelectionChanged;
             _window.FileList.MouseDoubleClick += FileList_MouseDoubleClick;
+            InitializeFileContextMenu(_window.FileList);
             _window.FileList.ContextMenuOpening += FileList_ContextMenuOpening;
             _window.FileIconList.SelectionChanged += FileList_SelectionChanged;
             _window.FileIconList.MouseDoubleClick += FileList_MouseDoubleClick;
+            InitializeFileContextMenu(_window.FileIconList);
             _window.FileIconList.ContextMenuOpening += FileList_ContextMenuOpening;
             _window.LanguageBox.SelectionChanged += LanguageBox_SelectionChanged;
             _window.RunScriptButton.Click += (sender, args) => RunScriptCommand();
@@ -161,6 +162,7 @@ namespace DesktopIniManager.Views
                 case MainWindowAction.OpenExplorer: OpenExplorer(parameter as FolderMatch); break;
                 case MainWindowAction.TreeToEditor: TreeToEditor(parameter as FolderMatch, false); break;
                 case MainWindowAction.TreeFilesToEditor: TreeToEditor(parameter as FolderMatch, true); break;
+                case MainWindowAction.FileListToEditor: FileListToEditor(); break;
                 case MainWindowAction.GrepFolder: GrepFolder(parameter as FolderMatch); break;
                 case MainWindowAction.CompactTree: CompactTree(); break;
                 case MainWindowAction.ComfortableTree: ComfortableTree(); break;
@@ -326,6 +328,27 @@ namespace DesktopIniManager.Views
             catch (Exception ex) { ViewModel.ShowError(Strings.Main_ExplorerFailed, ex); }
         }
 
+        private void FileListToEditor()
+        {
+            try
+            {
+                ItemsControl list = FileList.Visibility == Visibility.Visible
+                    ? (ItemsControl)FileList : FileIconList;
+                var text = new StringBuilder();
+                foreach (FileListItem file in list.Items)
+                    text.AppendLine(file.Name);
+
+                string outputPath = Path.Combine(Path.GetTempPath(), "DesktopIniManager-file-list.txt");
+                File.WriteAllText(outputPath, text.ToString(), new UTF8Encoding(true));
+                OpenTextInEditor(outputPath);
+                ViewModel.Status = string.Format(StringOverlay.Get("Main_TreeOpened"), "File List", ViewModel.FilePanelPath);
+            }
+            catch (Exception ex)
+            {
+                ViewModel.ShowError(string.Format(StringOverlay.Get("Main_TreeFailed"), "File List"), ex);
+            }
+        }
+
         private void TreeToEditor(FolderMatch folder, bool includeFiles)
         {
             if (folder == null) return;
@@ -352,11 +375,7 @@ namespace DesktopIniManager.Views
         private void WriteContainedTree(StringBuilder text, FolderMatch folder, bool includeFiles)
         {
             if (folder == null) return;
-            WriteVolumeHeader(text, folder.Path);
-            string root = Path.GetPathRoot(folder.Path);
-            text.AppendLine(!string.IsNullOrEmpty(root) && root.Length >= 2
-                ? char.ToUpperInvariant(root[0]) + ":."
-                : ".");
+            text.AppendLine(folder.Path);
             WriteContainedLevel(text, folder, string.Empty, includeFiles);
         }
 
@@ -393,43 +412,6 @@ namespace DesktopIniManager.Views
             }
         }
 
-        private static void WriteVolumeHeader(StringBuilder text, string path)
-        {
-            string root = Path.GetPathRoot(path);
-            var volumeName = new StringBuilder(261);
-            uint serial = 0;
-            if (!string.IsNullOrEmpty(root))
-                GetVolumeInformation(root, volumeName, volumeName.Capacity, out serial, out _, out _, null, 0);
-
-            string label = volumeName.ToString();
-            string serialText = ((serial >> 16) & 0xFFFF).ToString("X4") + "-" + (serial & 0xFFFF).ToString("X4");
-            bool japanese =
-                StringOverlay.ResolveCulture().TwoLetterISOLanguageName == "ja"
-                || CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ja"
-                || CultureInfo.CurrentCulture.TwoLetterISOLanguageName == "ja";
-            if (japanese)
-            {
-                text.AppendLine("フォルダー パスの一覧:  ボリューム " + label);
-                text.AppendLine("ボリューム シリアル番号は " + serialText + " です");
-            }
-            else
-            {
-                text.AppendLine("Folder PATH listing for volume " + label);
-                text.AppendLine("Volume serial number is " + serialText);
-            }
-        }
-
-        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        private static extern bool GetVolumeInformation(
-            string lpRootPathName,
-            StringBuilder lpVolumeNameBuffer,
-            int nVolumeNameSize,
-            out uint lpVolumeSerialNumber,
-            out uint lpMaximumComponentLength,
-            out uint lpFileSystemFlags,
-            StringBuilder lpFileSystemNameBuffer,
-            int nFileSystemNameSize);
-
         private static void OpenTextInEditor(string path)
         {
             string editor = GrepWindowViewModel.ExpandEditorPath(SettingsService.LoadEditorPath());
@@ -465,13 +447,8 @@ namespace DesktopIniManager.Views
         private static readonly HashSet<string> ScriptExtensions =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".ps1", ".bat", ".cmd", ".vbs" };
 
-        private void FileList_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+        private void InitializeFileContextMenu(Selector list)
         {
-            var list = sender as Selector;
-            if (list == null) return;
-            var file = list.SelectedItem as FileListItem;
-            bool canRun = file != null && ScriptExtensions.Contains(file.Extension ?? string.Empty);
-
             if (list.ContextMenu == null)
             {
                 var runIcon = new TextBlock
@@ -491,11 +468,19 @@ namespace DesktopIniManager.Views
                 run.Click += (s, args) => RunSelectedScript(
                     ((s as MenuItem)?.Parent as ContextMenu)?.PlacementTarget is Selector owner
                         ? owner.SelectedItem as FileListItem
-                        : file);
+                        : list.SelectedItem as FileListItem);
                 var menu = new ContextMenu();
                 menu.Items.Add(run);
                 list.ContextMenu = menu;
             }
+        }
+
+        private void FileList_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+        {
+            var list = sender as Selector;
+            if (list == null) return;
+            var file = list.SelectedItem as FileListItem;
+            bool canRun = file != null && ScriptExtensions.Contains(file.Extension ?? string.Empty);
 
             if (list.ContextMenu.Items.Count > 0 && list.ContextMenu.Items[0] is MenuItem item)
                 item.IsEnabled = canRun;

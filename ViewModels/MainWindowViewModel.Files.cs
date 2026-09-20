@@ -95,6 +95,7 @@ namespace DesktopIniManager.ViewModels
             var fileListCts = new CancellationTokenSource();
             _fileListCts = fileListCts;
             _files.Clear();
+            SyncSearchMatches(null, null);
             if (folder != null)
             {
                 if (_treeView == 0) _physicalCurrent = folder;
@@ -111,6 +112,7 @@ namespace DesktopIniManager.ViewModels
             }
             SetFilePanelBusy(true);
             await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Render);
+            if (fileListCts.IsCancellationRequested || !ReferenceEquals(_fileListCts, fileListCts)) return;
             string[] searchKeys = (Query ?? string.Empty).Split((char[])null, StringSplitOptions.RemoveEmptyEntries)
                 .Select(key => key.Trim().TrimStart('*')).Where(key => key.Length > 0).Distinct(StringComparer.CurrentCultureIgnoreCase).ToArray();
 
@@ -409,37 +411,7 @@ namespace DesktopIniManager.ViewModels
             if (string.IsNullOrWhiteSpace(path)) return null;
             if (File.Exists(path) && !Directory.Exists(path))
                 path = Path.GetDirectoryName(path);
-            if (string.IsNullOrEmpty(path) || !Directory.Exists(path))
-                return path;
-
-            if (HasImmediateFiles(path))
-                return path;
-
-            string name = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            if (string.IsNullOrEmpty(name))
-                return path;
-
-            string nested = Path.Combine(path, name);
-            if (Directory.Exists(nested) && HasImmediateFiles(nested))
-                return nested;
-
             return path;
-        }
-
-        private static bool HasImmediateFiles(string directory)
-        {
-            try
-            {
-                return Directory.EnumerateFiles(directory).Any();
-            }
-            catch (UnauthorizedAccessException)
-            {
-                return false;
-            }
-            catch (IOException)
-            {
-                return false;
-            }
         }
 
         internal static string ResolveDirectoryPath(VolumePathIndex index, string path)

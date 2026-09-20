@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Xml.Linq;
 
 namespace DesktopIniManager.Services
 {
@@ -308,9 +309,18 @@ namespace DesktopIniManager.Services
             var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var removed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             bool sdk = false;
+            bool defaultItems = true;
 
             try
             {
+                XElement projectElement = XElement.Load(projectFile);
+                XElement defaultItemsElement = projectElement.Elements()
+                    .Where(element => element.Name.LocalName == "PropertyGroup" && element.Attribute("Condition") == null)
+                    .SelectMany(element => element.Elements())
+                    .LastOrDefault(element => element.Name.LocalName == "EnableDefaultItems" && element.Attribute("Condition") == null);
+                if (defaultItemsElement != null)
+                    defaultItems = !string.Equals(defaultItemsElement.Value.Trim(), "false", StringComparison.OrdinalIgnoreCase);
+
                 foreach (string raw in File.ReadLines(projectFile))
                 {
                     token.ThrowIfCancellationRequested();
@@ -340,22 +350,23 @@ namespace DesktopIniManager.Services
                     if (!include.Success) continue;
 
                     string value = include.Groups[1].Value;
-                    if (string.IsNullOrWhiteSpace(value) || value.IndexOfAny(new[] { '*', '?' }) >= 0)
+                    if (string.IsNullOrWhiteSpace(value))
                         continue;
 
                     // ProjectReference points to another project file and is not a source item.
                     if (line.IndexOf("<ProjectReference", StringComparison.OrdinalIgnoreCase) >= 0)
                         continue;
 
-                    string full = Path.GetFullPath(Path.Combine(directory, NormalizeProjectPath(value)));
-                    if (File.Exists(full))
-                        files.Add(full);
+                    foreach (string pattern in value.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
+                        foreach (string file in ExpandProjectInclude(directory, pattern.Trim(), token))
+                            files.Add(file);
                 }
             }
             catch (IOException) { return; }
             catch (UnauthorizedAccessException) { return; }
+            catch (System.Xml.XmlException) { return; }
 
-            if (sdk)
+            if (sdk && defaultItems)
             {
                 foreach (string file in EnumerateProjectFiles(directory, token))
                 {
@@ -385,6 +396,59 @@ namespace DesktopIniManager.Services
             }
 
             SortProjectChildren(project.Children);
+        }
+
+        private static IEnumerable<string> ExpandProjectInclude(string directory, string pattern, CancellationToken token)
+        {
+            if (string.IsNullOrWhiteSpace(pattern) || pattern.Contains("$(") || pattern.Contains("@("))
+                yield break;
+            string full = Path.GetFullPath(Path.Combine(directory, NormalizeProjectPath(pattern)));
+            if (full.IndexOfAny(new[] { '*', '?' }) < 0)
+            {
+                if (File.Exists(full)) yield return full;
+                yield break;
+            }
+
+            int wildcard = full.IndexOfAny(new[] { '*', '?' });
+            int separator = full.LastIndexOf(Path.DirectorySeparatorChar, wildcard);
+            string root = full.Substring(0, separator + 1);
+            string[] parts = full.Substring(root.Length).Split(Path.DirectorySeparatorChar);
+            var pending = new Stack<Tuple<string, int>>();
+            pending.Push(Tuple.Create(root, 0));
+            while (pending.Count > 0)
+            {
+                token.ThrowIfCancellationRequested();
+                var current = pending.Pop();
+                string part = parts[current.Item2];
+                bool last = current.Item2 == parts.Length - 1;
+                string[] entries;
+                try
+                {
+                    entries = last
+                        ? Directory.GetFiles(current.Item1, part)
+                        : Directory.GetDirectories(current.Item1, part == "**" ? "*" : part);
+                }
+                catch (UnauthorizedAccessException) { continue; }
+                catch (IOException) { continue; }
+
+                if (last)
+                {
+                    foreach (string file in entries) yield return file;
+                    continue;
+                }
+                if (part == "**") pending.Push(Tuple.Create(current.Item1, current.Item2 + 1));
+                foreach (string child in entries)
+                {
+                    if (ShouldSkipDirectory(child)) continue;
+                    try
+                    {
+                        if ((File.GetAttributes(child) & FileAttributes.ReparsePoint) != 0) continue;
+                    }
+                    catch (UnauthorizedAccessException) { continue; }
+                    catch (IOException) { continue; }
+                    pending.Push(Tuple.Create(child, part == "**" ? current.Item2 : current.Item2 + 1));
+                }
+            }
         }
 
         /// <summary>

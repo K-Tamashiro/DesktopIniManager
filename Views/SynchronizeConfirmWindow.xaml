@@ -157,10 +157,10 @@
         <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
       <TextBlock
+        x:Name="WarningText"
         VerticalAlignment="Center"
         FontSize="12"
-        Foreground="{DynamicResource Muted}"
-        x:Name="WarningText" />
+        Foreground="{DynamicResource Muted}" />
       <Button
         x:Name="CancelButton"
         Grid.Column="1"

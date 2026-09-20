@@ -74,6 +74,17 @@
             Text="&#xE8A5;" />
         </MenuItem.Icon>
       </MenuItem>
+      <MenuItem Command="{Binding PlacementTarget.Tag.FileListToEditorCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" Header="File List &gt; TxtEditor">
+        <MenuItem.Icon>
+          <TextBlock
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            FontFamily="Segoe MDL2 Assets"
+            FontSize="15"
+            Foreground="{DynamicResource Ink}"
+            Text="&#xE8A5;" />
+        </MenuItem.Icon>
+      </MenuItem>
       <MenuItem
         Command="{Binding PlacementTarget.Tag.GrepFolderCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
         CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
@@ -90,8 +101,8 @@
       </MenuItem>
       <Separator Tag="dim-msbuild" Visibility="Collapsed" />
       <MenuItem
-        Tag="dim-msbuild-build"
         Header="{loc:L Main_MsBuildBuild}"
+        Tag="dim-msbuild-build"
         Visibility="Collapsed">
         <MenuItem.Icon>
           <TextBlock
@@ -103,15 +114,15 @@
             Text="&#xE768;" />
         </MenuItem.Icon>
         <MenuItem.ItemContainerStyle>
-          <Style TargetType="MenuItem">
+          <Style BasedOn="{StaticResource {x:Type MenuItem}}" TargetType="MenuItem">
             <Setter Property="Header" Value="{Binding Header}" />
             <Setter Property="Command" Value="{Binding Command}" />
           </Style>
         </MenuItem.ItemContainerStyle>
       </MenuItem>
       <MenuItem
-        Tag="dim-msbuild-rebuild"
         Header="{loc:L Main_MsBuildRebuild}"
+        Tag="dim-msbuild-rebuild"
         Visibility="Collapsed">
         <MenuItem.Icon>
           <TextBlock
@@ -123,7 +134,7 @@
             Text="&#xE72C;" />
         </MenuItem.Icon>
         <MenuItem.ItemContainerStyle>
-          <Style TargetType="MenuItem">
+          <Style BasedOn="{StaticResource {x:Type MenuItem}}" TargetType="MenuItem">
             <Setter Property="Header" Value="{Binding Header}" />
             <Setter Property="Command" Value="{Binding Command}" />
           </Style>
@@ -1293,8 +1304,8 @@
         <ColumnDefinition Width="*" />
       </Grid.ColumnDefinitions>
       <ProgressBar
-        Grid.ColumnSpan="3"
         x:Name="SearchProgress"
+        Grid.ColumnSpan="3"
         Height="6"
         Margin="0,0,0,6"
         Background="{DynamicResource HeaderBackground}"
@@ -1325,28 +1336,28 @@
         Grid.Row="1"
         VerticalAlignment="Center"
         Orientation="Horizontal">
-          <Button
-            x:Name="ResetButton"
-            Background="Transparent"
-            Command="{Binding ResetCommand}"
-            Style="{StaticResource IconButton}"
-            ToolTip="Clear settings, history, and folder lists">
-            <Image
-              x:Name="ResetButtonIcon"
-              RenderOptions.BitmapScalingMode="HighQuality"
-              Stretch="Uniform" />
-          </Button>
-          <TextBlock
-            x:Name="CountText"
-            Margin="12,0,12,0"
-            VerticalAlignment="Center"
-            Foreground="{DynamicResource Muted}"
-            Text="{Binding CountLabel}" />
-          <TextBlock
-            x:Name="StatusText"
-            VerticalAlignment="Center"
-            Foreground="{DynamicResource Muted}"
-            Text="{Binding Status}" />
+        <Button
+          x:Name="ResetButton"
+          Background="Transparent"
+          Command="{Binding ResetCommand}"
+          Style="{StaticResource IconButton}"
+          ToolTip="Clear settings, history, and folder lists">
+          <Image
+            x:Name="ResetButtonIcon"
+            RenderOptions.BitmapScalingMode="HighQuality"
+            Stretch="Uniform" />
+        </Button>
+        <TextBlock
+          x:Name="CountText"
+          Margin="12,0,12,0"
+          VerticalAlignment="Center"
+          Foreground="{DynamicResource Muted}"
+          Text="{Binding CountLabel}" />
+        <TextBlock
+          x:Name="StatusText"
+          VerticalAlignment="Center"
+          Foreground="{DynamicResource Muted}"
+          Text="{Binding Status}" />
       </StackPanel>
       <DockPanel
         Grid.Row="1"
@@ -1422,8 +1433,8 @@
         </StackPanel>
         <DockPanel
           Height="36"
-          Margin="0,0,16,0"
           MinWidth="220"
+          Margin="0,0,16,0"
           VerticalAlignment="Center">
           <Button
             x:Name="BrowseScriptButton"

@@ -67,6 +67,13 @@ namespace DesktopIniManager.Services
             return extension.Length > 1 && key.Length > extension.Length;
         }
 
+        internal static bool FileNameMatches(string name, string key)
+        {
+            if (IsExtensionQuery(key))
+                return string.Equals(Path.GetExtension(name), key, StringComparison.OrdinalIgnoreCase);
+            return NameMatches(name, key, IsFileNameQuery(key));
+        }
+
         private static bool NameMatches(string name, string key, bool fileNameQuery)
         {
             if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(key)) return false;

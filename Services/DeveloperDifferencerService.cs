@@ -65,6 +65,13 @@ namespace DesktopIniManager.Services
         public event PropertyChangedEventHandler PropertyChanged;
     }
 
+    internal sealed class DiffFolderSync
+    {
+        public string RelativePath { get; set; }
+        public bool SourceExists { get; set; }
+        public bool TargetExists { get; set; }
+    }
+
     internal sealed class DiffProgress
     {
         public string Stage { get; set; }
@@ -271,10 +278,13 @@ namespace DesktopIniManager.Services
             int total = Math.Max(1, sourceCount + targetCount);
 
             progress?.Report(ReportCompare("Comparing source…", 0, total));
-            Dictionary<string, DiffStamp> left = ScanSelectedFolder(source, string.Empty, result.Folders, token, progress, "Comparing source…", 0, total);
+            var sourceFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "" };
+            var targetFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "" };
+            Dictionary<string, DiffStamp> left = ScanSelectedFolder(source, string.Empty, sourceFolders, token, progress, "Comparing source…", 0, total);
 
             progress?.Report(ReportCompare("Comparing target…", left.Count, total));
-            Dictionary<string, DiffStamp> right = ScanSelectedFolder(target, string.Empty, result.Folders, token, progress, "Comparing target…", left.Count, total);
+            Dictionary<string, DiffStamp> right = ScanSelectedFolder(target, string.Empty, targetFolders, token, progress, "Comparing target…", left.Count, total);
+            result.Folders = new HashSet<string>(sourceFolders.Union(targetFolders, StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase);
 
             progress?.Report(ReportCompare("Classifying differences…", total, total));
             result.Files = Classify(left, right, true, compareTimestamp, token, progress, total);
@@ -304,7 +314,7 @@ namespace DesktopIniManager.Services
             return from == null ? "Delete" : to == null ? "Copy" : "Overwrite";
         }
         /// <summary>Synchronizes selected differences and returns an operation log.</summary>
-        public static List<string> Synchronize(DiffSnapshot snapshot, IEnumerable<DiffFile> selected, bool toTarget, Action<string> onLog = null)
+        public static List<string> Synchronize(DiffSnapshot snapshot, IEnumerable<DiffFile> selected, bool toTarget, Action<string> onLog = null, IEnumerable<DiffFolderSync> selectedFolders = null)
         {
             Root(snapshot.SourceRoot); Root(snapshot.TargetRoot); ValidateRoots(snapshot.SourceRoot, snapshot.TargetRoot);
             var log = new List<string>();
@@ -378,8 +388,47 @@ namespace DesktopIniManager.Services
                         writeLog("FAIL " + operation + " " + file.RelativePath + " : " + ErrorMessages.English(ex));
                 }
             }
+            // Directory differences are applied after file operations. This lets file deletions
+            // empty one-sided directories before Directory.Delete(false), while file copies already
+            // create their parent directories. Empty directories are therefore handled here.
+            var folderOperations = (selectedFolders ?? Enumerable.Empty<DiffFolderSync>())
+                .Where(f => f != null && !string.IsNullOrWhiteSpace(f.RelativePath) && f.SourceExists != f.TargetExists)
+                .OrderBy(f => (toTarget ? f.SourceExists : f.TargetExists) ? FolderDepth(f.RelativePath) : -FolderDepth(f.RelativePath))
+                .ToArray();
+
+            foreach (DiffFolderSync folder in folderOperations)
+            {
+                bool fromExists = toTarget ? folder.SourceExists : folder.TargetExists;
+                string operation = fromExists ? "CreateDir" : "DeleteDir";
+                try
+                {
+                    string leftFolder = SafeFolderPath(snapshot.SourceRoot, folder.RelativePath);
+                    string rightFolder = SafeFolderPath(snapshot.TargetRoot, folder.RelativePath);
+                    string origin = toTarget ? leftFolder : rightFolder;
+                    if (Directory.Exists(origin) != fromExists)
+                        throw new IOException("Folder changed after compare. Compare again.");
+
+                    string destination = toTarget ? rightFolder : leftFolder;
+                    if (fromExists) Directory.CreateDirectory(destination);
+                    else if (Directory.Exists(destination)) Directory.Delete(destination, false);
+
+                    if (Directory.Exists(destination) != fromExists)
+                        throw new IOException("Folder synchronization verification failed. Compare again.");
+                    writeLog("OK " + operation + " " + folder.RelativePath);
+                }
+                catch (Exception ex)
+                {
+                    writeLog("FAIL " + operation + " " + folder.RelativePath + " : " + ErrorMessages.English(ex));
+                }
+            }
+
             return log;
         }
+        private static int FolderDepth(string relativePath)
+        {
+            return relativePath.Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries).Length;
+        }
+
         private static bool IsFileLocked(string path)
         {
             if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return false;

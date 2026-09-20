@@ -1,4 +1,4 @@
-using DesktopIniManager.Services;
+﻿using DesktopIniManager.Services;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -89,26 +89,49 @@ namespace DesktopIniManager.ViewModels
         public bool TargetExists { get; set; }
         public bool SourceEmpty { get; set; }
         public bool TargetEmpty { get; set; }
+        private bool folderSelected;
+        public DiffKind FolderKind => SourceExists == TargetExists ? DiffKind.Same : SourceExists ? DiffKind.SourceOnly : DiffKind.TargetOnly;
+        public bool FolderCanSync => Path.Length > 0 && SourceExists != TargetExists;
+        public bool FolderSelected
+        {
+            get => folderSelected;
+            set => SetFolderSelected(value, true);
+        }
+        internal void SetFolderSelected(bool value, bool notify)
+        {
+            value = value && FolderCanSync;
+            if (folderSelected == value) return;
+            folderSelected = value;
+            if (notify) NotifyCheckedUpward();
+        }
+        private void NotifyCheckedUpward()
+        {
+            for (DiffFolder folder = this; folder != null; folder = folder.Parent)
+                folder.PropertyChanged?.Invoke(folder, new PropertyChangedEventArgs(nameof(Checked)));
+        }
+
+        public bool MatchesFolderMask(DiffKind mask) => FolderCanSync && (FolderKind & mask) != 0;
 
         public ImageSource IconPreview
         {
             get
             {
-                // Only a completely empty one-sided folder uses Left / Right.
-                if (SourceExists && !TargetExists && SourceEmpty)
+                if (SourceExists && !TargetExists)
                     return DifferencerStatusIcons.GetFolderIcon(DiffKind.SourceOnly);
 
-                if (!SourceExists && TargetExists && TargetEmpty)
+                if (!SourceExists && TargetExists)
                     return DifferencerStatusIcons.GetFolderIcon(DiffKind.TargetOnly);
 
-                // Any differing/source-only/target-only file below this folder means X.
-                if (CountFor(DiffKind.Differences) > 0)
+                // Judge the folder icon only from differences enabled by the current category filter.
+                // For example, when TargetOnly is OFF, TargetOnly differences must not make the folder Different.
+                if (CountFor(Mask & DiffKind.Differences) > 0)
                     return DifferencerStatusIcons.GetFolderIcon(DiffKind.Different);
 
                 // Otherwise the folder contents match.
                 return DifferencerStatusIcons.GetFolderIcon(DiffKind.Same);
             }
         }
+        public DiffFolder Parent { get; set; }
         public List<DiffFolder> Children { get; } = new List<DiffFolder>();
         public bool Visible { get; set; } = true;
         public List<DiffFolder> DisplayChildren { get; private set; } = new List<DiffFolder>();
@@ -116,6 +139,10 @@ namespace DesktopIniManager.ViewModels
         {
             DisplayChildren = Children.Where(f => f.Visible).ToList();
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("DisplayChildren"));
+        }
+        public void RefreshIcon()
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IconPreview)));
         }
         public List<DiffFile> Files { get; } = new List<DiffFile>();
         private bool expanded;
@@ -134,14 +161,46 @@ namespace DesktopIniManager.ViewModels
         { int result = 0; for (int kind = 1; kind <= 8; kind <<= 1) if (((int)mask & kind) != 0) result += values[kind]; return result; }
         public int CountFor(DiffKind mask) { return Sum(counts, mask); }
         public int SelectedFor(DiffKind mask) { return Sum(selectedCounts, mask); }
-        public bool CanSelect { get { return CountFor(Mask & DiffKind.Differences) > 0; } }
+        public bool CanSelect
+        {
+            get
+            {
+                // Allow a common parent/root to select differences below it.
+                return CountFor(Mask & DiffKind.Differences) > 0
+                    || (IsFolderIncluded && MatchesFolderMask(Mask))
+                    || Children.Any(child => child.CanSelect);
+            }
+        }
         public int SelectedCount { get; private set; }
         public int AllDifferenceCount { get; private set; }
         public Func<DiffFile, bool> IncludeFile { get; set; }
+        public Func<DiffFolder, bool> IncludeFolder { get; set; }
+        private bool IsFolderIncluded => IncludeFolder == null || IncludeFolder(this);
         public bool? Checked
         {
-            get { int selected = SelectedFor(Mask); return selected == 0 ? false : selected == CountFor(Mask & DiffKind.Differences) ? (bool?)true : null; }
+            get
+            {
+                int selected = SelectedFor(Mask);
+                int total = CountFor(Mask & DiffKind.Differences);
+
+                AddFolderSelectionCounts(this, Mask, ref selected, ref total);
+
+                return selected == 0 ? false : selected == total ? (bool?)true : null;
+            }
             set { Toggle?.Invoke(this, value == true); }
+        }
+
+        private static void AddFolderSelectionCounts(DiffFolder folder, DiffKind mask, ref int selected, ref int total)
+        {
+            if (folder.IsFolderIncluded && folder.MatchesFolderMask(mask))
+            {
+                total++;
+                if (folder.FolderSelected)
+                    selected++;
+            }
+
+            foreach (DiffFolder child in folder.Children)
+                AddFolderSelectionCounts(child, mask, ref selected, ref total);
         }
         public void Refresh()
         {
@@ -156,8 +215,28 @@ namespace DesktopIniManager.ViewModels
                 if (file.Selected) selectedCounts[(int)file.Kind]++;
             }
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Checked"));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("CanSelect"));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("IconPreview"));
         }
+        public void RefreshSelectionCounts()
+        {
+            Array.Clear(selectedCounts, 0, selectedCounts.Length);
+            SelectedCount = 0;
+
+            foreach (DiffFile file in Files)
+            {
+                if (!file.Selected) continue;
+                SelectedCount++;
+
+                if (IncludeFile != null && !IncludeFile(file))
+                    continue;
+
+                selectedCounts[(int)file.Kind]++;
+            }
+
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Checked)));
+        }
+
         public void ChangeSelectionCount(int delta, DiffKind kind, bool included = true)
         {
             if (delta == 0) return;

@@ -1,0 +1,737 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#07111d">
+  <title>DesktopIniManager v3.2.0 — DIR edition</title>
+  <meta name="description"
+    content="Development workspace for Windows — Physical / Solution / Search, Scoped Grep, Developer Differencer, folder icons and solution build tools.">
+  <style>
+    :root {
+      --bg: #07111d;
+      --bg2: #0b1624;
+      --panel: rgba(15, 29, 45, .72);
+      --panel2: #102237;
+      --text: #edf6ff;
+      --muted: #92a8bc;
+      --line: rgba(150, 190, 220, .16);
+      --cyan: #49d9d1;
+      --blue: #63a9ff;
+      --yellow: #ffd166;
+      --shadow: 0 28px 80px rgba(0, 0, 0, .34);
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: 84px
+    }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 12% 0%, rgba(73, 217, 209, .12), transparent 31rem),
+        radial-gradient(circle at 88% 10%, rgba(99, 169, 255, .12), transparent 30rem),
+        var(--bg);
+      font-family: Inter, "Segoe UI", system-ui, sans-serif;
+      line-height: 1.65
+    }
+
+    body.light {
+      --bg: #eef4f8;
+      --bg2: #fff;
+      --panel: rgba(255, 255, 255, .78);
+      --panel2: #fff;
+      --text: #102235;
+      --muted: #5e7182;
+      --line: rgba(20, 55, 80, .13);
+      --shadow: 0 25px 70px rgba(34, 68, 92, .13)
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none
+    }
+
+    button {
+      font: inherit
+    }
+
+    nav {
+      position: fixed;
+      z-index: 50;
+      top: 0;
+      left: 0;
+      right: 0;
+      backdrop-filter: blur(18px);
+      background: color-mix(in srgb, var(--bg) 76%, transparent);
+      border-bottom: 1px solid var(--line)
+    }
+
+    .nav {
+      max-width: 1240px;
+      margin: auto;
+      height: 68px;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      gap: 24px
+    }
+
+    .brand {
+      font-weight: 800;
+      letter-spacing: -.02em
+    }
+
+    .brand b {
+      color: var(--cyan)
+    }
+
+    .links {
+      display: flex;
+      gap: 20px;
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 14px
+    }
+
+    .links a:hover {
+      color: var(--text)
+    }
+
+    .iconbtn {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--text);
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      cursor: pointer
+    }
+
+    main {
+      overflow: hidden
+    }
+
+    .hero {
+      min-height: 94vh;
+      max-width: 1240px;
+      margin: auto;
+      padding: 150px 24px 80px;
+      display: grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap: 70px;
+      align-items: center
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      gap: 10px;
+      align-items: center;
+      padding: 7px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--cyan);
+      font-size: 13px;
+      background: var(--panel)
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      background: var(--cyan);
+      border-radius: 50%;
+      box-shadow: 0 0 16px var(--cyan)
+    }
+
+    h1 {
+      font-size: clamp(46px, 7vw, 86px);
+      line-height: .98;
+      letter-spacing: -.065em;
+      margin: 24px 0
+    }
+
+    h1 span {
+      display: block;
+      color: transparent;
+      background: linear-gradient(110deg, var(--cyan), var(--blue));
+      background-clip: text
+    }
+
+    .lead {
+      font-size: 19px;
+      color: var(--muted);
+      max-width: 700px
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 32px
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 12px 18px;
+      border-radius: 13px;
+      border: 1px solid var(--line);
+      font-weight: 700;
+      transition: .2s;
+      background: var(--panel)
+    }
+
+    .btn.primary {
+      background: linear-gradient(120deg, var(--cyan), #77e8c5);
+      color: #062124;
+      border: 0
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, .15)
+    }
+
+    .facts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 28px;
+      color: var(--muted);
+      font-size: 13px
+    }
+
+    .fact {
+      padding: 7px 10px;
+      border: 1px solid var(--line);
+      border-radius: 9px
+    }
+
+    .window {
+      position: relative;
+      background: linear-gradient(145deg, var(--panel2), color-mix(in srgb, var(--panel2) 70%, #07111d));
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 10px;
+      box-shadow: var(--shadow);
+      transform: perspective(1200px) rotateY(-3deg) rotateX(2deg);
+      transition: .2s
+    }
+
+    .window:hover {
+      transform: perspective(1200px) rotateY(0) rotateX(0)
+    }
+
+    .bar {
+      height: 34px;
+      display: flex;
+      gap: 7px;
+      align-items: center;
+      padding: 0 8px
+    }
+
+    .bar i {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--line)
+    }
+
+    .window img {
+      width: 100%;
+      display: block;
+      border-radius: 12px;
+      background: #101c29;
+      min-height: 300px;
+      object-fit: cover
+    }
+
+    section {
+      max-width: 1240px;
+      margin: auto;
+      padding: 95px 24px
+    }
+
+    .kicker {
+      color: var(--cyan);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: .16em;
+      text-transform: uppercase
+    }
+
+    h2 {
+      font-size: clamp(34px, 5vw, 58px);
+      letter-spacing: -.045em;
+      line-height: 1.05;
+      margin: 10px 0 20px
+    }
+
+    .sectionlead {
+      max-width: 760px;
+      color: var(--muted);
+      font-size: 17px;
+      margin-bottom: 38px
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px
+    }
+
+    .card {
+      position: relative;
+      overflow: hidden;
+      padding: 26px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel);
+      backdrop-filter: blur(10px);
+      transition: .25s
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+      border-color: color-mix(in srgb, var(--cyan) 50%, var(--line));
+      box-shadow: 0 20px 50px rgba(0, 0, 0, .15)
+    }
+
+    .card h3 {
+      margin: 4px 0 8px;
+      font-size: 20px
+    }
+
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px
+    }
+
+    .num {
+      font: 700 12px ui-monospace, monospace;
+      color: var(--cyan)
+    }
+
+    .showcase {
+      display: grid;
+      grid-template-columns: .85fr 1.15fr;
+      gap: 45px;
+      align-items: center;
+      margin: 80px 0
+    }
+
+    .showcase:nth-child(even) {
+      grid-template-columns: 1.15fr .85fr
+    }
+
+    .showcase:nth-child(even) .shot {
+      order: -1
+    }
+
+    .shot {
+      border: 1px solid var(--line);
+      padding: 8px;
+      border-radius: 17px;
+      background: var(--panel);
+      box-shadow: var(--shadow)
+    }
+
+    .shot img {
+      width: 100%;
+      display: block;
+      border-radius: 11px
+    }
+
+    .tags {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 20px
+    }
+
+    .tag {
+      font-size: 12px;
+      padding: 6px 9px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--muted)
+    }
+
+    .release {
+      background: linear-gradient(135deg, rgba(73, 217, 209, .08), rgba(99, 169, 255, .07));
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      padding: 40px
+    }
+
+    .release ul {
+      columns: 2;
+      gap: 50px;
+      color: var(--muted);
+      padding-left: 20px
+    }
+
+    .release li {
+      margin: 9px 0;
+      break-inside: avoid
+    }
+
+    .warning {
+      margin-top: 18px;
+      padding: 14px 16px;
+      border-left: 3px solid var(--yellow);
+      background: rgba(255, 209, 102, .06);
+      color: var(--muted);
+      font-size: 14px
+    }
+
+    .cta {
+      text-align: center;
+      padding-bottom: 130px
+    }
+
+    .cta p {
+      color: var(--muted)
+    }
+
+    footer {
+      border-top: 1px solid var(--line);
+      padding: 30px 24px;
+      color: var(--muted);
+      font-size: 13px
+    }
+
+    .foot {
+      max-width: 1240px;
+      margin: auto;
+      display: flex;
+      justify-content: space-between;
+      gap: 20px
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity .7s, transform .7s
+    }
+
+    .reveal.on {
+      opacity: 1;
+      transform: none
+    }
+
+    .progress {
+      position: fixed;
+      z-index: 100;
+      top: 0;
+      left: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--cyan), var(--blue));
+      width: 0
+    }
+
+    @media(max-width:850px) {
+      .links {
+        display: none
+      }
+
+      .hero {
+        grid-template-columns: 1fr;
+        padding-top: 120px;
+        gap: 40px;
+        min-height: auto
+      }
+
+      .window {
+        transform: none
+      }
+
+      .grid {
+        grid-template-columns: 1fr
+      }
+
+      .showcase,
+      .showcase:nth-child(even) {
+        grid-template-columns: 1fr
+      }
+
+      .showcase:nth-child(even) .shot {
+        order: 0
+      }
+
+      .release ul {
+        columns: 1
+      }
+
+      .foot {
+        display: block
+      }
+
+      section {
+        padding-top: 70px
+      }
+    }
+
+    @media(prefers-reduced-motion:reduce) {
+      * {
+        scroll-behavior: auto !important;
+        transition: none !important
+      }
+
+      .reveal {
+        opacity: 1;
+        transform: none
+      }
+    }
+
+    .screenshot-grid {
+      grid-template-columns: repeat(3, 1fr)
+    }
+
+    .feature-shot {
+      margin: -14px -14px 22px;
+      box-shadow: none;
+      background: var(--bg2)
+    }
+
+    .feature-shot img {
+      aspect-ratio: 16/10;
+      object-fit: cover;
+      object-position: top
+    }
+
+    @media(max-width:1050px) {
+      .screenshot-grid {
+        grid-template-columns: 1fr
+      }
+
+      .feature-shot img {
+        aspect-ratio: auto
+      }
+    }
+
+    .brand-signature {
+      margin-top: 28px;
+      padding-top: 22px;
+      border-top: 1px solid var(--line);
+      text-align: center;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      color: var(--text);
+    }
+
+    .brand-signature span {
+      margin-left: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: .08em;
+      color: var(--muted);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="progress" id="progress"></div>
+  <nav>
+    <div class="nav">
+      <a class="brand" href="#top">DesktopIniManager <b>3.2</b></a>
+      <div class="links"><a href="#features">Features</a><a href="#screenshots">Screenshots</a><a
+          href="#workflow">Workspace</a><a href="#new">What's new</a><a href="#download">Download</a></div>
+      <button class="iconbtn" id="theme" aria-label="テーマ切替">◐</button>
+    </div>
+  </nav>
+
+  <main id="top">
+    <header class="hero">
+      <div>
+        <div class="eyebrow"><span class="dot"></span> Stable release · v3.2.0 · DIR edition</div>
+        <h1>開発フォルダーを、<span>ひとつの作業空間へ。</span></h1>
+        <p class="lead">Physical / Solution / Search、Scoped Grep、Developer Differencer、フォルダーアイコン管理、Solution
+          Build。Windows上の開発フォルダーを探索・検索・比較・同期するためのワークスペース。</p>
+        <div class="actions">
+          <a class="btn primary" href="https://github.com/K-Tamashiro/DesktopIniManager/releases">GitHub Releases →</a>
+          <a class="btn" href="https://github.com/K-Tamashiro/DesktopIniManager">View on GitHub</a>
+        </div>
+        <div class="facts"><span class="fact">Windows 10 / 11 x64</span><span class="fact">.NET 10</span><span
+            class="fact">No MFT access</span><span class="fact">No elevation for enumeration</span></div>
+      </div>
+      <div class="window" id="tilt">
+        <div class="bar"><i></i><i></i><i></i></div><img src="images/app-overview-dark.png"
+          alt="DesktopIniManager overview">
+      </div>
+    </header>
+
+    <section id="features">
+      <div class="reveal">
+        <div class="kicker">Core tools</div>
+        <h2>調べる。絞る。比較する。同期する。</h2>
+        <p class="sectionlead">巨大な開発ツリーを、用途ごとに別の道具へ渡し続けるのではなく、同じワークスペース上で扱う。</p>
+      </div>
+      <div class="grid">
+        <article class="card reveal"><span class="num">01</span>
+          <h3>Physical / Solution / Search</h3>
+          <p>実フォルダー、Visual Studio Solution の再構築ツリー、一時的な検索結果を独立したビューとして保持。</p>
+        </article>
+        <article class="card reveal"><span class="num">02</span>
+          <h3>Scoped Code Search</h3>
+          <p>必要なプロジェクトやフォルダーだけをスコープにして Grep。正規表現、単語一致、言語プロファイル、外部エディタ連携。</p>
+        </article>
+        <article class="card reveal"><span class="num">03</span>
+          <h3>Developer Differencer</h3>
+          <p>Source / Target を比較し、差分を選択して双方向同期。テキストと画像の Diff View も統合。</p>
+        </article>
+        <article class="card reveal"><span class="num">04</span>
+          <h3>Solution actions</h3>
+          <p>Solution View から構成を選択し Build / Rebuild。比較前には MSBuild Clean も実行可能。</p>
+        </article>
+        <article class="card reveal"><span class="num">05</span>
+          <h3>Tree exports & scripts</h3>
+          <p>保持済みデータから Tree / Tree /F / File List を即座にエディタへ。スクリプトもコンテキストメニューから実行。</p>
+        </article>
+        <article class="card reveal"><span class="num">06</span>
+          <h3>Folder icon management</h3>
+          <p>ICO / ICL / DLL / EXE リソースを desktop.ini に適用。開発用フォルダーアイコンセットを同梱。</p>
+        </article>
+      </div>
+    </section>
+
+
+    <section id="screenshots">
+      <div class="reveal">
+        <div class="kicker">v3.2.0 in action</div>
+        <h2>追加された操作を、画面で確認する。</h2>
+        <p class="sectionlead">検索ナビゲーション、SolutionのBuild / Rebuild、Diff Viewを実際の画面で紹介します。</p>
+      </div>
+      <div class="grid screenshot-grid">
+        <article class="card reveal">
+          <div class="shot feature-shot"><img src="images/search-file-highlight-dark.png" alt="検索結果ファイルのハイライト表示">
+          </div>
+          <span class="num">SEARCH</span>
+          <h3>検索結果ファイルをハイライト</h3>
+          <p>検索対象ファイルを右側のファイル一覧でもハイライト。前／次ボタンで一致ファイルを順番に移動できます。</p>
+        </article>
+        <article class="card reveal">
+          <div class="shot feature-shot"><img src="images/solution-build-menu-dark.png"
+              alt="Solution Build and Rebuild context menu"></div>
+          <span class="num">BUILD</span>
+          <h3>SolutionからBuild / Rebuild</h3>
+          <p>Solution Viewの右クリックメニューから構成を選択し、Build / Rebuildを直接実行できます。</p>
+        </article>
+        <article class="card reveal">
+          <div class="shot feature-shot"><img src="images/diff-view-image-dark.png"
+              alt="Developer Differencer image Diff View"></div>
+          <span class="num">DIFF VIEW</span>
+          <h3>画像Diff View</h3>
+          <p>Source / Targetを並べ、共通ズーム、Fit、100%表示で画像差分を確認できます。</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="workflow">
+      <div class="showcase reveal">
+        <div>
+          <div class="kicker">Workspace</div>
+          <h2>物理構造とSolution構造を切り替える。</h2>
+          <p class="sectionlead">検索場所を取得すると Physical と Solution のツリーを構築。検索やフィルターを行っても、取得済みワークスペースは維持される。</p>
+          <div class="tags"><span class="tag">Physical</span><span class="tag">Solution</span><span
+              class="tag">Search</span><span class="tag">Repository markers</span></div>
+        </div>
+        <div class="shot"><img src="images/repository-tree-dark.png" alt="Repository workspace"></div>
+      </div>
+      <div class="showcase reveal">
+        <div>
+          <div class="kicker">Scoped Grep</div>
+          <h2>見る必要のあるコードだけを検索する。</h2>
+          <p class="sectionlead">複数のツリー枝から検索スコープを保持。ファイル、行、桁、マッチ文字列をグループ表示し、設定したエディタへ直接移動できる。</p>
+        </div>
+        <div class="shot"><img src="images/scoped-code-search.png" alt="Scoped Code Search"></div>
+      </div>
+      <div class="showcase reveal">
+        <div>
+          <div class="kicker">Differencer</div>
+          <h2>比較から同期まで、方向を見失わない。</h2>
+          <p class="sectionlead">相対パスで Source / Target を比較。Same / Diff / Left / Right で絞り込み、実行前にコピー・上書き・削除件数を確認する。</p>
+        </div>
+        <div class="shot"><img src="images/mft-differencer.png" alt="Developer Differencer"></div>
+      </div>
+      <div class="showcase reveal">
+        <div>
+          <div class="kicker">Diff View</div>
+          <h2>差分そのものを、その場で確認する。</h2>
+          <p class="sectionlead">行番号、変更表示、連動スクロール、差分マップ、前後移動を備えた読み取り専用ビュー。画像は Fit / 100% / 共通ズームに対応。</p>
+        </div>
+        <div class="shot"><img src="images/mft-diff-view.png" alt="Side-by-side Diff View"></div>
+      </div>
+    </section>
+
+    <section id="new">
+      <div class="release reveal">
+        <div class="kicker">v3.2.0</div>
+        <h2>フォルダー同期と選択処理を改善。</h2>
+        <ul>
+          <li>片側だけのフォルダー・空フォルダーも双方向同期の対象に</li>
+          <li>同期確認にフォルダー作成・削除件数を表示</li>
+          <li>カテゴリとobj/binフィルターにフォルダー状態を統一</li>
+          <li>一括チェック時の通知と再集計の重複を削減</li>
+          <li>検索ルート直下のファイル検索と前後ジャンプ</li>
+          <li>検索ハイライトとジャンプ対象の整合性を改善</li>
+          <li>Solution フォルダー直下ファイルの表示を改善</li>
+          <li>EnableDefaultItems=false と wildcard include を考慮</li>
+          <li>保持済みデータから Tree / Tree /F / File List を出力</li>
+          <li>Solution View から Build / Rebuild</li>
+          <li>ファイルメニュー／コマンド欄からスクリプト実行</li>
+          <li>Diff View の行位置合わせを改善</li>
+          <li>メインウィンドウのコンテキストメニューを英語・日本語化</li>
+        </ul>
+        <div class="warning">Solution View は軽量な再構築であり、MSBuild imports・conditions・Visual Studio virtual nodes
+          を完全評価するものではありません。</div>
+      </div>
+    </section>
+
+    <section id="download" class="cta reveal">
+      <div class="kicker">Download</div>
+      <h2>DesktopIniManager v3.2.0</h2>
+      <p>Windows 10 / 11 x64 · .NET 10 Desktop Runtime (x64) · Release package: DesktopIniManager-v3.2.0-DIR-win-x64.zip
+      </p>
+      <div class="actions" style="justify-content:center"><a class="btn primary"
+          href="https://github.com/K-Tamashiro/DesktopIniManager/releases">Download from GitHub Releases →</a><a
+          class="btn" href="https://github.com/K-Tamashiro/DesktopIniManager">Source / Documentation</a></div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="foot">
+      <span>DesktopIniManager v3.2.0 — DIR edition</span>
+      <span>Windows development workspace</span>
+    </div>
+
+    <div class="brand-signature">
+      ZEBRASOFT <span>by Tamayan</span>
+    </div>
+  </footer>
+  <script>
+    const root = document.body, theme = document.getElementById('theme');
+    theme.onclick = () => { root.classList.toggle('light'); localStorage.setItem('dim-theme', root.classList.contains('light') ? 'light' : 'dark') };
+    if (localStorage.getItem('dim-theme') === 'light') root.classList.add('light');
+    const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) e.target.classList.add('on') }), { threshold: .12 });
+    document.querySelectorAll('.reveal').forEach(e => io.observe(e));
+    addEventListener('scroll', () => { const h = document.documentElement; document.getElementById('progress').style.width = (100 * h.scrollTop / (h.scrollHeight - h.clientHeight)) + '%' }, { passive: true });
+    const tilt = document.getElementById('tilt');
+    if (matchMedia('(pointer:fine)').matches) {
+      tilt.addEventListener('mousemove', e => { const r = tilt.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5; tilt.style.transform = `perspective(1200px) rotateY(${x * 5}deg) rotateX(${-y * 5}deg)` });
+      tilt.addEventListener('mouseleave', () => tilt.style.transform = 'perspective(1200px) rotateY(-3deg) rotateX(2deg)');
+    }
+  </script>
+</body>
+
+</html>

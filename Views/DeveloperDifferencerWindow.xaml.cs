@@ -1,4 +1,4 @@
-using DesktopIniManager.ViewModels;
+﻿using DesktopIniManager.ViewModels;
 using DesktopIniManager.Services;
 using DesktopIniManager.Properties;
 using System;
@@ -278,9 +278,9 @@ namespace DesktopIniManager.Views
         private void ShowCleanReport(string summary, string logPath, string log)
             => CleanReportWindow.Show(this, summary, logPath, log);
 
-        private bool ShowSyncConfirmation(string direction, DiffFile[] files, bool toTarget)
+        private bool ShowSyncConfirmation(string direction, DiffFile[] files, DiffFolderSync[] folders, bool toTarget)
         {
-            return SynchronizeConfirmWindow.Confirm(this, direction, files, toTarget, ViewModel.Snapshot.SourceRoot, ViewModel.Snapshot.TargetRoot);
+            return SynchronizeConfirmWindow.Confirm(this, direction, files, folders, toTarget, ViewModel.Snapshot.SourceRoot, ViewModel.Snapshot.TargetRoot);
         }
 
         internal Task<bool> RefreshFileAsync(DiffFile file) => ViewModel.RefreshFileAsync(file);

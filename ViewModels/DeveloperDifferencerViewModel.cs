@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using DesktopIniManager.Properties;
 using DesktopIniManager.Services;
 using System;
@@ -119,7 +119,7 @@ namespace DesktopIniManager.ViewModels
         public bool CanCancel { get => _canCancel; set { if (SetProperty(ref _canCancel, value)) CancelCommand?.NotifyCanExecuteChanged(); } }
 
         private readonly IUserDialogService dialogs;
-        private readonly Func<string, DiffFile[], bool, bool> confirmSync;
+        private readonly Func<string, DiffFile[], DiffFolderSync[], bool, bool> confirmSync;
         private readonly Func<string, DiffSnapshot, ISynchronizationLog> openLog;
         private readonly System.Windows.Threading.Dispatcher dispatcher;
         public bool CanEdit => !IsBusy;
@@ -136,7 +136,7 @@ namespace DesktopIniManager.ViewModels
         public RelayCommand ExpandAllCommand { get; }
         public RelayCommand CollapseAllCommand { get; }
         internal DeveloperDifferencerViewModel(IUserDialogService dialogs, System.Windows.Threading.Dispatcher dispatcher,
-            Func<string, DiffFile[], bool, bool> confirmSync, Func<string, DiffSnapshot, ISynchronizationLog> openLog)
+            Func<string, DiffFile[], DiffFolderSync[], bool, bool> confirmSync, Func<string, DiffSnapshot, ISynchronizationLog> openLog)
         {
             this.dialogs = dialogs; this.dispatcher = dispatcher; this.confirmSync = confirmSync; this.openLog = openLog;
             BrowseSourceCommand = new RelayCommand(() => BrowseFolder(true), () => !IsBusy);
@@ -289,9 +289,13 @@ namespace DesktopIniManager.ViewModels
         {
             if (IsBusy || snapshot == null) return;
             DiffFile[] files = snapshot.Files.Where(f => f.CanSync && f.Selected).ToArray();
-            if (files.Length == 0) return;
+            DiffFolderSync[] selectedFolders = folders.Values
+                .Where(f => f.FolderCanSync && f.FolderSelected && IncludeBuildFolder(f.Path))
+                .Select(f => new DiffFolderSync { RelativePath = f.Path, SourceExists = f.SourceExists, TargetExists = f.TargetExists })
+                .ToArray();
+            if (files.Length == 0 && selectedFolders.Length == 0) return;
             string direction = toTarget ? "Source to Target" : "Target to Source";
-            if (!confirmSync(direction, files, toTarget)) return;
+            if (!confirmSync(direction, files, selectedFolders, toTarget)) return;
             ISynchronizationLog liveLog = openLog(direction, snapshot);
             SetBusy(true); Status = direction + " — syncing…";
             try
@@ -301,7 +305,7 @@ namespace DesktopIniManager.ViewModels
                 {
                     DiffSnapshot current = snapshot;
                     log = await Task.Run(() => DeveloperDifferencerService.Synchronize(current, files, toTarget,
-                        line => dispatcher.Invoke(new Action(() => liveLog.AppendLine(line)))));
+                        line => dispatcher.Invoke(new Action(() => liveLog.AppendLine(line))), selectedFolders));
                 }
                 catch (Exception ex) { log = new List<string> { "FAIL " + ErrorMessages.English(ex) }; liveLog.AppendLine(log[0]); }
                 string report = direction + "\n" + DateTime.Now.ToString("O") + "\n" + string.Join("\n", log);
@@ -373,11 +377,38 @@ namespace DesktopIniManager.ViewModels
                              (showBin || !part.Equals("bin", StringComparison.OrdinalIgnoreCase)));
         }
 
+        internal bool IncludeBuildFolder(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return true;
+            return path.Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries)
+                .All(part => (showObj || !part.Equals("obj", StringComparison.OrdinalIgnoreCase)) &&
+                             (showBin || !part.Equals("bin", StringComparison.OrdinalIgnoreCase)));
+        }
+
         internal void ApplyBuildFolderFilter()
         {
-            showObj = ShowObj == true; showBin = ShowBin == true;
+            showObj = ShowObj == true;
+            showBin = ShowBin == true;
             if (snapshot == null) return;
-            RefreshChecks(); ApplyKindFilter();
+
+            bulk = true;
+            foreach (DiffFile file in snapshot.Files)
+                if (!IncludeBuildFolderFile(file))
+                    file.Selected = false;
+
+            foreach (DiffFolder folder in folders.Values)
+                if (!IncludeBuildFolder(folder.Path))
+                    folder.SetFolderSelected(false, false);
+            bulk = false;
+
+            RefreshChecks();
+            ApplyKindFilter();
+
+            // OBJ/BIN filter changes alter the effective folder state.
+            // Re-evaluate every tree icon from the filtered counts.
+            foreach (DiffFolder folder in folders.Values)
+                folder.RefreshIcon();
+
             Status = folders[""].CountFor(DiffKind.Differences) + " differences / " + folders[""].CountFor(DiffKind.Same) + " identical (OBJ/BIN filters applied). Check items to synchronize.";
         }
 
@@ -569,9 +600,30 @@ namespace DesktopIniManager.ViewModels
                     TargetEmpty = targetEmpty
                 };
                 node.IncludeFile = IncludeBuildFolderFile;
-                node.Toggle = (folder, value) => { bulk = true; foreach (DiffFile file in folder.Files) if (file.CanSync && IncludeBuildFolderFile(file) && (file.Kind & kindMask) != 0) file.Selected = value; bulk = false; RefreshChecks(); };
+                node.IncludeFolder = folder => IncludeBuildFolder(folder.Path);
+                node.Toggle = (folder, value) =>
+                {
+                    bulk = true;
+                    try
+                    {
+                        foreach (DiffFile file in folder.Files)
+                            if (file.CanSync && IncludeBuildFolderFile(file) && (file.Kind & kindMask) != 0)
+                                file.Selected = value;
+                        SetFolderSelectionRecursive(folder, value);
+                    }
+                    finally
+                    {
+                        bulk = false;
+                        RefreshSelectionChecks(folder);
+                    }
+                };
                 folders.Add(path, node);
-                if (path.Length > 0) folders[Path.GetDirectoryName(path) ?? ""].Children.Add(node);
+                if (path.Length > 0)
+                {
+                    DiffFolder parent = folders[Path.GetDirectoryName(path) ?? ""];
+                    node.Parent = parent;
+                    parent.Children.Add(node);
+                }
 
                 if (++processed % 64 == 0)
                     await Dispatcher.Yield(DispatcherPriority.Background);
@@ -607,7 +659,7 @@ namespace DesktopIniManager.ViewModels
             }
 
             if (snapshot != null)
-                cachedVisibleFolders = new HashSet<string>(folders.Values.Where(f => f.Path.Length == 0 || f.CountFor(DiffKind.Differences) > 0).Select(f => f.Path), StringComparer.OrdinalIgnoreCase);
+                cachedVisibleFolders = new HashSet<string>(folders.Values.Where(f => f.Path.Length == 0 || f.CountFor(DiffKind.Differences) > 0 || f.FolderCanSync).Select(f => f.Path), StringComparer.OrdinalIgnoreCase);
 
             DetachSelectionHandlers();
             if (snapshot != null)
@@ -632,12 +684,18 @@ namespace DesktopIniManager.ViewModels
             {
                 token.ThrowIfCancellationRequested();
                 folder.Mask = kindMask;
-                folder.Visible = folder.Path.Length == 0 || (snapshot != null ? folder.CountFor(kindMask) > 0 : cachedVisibleFolders == null || cachedVisibleFolders.Contains(folder.Path));
+                folder.Visible = folder.Path.Length == 0 ||
+                    (IncludeBuildFolder(folder.Path) &&
+                     (snapshot != null
+                         ? folder.CountFor(kindMask) > 0 || folder.MatchesFolderMask(kindMask)
+                         : cachedVisibleFolders == null || cachedVisibleFolders.Contains(folder.Path)));
                 folder.Label = (folder.Path.Length == 0 ? RootLabel() : Path.GetFileName(folder.Path)) + (snapshot == null ? " (not compared)" : " (" + folder.CountFor(kindMask) + ")");
 
                 if (++processed % 128 == 0)
                     await Dispatcher.Yield(DispatcherPriority.Background);
             }
+
+            PromoteVisibleFolderAncestors();
 
             if (!folders[selectedFolder].Visible)
             {
@@ -678,9 +736,15 @@ namespace DesktopIniManager.ViewModels
             foreach (DiffFolder folder in folders.Values)
             {
                 folder.Mask = kindMask;
-                folder.Visible = folder.Path.Length == 0 || (snapshot != null ? folder.CountFor(kindMask) > 0 : cachedVisibleFolders == null || cachedVisibleFolders.Contains(folder.Path));
+                folder.Visible = folder.Path.Length == 0 ||
+                    (IncludeBuildFolder(folder.Path) &&
+                     (snapshot != null
+                         ? folder.CountFor(kindMask) > 0 || folder.MatchesFolderMask(kindMask)
+                         : cachedVisibleFolders == null || cachedVisibleFolders.Contains(folder.Path)));
                 folder.Label = (folder.Path.Length == 0 ? RootLabel() : Path.GetFileName(folder.Path)) + (snapshot == null ? " (not compared)" : " (" + folder.CountFor(kindMask) + ")");
             }
+            PromoteVisibleFolderAncestors();
+
             if (!folders[selectedFolder].Visible)
             {
                 folders[selectedFolder].Active = false; selectedFolder = ""; folders[""].Active = true;
@@ -689,9 +753,63 @@ namespace DesktopIniManager.ViewModels
             FolderItems = new[] { folders[""] }; Filter(); UpdateSelectionSummary();
         }
 
+        private void PromoteVisibleFolderAncestors()
+        {
+            foreach (DiffFolder folder in folders.Values.Where(f => f.Visible && f.Path.Length > 0).ToArray())
+            {
+                string parentPath = Path.GetDirectoryName(folder.Path) ?? "";
+                while (true)
+                {
+                    if (folders.TryGetValue(parentPath, out DiffFolder parent))
+                        parent.Visible = true;
+                    if (parentPath.Length == 0) break;
+                    parentPath = Path.GetDirectoryName(parentPath) ?? "";
+                }
+            }
+        }
+
+        private void SetFolderSelectionRecursive(DiffFolder folder, bool value)
+        {
+            if (!IncludeBuildFolder(folder.Path))
+                return;
+
+            if (folder.FolderCanSync && folder.MatchesFolderMask(kindMask))
+                folder.SetFolderSelected(value, false);
+
+            foreach (DiffFolder child in folder.Children)
+                SetFolderSelectionRecursive(child, value);
+        }
+
         internal void RefreshChecks()
         {
             foreach (DiffFolder folder in folders.Values) folder.Refresh();
+            UpdateSelectionSummary();
+        }
+
+        internal void RefreshSelectionChecks(DiffFolder changedFolder = null)
+        {
+            // Bulk check/uncheck changes only selection state.
+            // Do not rebuild difference counts, CanSelect or icons.
+            if (changedFolder == null)
+            {
+                foreach (DiffFolder folder in folders.Values)
+                    folder.RefreshSelectionCounts();
+            }
+            else
+            {
+                // Files are aggregated into every ancestor. Sibling branches are unchanged.
+                var pending = new Stack<DiffFolder>();
+                pending.Push(changedFolder);
+                while (pending.Count > 0)
+                {
+                    DiffFolder folder = pending.Pop();
+                    folder.RefreshSelectionCounts();
+                    foreach (DiffFolder child in folder.Children) pending.Push(child);
+                }
+                for (DiffFolder parent = changedFolder.Parent; parent != null; parent = parent.Parent)
+                    parent.RefreshSelectionCounts();
+            }
+
             UpdateSelectionSummary();
         }
 
@@ -713,9 +831,12 @@ namespace DesktopIniManager.ViewModels
         internal void UpdateSelectionSummary()
         {
             DiffFolder root = null;
-            int count = snapshot != null && folders.TryGetValue("", out root) ? root.SelectedCount : 0;
-            int total = root == null ? 0 : root.AllDifferenceCount;
-            int hidden = root == null ? 0 : count - root.SelectedFor(kindMask);
+            int selectedFolderCount = snapshot == null ? 0 : folders.Values.Count(f => f.FolderCanSync && f.FolderSelected && IncludeBuildFolder(f.Path));
+            int folderDifferenceCount = snapshot == null ? 0 : folders.Values.Count(f => f.FolderCanSync && IncludeBuildFolder(f.Path));
+            int count = (snapshot != null && folders.TryGetValue("", out root) ? root.SelectedCount : 0) + selectedFolderCount;
+            int total = (root == null ? 0 : root.AllDifferenceCount) + folderDifferenceCount;
+            int visibleSelectedFolders = snapshot == null ? 0 : folders.Values.Count(f => f.FolderCanSync && f.FolderSelected && IncludeBuildFolder(f.Path) && f.MatchesFolderMask(kindMask));
+            int hidden = root == null ? 0 : count - root.SelectedFor(kindMask) - visibleSelectedFolders;
             CountLabel = "Selected " + count + " / " + total + (hidden > 0 ? " (includes " + hidden + " hidden)" : "");
             CanSynchronize = !IsBusy && count > 0; ForwardCommand.NotifyCanExecuteChanged(); ReverseCommand.NotifyCanExecuteChanged();
         }

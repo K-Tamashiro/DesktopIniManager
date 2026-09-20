@@ -3,7 +3,7 @@ param([string]$PrebuiltDirectory)
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$version = '3.1.0'
+$version = '3.2.0'
 $packageName = "DesktopIniManager-v$version-DIR-win-x64"
 $releaseRoot = Join-Path $repoRoot 'release'
 [IO.Directory]::CreateDirectory($releaseRoot) | Out-Null
@@ -28,13 +28,15 @@ try {
         'Assets/DeveloperDifferencer_iconset.icl', 'Assets/Flag.icl', 'Assets/folder_set.icl',
         'docs/mft-differencer.md', 'docs/smvvm-progress.md', 'docs/splash-screen.md',
         'docs/releases/v3.0.0-DIR.md', 'docs/releases/v3.1.0-DIR.md',
+        'docs/releases/v3.2.0-DIR.md', 'docs/index.html',
         'Languages/culture.txt', 'Languages/ja.txt', 'Languages/ko.txt', 'Languages/zh-Hans.txt'
     )
     $expected += @(
         'app-overview-dark.png', 'download.png', 'folder-icon-apply-dark.png', 'icon-picker-dark.png',
         'language-chinese.png', 'language-english.png', 'language-japanese.png', 'language-korean.png',
         'mft-diff-view.png', 'mft-differencer.png', 'physical-tree-dark.png', 'physical-tree-light.png',
-        'repository-tree-dark.png', 'scoped-code-search.png', 'search-tree-dark.png', 'solution-tree-dark.png'
+        'repository-tree-dark.png', 'scoped-code-search.png', 'search-tree-dark.png', 'solution-tree-dark.png',
+        'diff-view-image-dark.png', 'search-file-highlight-dark.png', 'solution-build-menu-dark.png'
     ) | ForEach-Object { 'docs/images/' + $_ }
 
     if ($PrebuiltDirectory) {
@@ -53,9 +55,10 @@ try {
     })
     $difference = Compare-Object ($expected | Sort-Object) ($actualFiles | Sort-Object)
     if ($difference) { throw ("Unexpected release layout: " + ($difference | Out-String)) }
-    foreach ($relative in @('DesktopIniManager.dll','FastVolumeIndex.Core.dll')) {
+    $assemblyVersions = @{ 'DesktopIniManager.dll' = $version; 'FastVolumeIndex.Core.dll' = '3.1.0' }
+    foreach ($relative in $assemblyVersions.Keys) {
         $actual = [Reflection.AssemblyName]::GetAssemblyName((Join-Path $stage $relative)).Version
-        if ($actual.ToString(3) -ne $version) { throw "Unexpected assembly version in ${relative}: $actual" }
+        if ($actual.ToString(3) -ne $assemblyVersions[$relative]) { throw "Unexpected assembly version in ${relative}: $actual" }
     }
     $runtime = Get-Content -LiteralPath (Join-Path $stage 'DesktopIniManager.runtimeconfig.json') -Raw | ConvertFrom-Json
     if ($runtime.runtimeOptions.includedFrameworks -or !$runtime.runtimeOptions.frameworks) {

@@ -74,7 +74,7 @@
             Text="&#xE8A5;" />
         </MenuItem.Icon>
       </MenuItem>
-      <MenuItem Command="{Binding PlacementTarget.Tag.FileListToEditorCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" Header="File List &gt; TxtEditor">
+      <MenuItem Command="{Binding PlacementTarget.Tag.FileListToEditorCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" Header="{loc:L Main_FileListToEditor}">
         <MenuItem.Icon>
           <TextBlock
             HorizontalAlignment="Center"
@@ -117,6 +117,7 @@
           <Style BasedOn="{StaticResource {x:Type MenuItem}}" TargetType="MenuItem">
             <Setter Property="Header" Value="{Binding Header}" />
             <Setter Property="Command" Value="{Binding Command}" />
+            <Setter Property="Icon" Value="{Binding MenuIcon}" />
           </Style>
         </MenuItem.ItemContainerStyle>
       </MenuItem>
@@ -137,6 +138,7 @@
           <Style BasedOn="{StaticResource {x:Type MenuItem}}" TargetType="MenuItem">
             <Setter Property="Header" Value="{Binding Header}" />
             <Setter Property="Command" Value="{Binding Command}" />
+            <Setter Property="Icon" Value="{Binding MenuIcon}" />
           </Style>
         </MenuItem.ItemContainerStyle>
       </MenuItem>
@@ -171,16 +173,17 @@
         </Setter.Value>
       </Setter>
       <Style.Triggers>
+        <DataTrigger Binding="{Binding IsDirectChild}" Value="False">
+          <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+        </DataTrigger>
         <DataTrigger Binding="{Binding IsSearchMatch}" Value="True">
           <Setter Property="Background" Value="{DynamicResource ThemeSelected}" />
-          <Setter Property="Foreground" Value="{DynamicResource Ink}" />
         </DataTrigger>
         <Trigger Property="IsMouseOver" Value="True">
           <Setter Property="Background" Value="{DynamicResource HeaderBackground}" />
         </Trigger>
         <Trigger Property="IsSelected" Value="True">
           <Setter Property="Background" Value="{DynamicResource ThemeSelected}" />
-          <Setter Property="Foreground" Value="{DynamicResource Ink}" />
         </Trigger>
       </Style.Triggers>
     </Style>
@@ -246,16 +249,17 @@
         </Setter.Value>
       </Setter>
       <Style.Triggers>
+        <DataTrigger Binding="{Binding IsDirectChild}" Value="False">
+          <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+        </DataTrigger>
         <DataTrigger Binding="{Binding IsSearchMatch}" Value="True">
           <Setter Property="Background" Value="{DynamicResource ThemeSelected}" />
-          <Setter Property="Foreground" Value="{DynamicResource Ink}" />
         </DataTrigger>
         <Trigger Property="IsMouseOver" Value="True">
           <Setter Property="Background" Value="{DynamicResource HeaderBackground}" />
         </Trigger>
         <Trigger Property="IsSelected" Value="True">
           <Setter Property="Background" Value="{DynamicResource ThemeSelected}" />
-          <Setter Property="Foreground" Value="{DynamicResource Ink}" />
         </Trigger>
       </Style.Triggers>
     </Style>
@@ -286,6 +290,7 @@
         <TextBlock
           Margin="1,4,1,0"
           FontSize="11"
+          Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
           Text="{Binding Name}"
           TextAlignment="Center"
           TextTrimming="CharacterEllipsis"
@@ -313,6 +318,7 @@
         <TextBlock
           Margin="2,6,2,0"
           FontSize="12"
+          Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
           Text="{Binding Name}"
           TextAlignment="Center"
           TextTrimming="CharacterEllipsis"
@@ -1238,58 +1244,70 @@
               </Grid>
             </Grid>
           </Grid>
-          <TabControl
-            x:Name="TreeTabs"
-            Grid.Row="3"
-            Margin="10,8,10,8"
-            SelectedIndex="{Binding SelectedTreeView, Mode=TwoWay}"
-            TabStripPlacement="Bottom">
-            <TabItem>
-              <TabItem.Header>
-                <StackPanel Orientation="Horizontal">
-                  <TextBlock
-                    VerticalAlignment="Center"
-                    FontFamily="Segoe MDL2 Assets"
-                    FontSize="13"
-                    Text="&#xE8B7;" />
-                  <TextBlock
-                    Margin="7,0,0,0"
-                    VerticalAlignment="Center"
-                    Text="{loc:L Main_Physical}" />
-                </StackPanel>
-              </TabItem.Header>
-            </TabItem>
-            <TabItem>
-              <TabItem.Header>
-                <StackPanel Orientation="Horizontal">
-                  <TextBlock
-                    VerticalAlignment="Center"
-                    FontFamily="Segoe MDL2 Assets"
-                    FontSize="13"
-                    Text="&#xE943;" />
-                  <TextBlock
-                    Margin="7,0,0,0"
-                    VerticalAlignment="Center"
-                    Text="{loc:L Main_Solution}" />
-                </StackPanel>
-              </TabItem.Header>
-            </TabItem>
-            <TabItem>
-              <TabItem.Header>
-                <StackPanel Orientation="Horizontal">
-                  <TextBlock
-                    VerticalAlignment="Center"
-                    FontFamily="Segoe MDL2 Assets"
-                    FontSize="13"
-                    Text="&#xE721;" />
-                  <TextBlock
-                    Margin="7,0,0,0"
-                    VerticalAlignment="Center"
-                    Text="{loc:L Common_Search}" />
-                </StackPanel>
-              </TabItem.Header>
-            </TabItem>
-          </TabControl>
+          <Grid Grid.Row="3" Margin="10,8,10,8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TabControl
+              x:Name="TreeTabs"
+              Grid.Column="0"
+              Margin="0"
+              SelectedIndex="{Binding SelectedTreeView, Mode=TwoWay}"
+              TabStripPlacement="Bottom">
+              <TabItem>
+                <TabItem.Header>
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock
+                      VerticalAlignment="Center"
+                      FontFamily="Segoe MDL2 Assets"
+                      FontSize="13"
+                      Text="&#xE8B7;" />
+                    <TextBlock
+                      Margin="7,0,0,0"
+                      VerticalAlignment="Center"
+                      Text="{loc:L Main_Physical}" />
+                  </StackPanel>
+                </TabItem.Header>
+              </TabItem>
+              <TabItem>
+                <TabItem.Header>
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock
+                      VerticalAlignment="Center"
+                      FontFamily="Segoe MDL2 Assets"
+                      FontSize="13"
+                      Text="&#xE943;" />
+                    <TextBlock
+                      Margin="7,0,0,0"
+                      VerticalAlignment="Center"
+                      Text="{loc:L Main_Solution}" />
+                  </StackPanel>
+                </TabItem.Header>
+              </TabItem>
+              <TabItem>
+                <TabItem.Header>
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock
+                      VerticalAlignment="Center"
+                      FontFamily="Segoe MDL2 Assets"
+                      FontSize="13"
+                      Text="&#xE721;" />
+                    <TextBlock
+                      Margin="7,0,0,0"
+                      VerticalAlignment="Center"
+                      Text="{loc:L Common_Search}" />
+                  </StackPanel>
+                </TabItem.Header>
+              </TabItem>
+            </TabControl>
+            <TextBlock
+              Grid.Column="1"
+              Margin="12,0,0,0"
+              VerticalAlignment="Center"
+              Foreground="{DynamicResource Muted}"
+              Text="{Binding FileListCountLabel}" />
+          </Grid>
         </Grid>
       </Border>
     </Grid>

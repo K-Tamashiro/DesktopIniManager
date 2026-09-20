@@ -359,13 +359,25 @@
     <value>Open in Explorer</value>
   </data>
   <data name="Main_TreeToEditor" xml:space="preserve">
-    <value>tree &gt; text editor</value>
+    <value>Tree &gt; Text Editor</value>
   </data>
   <data name="Main_TreeFilesToEditor" xml:space="preserve">
-    <value>tree /f &gt; text editor</value>
+    <value>Tree /F &gt; Text Editor</value>
   </data>
   <data name="Main_TreeOpened" xml:space="preserve">
     <value>Opened {0} in the editor. {1}</value>
+  </data>
+  <data name="Main_FileListToEditor" xml:space="preserve">
+    <value>File List &gt; Text Editor</value>
+  </data>
+  <data name="Main_MsBuildBuild" xml:space="preserve">
+    <value>Build</value>
+  </data>
+  <data name="Main_MsBuildRebuild" xml:space="preserve">
+    <value>Rebuild</value>
+  </data>
+  <data name="Main_RunScript" xml:space="preserve">
+    <value>Run script</value>
   </data>
   <data name="Main_TreeFailed" xml:space="preserve">
     <value>Could not open {0} results in the editor.</value>
@@ -524,7 +536,7 @@
     <value>Could not open the folder in Explorer.</value>
   </data>
   <data name="Main_FilesHeader" xml:space="preserve">
-    <value>Files — {0}</value>
+    <value>▶ {0}</value>
   </data>
   <data name="Main_OpenFileFailed" xml:space="preserve">
     <value>Could not open the file.</value>

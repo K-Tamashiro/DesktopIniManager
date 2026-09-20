@@ -353,7 +353,7 @@ namespace DesktopIniManager.Views
         {
             if (folder == null) return;
 
-            string label = includeFiles ? "tree /f" : "tree";
+            string label = includeFiles ? "Tree /F" : "Tree";
             string outputPath = Path.Combine(
                 Path.GetTempPath(),
                 includeFiles ? "DesktopIniManager-tree-f.txt" : "DesktopIniManager-tree.txt");
@@ -483,7 +483,10 @@ namespace DesktopIniManager.Views
             bool canRun = file != null && ScriptExtensions.Contains(file.Extension ?? string.Empty);
 
             if (list.ContextMenu.Items.Count > 0 && list.ContextMenu.Items[0] is MenuItem item)
+            {
+                item.Header = StringOverlay.Get("Main_RunScript");
                 item.IsEnabled = canRun;
+            }
         }
 
         private void RunSelectedScript(FileListItem file)
@@ -1107,7 +1110,7 @@ namespace DesktopIniManager.Views
         {
             _msBuildMenu.BuildItems.Clear();
             _msBuildMenu.RebuildItems.Clear();
-            if (folder == null) return;
+            if (ViewModel.TreeViewIndex != 1 || folder == null) return;
 
             FolderMatch solution = folder.FindSolutionRoot();
             string sln = solution?.SolutionFile;
@@ -1131,14 +1134,17 @@ namespace DesktopIniManager.Views
             {
                 string captured = pair;
                 string file = sln;
+                string glyph = ConfigIconGlyph(captured);
                 _msBuildMenu.BuildItems.Add(new MsBuildActionItem
                 {
                     Header = captured,
+                    IconGlyph = glyph,
                     Command = new RelayCommand(() => RunMsBuild(file, captured, "Build"))
                 });
                 _msBuildMenu.RebuildItems.Add(new MsBuildActionItem
                 {
                     Header = captured,
+                    IconGlyph = glyph,
                     Command = new RelayCommand(() => RunMsBuild(file, captured, "Rebuild"))
                 });
             }
@@ -1147,13 +1153,22 @@ namespace DesktopIniManager.Views
         private void ApplyMsBuildMenuVisibility(ContextMenu menu)
         {
             if (menu == null) return;
-            bool show = _msBuildMenu.BuildItems.Count > 0;
+            bool canBuild = ViewModel.TreeViewIndex == 1 && _msBuildMenu.BuildItems.Count > 0;
+            bool show = ViewModel.TreeViewIndex != 1 || canBuild;
             Visibility visibility = show ? Visibility.Visible : Visibility.Collapsed;
             MenuItem buildMenu = FindTaggedMenuItem(menu, "dim-msbuild-build");
             MenuItem rebuildMenu = FindTaggedMenuItem(menu, "dim-msbuild-rebuild");
             Separator buildSeparator = FindTaggedSeparator(menu, "dim-msbuild");
-            if (buildMenu != null) buildMenu.Visibility = visibility;
-            if (rebuildMenu != null) rebuildMenu.Visibility = visibility;
+            if (buildMenu != null)
+            {
+                buildMenu.Visibility = visibility;
+                buildMenu.IsEnabled = canBuild;
+            }
+            if (rebuildMenu != null)
+            {
+                rebuildMenu.Visibility = visibility;
+                rebuildMenu.IsEnabled = canBuild;
+            }
             if (buildSeparator != null) buildSeparator.Visibility = visibility;
         }
 
@@ -1193,6 +1208,7 @@ namespace DesktopIniManager.Views
 
         private void RunMsBuild(string solutionFile, string configurationPair, string target)
         {
+            if (ViewModel.TreeViewIndex != 1) return;
             if (string.IsNullOrWhiteSpace(solutionFile) || !File.Exists(solutionFile))
             {
                 ViewModel.ShowError(ScriptText("Main_MsBuildMissingSln", "Solution file was not found."), new FileNotFoundException(solutionFile ?? string.Empty));
@@ -1357,7 +1373,7 @@ namespace DesktopIniManager.Views
             FileListItem file = (sender as System.Windows.Controls.Primitives.Selector)?.SelectedItem as FileListItem;
             if (file == null) return;
             ViewModel.NoteSelectedSearchMatch(file);
-            if (ViewModel.TreeViewIndex != 2) return;
+            if (ViewModel.TreeViewIndex != 0 && ViewModel.TreeViewIndex != 2) return;
             RevealFolderInCurrentTree(file.Path);
         }
 
@@ -1626,10 +1642,42 @@ namespace DesktopIniManager.Views
             public ObservableCollection<MsBuildActionItem> RebuildItems { get; } = new ObservableCollection<MsBuildActionItem>();
         }
 
+        private static string ConfigIconGlyph(string pair)
+        {
+            string config = pair ?? string.Empty;
+            int pipe = config.IndexOf('|');
+            if (pipe >= 0) config = config.Substring(0, pipe);
+            int debugAt = config.IndexOf("Debug", StringComparison.OrdinalIgnoreCase);
+            int releaseAt = config.IndexOf("Release", StringComparison.OrdinalIgnoreCase);
+            if (debugAt >= 0 && (releaseAt < 0 || debugAt < releaseAt))
+                return "\uEBE8";
+            if (releaseAt >= 0)
+                return "\uE7B8";
+            return "\uE74C";
+        }
+
         private sealed class MsBuildActionItem
         {
             public string Header { get; set; }
+            public string IconGlyph { get; set; }
             public ICommand Command { get; set; }
+
+            public object MenuIcon
+            {
+                get
+                {
+                    var icon = new TextBlock
+                    {
+                        Text = string.IsNullOrEmpty(IconGlyph) ? "\uE74C" : IconGlyph,
+                        FontFamily = new FontFamily("Segoe MDL2 Assets"),
+                        FontSize = 15,
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        VerticalAlignment = VerticalAlignment.Center
+                    };
+                    icon.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
+                    return icon;
+                }
+            }
         }
 
         private void OpenGrep(IReadOnlyList<string> scopes)

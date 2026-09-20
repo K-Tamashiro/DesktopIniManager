@@ -25,6 +25,13 @@ namespace DesktopIniManager.ViewModels
             set => SetProperty(ref _searchHitLabel, value);
         }
 
+        private string _fileListCountLabel = string.Format(Strings.Main_NItems, 0);
+        public string FileListCountLabel
+        {
+            get => _fileListCountLabel;
+            set => SetProperty(ref _fileListCountLabel, value);
+        }
+
         public RelayCommand PrevSearchMatchCommand =>
             _prevSearchMatchCommand ?? (_prevSearchMatchCommand = new RelayCommand(PrevSearchMatch, () => _searchMatches.Count > 0));
 
@@ -34,6 +41,12 @@ namespace DesktopIniManager.ViewModels
         internal void SetSearchResultCount(int count)
         {
             _searchResultCount = count;
+        }
+
+        public void ClearSearchHits()
+        {
+            _searchMatchIndex = 0;
+            SyncSearchMatches(null, null);
         }
 
         private void RefreshSearchHitLabel()
@@ -95,6 +108,7 @@ namespace DesktopIniManager.ViewModels
             var fileListCts = new CancellationTokenSource();
             _fileListCts = fileListCts;
             _files.Clear();
+            FileListCountLabel = string.Format(Strings.Main_NItems, 0);
             SyncSearchMatches(null, null);
             if (folder != null)
             {
@@ -163,7 +177,7 @@ namespace DesktopIniManager.ViewModels
                     foreach (string path in paths)
                     {
                         fileListCts.Token.ThrowIfCancellationRequested();
-                        items.Add(new FileListItem(path, searchKeys));
+                        items.Add(new FileListItem(path, searchKeys, folderPath));
                     }
                     return Tuple.Create(items, total, truncated);
                 }, fileListCts.Token);
@@ -178,7 +192,12 @@ namespace DesktopIniManager.ViewModels
                 }
 
                 if (loaded.Item3)
+                {
                     Status = string.Format("{0:N0} / {1:N0} files", loaded.Item1.Count, loaded.Item2);
+                    FileListCountLabel = string.Format("{0:N0} / {1:N0}", loaded.Item1.Count, loaded.Item2);
+                }
+                else
+                    FileListCountLabel = string.Format(Strings.Main_NItems, loaded.Item1.Count);
 
                 SyncSearchMatches(loaded.Item1, loaded.Item1.FirstOrDefault(item => item.IsSearchMatch));
             }

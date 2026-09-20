@@ -1,9 +1,9 @@
 [CmdletBinding()]
-param()
+param([string]$PrebuiltDirectory)
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$version = '3.0.0'
+$version = '3.1.0'
 $packageName = "DesktopIniManager-v$version-DIR-win-x64"
 $releaseRoot = Join-Path $repoRoot 'release'
 [IO.Directory]::CreateDirectory($releaseRoot) | Out-Null
@@ -13,11 +13,13 @@ $archiveTemp = Join-Path $releaseRoot ('.' + $packageName + '-' + [guid]::NewGui
 
 Push-Location $repoRoot
 try {
+    if (!$PrebuiltDirectory) {
     # Normal framework-dependent release: do not bundle the .NET runtime.
     & dotnet publish DesktopIniManager.csproj -c Release -r win-x64 --self-contained false `
         -p:PublishSingleFile=false -p:PublishTrimmed=false -p:DebugType=None -p:DebugSymbols=false `
         -o $stage -v minimal
     if ($LASTEXITCODE -ne 0) { throw "Publish failed with exit code $LASTEXITCODE." }
+    }
 
     # Match the user's release layout. The supplied tree-listing report is not an application file.
     $expected = @(
@@ -25,7 +27,7 @@ try {
         'DesktopIniManager.runtimeconfig.json', 'FastVolumeIndex.Core.dll', 'README.md',
         'Assets/DeveloperDifferencer_iconset.icl', 'Assets/Flag.icl', 'Assets/folder_set.icl',
         'docs/mft-differencer.md', 'docs/smvvm-progress.md', 'docs/splash-screen.md',
-        'docs/releases/v3.0.0-DIR.md',
+        'docs/releases/v3.0.0-DIR.md', 'docs/releases/v3.1.0-DIR.md',
         'Languages/culture.txt', 'Languages/ja.txt', 'Languages/ko.txt', 'Languages/zh-Hans.txt'
     )
     $expected += @(
@@ -34,6 +36,17 @@ try {
         'mft-diff-view.png', 'mft-differencer.png', 'physical-tree-dark.png', 'physical-tree-light.png',
         'repository-tree-dark.png', 'scoped-code-search.png', 'search-tree-dark.png', 'solution-tree-dark.png'
     ) | ForEach-Object { 'docs/images/' + $_ }
+
+    if ($PrebuiltDirectory) {
+        $source = (Resolve-Path -LiteralPath $PrebuiltDirectory).Path
+        foreach ($relative in $expected) {
+            $sourceFile = Join-Path $source $relative
+            if (!(Test-Path -LiteralPath $sourceFile -PathType Leaf)) { throw "Missing package file: $sourceFile" }
+            $destination = Join-Path $stage $relative
+            [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($destination)) | Out-Null
+            Copy-Item -LiteralPath $sourceFile -Destination $destination
+        }
+    }
 
     $actualFiles = @(Get-ChildItem $stage -Recurse -File -Force | ForEach-Object {
         [IO.Path]::GetRelativePath($stage, $_.FullName).Replace('\', '/')

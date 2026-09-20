@@ -294,6 +294,7 @@ namespace DesktopIniManager.Views
                 PagePadding = new Thickness(0),
                 TextAlignment = TextAlignment.Left,
                 LineHeight = DiffLineHeight,
+                LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
                 PageWidth = Math.Max(sharedTextWidth + 24, 200),
                 PageHeight = Math.Max(DiffLineHeight * Math.Max(1, lines == null ? 1 : lines.Count) + 24, 200)
             };
@@ -309,6 +310,7 @@ namespace DesktopIniManager.Views
                     Margin = new Thickness(0),
                     Padding = new Thickness(0),
                     LineHeight = DiffLineHeight,
+                    LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
                     TextAlignment = TextAlignment.Left
                 };
                 string resource = LineBrushKey(line.Kind, sourceSide);
@@ -400,13 +402,22 @@ namespace DesktopIniManager.Views
             }
 
             Point viewTop = leftScroll.TranslatePoint(new Point(0, 0), body);
-            double offset = leftScroll.VerticalOffset;
             double viewHeight = leftScroll.ViewportHeight;
             if (viewHeight <= 0) viewHeight = body.ActualHeight;
-            double hunkTop = viewTop.Y + hunkStart * DiffLineHeight - offset;
-            double hunkBottom = viewTop.Y + hunkEnd * DiffLineHeight - offset;
             double clipTop = viewTop.Y;
             double clipBottom = viewTop.Y + viewHeight;
+
+            Rect startRect;
+            Rect endRect;
+            if (!TryGetLineRect(leftList, hunkStart, out startRect)
+                || !TryGetLineRect(leftList, Math.Max(hunkStart, hunkEnd - 1), out endRect))
+            {
+                hunkOverlay.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            double hunkTop = leftList.TranslatePoint(new Point(0, startRect.Top), body).Y;
+            double hunkBottom = leftList.TranslatePoint(new Point(0, endRect.Bottom), body).Y;
 
             if (hunkBottom <= clipTop || hunkTop >= clipBottom)
             {
@@ -428,6 +439,33 @@ namespace DesktopIniManager.Views
             hunkOverlay.BorderThickness = new Thickness(2, showTopEdge ? 2 : 0, 2, showBottomEdge ? 2 : 0);
             hunkOverlay.Margin = new Thickness(0, y, 0, Math.Max(0, body.ActualHeight - y - height));
             hunkOverlay.Visibility = Visibility.Visible;
+        }
+
+        private static bool TryGetLineRect(RichTextBox box, int index, out Rect rect)
+        {
+            rect = Rect.Empty;
+            if (box?.Document == null || index < 0) return false;
+            int i = 0;
+            foreach (Block block in box.Document.Blocks)
+            {
+                if (i == index)
+                {
+                    Rect start = block.ContentStart.GetCharacterRect(LogicalDirection.Forward);
+                    Rect end = block.ContentEnd.GetCharacterRect(LogicalDirection.Backward);
+                    if (start.IsEmpty && end.IsEmpty) return false;
+                    if (start.IsEmpty) start = end;
+                    if (end.IsEmpty) end = start;
+                    double glyphTop = Math.Min(start.Top, end.Top);
+                    double glyphBottom = Math.Max(start.Bottom, end.Bottom);
+                    if (glyphBottom <= glyphTop) glyphBottom = glyphTop + DiffLineHeight;
+                    double mid = (glyphTop + glyphBottom) / 2;
+                    double top = mid - DiffLineHeight / 2;
+                    rect = new Rect(0, top, 1, DiffLineHeight);
+                    return true;
+                }
+                i++;
+            }
+            return false;
         }
 
         private static void ScrollPaneToLine(RichTextBox box, int index)

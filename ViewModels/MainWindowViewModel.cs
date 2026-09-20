@@ -58,7 +58,11 @@ namespace DesktopIniManager.ViewModels
             set
             {
                 if (SetProperty(ref _query, value))
+                {
                     ClearQueryCommand?.NotifyCanExecuteChanged();
+                    if (string.IsNullOrEmpty(_query))
+                        ClearSearchHits();
+                }
             }
         }
         private string _iconLibraryPath = string.Empty;

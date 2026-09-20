@@ -1,28 +1,30 @@
-# DesktopIniManager v3.0.0 — DIR edition
+# DesktopIniManager v3.1.0 — DIR edition
+
+![DesktopIniManager DIR edition](docs/images/app-overview-dark.png)
 
 DesktopIniManager is a Windows workspace for exploring development folders,
 browsing Visual Studio solutions, searching source code, comparing working
 trees, and applying custom folder icons through `desktop.ini`.
 
-**v3.0.0 is the DIR edition.** Workspace acquisition uses the Windows
+**v3.1.0 improves search navigation, solution browsing, and context-menu actions.**
+Workspace acquisition uses the Windows
 `dir /s /b` command to build a reusable path index. Grep and folder comparison
 use ordinary file-system access. This edition does not read the NTFS MFT
 and does not require elevation just to enumerate folders.
 
-![DesktopIniManager DIR edition](docs/images/physical-tree-dark.png)
-
 ## Download and requirements
 
-Release package: **DesktopIniManager-v3.0.0-DIR-win-x64.zip**
+Release package: **DesktopIniManager-v3.1.0-DIR-win-x64.zip**
 
 Download the asset from [GitHub Releases](https://github.com/K-Tamashiro/DesktopIniManager/releases)
-when v3.0.0 is published. A locally generated package is placed in `release/`.
-See the [v3.0.0 release notes](docs/releases/v3.0.0-DIR.md).
+when v3.1.0 is published. A locally generated package is placed in `release/`.
+See the [v3.1.0 release notes](docs/releases/v3.1.0-DIR.md).
 
 - Windows 10 or Windows 11, x64.
 - .NET 10 Desktop Runtime (x64) must be installed separately.
 - Read access to the folders being inspected; write access for icon changes and synchronization.
-- MSBuild is required only for **Clean solution**. External editors/diff tools are optional.
+- MSBuild is required for **Build**, **Rebuild**, and **Clean solution**.
+- Configure a text editor for the tree and file-list exports. External diff tools are optional.
 
 Extract the ZIP into a new folder and run `DesktopIniManager.exe`.
 Keep the accompanying application DLLs, JSON files, `Assets`, and `Languages` together.
@@ -34,7 +36,32 @@ permissions, and availability of file contents. They are not covered by a
 blanket compatibility guarantee. Make cloud files available locally before
 reading or synchronizing them.
 
-## Three retained workspace views
+## What's new in v3.1.0
+
+- Find files directly inside the search root and cycle through matching files
+  with the previous/next buttons below the search box.
+- Keep search highlighting and jump targets consistent, and clear stale jump
+  targets when the file list changes.
+- Show immediate files for the selected Solution folder. Respect
+  `EnableDefaultItems=false` and explicit wildcard includes when building project
+  folders, avoiding unregistered nested solution and release directories.
+- Use icon context menus to export **Tree**, **Tree /F**, or **File List** to your
+  configured text editor. Tree exports use DIM's retained data without running
+  the system tree command or rescanning folders. File List exports the currently
+  displayed names, one per line, in display order, without paths or indentation.
+- Run **Build** or **Rebuild** for a solution configuration from the Solution
+  view. These menu entries are disabled in Physical and Search views.
+- Run scripts from the file context menu or the command field.
+- Refine file-list counts, direct-child highlighting, and Diff View line alignment.
+- Localize main-window context menus in English and Japanese; Chinese and Korean
+  use English for these menu entries.
+
+Reacquire the workspace with the repository-acquisition (Git) button to replace
+saved solution trees with the corrected structure. Solution browsing is a
+lightweight reconstruction, not a full evaluation of MSBuild imports, conditions,
+or Visual Studio virtual nodes.
+
+## Workspace views
 
 ### Physical and repository acquisition
 
@@ -167,13 +194,22 @@ dotnet build DesktopIniManager.sln -c Release
 pwsh -File scripts/Build-Release.ps1
 ```
 
+To package an already-built Release directory without rebuilding:
+
+```powershell
+pwsh -File scripts/Build-Release.ps1 -PrebuiltDirectory bin/Release/net10.0-windows/win-x64
+```
+
+The prebuilt directory must contain the v3.1.0 binaries and current README,
+documentation, assets, and language files. Debug symbols are omitted from the ZIP.
+
 The packaging script publishes a framework-dependent Windows x64 application to a
 fresh staging directory, validates its version and exact file layout, and writes:
 
 ```text
 release/
-  DesktopIniManager-v3.0.0-DIR-win-x64.zip
-  DesktopIniManager-v3.0.0-DIR-win-x64.zip.sha256
+  DesktopIniManager-v3.1.0-DIR-win-x64.zip
+  DesktopIniManager-v3.1.0-DIR-win-x64.zip.sha256
 ```
 
 The ZIP contains the application at its root:
@@ -205,5 +241,5 @@ dotnet run --project Tests/DesktopIniManager.DifferencerTests.csproj -c Release 
 ```
 
 The older [SMVVM progress memo](docs/smvvm-progress.md) is historical.
-v3.0.0 includes the subsequent refactoring, UI finishing, unused-code cleanup,
-and updated screenshots.
+The screenshots illustrate the DIR edition and may not show every v3.1.0 control.
+See the release notes for this version's changes and validation status.

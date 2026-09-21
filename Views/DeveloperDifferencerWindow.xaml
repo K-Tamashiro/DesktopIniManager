@@ -511,6 +511,7 @@
               <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                 <ToggleButton
                   x:Name="NodeExpandToggle"
+                  Background="Transparent"
                   Style="{StaticResource IconToggleButton}"
                   ToolTip="{loc:L Common_Expand}">
                   <Image
@@ -520,6 +521,7 @@
                 </ToggleButton>
                 <ToggleButton
                   x:Name="TreeDensityToggle"
+                  Background="Transparent"
                   Margin="8,0,0,0"
                   Style="{StaticResource IconToggleButton}"
                   ToolTip="{loc:L Main_TreeComfortable}">

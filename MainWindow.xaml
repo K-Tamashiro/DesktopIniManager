@@ -15,263 +15,263 @@
   Foreground="{DynamicResource Ink}"
   Icon="DesktopIniManager.ico"
   WindowStartupLocation="CenterScreen">
-  <Window.Resources>
-    <BooleanToVisibilityConverter x:Key="MvvmBooleanToVisibility" />
-    <ContextMenu x:Key="FolderTreeContextMenu">
-      <MenuItem
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="MvvmBooleanToVisibility" />
+        <ContextMenu x:Key="FolderTreeContextMenu">
+            <MenuItem
         Command="{Binding PlacementTarget.Tag.UseAsSearchLocationCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
         CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
         Header="{loc:L Main_UseAsSearchLocation}">
-        <MenuItem.Icon>
-          <TextBlock
+                <MenuItem.Icon>
+                    <TextBlock
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
             FontFamily="Segoe MDL2 Assets"
             FontSize="15"
             Foreground="{DynamicResource Ink}"
             Text="&#xE8B7;" />
-        </MenuItem.Icon>
-      </MenuItem>
-      <MenuItem
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem
         Command="{Binding PlacementTarget.Tag.OpenExplorerCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
         CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
         Header="{loc:L Main_OpenInExplorer}">
-        <MenuItem.Icon>
-          <TextBlock
+                <MenuItem.Icon>
+                    <TextBlock
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
             FontFamily="Segoe MDL2 Assets"
             FontSize="15"
             Foreground="{DynamicResource Ink}"
             Text="&#xE8A7;" />
-        </MenuItem.Icon>
-      </MenuItem>
-      <MenuItem
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem
         Command="{Binding PlacementTarget.Tag.TreeToEditorCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
         CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
         Header="{loc:L Main_TreeToEditor}">
-        <MenuItem.Icon>
-          <TextBlock
+                <MenuItem.Icon>
+                    <TextBlock
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
             FontFamily="Segoe MDL2 Assets"
             FontSize="15"
             Foreground="{DynamicResource Ink}"
             Text="&#xE8F1;" />
-        </MenuItem.Icon>
-      </MenuItem>
-      <MenuItem
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem
         Command="{Binding PlacementTarget.Tag.TreeFilesToEditorCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
         CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
         Header="{loc:L Main_TreeFilesToEditor}">
-        <MenuItem.Icon>
-          <TextBlock
+                <MenuItem.Icon>
+                    <TextBlock
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
             FontFamily="Segoe MDL2 Assets"
             FontSize="15"
             Foreground="{DynamicResource Ink}"
             Text="&#xE8A5;" />
-        </MenuItem.Icon>
-      </MenuItem>
-      <MenuItem Command="{Binding PlacementTarget.Tag.FileListToEditorCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" Header="{loc:L Main_FileListToEditor}">
-        <MenuItem.Icon>
-          <TextBlock
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Command="{Binding PlacementTarget.Tag.FileListToEditorCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" Header="{loc:L Main_FileListToEditor}">
+                <MenuItem.Icon>
+                    <TextBlock
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
             FontFamily="Segoe MDL2 Assets"
             FontSize="15"
             Foreground="{DynamicResource Ink}"
             Text="&#xE8A5;" />
-        </MenuItem.Icon>
-      </MenuItem>
-      <MenuItem
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem
         Command="{Binding PlacementTarget.Tag.GrepFolderCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
         CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
         Header="{loc:L Main_GrepThisFolder}">
-        <MenuItem.Icon>
-          <TextBlock
+                <MenuItem.Icon>
+                    <TextBlock
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
             FontFamily="Segoe MDL2 Assets"
             FontSize="15"
             Foreground="{DynamicResource Ink}"
             Text="&#xE721;" />
-        </MenuItem.Icon>
-      </MenuItem>
-      <Separator Tag="dim-msbuild" Visibility="Collapsed" />
-      <MenuItem
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator Tag="dim-msbuild" Visibility="Collapsed" />
+            <MenuItem
         Header="{loc:L Main_MsBuildBuild}"
         Tag="dim-msbuild-build"
         Visibility="Collapsed">
-        <MenuItem.Icon>
-          <TextBlock
+                <MenuItem.Icon>
+                    <TextBlock
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
             FontFamily="Segoe MDL2 Assets"
             FontSize="15"
             Foreground="{DynamicResource Ink}"
             Text="&#xE768;" />
-        </MenuItem.Icon>
-        <MenuItem.ItemContainerStyle>
-          <Style BasedOn="{StaticResource {x:Type MenuItem}}" TargetType="MenuItem">
-            <Setter Property="Header" Value="{Binding Header}" />
-            <Setter Property="Command" Value="{Binding Command}" />
-            <Setter Property="Icon" Value="{Binding MenuIcon}" />
-          </Style>
-        </MenuItem.ItemContainerStyle>
-      </MenuItem>
-      <MenuItem
+                </MenuItem.Icon>
+                <MenuItem.ItemContainerStyle>
+                    <Style BasedOn="{StaticResource {x:Type MenuItem}}" TargetType="MenuItem">
+                        <Setter Property="Header" Value="{Binding Header}" />
+                        <Setter Property="Command" Value="{Binding Command}" />
+                        <Setter Property="Icon" Value="{Binding MenuIcon}" />
+                    </Style>
+                </MenuItem.ItemContainerStyle>
+            </MenuItem>
+            <MenuItem
         Header="{loc:L Main_MsBuildRebuild}"
         Tag="dim-msbuild-rebuild"
         Visibility="Collapsed">
-        <MenuItem.Icon>
-          <TextBlock
+                <MenuItem.Icon>
+                    <TextBlock
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
             FontFamily="Segoe MDL2 Assets"
             FontSize="15"
             Foreground="{DynamicResource Ink}"
             Text="&#xE72C;" />
-        </MenuItem.Icon>
-        <MenuItem.ItemContainerStyle>
-          <Style BasedOn="{StaticResource {x:Type MenuItem}}" TargetType="MenuItem">
-            <Setter Property="Header" Value="{Binding Header}" />
-            <Setter Property="Command" Value="{Binding Command}" />
-            <Setter Property="Icon" Value="{Binding MenuIcon}" />
-          </Style>
-        </MenuItem.ItemContainerStyle>
-      </MenuItem>
-    </ContextMenu>
-    <Style x:Key="FileListItemStyle" TargetType="{x:Type ListViewItem}">
-      <Setter Property="Foreground" Value="{DynamicResource Ink}" />
-      <Setter Property="Background" Value="Transparent" />
-      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-      <Setter Property="Template">
-        <Setter.Value>
-          <ControlTemplate TargetType="{x:Type ListViewItem}">
-            <Border
+                </MenuItem.Icon>
+                <MenuItem.ItemContainerStyle>
+                    <Style BasedOn="{StaticResource {x:Type MenuItem}}" TargetType="MenuItem">
+                        <Setter Property="Header" Value="{Binding Header}" />
+                        <Setter Property="Command" Value="{Binding Command}" />
+                        <Setter Property="Icon" Value="{Binding MenuIcon}" />
+                    </Style>
+                </MenuItem.ItemContainerStyle>
+            </MenuItem>
+        </ContextMenu>
+        <Style x:Key="FileListItemStyle" TargetType="{x:Type ListViewItem}">
+            <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ListViewItem}">
+                        <Border
               x:Name="RowBorder"
               Padding="2,1"
               Background="{TemplateBinding Background}"
               BorderBrush="Transparent"
               BorderThickness="2,0,0,0"
               TextElement.Foreground="{TemplateBinding Foreground}">
-              <GridViewRowPresenter Columns="{Binding View.Columns, RelativeSource={RelativeSource AncestorType={x:Type ListView}}}" Content="{TemplateBinding Content}" />
-            </Border>
-            <ControlTemplate.Triggers>
-              <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource AccentSoft}" />
-              </Trigger>
-              <Trigger Property="IsSelected" Value="True">
-                <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource ThemeSelected}" />
-                <Setter TargetName="RowBorder" Property="BorderBrush" Value="#FFD400" />
-                <Setter TargetName="RowBorder" Property="BorderThickness" Value="2" />
-              </Trigger>
-            </ControlTemplate.Triggers>
-          </ControlTemplate>
-        </Setter.Value>
-      </Setter>
-      <Style.Triggers>
-        <DataTrigger Binding="{Binding IsDirectChild}" Value="False">
-          <Setter Property="Foreground" Value="{DynamicResource Muted}" />
-        </DataTrigger>
-        <DataTrigger Binding="{Binding IsSearchMatch}" Value="True">
-          <Setter Property="Background" Value="{DynamicResource ThemeSelected}" />
-        </DataTrigger>
-        <Trigger Property="IsMouseOver" Value="True">
-          <Setter Property="Background" Value="{DynamicResource HeaderBackground}" />
-        </Trigger>
-        <Trigger Property="IsSelected" Value="True">
-          <Setter Property="Background" Value="{DynamicResource ThemeSelected}" />
-        </Trigger>
-      </Style.Triggers>
-    </Style>
-    <Style TargetType="{x:Type GridViewColumnHeader}">
-      <Setter Property="Background" Value="{DynamicResource HeaderBackground}" />
-      <Setter Property="Foreground" Value="{DynamicResource Ink}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource Line}" />
-      <Setter Property="BorderThickness" Value="0,0,1,1" />
-      <Setter Property="Padding" Value="8,5" />
-      <Setter Property="HorizontalContentAlignment" Value="Left" />
-      <Setter Property="Template">
-        <Setter.Value>
-          <ControlTemplate TargetType="{x:Type GridViewColumnHeader}">
-            <Border
+                            <GridViewRowPresenter Columns="{Binding View.Columns, RelativeSource={RelativeSource AncestorType={x:Type ListView}}}" Content="{TemplateBinding Content}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource AccentSoft}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource ThemeSelected}" />
+                                <Setter TargetName="RowBorder" Property="BorderBrush" Value="#FFD400" />
+                                <Setter TargetName="RowBorder" Property="BorderThickness" Value="2" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsDirectChild}" Value="False">
+                    <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsSearchMatch}" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource ThemeSelected}" />
+                </DataTrigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource HeaderBackground}" />
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource ThemeSelected}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style TargetType="{x:Type GridViewColumnHeader}">
+            <Setter Property="Background" Value="{DynamicResource HeaderBackground}" />
+            <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Line}" />
+            <Setter Property="BorderThickness" Value="0,0,1,1" />
+            <Setter Property="Padding" Value="8,5" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type GridViewColumnHeader}">
+                        <Border
               x:Name="HeaderBorder"
               Padding="{TemplateBinding Padding}"
               Background="{TemplateBinding Background}"
               BorderBrush="{TemplateBinding BorderBrush}"
               BorderThickness="{TemplateBinding BorderThickness}"
               TextElement.Foreground="{TemplateBinding Foreground}">
-              <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" />
-            </Border>
-            <ControlTemplate.Triggers>
-              <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource AccentSoft}" />
-              </Trigger>
-              <Trigger Property="IsPressed" Value="True">
-                <Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource ThemeSelected}" />
-              </Trigger>
-            </ControlTemplate.Triggers>
-          </ControlTemplate>
-        </Setter.Value>
-      </Setter>
-    </Style>
-    <Style x:Key="FileIconItemStyle" TargetType="{x:Type ListBoxItem}">
-      <Setter Property="Foreground" Value="{DynamicResource Ink}" />
-      <Setter Property="Background" Value="Transparent" />
-      <Setter Property="Padding" Value="1" />
-      <Setter Property="Margin" Value="0" />
-      <Setter Property="VerticalAlignment" Value="Top" />
-      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-      <Setter Property="Template">
-        <Setter.Value>
-          <ControlTemplate TargetType="{x:Type ListBoxItem}">
-            <Border
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource AccentSoft}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource ThemeSelected}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="FileIconItemStyle" TargetType="{x:Type ListBoxItem}">
+            <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="1" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ListBoxItem}">
+                        <Border
               x:Name="TileBorder"
               Background="{TemplateBinding Background}"
               BorderBrush="Transparent"
               BorderThickness="2"
               CornerRadius="3">
-              <ContentPresenter />
-            </Border>
-            <ControlTemplate.Triggers>
-              <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="TileBorder" Property="Background" Value="{DynamicResource HeaderBackground}" />
-              </Trigger>
-              <Trigger Property="IsSelected" Value="True">
-                <Setter TargetName="TileBorder" Property="Background" Value="{DynamicResource ThemeSelected}" />
-                <Setter TargetName="TileBorder" Property="BorderBrush" Value="#FFD400" />
-              </Trigger>
-            </ControlTemplate.Triggers>
-          </ControlTemplate>
-        </Setter.Value>
-      </Setter>
-      <Style.Triggers>
-        <DataTrigger Binding="{Binding IsDirectChild}" Value="False">
-          <Setter Property="Foreground" Value="{DynamicResource Muted}" />
-        </DataTrigger>
-        <DataTrigger Binding="{Binding IsSearchMatch}" Value="True">
-          <Setter Property="Background" Value="{DynamicResource ThemeSelected}" />
-        </DataTrigger>
-        <Trigger Property="IsMouseOver" Value="True">
-          <Setter Property="Background" Value="{DynamicResource HeaderBackground}" />
-        </Trigger>
-        <Trigger Property="IsSelected" Value="True">
-          <Setter Property="Background" Value="{DynamicResource ThemeSelected}" />
-        </Trigger>
-      </Style.Triggers>
-    </Style>
-    <ItemsPanelTemplate x:Key="FileIconSmallPanel">
-      <views:VirtualizingUniformGrid Columns="3" IsItemsHost="True" />
-    </ItemsPanelTemplate>
-    <ItemsPanelTemplate x:Key="FileIconLargePanel">
-      <views:VirtualizingUniformGrid Columns="2" IsItemsHost="True" />
-    </ItemsPanelTemplate>
-    <DataTemplate x:Key="FileIconSmallTemplate">
-      <StackPanel Margin="2,4" HorizontalAlignment="Stretch">
-        <Border
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TileBorder" Property="Background" Value="{DynamicResource HeaderBackground}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="TileBorder" Property="Background" Value="{DynamicResource ThemeSelected}" />
+                                <Setter TargetName="TileBorder" Property="BorderBrush" Value="#FFD400" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsDirectChild}" Value="False">
+                    <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsSearchMatch}" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource ThemeSelected}" />
+                </DataTrigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource HeaderBackground}" />
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource ThemeSelected}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <ItemsPanelTemplate x:Key="FileIconSmallPanel">
+            <views:VirtualizingUniformGrid Columns="3" IsItemsHost="True" />
+        </ItemsPanelTemplate>
+        <ItemsPanelTemplate x:Key="FileIconLargePanel">
+            <views:VirtualizingUniformGrid Columns="2" IsItemsHost="True" />
+        </ItemsPanelTemplate>
+        <DataTemplate x:Key="FileIconSmallTemplate">
+            <StackPanel Margin="2,4" HorizontalAlignment="Stretch">
+                <Border
           Width="40"
           Height="40"
           Padding="3"
@@ -279,15 +279,15 @@
           Background="{DynamicResource HeaderBackground}"
           BorderBrush="{DynamicResource Line}"
           BorderThickness="1">
-          <Image
+                    <Image
             Width="32"
             Height="32"
             RenderOptions.BitmapScalingMode="HighQuality"
             RenderOptions.EdgeMode="Unspecified"
             Source="{Binding Icon}"
             Stretch="Uniform" />
-        </Border>
-        <TextBlock
+                </Border>
+                <TextBlock
           Margin="1,4,1,0"
           FontSize="11"
           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
@@ -296,11 +296,11 @@
           TextTrimming="CharacterEllipsis"
           TextWrapping="NoWrap"
           ToolTip="{Binding Path}" />
-      </StackPanel>
-    </DataTemplate>
-    <DataTemplate x:Key="FileIconLargeTemplate">
-      <StackPanel Margin="4,6" HorizontalAlignment="Stretch">
-        <Border
+            </StackPanel>
+        </DataTemplate>
+        <DataTemplate x:Key="FileIconLargeTemplate">
+            <StackPanel Margin="4,6" HorizontalAlignment="Stretch">
+                <Border
           Width="72"
           Height="72"
           Padding="6"
@@ -308,14 +308,14 @@
           Background="{DynamicResource HeaderBackground}"
           BorderBrush="{DynamicResource Line}"
           BorderThickness="1">
-          <Image
+                    <Image
             Width="48"
             Height="48"
             RenderOptions.BitmapScalingMode="HighQuality"
             Source="{Binding Icon}"
             Stretch="Uniform" />
-        </Border>
-        <TextBlock
+                </Border>
+                <TextBlock
           Margin="2,6,2,0"
           FontSize="12"
           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
@@ -324,180 +324,180 @@
           TextTrimming="CharacterEllipsis"
           TextWrapping="NoWrap"
           ToolTip="{Binding Path}" />
-      </StackPanel>
-    </DataTemplate>
-    <ControlTemplate x:Key="VerticalScrollBarTemplate" TargetType="{x:Type ScrollBar}">
-      <Border
+            </StackPanel>
+        </DataTemplate>
+        <ControlTemplate x:Key="VerticalScrollBarTemplate" TargetType="{x:Type ScrollBar}">
+            <Border
         Margin="2,0"
         Background="{DynamicResource HeaderBackground}"
         CornerRadius="4">
-        <Track x:Name="PART_Track" IsDirectionReversed="True">
-          <Track.DecreaseRepeatButton>
-            <RepeatButton
+                <Track x:Name="PART_Track" IsDirectionReversed="True">
+                    <Track.DecreaseRepeatButton>
+                        <RepeatButton
               Command="{x:Static ScrollBar.PageUpCommand}"
               Focusable="False"
               Opacity="0" />
-          </Track.DecreaseRepeatButton>
-          <Track.Thumb>
-            <Thumb>
-              <Thumb.Template>
-                <ControlTemplate TargetType="{x:Type Thumb}">
-                  <Border
+                    </Track.DecreaseRepeatButton>
+                    <Track.Thumb>
+                        <Thumb>
+                            <Thumb.Template>
+                                <ControlTemplate TargetType="{x:Type Thumb}">
+                                    <Border
                     Margin="1"
                     Background="{DynamicResource Secondary}"
                     CornerRadius="4" />
-                </ControlTemplate>
-              </Thumb.Template>
-            </Thumb>
-          </Track.Thumb>
-          <Track.IncreaseRepeatButton>
-            <RepeatButton
+                                </ControlTemplate>
+                            </Thumb.Template>
+                        </Thumb>
+                    </Track.Thumb>
+                    <Track.IncreaseRepeatButton>
+                        <RepeatButton
               Command="{x:Static ScrollBar.PageDownCommand}"
               Focusable="False"
               Opacity="0" />
-          </Track.IncreaseRepeatButton>
-        </Track>
-      </Border>
-    </ControlTemplate>
-    <ControlTemplate x:Key="HorizontalScrollBarTemplate" TargetType="{x:Type ScrollBar}">
-      <Border
+                    </Track.IncreaseRepeatButton>
+                </Track>
+            </Border>
+        </ControlTemplate>
+        <ControlTemplate x:Key="HorizontalScrollBarTemplate" TargetType="{x:Type ScrollBar}">
+            <Border
         Margin="0,2"
         Background="{DynamicResource HeaderBackground}"
         CornerRadius="4">
-        <Track x:Name="PART_Track">
-          <Track.DecreaseRepeatButton>
-            <RepeatButton
+                <Track x:Name="PART_Track">
+                    <Track.DecreaseRepeatButton>
+                        <RepeatButton
               Command="{x:Static ScrollBar.PageLeftCommand}"
               Focusable="False"
               Opacity="0" />
-          </Track.DecreaseRepeatButton>
-          <Track.Thumb>
-            <Thumb>
-              <Thumb.Template>
-                <ControlTemplate TargetType="{x:Type Thumb}">
-                  <Border
+                    </Track.DecreaseRepeatButton>
+                    <Track.Thumb>
+                        <Thumb>
+                            <Thumb.Template>
+                                <ControlTemplate TargetType="{x:Type Thumb}">
+                                    <Border
                     Margin="1"
                     Background="{DynamicResource Secondary}"
                     CornerRadius="4" />
-                </ControlTemplate>
-              </Thumb.Template>
-            </Thumb>
-          </Track.Thumb>
-          <Track.IncreaseRepeatButton>
-            <RepeatButton
+                                </ControlTemplate>
+                            </Thumb.Template>
+                        </Thumb>
+                    </Track.Thumb>
+                    <Track.IncreaseRepeatButton>
+                        <RepeatButton
               Command="{x:Static ScrollBar.PageRightCommand}"
               Focusable="False"
               Opacity="0" />
-          </Track.IncreaseRepeatButton>
-        </Track>
-      </Border>
-    </ControlTemplate>
-    <Style TargetType="{x:Type ScrollBar}">
-      <Setter Property="Width" Value="8" />
-      <Setter Property="Height" Value="8" />
-      <Setter Property="Template" Value="{StaticResource VerticalScrollBarTemplate}" />
-      <Style.Triggers>
-        <Trigger Property="Orientation" Value="Vertical">
-          <Setter Property="Width" Value="8" />
-          <Setter Property="Height" Value="Auto" />
-          <Setter Property="Template" Value="{StaticResource VerticalScrollBarTemplate}" />
-        </Trigger>
-        <Trigger Property="Orientation" Value="Horizontal">
-          <Setter Property="Height" Value="8" />
-          <Setter Property="Width" Value="Auto" />
-          <Setter Property="Template" Value="{StaticResource HorizontalScrollBarTemplate}" />
-        </Trigger>
-      </Style.Triggers>
-    </Style>
-  </Window.Resources>
-  <Grid Margin="16">
-    <Grid.RowDefinitions>
-      <RowDefinition Height="Auto" />
-      <RowDefinition Height="*" />
-      <RowDefinition Height="Auto" />
-    </Grid.RowDefinitions>
-    <Grid>
-      <StackPanel>
-        <TextBlock
+                    </Track.IncreaseRepeatButton>
+                </Track>
+            </Border>
+        </ControlTemplate>
+        <Style TargetType="{x:Type ScrollBar}">
+            <Setter Property="Width" Value="8" />
+            <Setter Property="Height" Value="8" />
+            <Setter Property="Template" Value="{StaticResource VerticalScrollBarTemplate}" />
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Vertical">
+                    <Setter Property="Width" Value="8" />
+                    <Setter Property="Height" Value="Auto" />
+                    <Setter Property="Template" Value="{StaticResource VerticalScrollBarTemplate}" />
+                </Trigger>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Height" Value="8" />
+                    <Setter Property="Width" Value="Auto" />
+                    <Setter Property="Template" Value="{StaticResource HorizontalScrollBarTemplate}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid>
+            <StackPanel>
+                <TextBlock
           FontSize="34"
           FontWeight="SemiBold"
           Foreground="{DynamicResource Accent}"
           Text="{loc:L App_Title}" />
-        <TextBlock
+                <TextBlock
           Margin="2,4,0,22"
           Foreground="{DynamicResource Muted}"
           Text="{loc:L Main_Subtitle}" />
-      </StackPanel>
-      <StackPanel
+            </StackPanel>
+            <StackPanel
         HorizontalAlignment="Right"
         VerticalAlignment="Top"
         Orientation="Horizontal">
-        <Border
+                <Border
           Margin="0,0,12,0"
           Padding="2"
           Background="{DynamicResource ThemeToggle}"
           CornerRadius="8">
-          <StackPanel Orientation="Horizontal">
-            <ToggleButton
+                    <StackPanel Orientation="Horizontal">
+                        <ToggleButton
               x:Name="LightThemeButton"
               Command="{Binding LightThemeCommand}"
               Style="{StaticResource ThemeToggleStyle}"
               ToolTip="{loc:L Theme_Light}">
-              <Image
+                            <Image
                 x:Name="LightThemeIcon"
                 Margin="3"
                 RenderOptions.BitmapScalingMode="HighQuality"
                 Stretch="Uniform" />
-            </ToggleButton>
-            <ToggleButton
+                        </ToggleButton>
+                        <ToggleButton
               x:Name="DarkThemeButton"
               Command="{Binding DarkThemeCommand}"
               Style="{StaticResource ThemeToggleStyle}"
               ToolTip="{loc:L Theme_Dark}">
-              <Image
+                            <Image
                 x:Name="DarkThemeIcon"
                 Margin="3"
                 RenderOptions.BitmapScalingMode="HighQuality"
                 Stretch="Uniform" />
-            </ToggleButton>
-          </StackPanel>
-        </Border>
-        <Button
+                        </ToggleButton>
+                    </StackPanel>
+                </Border>
+                <Button
           x:Name="CloseWindowButton"
           Background="Transparent"
           Command="{Binding CloseCommand}"
           Style="{StaticResource IconButton}"
           ToolTip="{loc:L Common_Close}">
-          <Image
+                    <Image
             x:Name="CloseWindowIcon"
             RenderOptions.BitmapScalingMode="HighQuality"
             Stretch="Uniform" />
-        </Button>
-      </StackPanel>
-    </Grid>
-    <Grid Grid.Row="1">
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="350" />
-        <ColumnDefinition Width="22" />
-        <ColumnDefinition Width="*" />
-      </Grid.ColumnDefinitions>
-      <Border
+                </Button>
+            </StackPanel>
+        </Grid>
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="350" />
+                <ColumnDefinition Width="22" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border
         Padding="18"
         BorderBrush="{DynamicResource Line}"
         BorderThickness="1">
-        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-          <StackPanel Margin="0,0,6,0">
-            <TextBlock
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,0,6,0">
+                        <TextBlock
               FontSize="18"
               FontWeight="SemiBold"
               Foreground="{DynamicResource Ink}"
               Text="{loc:L Common_Search}" />
-            <TextBlock
+                        <TextBlock
               Margin="0,16,0,6"
               Foreground="{DynamicResource Muted}"
               Text="{loc:L Main_SearchLocation}" />
-            <DockPanel>
-              <Button
+                        <DockPanel>
+                            <Button
                 x:Name="ChooseRootButton"
                 Margin="8,0,0,0"
                 Background="Transparent"
@@ -505,12 +505,12 @@
                 DockPanel.Dock="Right"
                 Style="{StaticResource IconButton}"
                 ToolTip="{loc:L Common_Browse}">
-                <Image
+                                <Image
                   x:Name="ChooseRootIcon"
                   RenderOptions.BitmapScalingMode="HighQuality"
                   Stretch="Uniform" />
-              </Button>
-              <history:HistoryTextBox
+                            </Button>
+                            <history:HistoryTextBox
                 x:Name="RootBox"
                 HorizontalContentAlignment="Left"
                 AllowDrop="True"
@@ -518,22 +518,22 @@
                 Text="{Binding RootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                 TextAlignment="Left"
                 TextWrapping="NoWrap" />
-            </DockPanel>
-            <DockPanel Margin="0,14,0,6">
-              <TextBlock
+                        </DockPanel>
+                        <DockPanel Margin="0,14,0,6">
+                            <TextBlock
                 VerticalAlignment="Center"
                 Foreground="{DynamicResource Muted}"
                 Text="{loc:L Main_KeywordsOptional}" />
-              <TextBlock
+                            <TextBlock
                 Margin="8,0,0,0"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Center"
                 Foreground="{DynamicResource Muted}"
                 Text="{Binding SearchHitLabel}"
                 TextAlignment="Right" />
-            </DockPanel>
-            <DockPanel>
-              <Button
+                        </DockPanel>
+                        <DockPanel>
+                            <Button
                 x:Name="ClearQueryButton"
                 Height="36"
                 MinWidth="36"
@@ -543,67 +543,67 @@
                 DockPanel.Dock="Right"
                 Style="{StaticResource IconButton}"
                 ToolTip="{loc:L Grep_ClearQuery}">
-                <Image
+                                <Image
                   x:Name="ClearQueryIcon"
                   RenderOptions.BitmapScalingMode="HighQuality"
                   Stretch="Uniform" />
-              </Button>
-              <history:HistoryTextBox
+                            </Button>
+                            <history:HistoryTextBox
                 x:Name="QueryBox"
                 HistoryKey="Main-Query"
                 Text="{Binding Query, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-            </DockPanel>
-            <DockPanel Margin="0,12,0,0">
-              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                <Button
+                        </DockPanel>
+                        <DockPanel Margin="0,12,0,0">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                <Button
                   x:Name="PrevSearchMatchButton"
                   Background="Transparent"
                   Command="{Binding PrevSearchMatchCommand}"
                   Style="{StaticResource IconButton}"
                   ToolTip="{loc:L Main_PrevMatch}">
-                  <Image
+                                    <Image
                     x:Name="PrevSearchMatchIcon"
                     RenderOptions.BitmapScalingMode="HighQuality"
                     Stretch="Uniform" />
-                </Button>
-                <Button
+                                </Button>
+                                <Button
                   x:Name="NextSearchMatchButton"
                   Margin="8,0,0,0"
                   Background="Transparent"
                   Command="{Binding NextSearchMatchCommand}"
                   Style="{StaticResource IconButton}"
                   ToolTip="{loc:L Main_NextMatch}">
-                  <Image
+                                    <Image
                     x:Name="NextSearchMatchIcon"
                     RenderOptions.BitmapScalingMode="HighQuality"
                     Stretch="Uniform" />
-                </Button>
-              </StackPanel>
-              <StackPanel Orientation="Horizontal">
-                <Button
+                                </Button>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Button
                   x:Name="GitSearchButton"
                   Background="Transparent"
                   Command="{Binding GitSearchCommand}"
                   Style="{StaticResource IconButton}"
                   ToolTip="{loc:L Main_GitSearch}">
-                  <Image
+                                    <Image
                     x:Name="GitSearchIcon"
                     RenderOptions.BitmapScalingMode="HighQuality"
                     Stretch="Uniform" />
-                </Button>
-                <Button
+                                </Button>
+                                <Button
                   x:Name="SearchButton"
                   Margin="8,0,0,0"
                   Background="Transparent"
                   Command="{Binding SearchCommand}"
                   Style="{StaticResource IconButton}"
                   ToolTip="{loc:L Common_Search}">
-                  <Image
+                                    <Image
                     x:Name="SearchButtonIcon"
                     RenderOptions.BitmapScalingMode="HighQuality"
                     Stretch="Uniform" />
-                </Button>
-                <Button
+                                </Button>
+                                <Button
                   x:Name="CancelButton"
                   Margin="8,0,0,0"
                   Background="Transparent"
@@ -611,25 +611,25 @@
                   IsEnabled="{Binding IsSearching}"
                   Style="{StaticResource IconButton}"
                   ToolTip="{loc:L Common_Cancel}">
-                  <Image
+                                    <Image
                     x:Name="CancelButtonIcon"
                     RenderOptions.BitmapScalingMode="HighQuality"
                     Stretch="Uniform" />
-                </Button>
-              </StackPanel>
-            </DockPanel>
-            <Separator Margin="0,22" />
-            <TextBlock
+                                </Button>
+                            </StackPanel>
+                        </DockPanel>
+                        <Separator Margin="0,22" />
+                        <TextBlock
               FontSize="18"
               FontWeight="SemiBold"
               Foreground="{DynamicResource Ink}"
               Text="{loc:L Main_ReplacementIcon}" />
-            <TextBlock
+                        <TextBlock
               Margin="0,14,0,6"
               Foreground="{DynamicResource Muted}"
               Text="{loc:L Main_IconFormats}" />
-            <DockPanel>
-              <Button
+                        <DockPanel>
+                            <Button
                 x:Name="ChooseIconLibraryButton"
                 Margin="8,0,0,0"
                 Background="Transparent"
@@ -637,126 +637,126 @@
                 DockPanel.Dock="Right"
                 Style="{StaticResource IconButton}"
                 ToolTip="{loc:L Common_Browse}">
-                <Image
+                                <Image
                   x:Name="ChooseIconLibraryIcon"
                   RenderOptions.BitmapScalingMode="HighQuality"
                   Stretch="Uniform" />
-              </Button>
-              <history:HistoryTextBox
+                            </Button>
+                            <history:HistoryTextBox
                 x:Name="IconPathBox"
                 HorizontalContentAlignment="Left"
                 HistoryKey="Main-IconLibrary"
                 Text="{Binding IconLibraryPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                 TextAlignment="Left"
                 TextWrapping="NoWrap" />
-            </DockPanel>
-            <StackPanel Margin="0,10,0,0" Orientation="Horizontal">
-              <Button
+                        </DockPanel>
+                        <StackPanel Margin="0,10,0,0" Orientation="Horizontal">
+                            <Button
                 x:Name="ChooseIconButton"
                 Background="Transparent"
                 Command="{Binding ChooseIconCommand}"
                 Style="{StaticResource IconButton}"
                 ToolTip="{loc:L Main_ChooseIcon}">
-                <Image
+                                <Image
                   x:Name="ChooseIconButtonIcon"
                   RenderOptions.BitmapScalingMode="HighQuality"
                   Stretch="Uniform" />
-              </Button>
-            </StackPanel>
-            <Border
+                            </Button>
+                        </StackPanel>
+                        <Border
               Height="100"
               Margin="0,13,0,0"
               Padding="8"
               Background="{DynamicResource AccentSoft}"
               BorderBrush="{DynamicResource Line}"
               BorderThickness="1">
-              <Grid>
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="72" />
-                  <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <Image
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="72" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Image
                   x:Name="SelectedIconImage"
                   RenderOptions.BitmapScalingMode="HighQuality"
                   Source="{Binding SelectedIcon}"
                   Stretch="Uniform" />
-                <StackPanel
+                                <StackPanel
                   Grid.Column="1"
                   Margin="14,0,0,0"
                   VerticalAlignment="Center">
-                  <TextBlock Foreground="{DynamicResource Muted}" Text="{loc:L Main_SelectedIcon}" />
-                  <TextBlock
+                                    <TextBlock Foreground="{DynamicResource Muted}" Text="{loc:L Main_SelectedIcon}" />
+                                    <TextBlock
                     x:Name="SelectedIconText"
                     Margin="0,5,0,0"
                     FontSize="18"
                     FontWeight="SemiBold"
                     Foreground="{DynamicResource Accent}"
                     Text="{Binding SelectedIconLabel}" />
-                </StackPanel>
-              </Grid>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
             </Border>
-          </StackPanel>
-        </ScrollViewer>
-      </Border>
-      <Border
+            <Border
         Grid.Column="2"
         Background="{DynamicResource CardBackground}"
         BorderBrush="{DynamicResource Line}"
         BorderThickness="1">
-        <Grid>
-          <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-          </Grid.RowDefinitions>
-          <Border Padding="10" Background="{DynamicResource HeaderBackground}">
-            <Grid>
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-              </Grid.ColumnDefinitions>
-              <StackPanel
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Border Padding="10" Background="{DynamicResource HeaderBackground}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel
                 Grid.Column="0"
                 VerticalAlignment="Center"
                 Orientation="Horizontal">
-                <CheckBox
+                                <CheckBox
                   x:Name="SelectAllFoldersBox"
                   Margin="0,0,8,0"
                   VerticalAlignment="Center"
                   IsChecked="{Binding AllFoldersSelected, Mode=TwoWay}" />
-                <Button
+                                <Button
                   x:Name="InvertSelectionButton"
                   Background="Transparent"
                   Command="{Binding InvertSelectionCommand}"
                   Style="{StaticResource IconButton}"
                   ToolTip="{loc:L Main_InvertSelection}">
-                  <Image
+                                    <Image
                     x:Name="InvertSelectionIcon"
                     RenderOptions.BitmapScalingMode="HighQuality"
                     Stretch="Uniform" />
-                </Button>
-              </StackPanel>
-              <ToggleButton
+                                </Button>
+                            </StackPanel>
+                            <ToggleButton
                 x:Name="NodeExpandToggle"
                 Grid.Column="1"
                 Margin="10,0,0,0"
                 Style="{StaticResource IconToggleButton}"
                 ToolTip="{loc:L Common_Expand}">
-                <Image
+                                <Image
                   x:Name="NodeExpandIcon"
                   RenderOptions.BitmapScalingMode="HighQuality"
                   Stretch="Uniform" />
-              </ToggleButton>
-              <Button
+                            </ToggleButton>
+                            <Button
                 x:Name="HideSelectedButton"
                 Grid.Column="3"
                 Margin="10,0,0,0"
@@ -764,12 +764,12 @@
                 Command="{Binding HideSelectedCommand}"
                 Style="{StaticResource IconButton}"
                 ToolTip="{loc:L Main_HideUnchecked}">
-                <Image
+                                <Image
                   x:Name="HideSelectedIcon"
                   RenderOptions.BitmapScalingMode="HighQuality"
                   Stretch="Uniform" />
-              </Button>
-              <Button
+                            </Button>
+                            <Button
                 x:Name="UnhideButton"
                 Grid.Column="4"
                 Margin="5,0,0,0"
@@ -777,43 +777,43 @@
                 Command="{Binding UnhideCommand}"
                 Style="{StaticResource IconButton}"
                 ToolTip="{loc:L Main_ShowHidden}">
-                <Image
+                                <Image
                   x:Name="UnhideIcon"
                   RenderOptions.BitmapScalingMode="HighQuality"
                   Stretch="Uniform" />
-              </Button>
-              <ToggleButton
+                            </Button>
+                            <ToggleButton
                 x:Name="TreeDensityToggle"
                 Grid.Column="5"
                 Margin="10,0,0,0"
                 Style="{StaticResource IconToggleButton}"
                 ToolTip="{loc:L Main_TreeComfortable}">
-                <Image
+                                <Image
                   x:Name="TreeDensityIcon"
                   RenderOptions.BitmapScalingMode="HighQuality"
                   Stretch="Uniform" />
-              </ToggleButton>
-              <CheckBox
+                            </ToggleButton>
+                            <CheckBox
                 x:Name="AddToGitIgnoreBox"
                 Grid.Column="8"
                 Content="{loc:L Main_AddGitignore}"
                 IsChecked="{Binding AddToGitIgnore}" />
-              <TextBlock Grid.Column="9" Margin="14,0,0,0" />
-            </Grid>
-          </Border>
-          <Border
+                            <TextBlock Grid.Column="9" Margin="14,0,0,0" />
+                        </Grid>
+                    </Border>
+                    <Border
             Grid.Row="1"
             Padding="10,8"
             Background="{DynamicResource CardBackground}"
             BorderBrush="{DynamicResource Line}"
             BorderThickness="0,0,0,1">
-            <Grid>
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-              </Grid.ColumnDefinitions>
-              <Image
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Image
                 x:Name="FolderFilterIcon"
                 Width="36"
                 Height="36"
@@ -822,13 +822,13 @@
                 RenderOptions.BitmapScalingMode="HighQuality"
                 Stretch="Uniform"
                 ToolTip="{loc:L Main_FilterFolders}" />
-              <history:HistoryTextBox
+                            <history:HistoryTextBox
                 x:Name="FolderFilterBox"
                 Grid.Column="1"
                 HistoryKey="Main-FolderFilter"
                 Text="{Binding FolderFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                 ToolTip="{loc:L Main_FilterTooltip}" />
-              <Button
+                            <Button
                 x:Name="ClearFolderFilterButton"
                 Grid.Column="2"
                 Margin="8,0,0,0"
@@ -836,21 +836,21 @@
                 Command="{Binding ClearFolderFilterCommand}"
                 Style="{StaticResource IconButton}"
                 ToolTip="{loc:L Common_Clear}">
-                <Image
+                                <Image
                   x:Name="ClearFolderFilterIcon"
                   RenderOptions.BitmapScalingMode="HighQuality"
                   Stretch="Uniform" />
-              </Button>
-            </Grid>
-          </Border>
-          <Grid Grid.Row="2">
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="*" MinWidth="325" />
-              <ColumnDefinition Width="5" />
-              <ColumnDefinition Width="325" MinWidth="325" />
-            </Grid.ColumnDefinitions>
-            <Grid>
-              <TreeView
+                            </Button>
+                        </Grid>
+                    </Border>
+                    <Grid Grid.Row="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MinWidth="325" />
+                            <ColumnDefinition Width="5" />
+                            <ColumnDefinition Width="325" MinWidth="325" />
+                        </Grid.ColumnDefinitions>
+                        <Grid>
+                            <TreeView
                 x:Name="ResultsTree"
                 HorizontalContentAlignment="Stretch"
                 AllowDrop="True"
@@ -862,223 +862,223 @@
                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                 VirtualizingStackPanel.IsVirtualizing="True"
                 VirtualizingStackPanel.VirtualizationMode="Recycling">
-                <TreeView.ItemTemplate>
-                  <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                    <Grid
+                                <TreeView.ItemTemplate>
+                                    <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                                        <Grid
                       Margin="0"
                       Background="{Binding Background, RelativeSource={RelativeSource AncestorType={x:Type TreeViewItem}}}"
                       Visibility="{Binding ItemVisibility}">
-                      <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                      </Grid.ColumnDefinitions>
-                      <CheckBox
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <CheckBox
                         Margin="5"
                         VerticalAlignment="Center"
                         IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                      <Image
+                                            <Image
                         Grid.Column="1"
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
                         RenderOptions.BitmapScalingMode="HighQuality"
                         Source="{Binding IconPreview}"
                         Stretch="Uniform">
-                        <Image.Style>
-                          <Style TargetType="Image">
-                            <Setter Property="Width" Value="48" />
-                            <Setter Property="Height" Value="48" />
-                            <Setter Property="Margin" Value="5,3" />
-                            <Style.Triggers>
-                              <DataTrigger Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
-                                <Setter Property="Width" Value="22" />
-                                <Setter Property="Height" Value="22" />
-                                <Setter Property="Margin" Value="3,1" />
-                              </DataTrigger>
-                            </Style.Triggers>
-                          </Style>
-                        </Image.Style>
-                      </Image>
-                      <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                        <StackPanel.Style>
-                          <Style TargetType="StackPanel">
-                            <Setter Property="Margin" Value="0,5,5,5" />
-                            <Style.Triggers>
-                              <DataTrigger Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
-                                <Setter Property="Margin" Value="0,1,4,1" />
-                              </DataTrigger>
-                            </Style.Triggers>
-                          </Style>
-                        </StackPanel.Style>
-                        <TextBlock
+                                                <Image.Style>
+                                                    <Style TargetType="Image">
+                                                        <Setter Property="Width" Value="48" />
+                                                        <Setter Property="Height" Value="48" />
+                                                        <Setter Property="Margin" Value="5,3" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                                <Setter Property="Width" Value="22" />
+                                                                <Setter Property="Height" Value="22" />
+                                                                <Setter Property="Margin" Value="3,1" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Image.Style>
+                                            </Image>
+                                            <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                <StackPanel.Style>
+                                                    <Style TargetType="StackPanel">
+                                                        <Setter Property="Margin" Value="0,5,5,5" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                                <Setter Property="Margin" Value="0,1,4,1" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </StackPanel.Style>
+                                                <TextBlock
                           FontWeight="SemiBold"
                           Foreground="{DynamicResource Ink}"
                           Text="{Binding Name}">
-                          <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                              <Setter Property="FontSize" Value="15" />
-                              <Style.Triggers>
-                                <DataTrigger Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
-                                  <Setter Property="FontSize" Value="12" />
-                                </DataTrigger>
-                              </Style.Triggers>
-                            </Style>
-                          </TextBlock.Style>
-                        </TextBlock>
-                        <TextBlock
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="FontSize" Value="15" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                                    <Setter Property="FontSize" Value="12" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                                <TextBlock
                           Foreground="{DynamicResource Muted}"
                           Text="{Binding Path}"
                           TextTrimming="CharacterEllipsis">
-                          <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                              <Setter Property="FontSize" Value="12" />
-                              <Style.Triggers>
-                                <DataTrigger Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
-                                  <Setter Property="FontSize" Value="10.5" />
-                                </DataTrigger>
-                              </Style.Triggers>
-                            </Style>
-                          </TextBlock.Style>
-                        </TextBlock>
-                        <TextBlock
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="FontSize" Value="12" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                                    <Setter Property="FontSize" Value="10.5" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                                <TextBlock
                           Foreground="{DynamicResource Accent}"
                           Text="{Binding Reason}"
                           TextTrimming="CharacterEllipsis"
                           ToolTip="{Binding Reason}">
-                          <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                              <Setter Property="FontSize" Value="11" />
-                              <Style.Triggers>
-                                <DataTrigger Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
-                                  <Setter Property="FontSize" Value="10" />
-                                </DataTrigger>
-                              </Style.Triggers>
-                            </Style>
-                          </TextBlock.Style>
-                        </TextBlock>
-                      </StackPanel>
-                    </Grid>
-                  </HierarchicalDataTemplate>
-                </TreeView.ItemTemplate>
-                <TreeView.ItemContainerStyle>
-                  <Style TargetType="TreeViewItem">
-                    <Setter Property="IsSelected" Value="{Binding IsCurrent, Mode=TwoWay}" />
-                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
-                    <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}" />
-                    <Setter Property="ContextMenu" Value="{StaticResource FolderTreeContextMenu}" />
-                    <Setter Property="Visibility" Value="{Binding ItemVisibility}" />
-                    <Setter Property="Foreground" Value="{DynamicResource Ink}" />
-                    <Setter Property="Background" Value="Transparent" />
-                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                    <Setter Property="Padding" Value="0" />
-                    <Setter Property="Template">
-                      <Setter.Value>
-                        <ControlTemplate TargetType="TreeViewItem">
-                          <Grid Background="Transparent">
-                            <Grid.RowDefinitions>
-                              <RowDefinition Height="Auto" />
-                              <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-                            <Grid.ColumnDefinitions>
-                              <ColumnDefinition Width="20" />
-                              <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <ToggleButton
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="FontSize" Value="11" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                                    <Setter Property="FontSize" Value="10" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Grid>
+                                    </HierarchicalDataTemplate>
+                                </TreeView.ItemTemplate>
+                                <TreeView.ItemContainerStyle>
+                                    <Style TargetType="TreeViewItem">
+                                        <Setter Property="IsSelected" Value="{Binding IsCurrent, Mode=TwoWay}" />
+                                        <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                                        <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                        <Setter Property="ContextMenu" Value="{StaticResource FolderTreeContextMenu}" />
+                                        <Setter Property="Visibility" Value="{Binding ItemVisibility}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                        <Setter Property="Padding" Value="0" />
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="TreeViewItem">
+                                                    <Grid Background="Transparent">
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="Auto" />
+                                                            <RowDefinition Height="Auto" />
+                                                        </Grid.RowDefinitions>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="20" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <ToggleButton
                               x:Name="Expander"
                               Grid.Column="0"
                               Content="▶"
                               Focusable="False"
                               Foreground="{DynamicResource Muted}"
                               IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}">
-                              <ToggleButton.Style>
-                                <Style TargetType="ToggleButton">
-                                  <Setter Property="Background" Value="Transparent" />
-                                  <Setter Property="BorderThickness" Value="0" />
-                                  <Setter Property="Template">
-                                    <Setter.Value>
-                                      <ControlTemplate TargetType="ToggleButton">
-                                        <TextBlock
+                                                            <ToggleButton.Style>
+                                                                <Style TargetType="ToggleButton">
+                                                                    <Setter Property="Background" Value="Transparent" />
+                                                                    <Setter Property="BorderThickness" Value="0" />
+                                                                    <Setter Property="Template">
+                                                                        <Setter.Value>
+                                                                            <ControlTemplate TargetType="ToggleButton">
+                                                                                <TextBlock
                                           HorizontalAlignment="Center"
                                           VerticalAlignment="Center"
                                           Foreground="{TemplateBinding Foreground}"
                                           Text="{TemplateBinding Content}" />
-                                      </ControlTemplate>
-                                    </Setter.Value>
-                                  </Setter>
-                                </Style>
-                              </ToggleButton.Style>
-                            </ToggleButton>
-                            <Border
+                                                                            </ControlTemplate>
+                                                                        </Setter.Value>
+                                                                    </Setter>
+                                                                </Style>
+                                                            </ToggleButton.Style>
+                                                        </ToggleButton>
+                                                        <Border
                               Grid.Column="1"
                               HorizontalAlignment="Stretch"
                               Background="{TemplateBinding Background}">
-                              <ContentPresenter HorizontalAlignment="Stretch" ContentSource="Header" />
-                            </Border>
-                            <ItemsPresenter
+                                                            <ContentPresenter HorizontalAlignment="Stretch" ContentSource="Header" />
+                                                        </Border>
+                                                        <ItemsPresenter
                               x:Name="ItemsHost"
                               Grid.Row="1"
                               Grid.Column="1" />
-                          </Grid>
-                          <ControlTemplate.Triggers>
-                            <Trigger Property="HasItems" Value="False">
-                              <Setter TargetName="Expander" Property="Visibility" Value="Hidden" />
-                            </Trigger>
-                            <Trigger Property="IsExpanded" Value="True">
-                              <Setter TargetName="Expander" Property="Content" Value="▼" />
-                            </Trigger>
-                            <Trigger Property="IsExpanded" Value="False">
-                              <Setter TargetName="ItemsHost" Property="Visibility" Value="Collapsed" />
-                            </Trigger>
-                          </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                      </Setter.Value>
-                    </Setter>
-                    <Style.Triggers>
-                      <Trigger Property="IsSelected" Value="True">
-                        <Setter Property="Background" Value="{DynamicResource ThemeSelected}" />
-                      </Trigger>
-                    </Style.Triggers>
-                  </Style>
-                </TreeView.ItemContainerStyle>
-              </TreeView>
-              <Border
+                                                    </Grid>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="HasItems" Value="False">
+                                                            <Setter TargetName="Expander" Property="Visibility" Value="Hidden" />
+                                                        </Trigger>
+                                                        <Trigger Property="IsExpanded" Value="True">
+                                                            <Setter TargetName="Expander" Property="Content" Value="▼" />
+                                                        </Trigger>
+                                                        <Trigger Property="IsExpanded" Value="False">
+                                                            <Setter TargetName="ItemsHost" Property="Visibility" Value="Collapsed" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Style.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter Property="Background" Value="{DynamicResource ThemeSelected}" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TreeView.ItemContainerStyle>
+                            </TreeView>
+                            <Border
                 x:Name="TreePanelBusy"
                 Background="{DynamicResource OverlayScrim}"
                 IsHitTestVisible="True"
                 Visibility="{Binding IsTreeBusy, Converter={StaticResource MvvmBooleanToVisibility}}">
-                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                  <ProgressBar
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <ProgressBar
                     Width="160"
                     Height="5"
                     Background="{DynamicResource HeaderBackground}"
                     Foreground="{DynamicResource Accent}"
                     IsIndeterminate="True" />
-                  <TextBlock
+                                    <TextBlock
                     Margin="0,10,0,0"
                     HorizontalAlignment="Center"
                     Foreground="{DynamicResource Muted}"
                     Text="{loc:L Common_PleaseWait}" />
-                </StackPanel>
-              </Border>
-            </Grid>
-            <GridSplitter
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                        <GridSplitter
               Grid.Column="1"
               Width="5"
               HorizontalAlignment="Stretch"
               Background="{DynamicResource Line}" />
-            <Grid Grid.Column="2">
-              <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-              </Grid.RowDefinitions>
-              <Grid Margin="10,7">
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="*" />
-                  <ColumnDefinition Width="Auto" />
-                  <ColumnDefinition Width="Auto" />
-                  <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock
+                        <Grid Grid.Column="2">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Grid Margin="10,7">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock
                   x:Name="FilePanelTitle"
                   Margin="0,0,8,0"
                   VerticalAlignment="Center"
@@ -1087,19 +1087,19 @@
                   Text="{Binding FilePanelTitle}"
                   TextTrimming="CharacterEllipsis"
                   ToolTip="{Binding FilePanelPath}" />
-                <Button
+                                <Button
                   x:Name="FileListViewButton"
                   Grid.Column="1"
                   Background="{DynamicResource ThemeSelected}"
                   Command="{Binding FileListViewCommand}"
                   Style="{StaticResource IconButton}"
                   ToolTip="{loc:L Main_List}">
-                  <Image
+                                    <Image
                     x:Name="FileListViewIcon"
                     RenderOptions.BitmapScalingMode="HighQuality"
                     Stretch="Uniform" />
-                </Button>
-                <Button
+                                </Button>
+                                <Button
                   x:Name="FileIconLargeButton"
                   Grid.Column="2"
                   Margin="5,0,0,0"
@@ -1107,12 +1107,12 @@
                   Command="{Binding FileIconLargeCommand}"
                   Style="{StaticResource IconButton}"
                   ToolTip="{loc:L Main_LargeIcons}">
-                  <Image
+                                    <Image
                     x:Name="FileIconLargeIcon"
                     RenderOptions.BitmapScalingMode="HighQuality"
                     Stretch="Uniform" />
-                </Button>
-                <Button
+                                </Button>
+                                <Button
                   x:Name="FileIconSmallButton"
                   Grid.Column="3"
                   Margin="5,0,0,0"
@@ -1120,14 +1120,14 @@
                   Command="{Binding FileIconSmallCommand}"
                   Style="{StaticResource IconButton}"
                   ToolTip="{loc:L Main_SmallIcons}">
-                  <Image
+                                    <Image
                     x:Name="FileIconSmallIcon"
                     RenderOptions.BitmapScalingMode="HighQuality"
                     Stretch="Uniform" />
-                </Button>
-              </Grid>
-              <Grid Grid.Row="1">
-                <ListView
+                                </Button>
+                            </Grid>
+                            <Grid Grid.Row="1">
+                                <ListView
                   x:Name="FileList"
                   Background="{DynamicResource CardBackground}"
                   BorderThickness="0"
@@ -1135,45 +1135,45 @@
                   ItemContainerStyle="{StaticResource FileListItemStyle}"
                   ItemsSource="{Binding Files}"
                   ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                  <ListView.View>
-                    <GridView>
-                      <GridViewColumn Width="36" Header="">
-                        <GridViewColumn.CellTemplate>
-                          <DataTemplate>
-                            <Image
+                                    <ListView.View>
+                                        <GridView>
+                                            <GridViewColumn Width="36" Header="">
+                                                <GridViewColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Image
                               Width="24"
                               Height="24"
                               RenderOptions.BitmapScalingMode="HighQuality"
                               Source="{Binding Icon}"
                               Stretch="Uniform" />
-                          </DataTemplate>
-                        </GridViewColumn.CellTemplate>
-                      </GridViewColumn>
-                      <GridViewColumn Width="205" Header="{loc:L Common_Name}">
-                        <GridViewColumn.CellTemplate>
-                          <DataTemplate>
-                            <TextBlock
+                                                    </DataTemplate>
+                                                </GridViewColumn.CellTemplate>
+                                            </GridViewColumn>
+                                            <GridViewColumn Width="205" Header="{loc:L Common_Name}">
+                                                <GridViewColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock
                               VerticalAlignment="Center"
                               Text="{Binding Name}"
                               TextTrimming="CharacterEllipsis"
                               ToolTip="{Binding Path}" />
-                          </DataTemplate>
-                        </GridViewColumn.CellTemplate>
-                      </GridViewColumn>
-                      <GridViewColumn Width="62" Header="{loc:L Common_Type}">
-                        <GridViewColumn.CellTemplate>
-                          <DataTemplate>
-                            <TextBlock
+                                                    </DataTemplate>
+                                                </GridViewColumn.CellTemplate>
+                                            </GridViewColumn>
+                                            <GridViewColumn Width="62" Header="{loc:L Common_Type}">
+                                                <GridViewColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock
                               VerticalAlignment="Center"
                               Text="{Binding Extension}"
                               TextTrimming="CharacterEllipsis" />
-                          </DataTemplate>
-                        </GridViewColumn.CellTemplate>
-                      </GridViewColumn>
-                    </GridView>
-                  </ListView.View>
-                </ListView>
-                <ListBox
+                                                    </DataTemplate>
+                                                </GridViewColumn.CellTemplate>
+                                            </GridViewColumn>
+                                        </GridView>
+                                    </ListView.View>
+                                </ListView>
+                                <ListBox
                   x:Name="FileIconList"
                   Grid.Row="1"
                   Background="{DynamicResource CardBackground}"
@@ -1186,15 +1186,15 @@
                   VirtualizingPanel.IsVirtualizing="True"
                   VirtualizingPanel.VirtualizationMode="Recycling"
                   Visibility="Collapsed">
-                  <ListBox.ItemsPanel>
-                    <ItemsPanelTemplate>
-                      <views:VirtualizingUniformGrid Columns="3" IsItemsHost="True" />
-                    </ItemsPanelTemplate>
-                  </ListBox.ItemsPanel>
-                  <ListBox.ItemTemplate>
-                    <DataTemplate>
-                      <StackPanel Margin="2,4" HorizontalAlignment="Stretch">
-                        <Border
+                                    <ListBox.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <views:VirtualizingUniformGrid Columns="3" IsItemsHost="True" />
+                                        </ItemsPanelTemplate>
+                                    </ListBox.ItemsPanel>
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="2,4" HorizontalAlignment="Stretch">
+                                                <Border
                           Width="40"
                           Height="40"
                           Padding="3"
@@ -1202,15 +1202,15 @@
                           Background="{DynamicResource HeaderBackground}"
                           BorderBrush="{DynamicResource Line}"
                           BorderThickness="1">
-                          <Image
+                                                    <Image
                             Width="32"
                             Height="32"
                             RenderOptions.BitmapScalingMode="HighQuality"
                             RenderOptions.EdgeMode="Unspecified"
                             Source="{Binding Icon}"
                             Stretch="Uniform" />
-                        </Border>
-                        <TextBlock
+                                                </Border>
+                                                <TextBlock
                           Margin="1,4,1,0"
                           FontSize="11"
                           Text="{Binding Name}"
@@ -1218,110 +1218,110 @@
                           TextTrimming="CharacterEllipsis"
                           TextWrapping="NoWrap"
                           ToolTip="{Binding Path}" />
-                      </StackPanel>
-                    </DataTemplate>
-                  </ListBox.ItemTemplate>
-                </ListBox>
-                <Border
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                                <Border
                   x:Name="FilePanelBusy"
                   Background="{DynamicResource OverlayScrim}"
                   IsHitTestVisible="True"
                   Visibility="{Binding IsFileBusy, Converter={StaticResource MvvmBooleanToVisibility}}">
-                  <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <ProgressBar
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <ProgressBar
                       Width="160"
                       Height="5"
                       Background="{DynamicResource HeaderBackground}"
                       Foreground="{DynamicResource Accent}"
                       IsIndeterminate="True" />
-                    <TextBlock
+                                        <TextBlock
                       Margin="0,10,0,0"
                       HorizontalAlignment="Center"
                       Foreground="{DynamicResource Muted}"
                       Text="{loc:L Common_PleaseWait}" />
-                  </StackPanel>
-                </Border>
-              </Grid>
-            </Grid>
-          </Grid>
-          <Grid Grid.Row="3" Margin="10,8,10,8">
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="*" />
-              <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <TabControl
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </Grid>
+                    </Grid>
+                    <Grid Grid.Row="3" Margin="10,8,10,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TabControl
               x:Name="TreeTabs"
               Grid.Column="0"
               Margin="0"
               SelectedIndex="{Binding SelectedTreeView, Mode=TwoWay}"
               TabStripPlacement="Bottom">
-              <TabItem>
-                <TabItem.Header>
-                  <StackPanel Orientation="Horizontal">
-                    <TextBlock
+                            <TabItem>
+                                <TabItem.Header>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock
                       VerticalAlignment="Center"
                       FontFamily="Segoe MDL2 Assets"
                       FontSize="13"
                       Text="&#xE8B7;" />
-                    <TextBlock
+                                        <TextBlock
                       Margin="7,0,0,0"
                       VerticalAlignment="Center"
                       Text="{loc:L Main_Physical}" />
-                  </StackPanel>
-                </TabItem.Header>
-              </TabItem>
-              <TabItem>
-                <TabItem.Header>
-                  <StackPanel Orientation="Horizontal">
-                    <TextBlock
+                                    </StackPanel>
+                                </TabItem.Header>
+                            </TabItem>
+                            <TabItem>
+                                <TabItem.Header>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock
                       VerticalAlignment="Center"
                       FontFamily="Segoe MDL2 Assets"
                       FontSize="13"
                       Text="&#xE943;" />
-                    <TextBlock
+                                        <TextBlock
                       Margin="7,0,0,0"
                       VerticalAlignment="Center"
                       Text="{loc:L Main_Solution}" />
-                  </StackPanel>
-                </TabItem.Header>
-              </TabItem>
-              <TabItem>
-                <TabItem.Header>
-                  <StackPanel Orientation="Horizontal">
-                    <TextBlock
+                                    </StackPanel>
+                                </TabItem.Header>
+                            </TabItem>
+                            <TabItem>
+                                <TabItem.Header>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock
                       VerticalAlignment="Center"
                       FontFamily="Segoe MDL2 Assets"
                       FontSize="13"
                       Text="&#xE721;" />
-                    <TextBlock
+                                        <TextBlock
                       Margin="7,0,0,0"
                       VerticalAlignment="Center"
                       Text="{loc:L Common_Search}" />
-                  </StackPanel>
-                </TabItem.Header>
-              </TabItem>
-            </TabControl>
-            <TextBlock
+                                    </StackPanel>
+                                </TabItem.Header>
+                            </TabItem>
+                        </TabControl>
+                        <TextBlock
               Grid.Column="1"
               Margin="12,0,0,0"
               VerticalAlignment="Center"
               Foreground="{DynamicResource Muted}"
               Text="{Binding FileListCountLabel}" />
-          </Grid>
+                    </Grid>
+                </Grid>
+            </Border>
         </Grid>
-      </Border>
-    </Grid>
-    <Grid Grid.Row="2" Margin="0,10,0,0">
-      <Grid.RowDefinitions>
-        <RowDefinition Height="Auto" />
-        <RowDefinition Height="Auto" />
-      </Grid.RowDefinitions>
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="350" />
-        <ColumnDefinition Width="22" />
-        <ColumnDefinition Width="*" />
-      </Grid.ColumnDefinitions>
-      <ProgressBar
+        <Grid Grid.Row="2" Margin="0,10,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="350" />
+                <ColumnDefinition Width="22" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <ProgressBar
         x:Name="SearchProgress"
         Grid.ColumnSpan="3"
         Height="6"
@@ -1330,131 +1330,131 @@
         Foreground="{DynamicResource Accent}"
         IsIndeterminate="True"
         Visibility="{Binding IsSearching, Converter={StaticResource MvvmBooleanToVisibility}}">
-        <ProgressBar.Template>
-          <ControlTemplate TargetType="{x:Type ProgressBar}">
-            <Border
+                <ProgressBar.Template>
+                    <ControlTemplate TargetType="{x:Type ProgressBar}">
+                        <Border
               Background="{TemplateBinding Background}"
               ClipToBounds="True"
               CornerRadius="3">
-              <Border
+                            <Border
                 x:Name="Marquee"
                 Width="150"
                 HorizontalAlignment="Left"
                 Background="{TemplateBinding Foreground}"
                 CornerRadius="3">
-                <Border.RenderTransform>
-                  <TranslateTransform />
-                </Border.RenderTransform>
-              </Border>
-            </Border>
-          </ControlTemplate>
-        </ProgressBar.Template>
-      </ProgressBar>
-      <StackPanel
+                                <Border.RenderTransform>
+                                    <TranslateTransform />
+                                </Border.RenderTransform>
+                            </Border>
+                        </Border>
+                    </ControlTemplate>
+                </ProgressBar.Template>
+            </ProgressBar>
+            <StackPanel
         Grid.Row="1"
         VerticalAlignment="Center"
         Orientation="Horizontal">
-        <Button
+                <Button
           x:Name="ResetButton"
           Background="Transparent"
           Command="{Binding ResetCommand}"
           Style="{StaticResource IconButton}"
           ToolTip="Clear settings, history, and folder lists">
-          <Image
+                    <Image
             x:Name="ResetButtonIcon"
             RenderOptions.BitmapScalingMode="HighQuality"
             Stretch="Uniform" />
-        </Button>
-        <TextBlock
+                </Button>
+                <TextBlock
           x:Name="CountText"
           Margin="12,0,12,0"
           VerticalAlignment="Center"
           Foreground="{DynamicResource Muted}"
           Text="{Binding CountLabel}" />
-        <TextBlock
+                <TextBlock
           x:Name="StatusText"
           VerticalAlignment="Center"
           Foreground="{DynamicResource Muted}"
           Text="{Binding Status}" />
-      </StackPanel>
-      <DockPanel
+            </StackPanel>
+            <DockPanel
         Grid.Row="1"
         Grid.Column="2"
         LastChildFill="True">
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-          <ComboBox
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <ComboBox
             x:Name="LanguageBox"
             Margin="0,0,8,0"
             Style="{StaticResource LanguageComboStyle}">
-            <ComboBox.ItemTemplate>
-              <DataTemplate>
-                <StackPanel Orientation="Horizontal">
-                  <Image
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <Image
                     Width="16"
                     Height="16"
                     Margin="0,0,6,0"
                     VerticalAlignment="Center"
                     Source="{Binding Flag}"
                     Stretch="Uniform" />
-                  <TextBlock VerticalAlignment="Center" Text="{Binding Name}" />
-                </StackPanel>
-              </DataTemplate>
-            </ComboBox.ItemTemplate>
-          </ComboBox>
-          <Button
+                                    <TextBlock VerticalAlignment="Center" Text="{Binding Name}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button
             AutomationProperties.Name="{loc:L Main_Differencer}"
             Background="Transparent"
             Command="{Binding DeveloperDifferencerCommand}"
             Style="{StaticResource IconButton}"
             ToolTip="{loc:L Main_DifferencerTooltip}">
-            <Image
+                        <Image
               x:Name="DifferencerButtonIcon"
               RenderOptions.BitmapScalingMode="HighQuality"
               Stretch="Uniform" />
-          </Button>
-          <Button
+                    </Button>
+                    <Button
             x:Name="GrepButton"
             Margin="8,0,0,0"
             Background="Transparent"
             Command="{Binding GrepCommand}"
             Style="{StaticResource IconButton}"
             ToolTip="{loc:L Main_GrepTooltip}">
-            <Image
+                        <Image
               x:Name="GrepButtonIcon"
               RenderOptions.BitmapScalingMode="HighQuality"
               Stretch="Uniform" />
-          </Button>
-          <Button
+                    </Button>
+                    <Button
             x:Name="RemoveButton"
             Margin="8,0,0,0"
             Background="Transparent"
             Command="{Binding RemoveCommand}"
             Style="{StaticResource IconButton}"
             ToolTip="{loc:L Main_RemoveSettings}">
-            <Image
+                        <Image
               x:Name="RemoveButtonIcon"
               RenderOptions.BitmapScalingMode="HighQuality"
               Stretch="Uniform" />
-          </Button>
-          <Button
+                    </Button>
+                    <Button
             x:Name="ApplyButton"
             Margin="8,0,0,0"
             Background="Transparent"
             Command="{Binding ApplyCommand}"
             Style="{StaticResource IconButton}"
             ToolTip="{loc:L Main_ApplyTooltip}">
-            <Image
+                        <Image
               x:Name="ApplyButtonIcon"
               RenderOptions.BitmapScalingMode="HighQuality"
               Stretch="Uniform" />
-          </Button>
-        </StackPanel>
-        <DockPanel
+                    </Button>
+                </StackPanel>
+                <DockPanel
           Height="36"
           MinWidth="220"
           Margin="0,0,16,0"
           VerticalAlignment="Center">
-          <Button
+                    <Button
             x:Name="BrowseScriptButton"
             Width="36"
             Height="36"
@@ -1463,12 +1463,12 @@
             DockPanel.Dock="Right"
             Style="{StaticResource IconButton}"
             ToolTip="Browse — pick script">
-            <Image
+                        <Image
               x:Name="BrowseScriptIcon"
               RenderOptions.BitmapScalingMode="HighQuality"
               Stretch="Uniform" />
-          </Button>
-          <Button
+                    </Button>
+                    <Button
             x:Name="RunScriptButton"
             Width="36"
             Height="36"
@@ -1477,19 +1477,19 @@
             DockPanel.Dock="Right"
             Style="{StaticResource IconButton}"
             ToolTip="Run — execute command">
-            <Image
+                        <Image
               x:Name="RunScriptIcon"
               RenderOptions.BitmapScalingMode="HighQuality"
               Stretch="Uniform" />
-          </Button>
-          <history:HistoryTextBox
+                    </Button>
+                    <history:HistoryTextBox
             x:Name="ScriptBox"
             Height="36"
             VerticalAlignment="Center"
             HistoryKey="Main-Script"
             ToolTip="Command. %d = folder, %f = file path, %n = file name" />
-        </DockPanel>
-      </DockPanel>
+                </DockPanel>
+            </DockPanel>
+        </Grid>
     </Grid>
-  </Grid>
 </Window>

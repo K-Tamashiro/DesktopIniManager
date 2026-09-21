@@ -125,6 +125,7 @@ namespace DesktopIniManager.ViewModels
         public bool CanEdit => !IsBusy;
         public event Action ComparisonCleared;
         public event Action CommitRootHistoryRequested;
+        public event Action<bool?> SyncDirectionIconRequested;
         public AsyncRelayCommand CompareCommand { get; }
         public AsyncRelayCommand RefreshCommand { get; }
         public AsyncRelayCommand ForwardCommand { get; }
@@ -295,7 +296,17 @@ namespace DesktopIniManager.ViewModels
                 .ToArray();
             if (files.Length == 0 && selectedFolders.Length == 0) return;
             string direction = toTarget ? "Source to Target" : "Target to Source";
-            if (!confirmSync(direction, files, selectedFolders, toTarget)) return;
+            bool confirmed;
+            SyncDirectionIconRequested?.Invoke(toTarget);
+            try
+            {
+                confirmed = confirmSync(direction, files, selectedFolders, toTarget);
+            }
+            finally
+            {
+                SyncDirectionIconRequested?.Invoke(null);
+            }
+            if (!confirmed) return;
             ISynchronizationLog liveLog = openLog(direction, snapshot);
             SetBusy(true); Status = direction + " — syncing…";
             try

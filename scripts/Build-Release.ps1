@@ -3,7 +3,7 @@ param([string]$PrebuiltDirectory)
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$version = '3.2.0'
+$version = '3.2.1'
 $packageName = "DesktopIniManager-v$version-DIR-win-x64"
 $releaseRoot = Join-Path $repoRoot 'release'
 [IO.Directory]::CreateDirectory($releaseRoot) | Out-Null
@@ -29,6 +29,7 @@ try {
         'docs/mft-differencer.md', 'docs/smvvm-progress.md', 'docs/splash-screen.md',
         'docs/releases/v3.0.0-DIR.md', 'docs/releases/v3.1.0-DIR.md',
         'docs/releases/v3.2.0-DIR.md', 'docs/index.html',
+        'docs/releases/v3.2.1-DIR.md',
         'Languages/culture.txt', 'Languages/ja.txt', 'Languages/ko.txt', 'Languages/zh-Hans.txt'
     )
     $expected += @(

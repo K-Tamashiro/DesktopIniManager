@@ -889,7 +889,7 @@ namespace DesktopIniManager.Views
             TreeDensityToggle.ToolTip = ViewModel.TreeCompact ? Strings.Main_TreeCompact : Strings.Main_TreeComfortable;
             _updatingToggles = false;
             if (_window.TreeDensityIcon != null)
-                _window.TreeDensityIcon.Source = DifferencerStatusIcons.GetCustomIcon(ViewModel.TreeCompact ? 35 : 36);
+                _window.TreeDensityIcon.Source = DifferencerStatusIcons.GetCustomIcon(ViewModel.TreeCompact ? 91 : 90);
         }
 
         private void ApplyMainToolbarIcons()

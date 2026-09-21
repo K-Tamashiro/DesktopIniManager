@@ -15,6 +15,8 @@
   <SolidColorBrush x:Key="OverlayScrim" Color="#CC111821" />
   <SolidColorBrush x:Key="ThemeToggle" Color="#1A2330" />
   <SolidColorBrush x:Key="ThemeSelected" Color="#583047" />
+  <SolidColorBrush x:Key="ZoomToggle" Color="Transparent" />
+  <SolidColorBrush x:Key="ZoomSelected" Color="Transparent" />
   <SolidColorBrush x:Key="SunGlyph" Color="#E27A2B" />
   <SolidColorBrush x:Key="MoonGlyph" Color="#D9BC45" />
   <SolidColorBrush x:Key="DiffRemoved" Color="#5A2430" />

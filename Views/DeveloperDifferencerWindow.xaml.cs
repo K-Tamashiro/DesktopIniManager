@@ -41,6 +41,7 @@ namespace DesktopIniManager.Views
                 else TargetBox.CommitHistory();
             };
             ViewModel.CommitRootHistoryRequested += () => { SourceBox.CommitHistory(); TargetBox.CommitHistory(); };
+            ViewModel.SyncDirectionIconRequested += UpdateSyncDirectionIcons;
             ViewModel.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(ViewModel.IsFileBusy)) { if (ViewModel.IsFileBusy) RestartPanelProgress(); else StopPanelProgress(); } };
             SameFilterIcon.Source = DifferencerStatusIcons.GetFileIcon(DiffKind.Same);
             DifferentFilterIcon.Source = DifferencerStatusIcons.GetFileIcon(DiffKind.Different);
@@ -325,6 +326,28 @@ namespace DesktopIniManager.Views
                 image.Source = DifferencerStatusIcons.GetCustomIcon(index);
         }
 
+        private void UpdateSyncDirectionIcons(bool? toTarget)
+        {
+            if (toTarget == true)
+            {
+                // Source -> Target
+                SetIcon(SourceLabelIcon, 64);
+                SetIcon(TargetLabelIcon, 79);
+            }
+            else if (toTarget == false)
+            {
+                // Target -> Source
+                SetIcon(SourceLabelIcon, 76);
+                SetIcon(TargetLabelIcon, 66);
+            }
+            else
+            {
+                // Normal
+                SetIcon(SourceLabelIcon, 61);
+                SetIcon(TargetLabelIcon, 60);
+            }
+        }
+
         private void NodeExpandToggle_Changed(object sender, RoutedEventArgs e)
         {
             if (NodeExpandToggle.IsChecked == true) ViewModel.ExpandAllCommand.Execute(null);
@@ -350,7 +373,7 @@ namespace DesktopIniManager.Views
         private void UpdateDensityIcon()
         {
             bool compact = ViewModel.TreeCompact;
-            SetIcon(TreeDensityIcon, compact ? 35 : 36);
+            SetIcon(TreeDensityIcon, compact ? 91 : 90);
             if (TreeDensityToggle != null)
                 TreeDensityToggle.ToolTip = compact ? Strings.Main_TreeCompact : Strings.Main_TreeComfortable;
         }

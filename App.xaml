@@ -136,11 +136,11 @@
         <Setter Property="FontWeight" Value="SemiBold" />
       </Style>
       <Style x:Key="IconToggleButton" TargetType="ToggleButton">
-        <Setter Property="Width" Value="36" />
-        <Setter Property="Height" Value="36" />
-        <Setter Property="MinWidth" Value="36" />
+        <Setter Property="Width" Value="40" />
+        <Setter Property="Height" Value="40" />
+        <Setter Property="MinWidth" Value="40" />
         <Setter Property="Padding" Value="0" />
-        <Setter Property="Background" Value="{DynamicResource Secondary}" />
+        <Setter Property="Background" Value="{DynamicResource ZoomToggle}" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         <Setter Property="VerticalContentAlignment" Value="Stretch" />
@@ -160,7 +160,7 @@
               </Border>
               <ControlTemplate.Triggers>
                 <Trigger Property="IsChecked" Value="True">
-                  <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ThemeSelected}" />
+                  <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ZoomSelected}" />
                 </Trigger>
                 <Trigger Property="IsMouseOver" Value="True">
                   <Setter TargetName="Bd" Property="Opacity" Value="0.9" />
@@ -174,7 +174,7 @@
         x:Key="IconTextButton"
         BasedOn="{StaticResource {x:Type Button}}"
         TargetType="Button">
-        <Setter Property="Padding" Value="10,7" />
+        <Setter Property="Padding" Value="0" />
         <Setter Property="MinHeight" Value="36" />
         <Setter Property="FontWeight" Value="SemiBold" />
       </Style>

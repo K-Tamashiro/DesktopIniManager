@@ -4,7 +4,7 @@
     <!-- Keep the existing explicit source/resource lists; exclude nested projects. -->
     <EnableDefaultItems>false</EnableDefaultItems>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <Version>3.2.1</Version>
+    <Version>3.3.0</Version>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <PlatformTarget>x64</PlatformTarget>

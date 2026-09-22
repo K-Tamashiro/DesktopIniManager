@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#07111d">
-  <title>DesktopIniManager v3.2.1 — DIR edition</title>
+  <title>DesktopIniManager v3.3.0 — DIR edition</title>
   <meta name="description"
     content="Development workspace for Windows — Physical / Solution / Search, Scoped Grep, Developer Differencer, folder icons and solution build tools.">
   <style>
@@ -554,7 +554,7 @@
   <main id="top">
     <header class="hero">
       <div>
-        <div class="eyebrow"><span class="dot"></span> Stable release · v3.2.1 · DIR edition</div>
+        <div class="eyebrow"><span class="dot"></span> Stable release · v3.3.0 · DIR edition</div>
         <h1>開発フォルダーを、<span>ひとつの作業空間へ。</span></h1>
         <p class="lead">Physical / Solution / Search、Scoped Grep、Developer Differencer、フォルダーアイコン管理、Solution
           Build。Windows上の開発フォルダーを探索・検索・比較・同期するためのワークスペース。</p>
@@ -608,7 +608,7 @@
 
     <section id="screenshots">
       <div class="reveal">
-        <div class="kicker">v3.2.1 in action</div>
+        <div class="kicker">v3.3.0 in action</div>
         <h2>追加された操作を、画面で確認する。</h2>
         <p class="sectionlead">検索ナビゲーション、SolutionのBuild / Rebuild、Diff Viewを実際の画面で紹介します。</p>
       </div>
@@ -676,8 +676,19 @@
 
     <section id="new">
       <div class="release reveal">
-        <div class="kicker">v3.2.1</div>
-        <h2>アイコンと同期方向の表示を改善。</h2>
+        <div class="kicker">v3.3.0</div>
+        <h2>DIFF VIEW のデバッグ修正。</h2>
+        <ul>
+          <li>txt・logの文字コードと制御文字によるバイナリ誤判定を改善</li>
+          <li>前後移動ではバイナリを無言で除外し、リストから直接開く場合はメッセージを表示</li>
+          <li>終了時の選択エラーを修正し、最後に閲覧したファイルを選択</li>
+          <li>短いファイルの行番号を上端に揃え、本文のスクロールに追従</li>
+          <li>中央マップの位置計算を調整し、選択中の差異を黄色枠で反映</li>
+          <li>画像・アイコンの初期表示をフィットに統一</li>
+          <li>共通行の比較・不要なソート・重複読み込みを削減</li>
+        </ul>
+        <p><a href="releases/v3.3.0-DIR.md">v3.3.0 Release Memo</a></p>
+        <h3>以前のバージョンから継続する機能</h3>
         <ul>
           <li>同期確認中はSourceとTargetの左側に同期方向を示すアイコンを表示</li>
           <li>確認終了・キャンセル時は通常のフォルダーアイコンに復帰</li>
@@ -704,8 +715,8 @@
 
     <section id="download" class="cta reveal">
       <div class="kicker">Download</div>
-      <h2>DesktopIniManager v3.2.1</h2>
-      <p>Windows 10 / 11 x64 · .NET 10 Desktop Runtime (x64) · Release package: DesktopIniManager-v3.2.1-DIR-win-x64.zip
+      <h2>DesktopIniManager v3.3.0</h2>
+      <p>Windows 10 / 11 x64 · .NET 10 Desktop Runtime (x64) · Release package: DesktopIniManager-v3.3.0-DIR-win-x64.zip
       </p>
       <div class="actions" style="justify-content:center"><a class="btn primary"
           href="https://github.com/K-Tamashiro/DesktopIniManager/releases">Download from GitHub Releases →</a><a
@@ -715,7 +726,7 @@
 
   <footer>
     <div class="foot">
-      <span>DesktopIniManager v3.2.1 — DIR edition</span>
+      <span>DesktopIniManager v3.3.0 — DIR edition</span>
       <span>Windows development workspace</span>
     </div>
 

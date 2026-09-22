@@ -3,7 +3,7 @@ param([string]$PrebuiltDirectory)
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$version = '3.2.1'
+$version = '3.3.0'
 $packageName = "DesktopIniManager-v$version-DIR-win-x64"
 $releaseRoot = Join-Path $repoRoot 'release'
 [IO.Directory]::CreateDirectory($releaseRoot) | Out-Null
@@ -30,6 +30,7 @@ try {
         'docs/releases/v3.0.0-DIR.md', 'docs/releases/v3.1.0-DIR.md',
         'docs/releases/v3.2.0-DIR.md', 'docs/index.html',
         'docs/releases/v3.2.1-DIR.md',
+        'docs/releases/v3.3.0-DIR.md',
         'Languages/culture.txt', 'Languages/ja.txt', 'Languages/ko.txt', 'Languages/zh-Hans.txt'
     )
     $expected += @(
@@ -43,7 +44,9 @@ try {
     if ($PrebuiltDirectory) {
         $source = (Resolve-Path -LiteralPath $PrebuiltDirectory).Path
         foreach ($relative in $expected) {
-            $sourceFile = Join-Path $source $relative
+            # Release documentation must match the current release commit,
+            # even when binaries were built before documentation was updated.
+            $sourceFile = Join-Path $(if ($relative -eq 'README.md' -or $relative.StartsWith('docs/')) { $repoRoot } else { $source }) $relative
             if (!(Test-Path -LiteralPath $sourceFile -PathType Leaf)) { throw "Missing package file: $sourceFile" }
             $destination = Join-Path $stage $relative
             [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($destination)) | Out-Null

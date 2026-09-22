@@ -100,6 +100,20 @@ internal static class DifferencerTests
             Check(rejectedBinary, "binary content without known extension is rejected");
             File.WriteAllText(Path.Combine(source, "unicode.txt"), "日本語", System.Text.Encoding.Unicode);
             Check(((string[])readText.Invoke(null, new object[] { Path.Combine(source, "unicode.txt") }))[0] == "日本語", "UTF-16 text remains supported");
+            foreach (var encoding in new System.Text.Encoding[] {
+                new System.Text.UTF8Encoding(false, true),
+                new System.Text.UnicodeEncoding(false, false, true),
+                new System.Text.UnicodeEncoding(true, false, true),
+                System.Text.CodePagesEncodingProvider.Instance.GetEncoding(932) })
+            {
+                string log = "INFO: 日本語\u001b[31m ERROR\u001b[0m\b\a\u001a";
+                foreach (string extension in new[] { ".txt", ".log" })
+                {
+                    string textPath = Path.Combine(source, "encoding-check" + extension);
+                    File.WriteAllBytes(textPath, encoding.GetBytes(log));
+                    Check(DiffViewModel.ReadText(textPath)[0] == log, "text/log decoding: " + encoding.WebName + extension);
+                }
+            }
             foreach (string path in new[] { ".git\\config", "nested\\.GIT\\HEAD", ".git", "..\\target\\a", "C:\\a", "a:stream", ".git.\\HEAD", "a\\..\\b" })
                 Reject(() => DeveloperDifferencerService.SafePath(root, path), "protected path: " + path);
             Check(DeveloperDifferencerService.SafePath(root, ".gitignore").EndsWith(".gitignore"), ".gitignore is an ordinary file");
@@ -148,6 +162,12 @@ internal static class DifferencerTests
             var changes = DiffTextService.Compare(new[] { "a", "old", "z" }, new[] { "a", "new", "added", "z" });
             Check(changes.Count == 4 && changes[1].Kind == DiffLineKind.Modified && changes[2].Kind == DiffLineKind.Added, "aligned text modifications and additions");
             Check(DiffTextService.Compare(new[] { "gone" }, new string[0])[0].Kind == DiffLineKind.Removed, "one-sided text deletion");
+            Check(changes[3].LeftNumber == 3 && changes[3].RightNumber == 4, "trimmed suffix preserves original line numbers");
+            var mostlySame = Enumerable.Range(0, 10000).Select(i => "line " + i).ToArray();
+            var edited = (string[])mostlySame.Clone(); edited[5000] = "edited";
+            var trimmed = DiffTextService.Compare(mostlySame, edited);
+            Check(trimmed.Count == 10000 && trimmed.Count(line => line.Kind != DiffLineKind.Unchanged) == 1 && trimmed[5000].LeftNumber == 5001,
+                "large common prefix/suffix leaves only the changed line");
             var random = new Random(17);
             for (int n = 0; n < 100; n++)
             {

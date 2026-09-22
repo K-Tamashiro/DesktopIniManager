@@ -36,6 +36,8 @@ namespace DesktopIniManager.ViewModels
         private bool externalDiffPending;
         private DiffStamp externalSourceStamp, externalTargetStamp;
         private bool checkingExternalEdit;
+        private bool loadingContent, navigating, closed;
+        private string[][] preparedText;
         public List<DiffLine> Lines { get; private set; }
         public List<int> Hunks { get; } = new List<int>();
         internal int CurrentHunk { get; set; } = -1;
@@ -74,6 +76,7 @@ namespace DesktopIniManager.ViewModels
         }
         internal void Close()
         {
+            closed = true;
             externalDiffPending = false;
             FileClosed?.Invoke(File);
             if (string.IsNullOrWhiteSpace(ExternalDiff)) return;
@@ -92,6 +95,8 @@ namespace DesktopIniManager.ViewModels
 
         internal async Task<bool> LoadContentAsync()
         {
+            if (closed || loadingContent) return false;
+            loadingContent = true;
             ResetContent();
             RefreshFileDetails();
             SourceImage = TargetImage = null;
@@ -118,6 +123,7 @@ namespace DesktopIniManager.ViewModels
             catch (InvalidDataException) { ReportUnsupportedContent(); }
             catch (DecoderFallbackException) { ReportUnsupportedContent(); }
             catch (Exception ex) { ReportError(ex); }
+            finally { loadingContent = false; }
             return false;
         }
 
@@ -133,7 +139,9 @@ namespace DesktopIniManager.ViewModels
         internal async Task LoadTextAsync()
         {
             string left = GetPath(true), right = GetPath(false);
-            Lines = await Task.Run(() => DiffTextService.Compare(ReadText(left), ReadText(right)));
+            var prepared = preparedText;
+            preparedText = null;
+            Lines = await Task.Run(() => DiffTextService.Compare(prepared == null ? ReadText(left) : prepared[0], prepared == null ? ReadText(right) : prepared[1]));
             Hunks.Clear();
             for (int i = 0; i < Lines.Count; i++)
                 if (Lines[i].Kind != DiffLineKind.Unchanged && (i == 0 || Lines[i - 1].Kind == DiffLineKind.Unchanged)) Hunks.Add(i);
@@ -147,17 +155,43 @@ namespace DesktopIniManager.ViewModels
         }
         private async Task NavigateFileAsync(int direction)
         {
-            var requested = VisibleFilesRequested?.Invoke();
-            var candidates = (requested == null
-                ? Snapshot.Files.Where(IsVisibleComparableFile)
-                : requested.Where(IsVisibleComparableFile)).ToList();
-            if (candidates.Count == 0) return;
-            int index = candidates.FindIndex(candidate => ReferenceEquals(candidate, File) || string.Equals(candidate.RelativePath, File.RelativePath, StringComparison.OrdinalIgnoreCase));
-            if (candidates.Count == 1 && index == 0) return;
-            index = index < 0 ? (direction > 0 ? 0 : candidates.Count - 1) : (index + direction + candidates.Count) % candidates.Count;
-            externalDiffPending = false;
-            File = candidates[index];
-            if (ReloadRequested != null) await ReloadRequested();
+            if (closed || navigating || loadingContent || checkingExternalEdit) return;
+            navigating = true;
+            try
+            {
+                var requested = VisibleFilesRequested?.Invoke();
+                var candidates = (requested == null
+                    ? Snapshot.Files.Where(IsVisibleComparableFile)
+                    : requested.Where(IsVisibleComparableFile)).ToList();
+                if (candidates.Count == 0) return;
+                int index = candidates.FindIndex(candidate => ReferenceEquals(candidate, File) || string.Equals(candidate.RelativePath, File.RelativePath, StringComparison.OrdinalIgnoreCase));
+                if (candidates.Count == 1 && index == 0) return;
+                if (index < 0) index = direction > 0 ? -1 : 0;
+                for (int visited = 0; visited < candidates.Count; visited++)
+                {
+                    index = (index + direction + candidates.Count) % candidates.Count;
+                    var candidate = candidates[index];
+                    if (string.Equals(candidate.RelativePath, File.RelativePath, StringComparison.OrdinalIgnoreCase)) return;
+                    string[][] text = null;
+                    if (!DiffMedia.IsImage(candidate.RelativePath))
+                    {
+                        string left = DeveloperDifferencerService.SafePath(Snapshot.SourceRoot, candidate.RelativePath);
+                        string right = DeveloperDifferencerService.SafePath(Snapshot.TargetRoot, candidate.RelativePath);
+                        try { text = await Task.Run(() => new[] { ReadText(left), ReadText(right) }); }
+                        catch (InvalidDataException) { continue; }
+                        catch (DecoderFallbackException) { continue; }
+                        catch (IOException ex) { ReportError(ex); return; }
+                        catch (UnauthorizedAccessException ex) { ReportError(ex); return; }
+                    }
+                    if (closed) return;
+                    externalDiffPending = false;
+                    preparedText = text;
+                    File = candidate;
+                    if (ReloadRequested != null) await ReloadRequested();
+                    return;
+                }
+            }
+            finally { navigating = false; }
         }
 
         private static bool IsVisibleComparableFile(DiffFile candidate)
@@ -170,14 +204,32 @@ namespace DesktopIniManager.ViewModels
             if (stamp.Size > 8 * 1024 * 1024) throw new IOException("Files over 8 MB should be opened in an external editor.");
             byte[] bytes = System.IO.File.ReadAllBytes(path);
             string text;
-            try { using (var reader = new StreamReader(new MemoryStream(bytes), new UTF8Encoding(false, true), true)) text = reader.ReadToEnd(); }
+            Encoding encoding = DetectUnicodeEncoding(bytes) ?? new UTF8Encoding(false, true);
+            try { using (var reader = new StreamReader(new MemoryStream(bytes), encoding, true)) text = reader.ReadToEnd(); }
             catch (DecoderFallbackException) { text = CodePagesEncodingProvider.Instance.GetEncoding(932, EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback).GetString(bytes); }
-            if (text.Any(c => c == '\0' || (char.IsControl(c) && c != '\r' && c != '\n' && c != '\t' && c != '\f')))
+            // Terminal logs and legacy text can contain formatting/control characters.
+            if (text.Any(c => c == '\0' || (char.IsControl(c) && c != '\r' && c != '\n' && c != '\t' && c != '\f' && c != '\v' && c != '\a' && c != '\b' && c != '\u001b' && c != '\u001a')))
                 throw new InvalidDataException(DiffMedia.BinaryMessage);
             if (text.Length == 0) return new string[0];
             var lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
             if (lines.Length > 100000) throw new IOException("Files over 100,000 lines should be opened in an external editor.");
             return lines;
+        }
+
+        private static Encoding DetectUnicodeEncoding(byte[] bytes)
+        {
+            // BOMs are handled by StreamReader. Infer BOM-less UTF-16 only from
+            // a strong alternating-NUL pattern, never from the file extension.
+            if (bytes.Length < 4 || bytes.Length % 2 != 0) return null;
+            int pairs = Math.Min(bytes.Length / 2, 2048), evenZeros = 0, oddZeros = 0;
+            for (int i = 0; i < pairs; i++)
+            {
+                if (bytes[i * 2] == 0) evenZeros++;
+                if (bytes[i * 2 + 1] == 0) oddZeros++;
+            }
+            if (oddZeros > pairs / 2 && evenZeros == 0) return new UnicodeEncoding(false, false, true);
+            if (evenZeros > pairs / 2 && oddZeros == 0) return new UnicodeEncoding(true, false, true);
+            return null;
         }
 
         private static string HeaderText(string title, string info)
@@ -278,7 +330,7 @@ namespace DesktopIniManager.ViewModels
 
         internal async Task RefreshAfterExternalEditAsync()
         {
-            if (!externalDiffPending || checkingExternalEdit) return;
+            if (closed || navigating || loadingContent || !externalDiffPending || checkingExternalEdit) return;
 
             try
             {

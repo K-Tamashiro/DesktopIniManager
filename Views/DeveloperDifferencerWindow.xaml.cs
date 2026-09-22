@@ -290,6 +290,9 @@ namespace DesktopIniManager.Views
         {
             DiffRow row = ViewModel.SelectDisplayedFile(file);
             if (row == null) return;
+            // Single-selection lists replace the selection through SelectedItem.
+            FilesGrid.SelectedItem = row;
+            ViewModel.SelectedRow = row;
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 FilesGrid.UpdateLayout();

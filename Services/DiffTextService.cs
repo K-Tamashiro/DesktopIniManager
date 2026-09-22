@@ -20,6 +20,31 @@ namespace DesktopIniManager.Services
         /// <summary>Builds an aligned line-by-line comparison of two text buffers.</summary>
         public static List<DiffLine> Compare(string[] left, string[] right)
         {
+            int prefix = 0, suffix = 0;
+            while (prefix < left.Length && prefix < right.Length && left[prefix] == right[prefix]) prefix++;
+            while (suffix < left.Length - prefix && suffix < right.Length - prefix &&
+                left[left.Length - suffix - 1] == right[right.Length - suffix - 1]) suffix++;
+            var middleLeft = new string[left.Length - prefix - suffix];
+            var middleRight = new string[right.Length - prefix - suffix];
+            Array.Copy(left, prefix, middleLeft, 0, middleLeft.Length);
+            Array.Copy(right, prefix, middleRight, 0, middleRight.Length);
+            var rows = new List<DiffLine>(Math.Max(left.Length, right.Length));
+            for (int i = 0; i < prefix; i++)
+                rows.Add(new DiffLine { Left = left[i], Right = right[i], LeftNumber = i + 1, RightNumber = i + 1, Kind = DiffLineKind.Unchanged });
+            foreach (var row in CompareMiddle(middleLeft, middleRight))
+            {
+                if (row.LeftNumber > 0) row.LeftNumber += prefix;
+                if (row.RightNumber > 0) row.RightNumber += prefix;
+                rows.Add(row);
+            }
+            for (int i = suffix; i > 0; i--)
+                rows.Add(new DiffLine { Left = left[left.Length - i], Right = right[right.Length - i],
+                    LeftNumber = left.Length - i + 1, RightNumber = right.Length - i + 1, Kind = DiffLineKind.Unchanged });
+            return rows;
+        }
+
+        private static List<DiffLine> CompareMiddle(string[] left, string[] right)
+        {
             var matches = new List<Tuple<int, int>>();
             // Exact LCS for small inputs; monotonic anchors bound memory for large files.
             if ((long)(left.Length + 1) * (right.Length + 1) <= 4000000)

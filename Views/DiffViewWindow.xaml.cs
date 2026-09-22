@@ -31,6 +31,7 @@ namespace DesktopIniManager.Views
         private int hunkStart = -1;
         private int hunkEnd = -1;
         private Thumb viewportThumb;
+        private Border mapSelection;
         private double viewportDragTop;
         private double sharedTextWidth;
         private const double DiffLineHeight = 22;
@@ -64,9 +65,10 @@ namespace DesktopIniManager.Views
                 Owner is DeveloperDifferencerWindow owner
                     ? owner.GetVisibleComparableFiles()
                     : Array.Empty<DiffFile>();
-            ViewModel.FileClosed = file =>
+            Closing += (s, e) =>
             {
-                if (Owner is DeveloperDifferencerWindow owner) owner.SelectLastViewedFile(file);
+                // WPF can clear Owner before Closed is raised.
+                if (Owner is DeveloperDifferencerWindow owner) owner.SelectLastViewedFile(ViewModel.File);
             };
             BuildToolbar();
             Loaded += async (s, e) => await LoadContent();
@@ -171,6 +173,7 @@ namespace DesktopIniManager.Views
             hunkOverlay = null;
             hunkStart = hunkEnd = -1;
             viewportThumb = null;
+            mapSelection = null;
             try
             {
                 if (!await ViewModel.LoadContentAsync() || !IsLoaded) return;
@@ -222,10 +225,12 @@ namespace DesktopIniManager.Views
         {
             if (lines == null || lines.Count == 0) return 0;
 
-            string longest = lines
-                .SelectMany(line => new[] { line.Left ?? string.Empty, line.Right ?? string.Empty })
-                .OrderByDescending(text => text.Length)
-                .FirstOrDefault() ?? string.Empty;
+            string longest = string.Empty;
+            foreach (var line in lines)
+            {
+                if (line.Left != null && line.Left.Length > longest.Length) longest = line.Left;
+                if (line.Right != null && line.Right.Length > longest.Length) longest = line.Right;
+            }
 
             var typeface = new Typeface(new FontFamily("Consolas, Yu Gothic UI, Meiryo UI"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
             var formatted = new FormattedText(longest, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface, 13, Brushes.Black, VisualTreeHelper.GetDpi(this).PixelsPerDip);
@@ -240,7 +245,9 @@ namespace DesktopIniManager.Views
                 FontFamily = font,
                 FontSize = 13,
                 LineHeight = DiffLineHeight,
+                LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
                 TextAlignment = TextAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Top,
                 Padding = new Thickness(8, 0, 8, 0),
                 IsHitTestVisible = false
             };
@@ -248,19 +255,42 @@ namespace DesktopIniManager.Views
             gutter.SetResourceReference(TextBlock.BackgroundProperty, "CardBackground");
 
             var numbers = new System.Text.StringBuilder();
-            foreach (DiffLine line in lines)
+            for (int i = 0; i < lines.Count; i++)
             {
+                DiffLine line = lines[i];
                 int number = sourceSide ? line.LeftNumber : line.RightNumber;
-                if (numbers.Length > 0) numbers.Append('\n');
+                if (i > 0) numbers.Append('\n');
                 numbers.Append(number == 0 ? string.Empty : number.ToString());
             }
             gutter.Text = numbers.ToString();
 
             box = MakePane(sourceSide, font);
+            // Use explicit coordinates: a second ScrollViewer can arrange a
+            // short document differently from the RichTextBox's document view.
+            gutter.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            var gutterViewport = new Canvas
+            {
+                Width = gutter.DesiredSize.Width,
+                ClipToBounds = true,
+                IsHitTestVisible = false,
+                VerticalAlignment = VerticalAlignment.Top
+            };
+            gutterViewport.SetResourceReference(Panel.BackgroundProperty, "CardBackground");
+            Canvas.SetLeft(gutter, 0);
+            Canvas.SetTop(gutter, 0);
+            gutterViewport.Children.Add(gutter);
+            // Each gutter follows its own pane, including synchronized scrolling
+            // and jumps to a hunk. Match the viewport above the horizontal bar.
+            box.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler((s, e) =>
+            {
+                if (!(e.OriginalSource is ScrollViewer paneScroll)) return;
+                gutterViewport.Height = paneScroll.ViewportHeight;
+                Canvas.SetTop(gutter, -paneScroll.VerticalOffset);
+            }), true);
             var grid = new Grid();
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            grid.Children.Add(gutter);
+            grid.Children.Add(gutterViewport);
             Grid.SetColumn(box, 1);
             grid.Children.Add(box);
 
@@ -388,6 +418,7 @@ namespace DesktopIniManager.Views
 
         private void UpdateHunkOverlay()
         {
+            UpdateMapSelection();
             if (hunkOverlay == null || hunkStart < 0 || hunkEnd <= hunkStart || lines == null)
             {
                 if (hunkOverlay != null) hunkOverlay.Visibility = Visibility.Collapsed;
@@ -498,6 +529,7 @@ namespace DesktopIniManager.Views
             if (leftScroll == null) leftScroll = FindScroll(leftList);
             if (rightScroll == null) rightScroll = FindScroll(rightList);
             if (from != leftScroll && from != rightScroll) return;
+            if (e.ExtentHeightChange != 0 || e.ViewportHeightChange != 0) DrawMap();
             UpdateViewport(from);
             UpdateHunkOverlay();
             if (e.VerticalChange == 0 && e.HorizontalChange == 0) return;
@@ -508,19 +540,42 @@ namespace DesktopIniManager.Views
         private void UpdateViewport(ScrollViewer scroll)
         {
             if (viewportThumb == null || map == null || scroll == null) return;
-            double height = map.ActualHeight;
-            double fraction = scroll.ExtentHeight <= 0 ? 1 : Math.Min(1, scroll.ViewportHeight / scroll.ExtentHeight);
-            viewportThumb.Height = Math.Min(height, Math.Max(12, height * fraction));
+            double height = MapHeight;
+            double scale = height / MapExtent;
+            viewportThumb.Height = Math.Min(height, scroll.ViewportHeight * scale);
             viewportThumb.Width = Math.Max(0, map.ActualWidth - 2);
-            double travel = Math.Max(0, height - viewportThumb.Height);
-            Canvas.SetTop(viewportThumb, scroll.ScrollableHeight <= 0 ? 0
-                : travel * Math.Max(0, Math.Min(1, scroll.VerticalOffset / scroll.ScrollableHeight)));
+            Canvas.SetTop(viewportThumb, Math.Max(0, scroll.VerticalOffset * scale));
+            UpdateMapSelection();
+        }
+
+        private double MapHeight => Math.Max(0, Math.Min(map?.ActualHeight ?? 0,
+            leftScroll != null && leftScroll.ViewportHeight > 0 ? leftScroll.ViewportHeight : map?.ActualHeight ?? 0));
+
+        private double MapExtent => Math.Max(1, Math.Max((lines?.Count ?? 0) * DiffLineHeight,
+            Math.Max(leftScroll?.ExtentHeight ?? 0, leftScroll?.ViewportHeight ?? 0)));
+
+        private void UpdateMapSelection()
+        {
+            if (mapSelection == null || viewportThumb == null) return;
+            mapSelection.Visibility = Visibility.Collapsed;
+            if (hunkStart < 0 || hunkEnd <= hunkStart) return;
+            double scale = MapHeight / MapExtent;
+            double viewTop = Canvas.GetTop(viewportThumb);
+            if (double.IsNaN(viewTop)) return;
+            double top = Math.Max(viewTop + 2, hunkStart * DiffLineHeight * scale);
+            double bottom = Math.Min(viewTop + viewportThumb.Height - 2, hunkEnd * DiffLineHeight * scale);
+            if (bottom <= top) return;
+            Canvas.SetLeft(mapSelection, 3);
+            Canvas.SetTop(mapSelection, top);
+            mapSelection.Width = Math.Max(0, map.ActualWidth - 6);
+            mapSelection.Height = bottom - top;
+            mapSelection.Visibility = Visibility.Visible;
         }
 
         private void DragViewport(object sender, DragDeltaEventArgs e)
         {
             if (leftScroll == null || rightScroll == null) return;
-            double travel = Math.Max(0, map.ActualHeight - viewportThumb.Height);
+            double travel = Math.Max(0, MapHeight - viewportThumb.Height);
             viewportDragTop = Math.Max(0, Math.Min(travel, viewportDragTop + e.VerticalChange));
             double fraction = travel <= 0 ? 0 : viewportDragTop / travel;
             leftScroll.ScrollToVerticalOffset(fraction * leftScroll.ScrollableHeight);
@@ -531,6 +586,8 @@ namespace DesktopIniManager.Views
         private void DrawMap()
         {
             if (map == null || lines == null) return;
+            if (leftScroll == null) leftScroll = FindScroll(leftList);
+            if (rightScroll == null) rightScroll = FindScroll(rightList);
             map.Children.Clear();
             foreach (int start in hunks)
             {
@@ -538,8 +595,9 @@ namespace DesktopIniManager.Views
                 DiffLineKind kind = lines[start].Kind;
                 double mapWidth = Math.Max(0, map.ActualWidth);
                 double halfWidth = mapWidth / 2.0;
-                double top = start * map.ActualHeight / Math.Max(1, lines.Count);
-                double height = Math.Max(4, (end - start) * map.ActualHeight / Math.Max(1, lines.Count));
+                double scale = MapHeight / MapExtent;
+                double top = start * DiffLineHeight * scale;
+                double height = Math.Min(Math.Max(1, (end - start) * DiffLineHeight * scale), Math.Max(0, MapHeight - top));
 
                 if (kind == DiffLineKind.Modified)
                 {
@@ -581,6 +639,16 @@ namespace DesktopIniManager.Views
             Canvas.SetLeft(viewportThumb, 1);
             Panel.SetZIndex(viewportThumb, 1);
             map.Children.Add(viewportThumb);
+            if (mapSelection == null)
+                mapSelection = new Border
+                {
+                    BorderBrush = new SolidColorBrush(Color.FromRgb(255, 210, 0)),
+                    BorderThickness = new Thickness(2),
+                    IsHitTestVisible = false,
+                    Visibility = Visibility.Collapsed
+                };
+            Panel.SetZIndex(mapSelection, 2);
+            map.Children.Add(mapSelection);
             if (leftScroll == null) leftScroll = FindScroll(leftList);
             if (rightScroll == null) rightScroll = FindScroll(rightList);
             UpdateViewport(leftScroll);
@@ -622,6 +690,7 @@ namespace DesktopIniManager.Views
                 Text = "100%"
             };
             zoomLabel.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
+            // Fit images and icons to the viewport when first opened.
             bool fitToWindow = true, fitting = false;
             Action fit = () =>
             {

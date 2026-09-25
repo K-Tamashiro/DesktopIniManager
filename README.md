@@ -1,4 +1,4 @@
-# DesktopIniManager v3.3.0 --- DIR edition
+# DesktopIniManager v3.3.2 --- DIR edition
 
 ![DesktopIniManager DIR edition](docs/images/app-overview-dark.png)
 
@@ -7,21 +7,22 @@ folders, browsing Visual Studio solutions, searching source code,
 comparing working trees, and applying custom folder icons through
 `desktop.ini`.
 
-**v3.3.0 fixes Diff View text detection, file navigation, line numbers,
-and overview-map alignment.** Workspace acquisition uses the
-Windows `dir /s /b` command to build a reusable path index. Grep and
-folder comparison use ordinary file-system access. This edition does not
-read the NTFS MFT and does not require elevation just to enumerate
-folders.
+**v3.3.2 extends Developer Differencer with path-preserving ZIP export
+and optional selection of identical (Same) files, while keeping the
+existing difference-selection workflow unchanged.** Workspace
+acquisition uses the Windows `dir /s /b` command to build a reusable
+path index. Grep and folder comparison use ordinary file-system access.
+This edition does not read the NTFS MFT and does not require elevation
+just to enumerate folders.
 
 ## Download and requirements
 
-Release package: **DesktopIniManager-v3.3.0-DIR-win-x64.zip**
+Release package: **DesktopIniManager-v3.3.2-DIR-win-x64.zip**
 
 Download the asset from [GitHub
 Releases](https://github.com/K-Tamashiro/DesktopIniManager/releases)
 when v3.3.0 is published. A locally generated package is placed in
-`release/`. See the [v3.3.0 release notes](docs/releases/v3.3.0-DIR.md).
+`release/`. See the [v3.3.2 release notes](docs/releases/v3.3.2-DIR.md).
 
 -   Windows 10 or Windows 11, x64.
 -   .NET 10 Desktop Runtime (x64) must be installed separately.
@@ -42,25 +43,67 @@ connectivity, permissions, and availability of file contents. They are
 not covered by a blanket compatibility guarantee. Make cloud files
 available locally before reading or synchronizing them.
 
-## What's new in v3.3.0
+## What's new in v3.3.2
 
-- Improve txt/log detection for BOM-less UTF-16 and terminal control characters.
-- Skip binary contents silently during previous/next navigation; retain the
-  message when opening unsupported files directly from the difference list.
-- Select the last viewed file on close without the single-selection exception.
-- Synchronize line numbers with text scrolling and keep short files top-aligned.
-- Align overview markers and the visible range to document height; show the
-  selected difference in yellow inside the pink viewport frame.
-- Open images and icons fitted to the viewport, with manual 100% zoom available.
-- Reduce comparison work for common prefixes/suffixes and avoid redundant reads
-  and sorting; prevent overlapping file navigation.
+-   Export the currently selected Developer Differencer files to ZIP
+    from either **Source** or **Target**, preserving each file's
+    relative path from the comparison root.
+-   Create ZIP files directly from the selected comparison set; no
+    temporary directory tree is required.
+-   Use a timestamped default ZIP file name in the form
+    `xxxxx_yyyyMMdd_HHmmss.zip`, while allowing the destination folder
+    and file name to be changed before execution.
+-   Add a dedicated **Same ON/OFF** operation beside the ZIP controls.
+    It acts only on identical files and does not alter the existing
+    selection state of **Different / Source only / Target only** files.
+-   Keep the conventional tree and folder check behavior for files with
+    differences. Same files remain excluded from ordinary tree-based
+    selection.
+-   Allow selected Same files to participate in both ZIP export and
+    normal synchronization. When synchronized, an explicitly selected
+    Same file is overwritten in the selected Source/Target direction.
+-   Support accumulating Same selections by folder: selecting another
+    folder and turning Same ON adds that folder's displayed Same files
+    without clearing Same files selected in previously visited folders.
+-   Reset the Same ON/OFF control for each folder selection so the first
+    operation in a newly selected folder is ON.
+-   Preserve selected Same files while the Same category is visible,
+    even when those files are outside the currently selected folder. If
+    the Same category is filtered out, operating the Same ON/OFF control
+    clears hidden Same selections.
+-   Keep folder check state independent from the Same ON/OFF file
+    operation.
+-   Hide zero-folder information from ZIP/synchronization confirmation
+    when no folder operation is involved.
+
+### Retained improvements from v3.3.0
+
+-   Improve txt/log detection for BOM-less UTF-16 and terminal control
+    characters.
+-   Skip binary contents silently during previous/next navigation;
+    retain the message when opening unsupported files directly from the
+    difference list.
+-   Select the last viewed file on close without the single-selection
+    exception.
+-   Synchronize line numbers with text scrolling and keep short files
+    top-aligned.
+-   Align overview markers and the visible range to document height;
+    show the selected difference in yellow inside the pink viewport
+    frame.
+-   Open images and icons fitted to the viewport, with manual 100% zoom
+    available.
+-   Reduce comparison work for common prefixes/suffixes and avoid
+    redundant reads and sorting; prevent overlapping file navigation.
 
 ### Retained improvements from v3.2.1
 
-- Refresh the bundled icon library and the compact/comfortable tree icons.
-- Show directional icons beside Source and Target during synchronization
-  confirmation; restore the normal folder icons when the dialog closes.
-- Refine icon-button sizing, spacing, and transparent backgrounds in both themes.
+-   Refresh the bundled icon library and the compact/comfortable tree
+    icons.
+-   Show directional icons beside Source and Target during
+    synchronization confirmation; restore the normal folder icons when
+    the dialog closes.
+-   Refine icon-button sizing, spacing, and transparent backgrounds in
+    both themes.
 
 ### Retained improvements from v3.2.0
 
@@ -154,10 +197,17 @@ equal-sized files are classified as identical.
 
 Combine **Same / Diff / Left / Right** filters and optionally include
 `obj` and `bin`. Folder selection follows the visible difference
-categories; previously checked files remain selected when hidden by a
-filter. The root shows files from all levels. **Update** refreshes
+categories. The root shows files from all levels. **Update** refreshes
 already-listed direct files in the selected folder; use Compare to
 discover new files.
+
+Difference files continue to use the normal tree/folder check workflow.
+The dedicated **Same ON/OFF** control is separate and affects only
+identical files. This makes it possible to select the required
+differences first, then show Same files and add selected identical files
+without disturbing the difference selection. Same selections can be
+accumulated by moving through folders; each newly selected folder starts
+with the Same control ready for an ON operation.
 
 Synchronization presents file copy, overwrite, and delete counts
 together with folder creation and deletion counts before execution.
@@ -168,11 +218,25 @@ descendants.
 
 **A checked file or folder present only on the receiving side is deleted
 from that side.** Review the Source/Target direction and selection
-before confirming. Identical files are viewable but are not
-synchronization candidates. The **Same / Diff / Source only / Target
-only** and `obj` / `bin` filters also control the effective folder state
-shown by the tree. Metadata directories `.git`, `.vs`, and `.vscode` are
-excluded.
+before confirming. Identical files are not ordinary tree-selection
+candidates, but can be explicitly selected with **Same ON/OFF**. A
+selected Same file is a valid synchronization and ZIP target. The **Same
+/ Diff / Source only / Target only** and `obj` / `bin` filters also
+control the effective folder state shown by the tree. Metadata
+directories `.git`, `.vs`, and `.vscode` are excluded.
+
+### ZIP export
+
+The Source and Target ZIP buttons package the currently selected files
+from the corresponding side while preserving their relative folder
+structure. This is useful for creating a partial working-tree backup,
+transferring only the selected paths, or retaining a selected state
+before further work.
+
+The ZIP confirmation allows the output location and file name to be
+changed. The default file name uses `xxxxx_yyyyMMdd_HHmmss.zip`. Same
+files explicitly selected with **Same ON/OFF** are included together
+with selected difference files.
 
 ### Diff View
 
@@ -251,7 +315,7 @@ To package an already-built Release directory without rebuilding:
 pwsh -File scripts/Build-Release.ps1 -PrebuiltDirectory bin/Release/net10.0-windows/win-x64
 ```
 
-The prebuilt directory must contain the v3.3.0 binaries and current
+The prebuilt directory must contain the v3.3.2 binaries and current
 README, documentation, assets, and language files. Debug symbols are
 omitted from the ZIP.
 
@@ -261,8 +325,8 @@ exact file layout, and writes:
 
 ``` text
 release/
-  DesktopIniManager-v3.3.0-DIR-win-x64.zip
-  DesktopIniManager-v3.3.0-DIR-win-x64.zip.sha256
+  DesktopIniManager-v3.3.2-DIR-win-x64.zip
+  DesktopIniManager-v3.3.2-DIR-win-x64.zip.sha256
 ```
 
 The ZIP contains the application at its root:
@@ -296,6 +360,6 @@ dotnet run --project Tests/DesktopIniManager.DifferencerTests.csproj -c Release 
 ```
 
 The older [SMVVM progress memo](docs/smvvm-progress.md) is historical.
-The screenshots illustrate the DIR edition and may not show every v3.3.0
+The screenshots illustrate the DIR edition and may not show every v3.3.2
 control. See the release notes for this version's changes and validation
 status.

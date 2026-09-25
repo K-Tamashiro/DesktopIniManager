@@ -65,6 +65,16 @@ namespace DesktopIniManager.ViewModels
         {
             if (syncingTreeFromFile) return;
             selectedFolder = path ?? "";
+
+            // A folder change starts a new Same-selection operation.
+            // Reset the toggle state without applying OFF to any files so that
+            // the first click in the newly selected folder always means ON.
+            if (_selectAllFiles)
+            {
+                _selectAllFiles = false;
+                OnPropertyChanged(nameof(SelectAllFiles));
+            }
+
             Filter();
         }
         private string _sourcePath = string.Empty;
@@ -103,6 +113,16 @@ namespace DesktopIniManager.ViewModels
         public bool ShowSourceOnly { get => _showSourceOnly; set => SetProperty(ref _showSourceOnly, value); }
         private bool _showTargetOnly = true;
         public bool ShowTargetOnly { get => _showTargetOnly; set => SetProperty(ref _showTargetOnly, value); }
+        private bool _selectAllFiles;
+        public bool SelectAllFiles
+        {
+            get => _selectAllFiles;
+            set
+            {
+                if (!SetProperty(ref _selectAllFiles, value)) return;
+                ApplySelectAllFiles(value);
+            }
+        }
         private bool _isBusy = false;
         public bool IsBusy { get => _isBusy; set => SetProperty(ref _isBusy, value); }
         private bool _isProgressVisible = false;
@@ -119,17 +139,20 @@ namespace DesktopIniManager.ViewModels
         public bool CanCancel { get => _canCancel; set { if (SetProperty(ref _canCancel, value)) CancelCommand?.NotifyCanExecuteChanged(); } }
 
         private readonly IUserDialogService dialogs;
-        private readonly Func<string, DiffFile[], DiffFolderSync[], bool, bool> confirmSync;
+        internal delegate bool ConfirmSyncCallback(string direction, DiffFile[] files, DiffFolderSync[] folders, bool toTarget, bool zipMode, out string zipFileName, out string zipFolder);
+        private readonly ConfirmSyncCallback confirmSync;
         private readonly Func<string, DiffSnapshot, ISynchronizationLog> openLog;
         private readonly System.Windows.Threading.Dispatcher dispatcher;
         public bool CanEdit => !IsBusy;
         public event Action ComparisonCleared;
         public event Action CommitRootHistoryRequested;
-        public event Action<bool?> SyncDirectionIconRequested;
+        public event Action<bool?, bool> SyncDirectionIconRequested;
         public AsyncRelayCommand CompareCommand { get; }
         public AsyncRelayCommand RefreshCommand { get; }
         public AsyncRelayCommand ForwardCommand { get; }
         public AsyncRelayCommand ReverseCommand { get; }
+        public AsyncRelayCommand ZipSourceCommand { get; }
+        public AsyncRelayCommand ZipTargetCommand { get; }
         public AsyncRelayCommand CleanCommand { get; }
         public RelayCommand CancelCommand { get; }
         public RelayCommand CategoryFilterCommand { get; }
@@ -137,7 +160,7 @@ namespace DesktopIniManager.ViewModels
         public RelayCommand ExpandAllCommand { get; }
         public RelayCommand CollapseAllCommand { get; }
         internal DeveloperDifferencerViewModel(IUserDialogService dialogs, System.Windows.Threading.Dispatcher dispatcher,
-            Func<string, DiffFile[], DiffFolderSync[], bool, bool> confirmSync, Func<string, DiffSnapshot, ISynchronizationLog> openLog)
+            ConfirmSyncCallback confirmSync, Func<string, DiffSnapshot, ISynchronizationLog> openLog)
         {
             this.dialogs = dialogs; this.dispatcher = dispatcher; this.confirmSync = confirmSync; this.openLog = openLog;
             BrowseSourceCommand = new RelayCommand(() => BrowseFolder(true), () => !IsBusy);
@@ -150,6 +173,8 @@ namespace DesktopIniManager.ViewModels
             RefreshCommand = new AsyncRelayCommand(RefreshSelectedFolderAsync, ShowError, () => CanRefresh);
             ForwardCommand = new AsyncRelayCommand(() => SyncAsync(true), ShowError, () => CanSynchronize);
             ReverseCommand = new AsyncRelayCommand(() => SyncAsync(false), ShowError, () => CanSynchronize);
+            ZipSourceCommand = new AsyncRelayCommand(() => ZipAsync(true), ShowError, () => CanSynchronize);
+            ZipTargetCommand = new AsyncRelayCommand(() => ZipAsync(false), ShowError, () => CanSynchronize);
             CleanCommand = new AsyncRelayCommand(CleanAsync, ShowError, () => !IsBusy);
             CancelCommand = new RelayCommand(CancelCompare, () => CanCancel);
             CategoryFilterCommand = new RelayCommand(ApplyCategoryFilter, () => !IsBusy);
@@ -289,7 +314,7 @@ namespace DesktopIniManager.ViewModels
         internal async Task SyncAsync(bool toTarget)
         {
             if (IsBusy || snapshot == null) return;
-            DiffFile[] files = snapshot.Files.Where(f => f.CanSync && f.Selected).ToArray();
+            DiffFile[] files = snapshot.Files.Where(f => f.Selected).ToArray();
             DiffFolderSync[] selectedFolders = folders.Values
                 .Where(f => f.FolderCanSync && f.FolderSelected && IncludeBuildFolder(f.Path))
                 .Select(f => new DiffFolderSync { RelativePath = f.Path, SourceExists = f.SourceExists, TargetExists = f.TargetExists })
@@ -297,14 +322,16 @@ namespace DesktopIniManager.ViewModels
             if (files.Length == 0 && selectedFolders.Length == 0) return;
             string direction = toTarget ? "Source to Target" : "Target to Source";
             bool confirmed;
-            SyncDirectionIconRequested?.Invoke(toTarget);
+            string unusedName;
+            string unusedFolder;
+            SyncDirectionIconRequested?.Invoke(toTarget, false);
             try
             {
-                confirmed = confirmSync(direction, files, selectedFolders, toTarget);
+                confirmed = confirmSync(direction, files, selectedFolders, toTarget, false, out unusedName, out unusedFolder);
             }
             finally
             {
-                SyncDirectionIconRequested?.Invoke(null);
+                SyncDirectionIconRequested?.Invoke(null, false);
             }
             if (!confirmed) return;
             ISynchronizationLog liveLog = openLog(direction, snapshot);
@@ -330,6 +357,60 @@ namespace DesktopIniManager.ViewModels
                 liveLog.Complete(log.Count(l => l.StartsWith("OK ")), log.Count(l => l.StartsWith("FAIL ")), log.Count(l => l.StartsWith("LOCKED ")));
                 liveLog.Activate();
                 await CompareAsync();
+                liveLog.Activate();
+            }
+            finally { SetBusy(false); }
+        }
+
+        internal async Task ZipAsync(bool fromSource)
+        {
+            if (IsBusy || snapshot == null) return;
+            DiffFile[] files = snapshot.Files.Where(f => f.Selected).ToArray();
+            DiffFolderSync[] selectedFolders = folders.Values
+                .Where(f => f.FolderCanSync && f.FolderSelected && IncludeBuildFolder(f.Path))
+                .Select(f => new DiffFolderSync { RelativePath = f.Path, SourceExists = f.SourceExists, TargetExists = f.TargetExists })
+                .ToArray();
+            if (files.Length == 0 && selectedFolders.Length == 0) return;
+            string direction = fromSource
+                ? StringOverlay.Get("Differencer_ZipSourceToZip")
+                : StringOverlay.Get("Differencer_ZipTargetToZip");
+            bool confirmed;
+            string zipFileName;
+            string zipFolder;
+            SyncDirectionIconRequested?.Invoke(fromSource, true);
+            try
+            {
+                confirmed = confirmSync(direction, files, selectedFolders, fromSource, true, out zipFileName, out zipFolder);
+            }
+            finally
+            {
+                SyncDirectionIconRequested?.Invoke(null, false);
+            }
+            if (!confirmed) return;
+            string zipPath;
+            try { zipPath = DeveloperDifferencerService.ComposeZipPath(zipFolder, zipFileName); }
+            catch (Exception ex) { ShowError(ex); return; }
+            ISynchronizationLog liveLog = openLog(direction, snapshot);
+            SetBusy(true); Status = StringOverlay.Get("Differencer_Zipping").Replace("{0}", direction);
+            try
+            {
+                List<string> log;
+                try
+                {
+                    DiffSnapshot current = snapshot;
+                    log = await Task.Run(() => DeveloperDifferencerService.PackZip(current, files, selectedFolders, fromSource, zipPath,
+                        line => dispatcher.Invoke(new Action(() => liveLog.AppendLine(line)))));
+                }
+                catch (Exception ex) { log = new List<string> { "FAIL " + ErrorMessages.English(ex) }; liveLog.AppendLine(log[0]); }
+                string report = direction + "\n" + DateTime.Now.ToString("O") + "\n" + zipPath + "\n" + string.Join("\n", log);
+                try
+                {
+                    Directory.CreateDirectory(StateDirectory);
+                    string path = Path.Combine(StateDirectory, "differencer-zip-" + DateTime.Now.ToString("yyyyMMdd-HHmmss-fff") + ".log");
+                    File.WriteAllText(path, report); liveLog.AppendLine("Log: " + path);
+                }
+                catch (Exception ex) { liveLog.AppendLine("Failed to save log: " + ErrorMessages.English(ex)); }
+                liveLog.Complete(log.Count(l => l.StartsWith("OK ")), log.Count(l => l.StartsWith("FAIL ")), log.Count(l => l.StartsWith("LOCKED ")));
                 liveLog.Activate();
             }
             finally { SetBusy(false); }
@@ -423,6 +504,69 @@ namespace DesktopIniManager.ViewModels
             Status = folders[""].CountFor(DiffKind.Differences) + " differences / " + folders[""].CountFor(DiffKind.Same) + " identical (OBJ/BIN filters applied). Check items to synchronize.";
         }
 
+        private void ApplySelectAllFiles(bool value)
+        {
+            if (IsBusy || snapshot == null) return;
+
+            // ZIP-side ON/OFF is dedicated to Same items. Difference selections are
+            // controlled only by the existing tree/file check boxes and remain untouched.
+            // While Same is visible, only the Same files in the current file list are
+            // changed; Same selections made in other folders are preserved.
+            // When the Same filter is OFF (Same is hidden), the button acts as a cleanup
+            // operation and clears hidden Same selections so they cannot remain implicit
+            // sync/ZIP targets.
+            var visibleSameFiles = new HashSet<DiffFile>(
+                (FileItems ?? Enumerable.Empty<DiffRow>())
+                    .Select(row => row.File)
+                    .Where(file => file != null && file.Kind == DiffKind.Same));
+            bool sameVisible = ShowSame == true;
+
+            bulk = true;
+            try
+            {
+                foreach (DiffFile file in snapshot.Files)
+                {
+                    if (file.Kind != DiffKind.Same)
+                        continue;
+
+                    if (sameVisible)
+                    {
+                        if (visibleSameFiles.Contains(file))
+                            file.Selected = value;
+                    }
+                    else if (file.Selected)
+                    {
+                        file.Selected = false;
+                    }
+                }
+            }
+            finally
+            {
+                bulk = false;
+                RefreshSelectionChecks();
+            }
+        }
+
+        internal void ClearSameFolderSelection(DiffFolder folder)
+        {
+            if (IsBusy || snapshot == null || folder == null || folder.CanSelect) return;
+
+            bulk = true;
+            try
+            {
+                foreach (DiffFile file in folder.Files)
+                {
+                    if (file.Kind == DiffKind.Same && file.Selected && IncludeBuildFolderFile(file) && (file.Kind & kindMask) != 0)
+                        file.Selected = false;
+                }
+            }
+            finally
+            {
+                bulk = false;
+                RefreshSelectionChecks(folder);
+            }
+        }
+
         internal void ApplyCategoryFilter()
         {
             kindMask = (ShowSame == true ? DiffKind.Same : 0) |
@@ -445,6 +589,7 @@ namespace DesktopIniManager.ViewModels
             FolderItems = null;
             FileItems = null;
             snapshot = null; rows.Clear();
+            _selectAllFiles = false; OnPropertyChanged(nameof(SelectAllFiles));
             SelectedRow = null;
             OpenDiffCommand.NotifyCanExecuteChanged();
             CanFilter = false;
@@ -845,11 +990,15 @@ namespace DesktopIniManager.ViewModels
             int selectedFolderCount = snapshot == null ? 0 : folders.Values.Count(f => f.FolderCanSync && f.FolderSelected && IncludeBuildFolder(f.Path));
             int folderDifferenceCount = snapshot == null ? 0 : folders.Values.Count(f => f.FolderCanSync && IncludeBuildFolder(f.Path));
             int count = (snapshot != null && folders.TryGetValue("", out root) ? root.SelectedCount : 0) + selectedFolderCount;
-            int total = (root == null ? 0 : root.AllDifferenceCount) + folderDifferenceCount;
+            int total = (root == null ? 0 : root.CountFor(DiffKind.All)) + folderDifferenceCount;
             int visibleSelectedFolders = snapshot == null ? 0 : folders.Values.Count(f => f.FolderCanSync && f.FolderSelected && IncludeBuildFolder(f.Path) && f.MatchesFolderMask(kindMask));
             int hidden = root == null ? 0 : count - root.SelectedFor(kindMask) - visibleSelectedFolders;
             CountLabel = "Selected " + count + " / " + total + (hidden > 0 ? " (includes " + hidden + " hidden)" : "");
-            CanSynchronize = !IsBusy && count > 0; ForwardCommand.NotifyCanExecuteChanged(); ReverseCommand.NotifyCanExecuteChanged();
+            CanSynchronize = !IsBusy && count > 0;
+            ForwardCommand.NotifyCanExecuteChanged();
+            ReverseCommand.NotifyCanExecuteChanged();
+            ZipSourceCommand.NotifyCanExecuteChanged();
+            ZipTargetCommand.NotifyCanExecuteChanged();
         }
 
         internal string RootLabel()

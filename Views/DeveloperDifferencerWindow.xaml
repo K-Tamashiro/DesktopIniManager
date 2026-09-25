@@ -1,4 +1,4 @@
-<Window
+﻿<Window
   x:Class="DesktopIniManager.Views.DeveloperDifferencerWindow"
   xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -439,6 +439,43 @@
               RenderOptions.BitmapScalingMode="HighQuality"
               Stretch="Uniform" />
           </Button>
+          <Button
+            x:Name="ZipSourceButton"
+            Margin="12,0,0,0"
+            Background="Transparent"
+            Command="{Binding ZipSourceCommand}"
+            Style="{StaticResource IconButton}"
+            ToolTip="{loc:L Differencer_ZipSource}">
+            <Image
+              x:Name="ZipSourceButtonIcon"
+              RenderOptions.BitmapScalingMode="HighQuality"
+              Stretch="Uniform" />
+          </Button>
+          <Button
+            x:Name="ZipTargetButton"
+            Margin="8,0,0,0"
+            Background="Transparent"
+            Command="{Binding ZipTargetCommand}"
+            Style="{StaticResource IconButton}"
+            ToolTip="{loc:L Differencer_ZipTarget}">
+            <Image
+              x:Name="ZipTargetButtonIcon"
+              RenderOptions.BitmapScalingMode="HighQuality"
+              Stretch="Uniform" />
+          </Button>
+          <ToggleButton
+            x:Name="SelectAllFilesToggle"
+            Margin="12,0,0,0"
+            Background="Transparent"
+            IsChecked="{Binding SelectAllFiles, Mode=TwoWay}"
+            IsEnabled="{Binding CanFilter}"
+            Style="{StaticResource IconToggleButton}"
+            ToolTip="Select / clear all files">
+            <Image
+              x:Name="SelectAllFilesIcon"
+              RenderOptions.BitmapScalingMode="HighQuality"
+              Stretch="Uniform" />
+          </ToggleButton>
         </StackPanel>
         <StackPanel
           Grid.Column="2"
@@ -666,8 +703,8 @@
                     Margin="5"
                     VerticalAlignment="Center"
                     IsChecked="{Binding Checked, Mode=TwoWay}"
-                    IsEnabled="{Binding CanSelect}"
-                    IsThreeState="True" />
+                    IsThreeState="True"
+                    PreviewMouseLeftButtonDown="FolderCheckBox_PreviewMouseLeftButtonDown" />
                   <Image
                     Grid.Column="1"
                     VerticalAlignment="Center"
@@ -764,7 +801,7 @@
                           HorizontalAlignment="Center"
                           VerticalAlignment="Center"
                           IsChecked="{Binding File.Selected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                          IsEnabled="{Binding File.CanSync}" />
+                          IsEnabled="{Binding File.CanToggleSelection}" />
                       </DataTemplate>
                     </GridViewColumn.CellTemplate>
                   </GridViewColumn>

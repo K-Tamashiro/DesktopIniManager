@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -55,13 +56,24 @@ namespace DesktopIniManager.Services
         public bool CompareTimestamp { get; set; } = true;
         public DiffKind Kind { get { return Source == null ? DiffKind.TargetOnly : Target == null ? DiffKind.SourceOnly : DiffStamp.Same(Source, Target, CompareTimestamp) ? DiffKind.Same : DiffKind.Different; } }
         public bool CanSync { get { return Kind != DiffKind.Same; } }
+        public bool CanToggleSelection { get { return CanSync || Selected; } }
         public string State { get { return Kind == DiffKind.Same ? "Same" : Source == null ? "Target only" : Target == null ? "Source only" : Source.ModifiedUtcSeconds == Target.ModifiedUtcSeconds ? "Size differs" : "Time / size differs"; } }
         public string SourceInfo { get { return Describe(Source, Target); } }
         public string TargetInfo { get { return Describe(Target, Source); } }
         private static string Describe(DiffStamp own, DiffStamp other)
         { return own == null ? "missing" : (other == null ? "" : DiffStamp.Same(own, other, true) ? "Same\n" : own.ModifiedUtcSeconds == other.ModifiedUtcSeconds ? "Size differs\n" : own.ModifiedUtcSeconds > other.ModifiedUtcSeconds ? "NEW\n" : "OLD\n") + own.Describe(); }
         private bool selected;
-        public bool Selected { get { return selected; } set { value = value && CanSync; if (selected == value) return; selected = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Selected")); } }
+        public bool Selected
+        {
+            get { return selected; }
+            set
+            {
+                if (selected == value) return;
+                selected = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Selected"));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("CanToggleSelection"));
+            }
+        }
         public event PropertyChangedEventHandler PropertyChanged;
     }
 
@@ -334,7 +346,6 @@ namespace DesktopIniManager.Services
                 {
                     left = SafePath(snapshot.SourceRoot, file.RelativePath);
                     right = SafePath(snapshot.TargetRoot, file.RelativePath);
-                    if (!file.CanSync) { writeLog("SKIP same " + file.RelativePath); continue; }
                     if (!DiffStamp.Same(file.Source, DiffStamp.Read(left), snapshot.CompareTimestamp) || !DiffStamp.Same(file.Target, DiffStamp.Read(right), snapshot.CompareTimestamp))
                         throw new IOException("Changed after compare. Compare again.");
                     from = toTarget ? left : right;
@@ -453,6 +464,189 @@ namespace DesktopIniManager.Services
                 // Permission/ACL/read-only issues are real failures, not "locked".
                 return false;
             }
+        }
+
+        /// <summary>Builds an output ZIP path from a folder and a file name.</summary>
+        public static string ComposeZipPath(string folder, string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(folder))
+                throw new IOException("ZIP output folder is empty.");
+            string name = (fileName ?? "").Trim();
+            if (name.Length == 0)
+                throw new IOException("ZIP file name is empty.");
+            if (name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+                throw new IOException("ZIP file name contains invalid characters: " + name);
+            if (!name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                name += ".zip";
+            string directory = Path.GetFullPath(folder.Trim());
+            Directory.CreateDirectory(directory);
+            return Path.Combine(directory, name);
+        }
+
+        /// <summary>Packs selected files and folders from one comparison side into a ZIP while keeping relative paths.</summary>
+        public static List<string> PackZip(DiffSnapshot snapshot, IEnumerable<DiffFile> selected, IEnumerable<DiffFolderSync> selectedFolders, bool fromSource, string zipPath, Action<string> onLog = null)
+        {
+            if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
+            string root = fromSource ? snapshot.SourceRoot : snapshot.TargetRoot;
+            Root(root);
+            var log = new List<string>();
+            Action<string> writeLog = line =>
+            {
+                log.Add(line);
+                onLog?.Invoke(line);
+            };
+            var files = new Dictionary<string, DiffFile>(StringComparer.OrdinalIgnoreCase);
+            foreach (DiffFile file in selected ?? Enumerable.Empty<DiffFile>())
+            {
+                if (file == null || string.IsNullOrEmpty(file.RelativePath)) continue;
+                DiffStamp stamp = fromSource ? file.Source : file.Target;
+                if (stamp == null) continue;
+                files[file.RelativePath] = file;
+            }
+            var folders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (DiffFolderSync folder in selectedFolders ?? Enumerable.Empty<DiffFolderSync>())
+            {
+                if (folder == null || string.IsNullOrEmpty(folder.RelativePath)) continue;
+                bool exists = fromSource ? folder.SourceExists : folder.TargetExists;
+                if (!exists) continue;
+                folders.Add(folder.RelativePath.Replace('/', '\\'));
+            }
+
+            // Expand selected folders in one pass. The previous implementation scanned the
+            // complete snapshot once for every selected folder (O(folders * files)).
+            if (folders.Count > 0)
+            {
+                string[] prefixes = folders
+                    .Select(folder => folder.TrimEnd('\\') + "\\")
+                    .ToArray();
+                foreach (DiffFile file in snapshot.Files ?? Enumerable.Empty<DiffFile>())
+                {
+                    if (file == null || string.IsNullOrEmpty(file.RelativePath)) continue;
+                    DiffStamp stamp = fromSource ? file.Source : file.Target;
+                    if (stamp == null) continue;
+                    string relative = file.RelativePath.Replace('/', '\\');
+                    for (int i = 0; i < prefixes.Length; i++)
+                    {
+                        if (!relative.StartsWith(prefixes[i], StringComparison.OrdinalIgnoreCase)) continue;
+                        files[file.RelativePath] = file;
+                        break;
+                    }
+                }
+            }
+            if (files.Count == 0 && folders.Count == 0)
+            {
+                writeLog("FAIL no selected files exist on the chosen side");
+                return log;
+            }
+            string directory = Path.GetDirectoryName(zipPath);
+            if (!string.IsNullOrEmpty(directory))
+                Directory.CreateDirectory(directory);
+            string tempZipPath = Path.Combine(
+                directory ?? Path.GetDirectoryName(Path.GetFullPath(zipPath)) ?? Environment.CurrentDirectory,
+                "." + Path.GetFileName(zipPath) + "." + Guid.NewGuid().ToString("N") + ".tmp");
+            string wrapper = ZipRootFolderName(root);
+            try
+            {
+                using (var archive = ZipFile.Open(tempZipPath, ZipArchiveMode.Create))
+                {
+                    var directoryEntries = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    AddZipDirectory(archive, wrapper, directoryEntries);
+                    foreach (string folder in folders.OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+                    {
+                        try
+                        {
+                            AddZipDirectory(archive, ZipEntryName(wrapper, folder, true), directoryEntries);
+                            writeLog("OK DIR " + folder);
+                        }
+                        catch (Exception ex)
+                        {
+                            writeLog("FAIL DIR " + folder + " " + ErrorMessages.English(ex));
+                        }
+                    }
+                    foreach (DiffFile file in files.Values.OrderBy(item => item.RelativePath, StringComparer.OrdinalIgnoreCase))
+                    {
+                        try
+                        {
+                            string from = SafePath(root, file.RelativePath);
+                            if (!File.Exists(from))
+                            {
+                                writeLog("FAIL missing " + file.RelativePath);
+                                continue;
+                            }
+                            RejectHardLinks(from);
+                            string parent = Path.GetDirectoryName(file.RelativePath.Replace('/', '\\'));
+                            if (!string.IsNullOrEmpty(parent))
+                                AddZipDirectory(archive, ZipEntryName(wrapper, parent, true), directoryEntries);
+                            archive.CreateEntryFromFile(from, ZipEntryName(wrapper, file.RelativePath, false), CompressionLevel.Fastest);
+                            writeLog("OK ZIP " + file.RelativePath);
+                        }
+                        catch (Exception ex)
+                        {
+                            if (IsFileLocked(SafePathOrEmpty(root, file.RelativePath)))
+                                writeLog("LOCKED " + file.RelativePath);
+                            else
+                                writeLog("FAIL ZIP " + file.RelativePath + " " + ErrorMessages.English(ex));
+                        }
+                    }
+                }
+                File.Move(tempZipPath, zipPath, true);
+                writeLog("OK archive " + zipPath);
+            }
+            catch (Exception ex)
+            {
+                writeLog("FAIL archive " + ErrorMessages.English(ex));
+                try { if (File.Exists(tempZipPath)) File.Delete(tempZipPath); } catch { }
+            }
+            return log;
+        }
+
+        private static bool IsUnder(string relativePath, string folder)
+        {
+            if (string.IsNullOrEmpty(relativePath) || string.IsNullOrEmpty(folder)) return false;
+            string path = relativePath.Replace('/', '\\');
+            string prefix = folder.Replace('/', '\\').TrimEnd('\\') + "\\";
+            return path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string ZipRootFolderName(string root)
+        {
+            string name = Path.GetFileName((root ?? "").TrimEnd('\\', '/'));
+            if (string.IsNullOrWhiteSpace(name)) name = "root";
+            foreach (char invalid in Path.GetInvalidFileNameChars())
+                name = name.Replace(invalid, '_');
+            return name;
+        }
+
+        private static string ZipEntryName(string wrapper, string relative, bool directory)
+        {
+            string entry = (relative ?? "").Replace('\\', '/').Trim('/');
+            string prefix = (wrapper ?? "").Replace('\\', '/').Trim('/');
+            if (prefix.Length == 0) prefix = "root";
+            string combined = entry.Length == 0 ? prefix : prefix + "/" + entry;
+            return directory ? combined + "/" : combined;
+        }
+
+        private static void AddZipDirectory(ZipArchive archive, string entry, HashSet<string> created)
+        {
+            if (archive == null || string.IsNullOrEmpty(entry)) return;
+            string normalized = entry.Replace('\\', '/').Trim('/');
+            if (normalized.Length == 0) return;
+            string[] parts = normalized.Split('/');
+            string current = "";
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (string.IsNullOrEmpty(parts[i])) continue;
+                current = current.Length == 0 ? parts[i] : current + "/" + parts[i];
+                string directoryEntry = current + "/";
+                if (!created.Add(directoryEntry)) continue;
+                archive.CreateEntry(directoryEntry);
+            }
+        }
+
+        private static string SafePathOrEmpty(string root, string relative)
+        {
+            try { return SafePath(root, relative); }
+            catch { return ""; }
         }
 
         /// <summary>Rejects files with multiple hard-link references.</summary>

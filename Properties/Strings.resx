@@ -738,6 +738,54 @@
   <data name="Differencer_Synchronize" xml:space="preserve">
     <value>Start synchronization</value>
   </data>
+  <data name="Differencer_ZipTitle" xml:space="preserve">
+    <value>for ZIP</value>
+  </data>
+  <data name="Differencer_ZipSelectedTitle" xml:space="preserve">
+    <value>Pack selected files for ZIP</value>
+  </data>
+  <data name="Differencer_ZipStart" xml:space="preserve">
+    <value>Start ZIP</value>
+  </data>
+  <data name="Differencer_ZipSource" xml:space="preserve">
+    <value>Pack Source for ZIP</value>
+  </data>
+  <data name="Differencer_ZipTarget" xml:space="preserve">
+    <value>Pack Target for ZIP</value>
+  </data>
+  <data name="Differencer_ZipFileName" xml:space="preserve">
+    <value>File name</value>
+  </data>
+  <data name="Differencer_ZipPath" xml:space="preserve">
+    <value>ZIP output folder</value>
+  </data>
+  <data name="Differencer_ZipBrowsePath" xml:space="preserve">
+    <value>Browse ZIP output folder</value>
+  </data>
+  <data name="Differencer_ZipWarning" xml:space="preserve">
+    <value>An existing ZIP with the same name will be overwritten.</value>
+  </data>
+  <data name="Differencer_ZipSourceToZip" xml:space="preserve">
+    <value>Source → ZIP</value>
+  </data>
+  <data name="Differencer_ZipTargetToZip" xml:space="preserve">
+    <value>ZIP ← Target</value>
+  </data>
+  <data name="Differencer_Zipping" xml:space="preserve">
+    <value>Packing ZIP — {0}</value>
+  </data>
+  <data name="Differencer_ZipFolders" xml:space="preserve">
+    <value>folders</value>
+  </data>
+  <data name="Differencer_ZipNeedSelection" xml:space="preserve">
+    <value>Select files to pack into a ZIP.</value>
+  </data>
+  <data name="Differencer_ZipInvalidName" xml:space="preserve">
+    <value>Enter a valid ZIP file name.</value>
+  </data>
+  <data name="Differencer_ZipInvalidPath" xml:space="preserve">
+    <value>Enter a valid output folder.</value>
+  </data>
   <data name="Differencer_Source" xml:space="preserve">
     <value>Source</value>
   </data>

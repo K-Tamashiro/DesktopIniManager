@@ -279,9 +279,9 @@ namespace DesktopIniManager.Views
         private void ShowCleanReport(string summary, string logPath, string log)
             => CleanReportWindow.Show(this, summary, logPath, log);
 
-        private bool ShowSyncConfirmation(string direction, DiffFile[] files, DiffFolderSync[] folders, bool toTarget)
+        private bool ShowSyncConfirmation(string direction, DiffFile[] files, DiffFolderSync[] folders, bool toTarget, bool zipMode, out string zipFileName, out string zipFolder)
         {
-            return SynchronizeConfirmWindow.Confirm(this, direction, files, folders, toTarget, ViewModel.Snapshot.SourceRoot, ViewModel.Snapshot.TargetRoot);
+            return SynchronizeConfirmWindow.Confirm(this, direction, files, folders, toTarget, ViewModel.Snapshot.SourceRoot, ViewModel.Snapshot.TargetRoot, zipMode, out zipFileName, out zipFolder);
         }
 
         internal Task<bool> RefreshFileAsync(DiffFile file) => ViewModel.RefreshFileAsync(file);
@@ -300,6 +300,19 @@ namespace DesktopIniManager.Views
             }), DispatcherPriority.Loaded);
         }
         internal void SaveState() => ViewModel.SaveState();
+        private void FolderCheckBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (!(sender is CheckBox checkBox) || !(checkBox.DataContext is DiffFolder folder) || folder.CanSelect)
+                return;
+
+            // Same-only folders cannot be checked manually.
+            // If the file-list ON/OFF button selected their files, clicking the folder check only clears them.
+            if (checkBox.IsChecked != false)
+                ViewModel.ClearSameFolderSelection(folder);
+
+            e.Handled = true;
+        }
+
         private void OpenDiff(object sender, MouseButtonEventArgs e)
         {
             // Keep the row hit test in the View so headers and scrollbars cannot open a viewer.
@@ -317,6 +330,9 @@ namespace DesktopIniManager.Views
             SetIcon(CompareButtonIcon, 84);
             SetIcon(CancelCompareIcon, 24);
             SetIcon(CleanSolutionIcon, 83);
+            SetIcon(SelectAllFilesIcon, 48);
+            SetIcon(ZipSourceButtonIcon, 93);
+            SetIcon(ZipTargetButtonIcon, 92);
             SetIcon(ForwardButtonIcon, 85);
             SetIcon(ReverseButtonIcon, 86);
             UpdateNodeExpandIcon();
@@ -329,9 +345,19 @@ namespace DesktopIniManager.Views
                 image.Source = DifferencerStatusIcons.GetCustomIcon(index);
         }
 
-        private void UpdateSyncDirectionIcons(bool? toTarget)
+        private void UpdateSyncDirectionIcons(bool? toTarget, bool zipMode)
         {
-            if (toTarget == true)
+            if (zipMode && toTarget == true)
+            {
+                SetIcon(SourceLabelIcon, 93);
+                SetIcon(TargetLabelIcon, 60);
+            }
+            else if (zipMode && toTarget == false)
+            {
+                SetIcon(SourceLabelIcon, 61);
+                SetIcon(TargetLabelIcon, 92);
+            }
+            else if (toTarget == true)
             {
                 // Source -> Target
                 SetIcon(SourceLabelIcon, 64);

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Globalization;
 using System.IO;
 using System.Threading;
@@ -39,6 +39,7 @@ namespace DesktopIniManager
                 await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
                 var main = new MainWindow(state);
                 MainWindow = main;
+                splash.SkipStartupAnalysisRequested += (sender, args) => main.ViewModel.CancelSearch();
                 if (!string.IsNullOrWhiteSpace(main.ViewModel.RootPath)
                     && Directory.Exists(main.ViewModel.RootPath.Trim()))
                 {

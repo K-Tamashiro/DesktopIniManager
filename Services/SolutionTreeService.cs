@@ -1,12 +1,12 @@
-using DesktopIniManager.Models;
+﻿using DesktopIniManager.Models;
 using DesktopIniManager.ViewModels;
+using FastVolumeIndex;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
-using System.Xml.Linq;
 
 namespace DesktopIniManager.Services
 {
@@ -23,13 +23,6 @@ namespace DesktopIniManager.Services
             RegexOptions.Compiled);
         private static readonly Regex ProjectConfigLine = new Regex(
             "^\\s*\\{[^}]+\\}\\.(?<pair>[^=]+?)\\.(ActiveCfg|Build\\.0)\\s*=",
-            RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex IncludeAttr = new Regex(
-            "\\bInclude\\s*=\\s*\"([^\"]+)\"",
-            RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
-        private static readonly Regex RemoveAttr = new Regex(
-            "\\bRemove\\s*=\\s*\"([^\"]+)\"",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly HashSet<string> Ignored = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -50,31 +43,40 @@ namespace DesktopIniManager.Services
 
                 try
                 {
-                    foreach (string solution in Directory.EnumerateFiles(folder, "*.sln"))
+                    foreach (VolumePathIndex.NativeDirectoryEntry entry in VolumePathIndex.EnumerateNativeDirectory(folder, token))
                     {
                         token.ThrowIfCancellationRequested();
-                        solutions.Add(Parse(solution, token));
-                    }
+                        string path = Path.Combine(folder, entry.Name);
+                        bool directory = (entry.Attributes & FileAttributes.Directory) != 0;
 
-                    foreach (string child in Directory.EnumerateDirectories(folder))
-                    {
-                        token.ThrowIfCancellationRequested();
+                        if (!directory)
+                        {
+                            if (string.Equals(Path.GetExtension(entry.Name), ".sln", StringComparison.OrdinalIgnoreCase))
+                                solutions.Add(Parse(path, token, null));
+                            continue;
+                        }
 
-                        if (ShouldSkipDirectory(child))
+                        if (ShouldSkipDirectory(entry.Name, entry.Attributes))
+                            continue;
+                        if ((entry.Attributes & FileAttributes.ReparsePoint) != 0)
                             continue;
 
-                        pending.Push(child);
+                        pending.Push(path);
                     }
                 }
                 catch (UnauthorizedAccessException) { }
                 catch (IOException) { }
+                catch (System.ComponentModel.Win32Exception) { }
             }
 
             solutions.Sort((x, y) => StringComparer.CurrentCultureIgnoreCase.Compare(x.Name, y.Name));
             return solutions;
         }
 
-        public static List<FolderMatch> BuildFromProjectFiles(IReadOnlyList<string> projectFiles, CancellationToken token)
+        public static List<FolderMatch> BuildFromProjectFiles(
+            IReadOnlyList<string> projectFiles,
+            VolumePathIndex pathIndex,
+            CancellationToken token)
         {
             var solutions = new List<FolderMatch>();
             if (projectFiles == null) return solutions;
@@ -87,7 +89,7 @@ namespace DesktopIniManager.Services
                     continue;
                 if (!File.Exists(path)) continue;
 
-                try { solutions.Add(Parse(path, token)); }
+                try { solutions.Add(Parse(path, token, pathIndex)); }
                 catch (UnauthorizedAccessException) { }
                 catch (IOException) { }
             }
@@ -146,7 +148,7 @@ namespace DesktopIniManager.Services
             return configurations.ToList();
         }
 
-        private static FolderMatch Parse(string solutionPath, CancellationToken token)
+        private static FolderMatch Parse(string solutionPath, CancellationToken token, VolumePathIndex pathIndex)
         {
             string solutionDirectory = Path.GetDirectoryName(solutionPath);
             var entries = new Dictionary<string, Entry>(StringComparer.OrdinalIgnoreCase);
@@ -239,7 +241,7 @@ namespace DesktopIniManager.Services
             foreach (var pair in entries)
             {
                 token.ThrowIfCancellationRequested();
-                nodes[pair.Key] = CreateNode(pair.Value, solutionDirectory, token);
+                nodes[pair.Key] = CreateNode(pair.Value, solutionDirectory, pathIndex, token);
             }
 
             var root = new FolderMatch
@@ -270,7 +272,11 @@ namespace DesktopIniManager.Services
             return root;
         }
 
-        private static FolderMatch CreateNode(Entry entry, string solutionDirectory, CancellationToken token)
+        private static FolderMatch CreateNode(
+            Entry entry,
+            string solutionDirectory,
+            VolumePathIndex pathIndex,
+            CancellationToken token)
         {
             bool folder = IsSolutionFolder(entry);
             string projectFile = folder
@@ -280,30 +286,36 @@ namespace DesktopIniManager.Services
                     entry.RelativePath.Replace('\\', Path.DirectorySeparatorChar)));
 
             if (!folder)
-                projectFile = ResolveProjectFile(projectFile);
+                projectFile = ResolveProjectFile(projectFile, pathIndex);
 
+            bool projectExists = !folder && PathExistsAsFile(projectFile, pathIndex);
             string physicalPath = folder
                 ? solutionDirectory
-                : (File.Exists(projectFile)
+                : projectExists
                     ? Path.GetDirectoryName(projectFile)
-                    : (Directory.Exists(projectFile) ? projectFile : Path.GetDirectoryName(projectFile)));
+                    : (PathExistsAsDirectory(projectFile, pathIndex) ? projectFile : Path.GetDirectoryName(projectFile));
+            bool physicalDirectoryExists = !folder && PathExistsAsDirectory(physicalPath, pathIndex);
 
             var node = new FolderMatch
             {
                 DisplayName = entry.Name,
                 Path = physicalPath,
                 Reason = folder ? "Solution folder" : "Project · " + Path.GetFileName(entry.RelativePath),
-                IsActionable = !folder && Directory.Exists(physicalPath),
+                IsActionable = physicalDirectoryExists,
                 IconPreview = FolderIconService.GetFolderIcon(physicalPath)
             };
 
-            if (File.Exists(projectFile))
-                PopulateProject(node, projectFile, token);
+            if (projectExists)
+                PopulateProject(node, projectFile, pathIndex, token);
 
             return node;
         }
 
-        private static void PopulateProject(FolderMatch project, string projectFile, CancellationToken token)
+        private static void PopulateProject(
+            FolderMatch project,
+            string projectFile,
+            VolumePathIndex pathIndex,
+            CancellationToken token)
         {
             string directory = Path.GetDirectoryName(projectFile);
             var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -313,62 +325,71 @@ namespace DesktopIniManager.Services
 
             try
             {
-                XElement projectElement = XElement.Load(projectFile);
-                XElement defaultItemsElement = projectElement.Elements()
-                    .Where(element => element.Name.LocalName == "PropertyGroup" && element.Attribute("Condition") == null)
-                    .SelectMany(element => element.Elements())
-                    .LastOrDefault(element => element.Name.LocalName == "EnableDefaultItems" && element.Attribute("Condition") == null);
-                if (defaultItemsElement != null)
-                    defaultItems = !string.Equals(defaultItemsElement.Value.Trim(), "false", StringComparison.OrdinalIgnoreCase);
-
                 foreach (string raw in File.ReadLines(projectFile))
                 {
                     token.ThrowIfCancellationRequested();
-                    string line = raw;
-                    if (line.IndexOf("Sdk=", StringComparison.OrdinalIgnoreCase) >= 0
-                        && line.IndexOf("<Project", StringComparison.OrdinalIgnoreCase) >= 0)
-                        sdk = true;
 
-                    bool itemLine =
-                        line.IndexOf("<Compile", StringComparison.OrdinalIgnoreCase) >= 0
+                    string line = raw.Trim();
+                    if (line.Length == 0)
+                        continue;
+
+                    if (!sdk
+                        && line.IndexOf("<Project", StringComparison.OrdinalIgnoreCase) >= 0
+                        && line.IndexOf("Sdk=", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        sdk = true;
+                    }
+
+                    if (line.IndexOf("<EnableDefaultItems", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        int valueStart = line.IndexOf('>');
+                        int valueEnd = valueStart >= 0 ? line.IndexOf('<', valueStart + 1) : -1;
+                        if (valueStart >= 0 && valueEnd > valueStart)
+                        {
+                            string value = line.Substring(valueStart + 1, valueEnd - valueStart - 1).Trim();
+                            defaultItems = !string.Equals(value, "false", StringComparison.OrdinalIgnoreCase);
+                        }
+                    }
+
+                    bool projectReference = line.IndexOf("<ProjectReference", StringComparison.OrdinalIgnoreCase) >= 0;
+                    bool projectItem = projectReference
+                        || line.IndexOf("<Compile", StringComparison.OrdinalIgnoreCase) >= 0
                         || line.IndexOf("<None", StringComparison.OrdinalIgnoreCase) >= 0
                         || line.IndexOf("<Content", StringComparison.OrdinalIgnoreCase) >= 0
                         || line.IndexOf("<EmbeddedResource", StringComparison.OrdinalIgnoreCase) >= 0
                         || line.IndexOf("<ClCompile", StringComparison.OrdinalIgnoreCase) >= 0
                         || line.IndexOf("<ClInclude", StringComparison.OrdinalIgnoreCase) >= 0
                         || line.IndexOf("<Page", StringComparison.OrdinalIgnoreCase) >= 0
-                        || line.IndexOf("<Resource", StringComparison.OrdinalIgnoreCase) >= 0
-                        || line.IndexOf("<ProjectReference", StringComparison.OrdinalIgnoreCase) >= 0;
+                        || line.IndexOf("<Resource", StringComparison.OrdinalIgnoreCase) >= 0;
 
-                    if (!itemLine) continue;
-
-                    Match remove = RemoveAttr.Match(line);
-                    if (remove.Success)
-                        removed.Add(NormalizeProjectPath(remove.Groups[1].Value));
-
-                    Match include = IncludeAttr.Match(line);
-                    if (!include.Success) continue;
-
-                    string value = include.Groups[1].Value;
-                    if (string.IsNullOrWhiteSpace(value))
+                    if (!projectItem)
                         continue;
 
-                    // ProjectReference points to another project file and is not a source item.
-                    if (line.IndexOf("<ProjectReference", StringComparison.OrdinalIgnoreCase) >= 0)
+                    string removeValue = GetAttributeValue(line, "Remove");
+                    if (!string.IsNullOrWhiteSpace(removeValue))
+                    {
+                        foreach (string value in removeValue.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
+                            removed.Add(NormalizeProjectPath(value.Trim()));
+                    }
+
+                    if (projectReference)
                         continue;
 
-                    foreach (string pattern in value.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
-                        foreach (string file in ExpandProjectInclude(directory, pattern.Trim(), token))
+                    string includeValue = GetAttributeValue(line, "Include");
+                    if (string.IsNullOrWhiteSpace(includeValue))
+                        continue;
+
+                    foreach (string pattern in includeValue.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
+                        foreach (string file in ExpandProjectInclude(directory, pattern.Trim(), pathIndex, token))
                             files.Add(file);
                 }
             }
             catch (IOException) { return; }
             catch (UnauthorizedAccessException) { return; }
-            catch (System.Xml.XmlException) { return; }
 
             if (sdk && defaultItems)
             {
-                foreach (string file in EnumerateProjectFiles(directory, token))
+                foreach (string file in EnumerateProjectFiles(directory, pathIndex, token))
                 {
                     string relative = NormalizeProjectPath(
                         file.Substring(directory.Length).TrimStart(Path.DirectorySeparatorChar));
@@ -398,14 +419,68 @@ namespace DesktopIniManager.Services
             SortProjectChildren(project.Children);
         }
 
-        private static IEnumerable<string> ExpandProjectInclude(string directory, string pattern, CancellationToken token)
+        private static string GetAttributeValue(string line, string attributeName)
+        {
+            int name = line.IndexOf(attributeName, StringComparison.OrdinalIgnoreCase);
+            while (name >= 0)
+            {
+                int p = name + attributeName.Length;
+                while (p < line.Length && char.IsWhiteSpace(line[p]))
+                    p++;
+
+                if (p < line.Length && line[p] == '=')
+                {
+                    p++;
+                    while (p < line.Length && char.IsWhiteSpace(line[p]))
+                        p++;
+
+                    if (p < line.Length && (line[p] == '"' || line[p] == '\''))
+                    {
+                        char quote = line[p++];
+                        int end = line.IndexOf(quote, p);
+                        if (end >= 0)
+                            return line.Substring(p, end - p);
+                    }
+                }
+
+                name = line.IndexOf(attributeName, name + attributeName.Length, StringComparison.OrdinalIgnoreCase);
+            }
+
+            return null;
+        }
+
+        private static IEnumerable<string> ExpandProjectInclude(
+            string directory,
+            string pattern,
+            VolumePathIndex pathIndex,
+            CancellationToken token)
         {
             if (string.IsNullOrWhiteSpace(pattern) || pattern.Contains("$(") || pattern.Contains("@("))
                 yield break;
-            string full = Path.GetFullPath(Path.Combine(directory, NormalizeProjectPath(pattern)));
+
+            string normalizedPattern = NormalizeProjectPath(pattern);
+            string full = Path.GetFullPath(Path.Combine(directory, normalizedPattern));
+
             if (full.IndexOfAny(new[] { '*', '?' }) < 0)
             {
-                if (File.Exists(full)) yield return full;
+                if (PathExistsAsFile(full, pathIndex))
+                    yield return full;
+                yield break;
+            }
+
+            VolumePathNode indexedRoot = pathIndex?.Find(directory);
+            if (indexedRoot != null && indexedRoot.IsDirectory)
+            {
+                foreach (string file in EnumerateProjectFiles(directory, pathIndex, token))
+                {
+                    token.ThrowIfCancellationRequested();
+
+                    string relative = file.Substring(directory.Length)
+                        .TrimStart(Path.DirectorySeparatorChar);
+
+                    if (MatchesProjectPath(normalizedPattern, relative))
+                        yield return file;
+                }
                 yield break;
             }
 
@@ -415,122 +490,203 @@ namespace DesktopIniManager.Services
             string[] parts = full.Substring(root.Length).Split(Path.DirectorySeparatorChar);
             var pending = new Stack<Tuple<string, int>>();
             pending.Push(Tuple.Create(root, 0));
+
             while (pending.Count > 0)
             {
                 token.ThrowIfCancellationRequested();
                 var current = pending.Pop();
                 string part = parts[current.Item2];
                 bool last = current.Item2 == parts.Length - 1;
-                string[] entries;
-                try
-                {
-                    entries = last
-                        ? Directory.GetFiles(current.Item1, part)
-                        : Directory.GetDirectories(current.Item1, part == "**" ? "*" : part);
-                }
-                catch (UnauthorizedAccessException) { continue; }
-                catch (IOException) { continue; }
 
-                if (last)
+                using (IEnumerator<VolumePathIndex.NativeDirectoryEntry> enumerator =
+                    VolumePathIndex.EnumerateNativeDirectory(current.Item1, token).GetEnumerator())
                 {
-                    foreach (string file in entries) yield return file;
-                    continue;
-                }
-                if (part == "**") pending.Push(Tuple.Create(current.Item1, current.Item2 + 1));
-                foreach (string child in entries)
-                {
-                    if (ShouldSkipDirectory(child)) continue;
-                    try
+                    while (TryMoveNext(enumerator, out VolumePathIndex.NativeDirectoryEntry entry))
                     {
-                        if ((File.GetAttributes(child) & FileAttributes.ReparsePoint) != 0) continue;
+                        token.ThrowIfCancellationRequested();
+                        bool isDirectory = (entry.Attributes & FileAttributes.Directory) != 0;
+
+                        if (last)
+                        {
+                            if (!isDirectory && System.IO.Enumeration.FileSystemName.MatchesSimpleExpression(part, entry.Name, true))
+                                yield return Path.Combine(current.Item1, entry.Name);
+                            continue;
+                        }
+
+                        if (!isDirectory)
+                            continue;
+                        if (ShouldSkipDirectory(entry.Name, entry.Attributes))
+                            continue;
+                        if ((entry.Attributes & FileAttributes.ReparsePoint) != 0)
+                            continue;
+
+                        string child = Path.Combine(current.Item1, entry.Name);
+                        if (part == "**")
+                        {
+                            pending.Push(Tuple.Create(child, current.Item2));
+                        }
+                        else if (System.IO.Enumeration.FileSystemName.MatchesSimpleExpression(part, entry.Name, true))
+                        {
+                            pending.Push(Tuple.Create(child, current.Item2 + 1));
+                        }
                     }
-                    catch (UnauthorizedAccessException) { continue; }
-                    catch (IOException) { continue; }
-                    pending.Push(Tuple.Create(child, part == "**" ? current.Item2 : current.Item2 + 1));
                 }
+
+                if (part == "**" && !last)
+                    pending.Push(Tuple.Create(current.Item1, current.Item2 + 1));
             }
         }
 
         /// <summary>
-        /// Enumerates files in an SDK-style project without descending into excluded or hidden directories.
+        /// Enumerates SDK default items from the already-built volume index.
+        /// Falls back to native enumeration only when the project directory is outside the index.
         /// </summary>
-        private static IEnumerable<string> EnumerateProjectFiles(string root, CancellationToken token)
+        private static bool MatchesProjectPath(string pattern, string relativePath)
         {
-            var pending = new Stack<string>();
-            pending.Push(root);
+            string[] patternParts = pattern.Split(
+                new[] { Path.DirectorySeparatorChar },
+                StringSplitOptions.RemoveEmptyEntries);
+            string[] pathParts = relativePath.Split(
+                new[] { Path.DirectorySeparatorChar },
+                StringSplitOptions.RemoveEmptyEntries);
 
-            while (pending.Count > 0)
+            return MatchesProjectPath(patternParts, 0, pathParts, 0);
+        }
+
+        private static bool MatchesProjectPath(
+            string[] patternParts,
+            int patternIndex,
+            string[] pathParts,
+            int pathIndex)
+        {
+            while (patternIndex < patternParts.Length)
+            {
+                string part = patternParts[patternIndex];
+
+                if (part == "**")
+                {
+                    if (++patternIndex >= patternParts.Length)
+                        return true;
+
+                    while (pathIndex <= pathParts.Length)
+                    {
+                        if (MatchesProjectPath(patternParts, patternIndex, pathParts, pathIndex))
+                            return true;
+                        pathIndex++;
+                    }
+                    return false;
+                }
+
+                if (pathIndex >= pathParts.Length
+                    || !System.IO.Enumeration.FileSystemName.MatchesSimpleExpression(
+                        part, pathParts[pathIndex], true))
+                    return false;
+
+                patternIndex++;
+                pathIndex++;
+            }
+
+            return pathIndex == pathParts.Length;
+        }
+
+        private static IEnumerable<string> EnumerateProjectFiles(
+            string root,
+            VolumePathIndex pathIndex,
+            CancellationToken token)
+        {
+            VolumePathNode indexedRoot = pathIndex?.Find(root);
+            if (indexedRoot != null && indexedRoot.IsDirectory)
+            {
+                var pending = new Stack<VolumePathNode>();
+                pending.Push(indexedRoot);
+
+                while (pending.Count > 0)
+                {
+                    token.ThrowIfCancellationRequested();
+                    VolumePathNode directory = pending.Pop();
+
+                    foreach (VolumePathNode file in directory.Files)
+                        yield return file.Path;
+
+                    foreach (VolumePathNode child in directory.Directories)
+                    {
+                        if (ShouldSkipDirectory(child.Name, child.Attributes))
+                            continue;
+                        if (child.IsReparsePoint)
+                            continue;
+                        pending.Push(child);
+                    }
+                }
+                yield break;
+            }
+
+            var nativePending = new Stack<string>();
+            nativePending.Push(root);
+
+            while (nativePending.Count > 0)
             {
                 token.ThrowIfCancellationRequested();
-                string directory = pending.Pop();
+                string directory = nativePending.Pop();
 
-                IEnumerable<string> files;
-                try
+                using (IEnumerator<VolumePathIndex.NativeDirectoryEntry> enumerator =
+                    VolumePathIndex.EnumerateNativeDirectory(directory, token).GetEnumerator())
                 {
-                    files = Directory.EnumerateFiles(directory);
-                }
-                catch (UnauthorizedAccessException)
-                {
-                    continue;
-                }
-                catch (IOException)
-                {
-                    continue;
-                }
+                    while (TryMoveNext(enumerator, out VolumePathIndex.NativeDirectoryEntry entry))
+                    {
+                        token.ThrowIfCancellationRequested();
+                        string path = Path.Combine(directory, entry.Name);
+                        bool isDirectory = (entry.Attributes & FileAttributes.Directory) != 0;
 
-                foreach (string file in files)
-                {
-                    token.ThrowIfCancellationRequested();
-                    yield return file;
-                }
+                        if (!isDirectory)
+                        {
+                            yield return path;
+                            continue;
+                        }
 
-                IEnumerable<string> children;
-                try
-                {
-                    children = Directory.EnumerateDirectories(directory);
-                }
-                catch (UnauthorizedAccessException)
-                {
-                    continue;
-                }
-                catch (IOException)
-                {
-                    continue;
-                }
+                        if (ShouldSkipDirectory(entry.Name, entry.Attributes))
+                            continue;
+                        if ((entry.Attributes & FileAttributes.ReparsePoint) != 0)
+                            continue;
 
-                foreach (string child in children)
-                {
-                    token.ThrowIfCancellationRequested();
-
-                    if (!ShouldSkipDirectory(child))
-                        pending.Push(child);
+                        nativePending.Push(path);
+                    }
                 }
             }
         }
 
-        private static bool ShouldSkipDirectory(string path)
+        private static bool TryMoveNext(
+            IEnumerator<VolumePathIndex.NativeDirectoryEntry> enumerator,
+            out VolumePathIndex.NativeDirectoryEntry entry)
         {
-            if (Ignored.Contains(Path.GetFileName(path)))
-                return true;
-
             try
             {
-                return (File.GetAttributes(path) & FileAttributes.Hidden) != 0;
+                if (enumerator.MoveNext())
+                {
+                    entry = enumerator.Current;
+                    return true;
+                }
             }
-            catch (UnauthorizedAccessException)
-            {
-                return true;
-            }
-            catch (IOException)
-            {
-                return true;
-            }
+            catch (UnauthorizedAccessException) { }
+            catch (IOException) { }
+            catch (System.ComponentModel.Win32Exception) { }
+
+            entry = null;
+            return false;
         }
 
-        private static string ResolveProjectFile(string projectFile)
+        private static bool ShouldSkipDirectory(string name, FileAttributes attributes)
         {
-            if (string.IsNullOrWhiteSpace(projectFile)) return projectFile;
-            if (File.Exists(projectFile)) return projectFile;
+            if (Ignored.Contains(Path.GetFileName(name)))
+                return true;
+            return (attributes & FileAttributes.Hidden) != 0;
+        }
+
+        private static string ResolveProjectFile(string projectFile, VolumePathIndex pathIndex)
+        {
+            if (string.IsNullOrWhiteSpace(projectFile))
+                return projectFile;
+            if (PathExistsAsFile(projectFile, pathIndex))
+                return projectFile;
 
             string directory = Path.GetDirectoryName(projectFile);
             string fileName = Path.GetFileName(projectFile);
@@ -539,7 +695,31 @@ namespace DesktopIniManager.Services
                 return projectFile;
 
             string nested = Path.Combine(directory, projectName, fileName);
-            return File.Exists(nested) ? nested : projectFile;
+            return PathExistsAsFile(nested, pathIndex) ? nested : projectFile;
+        }
+
+        private static bool PathExistsAsFile(string path, VolumePathIndex pathIndex)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return false;
+
+            VolumePathNode node = pathIndex?.Find(path);
+            if (node != null)
+                return !node.IsDirectory;
+
+            return File.Exists(path);
+        }
+
+        private static bool PathExistsAsDirectory(string path, VolumePathIndex pathIndex)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return false;
+
+            VolumePathNode node = pathIndex?.Find(path);
+            if (node != null)
+                return node.IsDirectory;
+
+            return Directory.Exists(path);
         }
 
         private static string NormalizeProjectPath(string value) =>
@@ -578,8 +758,10 @@ namespace DesktopIniManager.Services
                         DisplayName = part,
                         Path = currentPhysicalPath,
                         Reason = "Folder",
-                        IsActionable = Directory.Exists(currentPhysicalPath),
-                        IconPreview = FolderIconService.GetFolderIcon(currentPhysicalPath)
+                        // These folders came from files already present in VolumePathIndex.
+                        // Avoid hitting the file system and Shell again for every logical node.
+                        IsActionable = true,
+                        IconPreview = FolderIconService.GetDefaultFolderIcon()
                     };
 
                     parent.Children.Add(child);

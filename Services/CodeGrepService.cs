@@ -1,7 +1,9 @@
 using DesktopIniManager.Models;
+using FastVolumeIndex;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -91,11 +93,11 @@ namespace DesktopIniManager.Services
             {
                 token.ThrowIfCancellationRequested();
                 if (string.IsNullOrWhiteSpace(scope) || !Directory.Exists(scope)) continue;
-                CollectFilesStandard(scope, extensionSet, files, token);
+                CollectFilesNative(scope, extensionSet, files, token);
             }
             return files.ToList();
         }
-        private static void CollectFilesStandard(string root, HashSet<string> extensions, HashSet<string> files, CancellationToken token)
+        private static void CollectFilesNative(string root, HashSet<string> extensions, HashSet<string> files, CancellationToken token)
         {
             var pending = new Stack<string>(); pending.Push(root);
             while (pending.Count > 0)
@@ -104,25 +106,23 @@ namespace DesktopIniManager.Services
                 string folder = pending.Pop();
                 try
                 {
-                    foreach (string file in Directory.EnumerateFiles(folder))
+                    foreach (var entry in VolumePathIndex.EnumerateNativeDirectory(folder, token))
                     {
                         token.ThrowIfCancellationRequested();
-                        if (extensions.Contains(Path.GetExtension(file))) files.Add(file);
-                    }
-                    foreach (string child in Directory.EnumerateDirectories(folder))
-                    {
-                        token.ThrowIfCancellationRequested();
-                        string name = Path.GetFileName(child);
-                        if (IgnoredDirectories.Contains(name)) continue;
-                        try
+                        string path = Path.Combine(folder, entry.Name);
+                        if ((entry.Attributes & FileAttributes.Directory) != 0)
                         {
-                            if ((File.GetAttributes(child) & FileAttributes.Hidden) != 0) continue;
+                            if (IgnoredDirectories.Contains(entry.Name)) continue;
+                            if ((entry.Attributes & FileAttributes.Hidden) != 0) continue;
+                            pending.Push(path);
                         }
-                        catch (IOException) { continue; }
-                        catch (UnauthorizedAccessException) { continue; }
-                        pending.Push(child);
+                        else if (extensions.Contains(Path.GetExtension(entry.Name)))
+                            files.Add(path);
                     }
                 }
+                // Native enumeration reports directory access/I/O failures as Win32Exception.
+                // Preserve Grep's existing behavior: skip the unreadable part and keep searching.
+                catch (Win32Exception) { }
                 catch (IOException) { }
                 catch (UnauthorizedAccessException) { }
             }

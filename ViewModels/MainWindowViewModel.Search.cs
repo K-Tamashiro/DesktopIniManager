@@ -1,4 +1,4 @@
-using DesktopIniManager.Models;
+﻿using DesktopIniManager.Models;
 using DesktopIniManager.Services;
 using System;
 using System.Collections.Generic;
@@ -26,6 +26,11 @@ namespace DesktopIniManager.ViewModels
         }
 
         internal Task SearchAsync() => SearchAsync(false);
+
+        internal void CancelSearch()
+        {
+            _searchCts?.Cancel();
+        }
 
         internal async Task SearchAsync(bool quietMissingRoot)
         {
@@ -125,7 +130,7 @@ namespace DesktopIniManager.ViewModels
             return Task.Run(() =>
             {
                 int lastReport = Environment.TickCount;
-                VolumePathIndex paths = VolumePathIndex.BuildFromDirCommand(root,
+                VolumePathIndex paths = VolumePathIndex.BuildFromNativeEnumeration(root,
                     count =>
                     {
                         int now = Environment.TickCount;
@@ -209,7 +214,7 @@ namespace DesktopIniManager.ViewModels
                     {
                         token.ThrowIfCancellationRequested();
                         string path = solutions[index];
-                        List<FolderMatch> parsed = SolutionTreeService.BuildFromProjectFiles(new[] { path }, token);
+                        List<FolderMatch> parsed = SolutionTreeService.BuildFromProjectFiles(new[] { path }, _pathIndex, token);
                         built.AddRange(parsed);
 
                         int now = Environment.TickCount;

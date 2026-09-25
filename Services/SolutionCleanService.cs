@@ -1,10 +1,12 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
 using DesktopIniManager.Properties;
+using FastVolumeIndex;
+using System.Threading;
 
 namespace DesktopIniManager.Services
 {
@@ -23,21 +25,64 @@ namespace DesktopIniManager.Services
             foreach (string input in roots)
             {
                 string root = DeveloperDifferencerService.Root(input);
-                var pending = new Stack<string>(); pending.Push(root);
+                var pending = new Stack<string>();
+                pending.Push(root);
+
                 while (pending.Count > 0)
                 {
                     string folder = pending.Pop();
-                    foreach (string file in Directory.EnumerateFiles(folder))
-                        if ((Path.GetExtension(file).Equals(".sln", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(file).Equals(".slnx", StringComparison.OrdinalIgnoreCase)) &&
-                            (File.GetAttributes(file) & FileAttributes.ReparsePoint) == 0)
-                            result.Add(file);
-                    foreach (string child in Directory.EnumerateDirectories(folder))
-                        if (!DeveloperDifferencerService.Protected(child) && !new[] { "bin", "obj" }.Contains(Path.GetFileName(child), StringComparer.OrdinalIgnoreCase) &&
-                            (File.GetAttributes(child) & FileAttributes.ReparsePoint) == 0)
-                            pending.Push(child);
+                    using (IEnumerator<VolumePathIndex.NativeDirectoryEntry> enumerator =
+                        VolumePathIndex.EnumerateNativeDirectory(folder, CancellationToken.None).GetEnumerator())
+                    {
+                        while (TryMoveNext(enumerator, out VolumePathIndex.NativeDirectoryEntry entry))
+                        {
+                            string path = Path.Combine(folder, entry.Name);
+                            bool directory = (entry.Attributes & FileAttributes.Directory) != 0;
+
+                            if (!directory)
+                            {
+                                string extension = Path.GetExtension(entry.Name);
+                                if ((extension.Equals(".sln", StringComparison.OrdinalIgnoreCase)
+                                    || extension.Equals(".slnx", StringComparison.OrdinalIgnoreCase))
+                                    && (entry.Attributes & FileAttributes.ReparsePoint) == 0)
+                                    result.Add(path);
+                                continue;
+                            }
+
+                            if ((entry.Attributes & FileAttributes.ReparsePoint) != 0)
+                                continue;
+                            if (entry.Name.Equals("bin", StringComparison.OrdinalIgnoreCase)
+                                || entry.Name.Equals("obj", StringComparison.OrdinalIgnoreCase))
+                                continue;
+                            if (DeveloperDifferencerService.Protected(path))
+                                continue;
+
+                            pending.Push(path);
+                        }
+                    }
                 }
             }
             return result.OrderBy(p => p, StringComparer.OrdinalIgnoreCase).ToList();
+        }
+
+        private static bool TryMoveNext(
+            IEnumerator<VolumePathIndex.NativeDirectoryEntry> enumerator,
+            out VolumePathIndex.NativeDirectoryEntry entry)
+        {
+            try
+            {
+                if (enumerator.MoveNext())
+                {
+                    entry = enumerator.Current;
+                    return true;
+                }
+            }
+            catch (UnauthorizedAccessException) { }
+            catch (IOException) { }
+            catch (System.ComponentModel.Win32Exception) { }
+
+            entry = null;
+            return false;
         }
 
         internal static string FindMSBuild()

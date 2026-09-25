@@ -10,8 +10,8 @@ comparing working trees, and applying custom folder icons through
 **v3.3.2 extends Developer Differencer with path-preserving ZIP export
 and optional selection of identical (Same) files, while keeping the
 existing difference-selection workflow unchanged.** Workspace
-acquisition uses the Windows `dir /s /b` command to build a reusable
-path index. Grep and folder comparison use ordinary file-system access.
+acquisition now uses `FindFirstFileExW` / `FindNextFileW` to build a reusable
+path index. Grep and folder comparison use the same native directory enumeration.
 This edition does not read the NTFS MFT and does not require elevation
 just to enumerate folders.
 
@@ -348,7 +348,7 @@ docs/
 
 The application and `FastVolumeIndex.Core` are the two solution
 projects. The library retains its historical name; this edition's
-workspace acquisition uses DIR. The deleted `FastVolumeIndex.Cli` /
+workspace acquisition uses native Windows directory enumeration. The deleted `FastVolumeIndex.Cli` /
 `mftree.exe` is not included.
 
 The standalone regression harness is separate from the application

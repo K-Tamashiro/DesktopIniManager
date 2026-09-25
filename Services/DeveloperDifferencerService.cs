@@ -1,4 +1,5 @@
 using Microsoft.Win32.SafeHandles;
+using FastVolumeIndex;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -150,49 +151,39 @@ namespace DesktopIniManager.Services
         {
             var files = new Dictionary<string, DiffStamp>(StringComparer.OrdinalIgnoreCase);
             string baseDirectory = relativeFolder.Length == 0
-                ? root.TrimEnd('\\')
+                ? root
                 : SafeFolderPath(root, relativeFolder);
 
             if (!Directory.Exists(baseDirectory)) return files;
 
             var pending = new Stack<string>();
             pending.Push(baseDirectory);
-            int dirsDone = 0;
             int seen = 0;
 
             while (pending.Count > 0)
             {
                 token.ThrowIfCancellationRequested();
                 string directory = pending.Pop();
-                dirsDone++;
                 string directoryRelative = RelativeFromRoot(root, directory);
                 folders.Add(directoryRelative);
 
-                foreach (string childDirectory in Directory.EnumerateDirectories(directory))
+                foreach (var entry in VolumePathIndex.EnumerateNativeDirectory(directory, token))
                 {
                     token.ThrowIfCancellationRequested();
-                    try
+                    string path = Path.Combine(directory, entry.Name);
+                    string relative = RelativeFromRoot(root, path);
+                    if (Protected(relative)) continue;
+                    if ((entry.Attributes & FileAttributes.Directory) != 0)
                     {
-                        FileAttributes attributes = File.GetAttributes(childDirectory);
-                        if ((attributes & FileAttributes.Directory) == 0) continue;
+                        folders.Add(relative);
+                        pending.Push(path);
+                        continue;
                     }
-                    catch (FileNotFoundException) { continue; }
-                    catch (DirectoryNotFoundException) { continue; }
-                    catch (UnauthorizedAccessException) { continue; }
-                    catch (IOException) { continue; }
-
-                    string relative = RelativeFromRoot(root, childDirectory);
-                    if (Protected(relative)) continue;
-                    folders.Add(relative);
-                    pending.Push(childDirectory);
-                }
-
-                foreach (string file in Directory.EnumerateFiles(directory))
-                {
-                    token.ThrowIfCancellationRequested();
-                    string relative = RelativeFromRoot(root, file);
-                    if (Protected(relative)) continue;
-                    DiffStamp stamp = DiffStamp.Read(file);
+                    // Preserve the existing metadata behavior for links/provider-managed files.
+                    // Ordinary files use the metadata already returned by enumeration.
+                    DiffStamp stamp = (entry.Attributes & FileAttributes.ReparsePoint) != 0
+                        ? DiffStamp.Read(path)
+                        : new DiffStamp { Size = entry.Size, ModifiedUtc = entry.ModifiedUtc };
                     if (stamp != null) files[relative] = stamp;
                     seen++;
                     if (progress != null && stage != null && ((seen & 15) == 0))
@@ -205,45 +196,10 @@ namespace DesktopIniManager.Services
             return files;
         }
 
-        private static int CountFiles(string root, CancellationToken token, IProgress<DiffProgress> progress, string stage)
-        {
-            if (!Directory.Exists(root)) return 0;
-            var pending = new Stack<string>();
-            pending.Push(root.TrimEnd('\\'));
-            int count = 0;
-            while (pending.Count > 0)
-            {
-                token.ThrowIfCancellationRequested();
-                string directory = pending.Pop();
-                try
-                {
-                    foreach (string childDirectory in Directory.EnumerateDirectories(directory))
-                    {
-                        token.ThrowIfCancellationRequested();
-                        string relative = RelativeFromRoot(root, childDirectory);
-                        if (Protected(relative)) continue;
-                        pending.Push(childDirectory);
-                    }
-                    foreach (string file in Directory.EnumerateFiles(directory))
-                    {
-                        token.ThrowIfCancellationRequested();
-                        string relative = RelativeFromRoot(root, file);
-                        if (Protected(relative)) continue;
-                        count++;
-                        if (progress != null && (count & 63) == 0)
-                            progress.Report(new DiffProgress { Stage = stage + "  " + count.ToString("N0") + " files", Completed = 0, Total = 0 });
-                    }
-                }
-                catch (IOException) { }
-                catch (UnauthorizedAccessException) { }
-            }
-            if (progress != null)
-                progress.Report(new DiffProgress { Stage = stage + "  " + count.ToString("N0") + " files", Completed = 0, Total = 0 });
-            return count;
-        }
-
         private static DiffProgress ReportCompare(string stage, int completed, int total)
         {
+            if (total <= 0)
+                return new DiffProgress { Stage = stage + "  " + completed.ToString("N0") + " files", Completed = completed, Total = 0 };
             return new DiffProgress
             {
                 Stage = stage + "  " + completed.ToString("N0") + " / " + Math.Max(1, total).ToString("N0"),
@@ -283,11 +239,8 @@ namespace DesktopIniManager.Services
             source = Root(source); target = Root(target); ValidateRoots(source, target);
             var result = new DiffSnapshot { SourceRoot = source, TargetRoot = target, CompareTimestamp = compareTimestamp };
 
-            progress?.Report(new DiffProgress { Stage = "Counting source files…", Completed = 0, Total = 0 });
-            int sourceCount = CountFiles(source, token, progress, "Counting source files…");
-            progress?.Report(new DiffProgress { Stage = "Counting target files…", Completed = 0, Total = 0 });
-            int targetCount = CountFiles(target, token, progress, "Counting target files…");
-            int total = Math.Max(1, sourceCount + targetCount);
+            // Scan each side once; the total becomes known after collecting its metadata.
+            int total = 0;
 
             progress?.Report(ReportCompare("Comparing source…", 0, total));
             var sourceFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "" };
@@ -298,6 +251,7 @@ namespace DesktopIniManager.Services
             Dictionary<string, DiffStamp> right = ScanSelectedFolder(target, string.Empty, targetFolders, token, progress, "Comparing target…", left.Count, total);
             result.Folders = new HashSet<string>(sourceFolders.Union(targetFolders, StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase);
 
+            total = Math.Max(1, left.Count + right.Count);
             progress?.Report(ReportCompare("Classifying differences…", total, total));
             result.Files = Classify(left, right, true, compareTimestamp, token, progress, total);
             return result;

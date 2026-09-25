@@ -10,8 +10,8 @@ icons, and prepares the selected icon-library preview in the background.
 The prepared data is handed to the main window without reading it again.
 The four progress steps represent preparation and workspace construction;
 they are not estimates of elapsed time. No artificial delay is added. The
-splash closes after the main window has rendered. In v3.0.0 DIR, a saved,
-accessible search root is acquired again through DIR while the splash is
+splash closes after the main window has rendered. A saved,
+accessible search root is acquired again through native directory enumeration while the splash is
 displayed. Acquisition and solution-parsing status are forwarded to the splash.
 
 Run the regression harness with `--startup <absolute-path-to-App.xaml>` to

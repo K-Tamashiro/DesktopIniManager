@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Windows.Media;
@@ -16,6 +16,9 @@ namespace DesktopIniManager.Models
         private bool _isFilterHidden;
         private string _reason;
         public FolderMatch Parent { get; set; }
+        public bool IsLazyLoaded { get; set; }
+        public bool IsLazyLoading { get; set; }
+        public bool IsLazyPlaceholder { get; set; }
         public bool IsSelected { get => _isSelected; set { SetSelected(value); } }
 
         /// <summary>Sets this folder's selection without changing any parent or child selection.</summary>

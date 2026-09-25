@@ -21,8 +21,57 @@ namespace DesktopIniManager.ViewModels
         {
             if (string.IsNullOrWhiteSpace(RootPath) || !Directory.Exists(RootPath.Trim()))
                 return Task.CompletedTask;
+
+            string root = RootPath.Trim();
+            if (IsNetworkPath(root))
+                return PrepareLazyNetworkTreeAtStartupAsync(root);
+
             _pendingSearchQuery = ".git";
             return SearchAsync(quietMissingRoot: true);
+        }
+
+        private async Task PrepareLazyNetworkTreeAtStartupAsync(string root)
+        {
+            _searchCts?.Cancel();
+            var searchCts = new CancellationTokenSource();
+            _searchCts = searchCts;
+            SaveFolderTrees();
+            _rebuildingFolderTrees = true;
+            _results.Clear();
+            _treeRoots.Clear();
+            _solutionRoots.Clear();
+            _searchRoots.Clear();
+            _searchResultCount = 0;
+            ShowTreeView(0);
+            SetSearching(true);
+            try
+            {
+                await BuildLazyNetworkTreeAsync(root, searchCts.Token, intoSearch: false);
+                _pathIndex = null;
+                _folderTreeRoot = root;
+                _physicalCurrent = _solutionCurrent = null;
+                _rebuildingFolderTrees = false;
+                ShowTreeView(0);
+            }
+            catch (OperationCanceledException)
+            {
+                Status = Strings.Main_SearchCancelled;
+            }
+            catch (Exception ex)
+            {
+                _dialogs.Show(ErrorMessages.English(ex), Strings.App_Title);
+                Status = Strings.Main_SearchFailed;
+            }
+            finally
+            {
+                _rebuildingFolderTrees = false;
+                if (ReferenceEquals(_searchCts, searchCts))
+                {
+                    _searchCts = null;
+                    SetSearching(false);
+                }
+                searchCts.Dispose();
+            }
         }
 
         internal Task SearchAsync() => SearchAsync(false);
@@ -54,6 +103,15 @@ namespace DesktopIniManager.ViewModels
                     _dialogs.Show(Strings.Main_LocationMissing, Strings.App_Title);
                 return;
             }
+
+            // NAS Git analysis must use the same lazy tree path as startup.
+            // Do not fall through to the recursive full VolumePathIndex scan.
+            if (gitSearchRequested && IsNetworkPath(root))
+            {
+                await PrepareLazyNetworkTreeAtStartupAsync(root);
+                return;
+            }
+
             _searchCts?.Cancel();
             var searchCts = new CancellationTokenSource();
             _searchCts = searchCts;
@@ -79,10 +137,18 @@ namespace DesktopIniManager.ViewModels
                 System.Collections.Generic.List<FolderMatch> solutionRoots = new List<FolderMatch>();
                 if (folderListMode)
                 {
-                    StandardSearchResult standard = await RunStandardIndexedSearch(root, string.Empty, searchCts.Token);
-                    await AddTreeResultsAsync(standard.Matches, searchCts.Token, searchOnly);
-                    _pathIndex = standard.Paths;
-                    RefreshTreeItemsSource();
+                    if (IsNetworkPath(root))
+                    {
+                        await BuildLazyNetworkTreeAsync(root, searchCts.Token, searchOnly);
+                        _pathIndex = null;
+                    }
+                    else
+                    {
+                        StandardSearchResult standard = await RunStandardIndexedSearch(root, string.Empty, searchCts.Token);
+                        await AddTreeResultsAsync(standard.Matches, searchCts.Token, searchOnly);
+                        _pathIndex = standard.Paths;
+                        RefreshTreeItemsSource();
+                    }
                 }
                 else
                 {
@@ -121,6 +187,177 @@ namespace DesktopIniManager.ViewModels
                 _statusEpoch++;
                 if (ReferenceEquals(_searchCts, searchCts)) { _searchCts = null; SetSearching(false); }
                 searchCts.Dispose();
+            }
+        }
+
+        internal bool IsLazyNetworkTreeActive
+        {
+            get
+            {
+                IEnumerable<FolderMatch> roots = _treeView == 0
+                    ? _treeRoots
+                    : _treeView == 2 ? _searchRoots : Enumerable.Empty<FolderMatch>();
+                return roots.Any(item => item.IsLazyLoaded || item.Children.Any(child => child.IsLazyPlaceholder));
+            }
+        }
+
+        internal async Task LoadLazyNetworkChildrenAsync(FolderMatch folder)
+        {
+            if (folder == null || folder.IsLazyPlaceholder || folder.IsLazyLoaded || folder.IsLazyLoading)
+                return;
+
+            folder.IsLazyLoading = true;
+            try
+            {
+                CancellationToken token = _searchCts?.Token ?? CancellationToken.None;
+                List<FolderMatch> children = await Task.Run(
+                    () => EnumerateLazyFolders(folder.Path, folder, token), token);
+
+                folder.Children.Clear();
+                foreach (FolderMatch child in children)
+                    folder.Children.Add(child);
+                folder.IsLazyLoaded = true;
+
+                if (_treeView == 0)
+                {
+                    foreach (FolderMatch child in children)
+                        if (!_results.Contains(child))
+                            _results.Add(child);
+                    CountLabel = string.Format(Strings.Main_NFolders, _results.Count);
+                }
+                else if (_treeView == 2)
+                {
+                    _searchResultCount += children.Count;
+                    CountLabel = string.Format(Strings.Main_NFolders, _searchResultCount);
+                }
+            }
+            finally
+            {
+                folder.IsLazyLoading = false;
+            }
+        }
+
+        private async Task BuildLazyNetworkTreeAsync(string root, CancellationToken token, bool intoSearch)
+        {
+            ImageSource defaultFolderIcon = FolderIconService.GetDefaultFolderIcon();
+            var rootNode = new FolderMatch
+            {
+                Path = root,
+                DisplayName = GetLazyRootName(root),
+                Reason = "Folder",
+                IconPreview = defaultFolderIcon,
+                IsExpanded = true
+            };
+
+            List<FolderMatch> children = await Task.Run(
+                () => EnumerateLazyFolders(root, rootNode, token, defaultFolderIcon), token);
+
+            foreach (FolderMatch child in children)
+                rootNode.Children.Add(child);
+            rootNode.IsLazyLoaded = true;
+
+            if (intoSearch)
+            {
+                _searchRoots.Clear();
+                _searchRoots.Add(rootNode);
+                _searchResultCount = 1 + children.Count;
+                RefreshTreeItemsSource();
+                CountLabel = string.Format(Strings.Main_NFolders, _searchResultCount);
+            }
+            else
+            {
+                _results.Clear();
+                _results.Add(rootNode);
+                foreach (FolderMatch child in children)
+                    _results.Add(child);
+                _treeRoots.Clear();
+                _treeRoots.Add(rootNode);
+                RefreshTreeItemsSource();
+                CountLabel = string.Format(Strings.Main_NFolders, _results.Count);
+            }
+        }
+
+        private static List<FolderMatch> EnumerateLazyFolders(
+            string folder,
+            FolderMatch parent,
+            CancellationToken token,
+            ImageSource defaultFolderIcon = null)
+        {
+            defaultFolderIcon ??= FolderIconService.GetDefaultFolderIcon();
+            var result = new List<FolderMatch>();
+
+            foreach (VolumePathIndex.NativeDirectoryEntry entry in VolumePathIndex.EnumerateNativeDirectory(folder, token))
+            {
+                token.ThrowIfCancellationRequested();
+                if ((entry.Attributes & FileAttributes.Directory) == 0)
+                    continue;
+                if ((entry.Attributes & FileAttributes.Hidden) != 0)
+                    continue;
+                if (IsDroppedTreeFolder(entry.Name))
+                    continue;
+
+                string path = Path.Combine(folder, entry.Name);
+                var child = new FolderMatch
+                {
+                    Path = path,
+                    DisplayName = entry.Name,
+                    Reason = "Folder",
+                    Parent = parent,
+                    IconPreview = defaultFolderIcon,
+                    IsExpanded = false
+                };
+
+                // The placeholder gives WPF an expander without touching the child directory.
+                if ((entry.Attributes & FileAttributes.ReparsePoint) == 0)
+                {
+                    child.Children.Add(new FolderMatch
+                    {
+                        Parent = child,
+                        Path = path,
+                        DisplayName = string.Empty,
+                        IsActionable = false,
+                        IsHidden = true,
+                        IsLazyPlaceholder = true,
+                        IsLazyLoaded = true
+                    });
+                }
+                else
+                {
+                    child.IsLazyLoaded = true;
+                }
+
+                result.Add(child);
+            }
+
+            result.Sort((left, right) =>
+            {
+                int name = StringComparer.CurrentCultureIgnoreCase.Compare(left.Name, right.Name);
+                return name != 0 ? name : StringComparer.CurrentCultureIgnoreCase.Compare(left.Path, right.Path);
+            });
+            return result;
+        }
+
+        private static string GetLazyRootName(string root)
+        {
+            string normalized = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string name = Path.GetFileName(normalized);
+            return string.IsNullOrEmpty(name) ? root : name;
+        }
+
+        private static bool IsNetworkPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return false;
+            if (path.StartsWith(@"\\", StringComparison.Ordinal))
+                return true;
+            try
+            {
+                string root = Path.GetPathRoot(Path.GetFullPath(path));
+                return !string.IsNullOrEmpty(root) && new DriveInfo(root).DriveType == DriveType.Network;
+            }
+            catch
+            {
+                return false;
             }
         }
 

@@ -99,6 +99,8 @@ namespace DesktopIniManager.Services
         public bool CompareTimestamp = true;
         public List<DiffFile> Files = new List<DiffFile>();
         public HashSet<string> Folders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "" };
+        public HashSet<string> SourceFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "" };
+        public HashSet<string> TargetFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "" };
     }
 
     /// <summary>Compares and synchronizes two development directory trees.</summary>
@@ -249,12 +251,56 @@ namespace DesktopIniManager.Services
 
             progress?.Report(ReportCompare("Comparing target…", left.Count, total));
             Dictionary<string, DiffStamp> right = ScanSelectedFolder(target, string.Empty, targetFolders, token, progress, "Comparing target…", left.Count, total);
+            result.SourceFolders = sourceFolders;
+            result.TargetFolders = targetFolders;
             result.Folders = new HashSet<string>(sourceFolders.Union(targetFolders, StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase);
 
             total = Math.Max(1, left.Count + right.Count);
             progress?.Report(ReportCompare("Classifying differences…", total, total));
             result.Files = Classify(left, right, true, compareTimestamp, token, progress, total);
             return result;
+        }
+
+        /// <summary>Compares only the requested folder and its immediate child folders.</summary>
+        public static DiffSnapshot CompareFolderLevel(string source, string target, string relativeFolder, bool compareTimestamp = true, CancellationToken token = default(CancellationToken))
+        {
+            token.ThrowIfCancellationRequested();
+            source = Root(source); target = Root(target); ValidateRoots(source, target);
+            relativeFolder = (relativeFolder ?? string.Empty).Trim('\\', '/');
+
+            var result = new DiffSnapshot { SourceRoot = source, TargetRoot = target, CompareTimestamp = compareTimestamp };
+            var left = new Dictionary<string, DiffStamp>(StringComparer.OrdinalIgnoreCase);
+            var right = new Dictionary<string, DiffStamp>(StringComparer.OrdinalIgnoreCase);
+            ScanFolderLevel(source, relativeFolder, result.SourceFolders, left, token);
+            ScanFolderLevel(target, relativeFolder, result.TargetFolders, right, token);
+            result.Folders = new HashSet<string>(result.SourceFolders.Union(result.TargetFolders, StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase);
+            result.Files = Classify(left, right, true, compareTimestamp, token);
+            return result;
+        }
+
+        private static void ScanFolderLevel(string root, string relativeFolder, HashSet<string> folders, Dictionary<string, DiffStamp> files, CancellationToken token)
+        {
+            string directory = relativeFolder.Length == 0 ? root : SafeFolderPath(root, relativeFolder);
+            if (!Directory.Exists(directory)) return;
+            folders.Add(relativeFolder);
+
+            foreach (var entry in VolumePathIndex.EnumerateNativeDirectory(directory, token))
+            {
+                token.ThrowIfCancellationRequested();
+                string path = Path.Combine(directory, entry.Name);
+                string relative = RelativeFromRoot(root, path);
+                if (Protected(relative)) continue;
+                if ((entry.Attributes & FileAttributes.Directory) != 0)
+                {
+                    folders.Add(relative);
+                    continue;
+                }
+
+                DiffStamp stamp = (entry.Attributes & FileAttributes.ReparsePoint) != 0
+                    ? DiffStamp.Read(path)
+                    : new DiffStamp { Size = entry.Size, ModifiedUtc = entry.ModifiedUtc };
+                if (stamp != null) files[relative] = stamp;
+            }
         }
 
         internal static List<DiffFile> Classify(Dictionary<string, DiffStamp> left, Dictionary<string, DiffStamp> right, bool includeSame = false, bool compareTimestamp = true, CancellationToken token = default(CancellationToken), IProgress<DiffProgress> progress = null, int offset = 0)

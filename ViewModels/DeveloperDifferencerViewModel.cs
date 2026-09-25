@@ -65,16 +65,6 @@ namespace DesktopIniManager.ViewModels
         {
             if (syncingTreeFromFile) return;
             selectedFolder = path ?? "";
-
-            // A folder change starts a new Same-selection operation.
-            // Reset the toggle state without applying OFF to any files so that
-            // the first click in the newly selected folder always means ON.
-            if (_selectAllFiles)
-            {
-                _selectAllFiles = false;
-                OnPropertyChanged(nameof(SelectAllFiles));
-            }
-
             Filter();
         }
         private string _sourcePath = string.Empty;
@@ -508,36 +498,24 @@ namespace DesktopIniManager.ViewModels
         {
             if (IsBusy || snapshot == null) return;
 
-            // ZIP-side ON/OFF is dedicated to Same items. Difference selections are
-            // controlled only by the existing tree/file check boxes and remain untouched.
-            // While Same is visible, only the Same files in the current file list are
-            // changed; Same selections made in other folders are preserved.
-            // When the Same filter is OFF (Same is hidden), the button acts as a cleanup
-            // operation and clears hidden Same selections so they cannot remain implicit
-            // sync/ZIP targets.
-            var visibleSameFiles = new HashSet<DiffFile>(
+            // The ON/OFF button applies the requested state only to files currently
+            // shown in the file list. Any selected file that is currently hidden
+            // (category filter or another tree selection) is cleared at the same time.
+            // This prevents a hidden selection from remaining an implicit sync/ZIP target.
+            var visibleFiles = new HashSet<DiffFile>(
                 (FileItems ?? Enumerable.Empty<DiffRow>())
                     .Select(row => row.File)
-                    .Where(file => file != null && file.Kind == DiffKind.Same));
-            bool sameVisible = ShowSame == true;
+                    .Where(file => file != null));
 
             bulk = true;
             try
             {
                 foreach (DiffFile file in snapshot.Files)
                 {
-                    if (file.Kind != DiffKind.Same)
-                        continue;
-
-                    if (sameVisible)
-                    {
-                        if (visibleSameFiles.Contains(file))
-                            file.Selected = value;
-                    }
+                    if (visibleFiles.Contains(file))
+                        file.Selected = value;
                     else if (file.Selected)
-                    {
                         file.Selected = false;
-                    }
                 }
             }
             finally

@@ -27,7 +27,7 @@ namespace DesktopIniManager.ViewModels
 
         private static ImageSource[] Load()
         {
-            var result = new ImageSource[94];
+            var result = new ImageSource[90];
             try
             {
                 string baseDir = AppDomain.CurrentDomain.BaseDirectory;
@@ -95,14 +95,13 @@ namespace DesktopIniManager.ViewModels
         public bool FolderSelected
         {
             get => folderSelected;
-            set => SetFolderSelected(value, true);
-        }
-        internal void SetFolderSelected(bool value, bool notify)
-        {
-            value = value && FolderCanSync;
-            if (folderSelected == value) return;
-            folderSelected = value;
-            if (notify) NotifyCheckedUpward();
+            set
+            {
+                value = value && FolderCanSync;
+                if (folderSelected == value) return;
+                folderSelected = value;
+                NotifyCheckedUpward();
+            }
         }
         private void NotifyCheckedUpward()
         {
@@ -218,6 +217,15 @@ namespace DesktopIniManager.ViewModels
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("CanSelect"));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("IconPreview"));
         }
+        public void SetFolderSelected(bool value, bool notify = true)
+        {
+            value = value && FolderCanSync;
+            if (folderSelected == value) return;
+            folderSelected = value;
+            if (notify)
+                NotifyCheckedUpward();
+        }
+
         public void RefreshSelectionCounts()
         {
             Array.Clear(selectedCounts, 0, selectedCounts.Length);
@@ -225,13 +233,14 @@ namespace DesktopIniManager.ViewModels
 
             foreach (DiffFile file in Files)
             {
-                if (!file.Selected) continue;
-                SelectedCount++;
+                if (file.Selected)
+                    SelectedCount++;
 
                 if (IncludeFile != null && !IncludeFile(file))
                     continue;
 
-                selectedCounts[(int)file.Kind]++;
+                if (file.Selected)
+                    selectedCounts[(int)file.Kind]++;
             }
 
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Checked)));

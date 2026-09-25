@@ -60,6 +60,7 @@ namespace DesktopIniManager.Views
         {
             _window.FolderFilterBox.TextChanged += FolderFilter_TextChanged;
             _window.ResultsTree.SelectedItemChanged += ResultsTree_SelectedItemChanged;
+            _window.ResultsTree.AddHandler(TreeViewItem.ExpandedEvent, new RoutedEventHandler(ResultsTree_ItemExpanded), true);
             _window.ResultsTree.PreviewMouseRightButtonDown += ResultsTree_PreviewMouseRightButtonDown;
             _window.ResultsTree.AddHandler(FrameworkElement.ContextMenuOpeningEvent, new ContextMenuEventHandler(ResultsTree_ContextMenuOpening), true);
             ContextMenu treeMenu = _window.Resources["FolderTreeContextMenu"] as ContextMenu;
@@ -1357,6 +1358,27 @@ namespace DesktopIniManager.Views
                 current = Path.GetDirectoryName(current);
             }
             return null;
+        }
+
+        private async void ResultsTree_ItemExpanded(object sender, RoutedEventArgs e)
+        {
+            if (!ViewModel.IsLazyNetworkTreeActive)
+                return;
+
+            TreeViewItem item = e.OriginalSource as TreeViewItem;
+            FolderMatch folder = item?.DataContext as FolderMatch;
+            if (folder == null || folder.IsLazyPlaceholder || folder.IsLazyLoaded || folder.IsLazyLoading)
+                return;
+
+            try
+            {
+                await ViewModel.LoadLazyNetworkChildrenAsync(folder);
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                ViewModel.ShowError(Strings.App_Unhandled, ex);
+            }
         }
 
         private async void ResultsTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)

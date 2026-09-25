@@ -1,4 +1,4 @@
-# DesktopIniManager v3.3.2 --- DIR edition
+# DesktopIniManager v3.4.0 --- FFFE edition
 
 ![DesktopIniManager DIR edition](docs/images/app-overview-dark.png)
 
@@ -7,22 +7,22 @@ folders, browsing Visual Studio solutions, searching source code,
 comparing working trees, and applying custom folder icons through
 `desktop.ini`.
 
-**v3.3.2 extends Developer Differencer with path-preserving ZIP export
-and optional selection of identical (Same) files, while keeping the
-existing difference-selection workflow unchanged.** Workspace
-acquisition now uses `FindFirstFileExW` / `FindNextFileW` to build a reusable
-path index. Grep and folder comparison use the same native directory enumeration.
-This edition does not read the NTFS MFT and does not require elevation
-just to enumerate folders.
+**v3.4.0 focuses on high-speed workspace acquisition using native Windows
+directory enumeration (`FindFirstFileExW` / `FindNextFileW`, FFFE).** The
+Physical tree, Solution analysis, search-related acquisition, and Developer
+Differencer share the optimized enumeration path where appropriate. Network
+locations use lazy Physical-tree expansion to avoid an unnecessary full recursive
+scan at startup. This edition does not read the NTFS MFT and does not require
+elevation just to enumerate folders.
 
 ## Download and requirements
 
-Release package: **DesktopIniManager-v3.3.2-DIR-win-x64.zip**
+Release package: **DesktopIniManager-v3.4.0-FFFE-win-x64.zip**
 
 Download the asset from [GitHub
 Releases](https://github.com/K-Tamashiro/DesktopIniManager/releases)
-when v3.3.0 is published. A locally generated package is placed in
-`release/`. See the [v3.3.2 release notes](docs/releases/v3.3.2-DIR.md).
+for v3.4.0. A locally generated package is placed in
+`release/`. See the [v3.4.0 release notes](docs/releases/v3.4.0-FFFE.md).
 
 -   Windows 10 or Windows 11, x64.
 -   .NET 10 Desktop Runtime (x64) must be installed separately.
@@ -43,38 +43,34 @@ connectivity, permissions, and availability of file contents. They are
 not covered by a blanket compatibility guarantee. Make cloud files
 available locally before reading or synchronizing them.
 
-## What's new in v3.3.2
+## What's new in v3.4.0
 
--   Export the currently selected Developer Differencer files to ZIP
-    from either **Source** or **Target**, preserving each file's
-    relative path from the comparison root.
--   Create ZIP files directly from the selected comparison set; no
-    temporary directory tree is required.
--   Use a timestamped default ZIP file name in the form
-    `xxxxx_yyyyMMdd_HHmmss.zip`, while allowing the destination folder
-    and file name to be changed before execution.
--   Add a dedicated **Same ON/OFF** operation beside the ZIP controls.
-    It acts only on identical files and does not alter the existing
-    selection state of **Different / Source only / Target only** files.
--   Keep the conventional tree and folder check behavior for files with
-    differences. Same files remain excluded from ordinary tree-based
+-   Optimize folder acquisition around native Windows FFFE enumeration
+    (`FindFirstFileExW` / `FindNextFileW`) and reuse the acquired path data.
+-   Greatly reduce Physical-tree startup time for large development trees.
+-   Improve Solution analysis so project reconstruction can reuse the acquired
+    folder information instead of repeating unnecessary filesystem work.
+-   Improve Developer Differencer scanning by using the native enumeration
+    metadata directly and scanning Source and Target once each.
+-   On network locations, build the initial Physical tree lazily and enumerate
+    child folders when they are expanded, avoiding a full recursive NAS scan at
+    startup.
+-   Keep feature-specific exclusions local to each feature; `obj` and `bin`
+    remain available to comparison when enabled.
+-   Retain the v3.3.2 path-preserving ZIP export and Same ON/OFF selection
+    workflow.
+-   NAS Developer Differencer performance remains dependent on network and SMB
+    traversal cost because a complete comparison still requires walking both
+    trees.
+
+### Retained improvements from v3.4.0
+
+-   Export selected Developer Differencer files to ZIP from Source or Target
+    while preserving relative paths.
+-   Create ZIP files directly without constructing a temporary directory tree.
+-   Include explicitly selected Same files in ZIP export and synchronization.
+-   Accumulate Same selections by folder without disturbing ordinary difference
     selection.
--   Allow selected Same files to participate in both ZIP export and
-    normal synchronization. When synchronized, an explicitly selected
-    Same file is overwritten in the selected Source/Target direction.
--   Support accumulating Same selections by folder: selecting another
-    folder and turning Same ON adds that folder's displayed Same files
-    without clearing Same files selected in previously visited folders.
--   Reset the Same ON/OFF control for each folder selection so the first
-    operation in a newly selected folder is ON.
--   Preserve selected Same files while the Same category is visible,
-    even when those files are outside the currently selected folder. If
-    the Same category is filtered out, operating the Same ON/OFF control
-    clears hidden Same selections.
--   Keep folder check state independent from the Same ON/OFF file
-    operation.
--   Hide zero-folder information from ZIP/synchronization confirmation
-    when no folder operation is involved.
 
 ### Retained improvements from v3.3.0
 
@@ -315,7 +311,7 @@ To package an already-built Release directory without rebuilding:
 pwsh -File scripts/Build-Release.ps1 -PrebuiltDirectory bin/Release/net10.0-windows/win-x64
 ```
 
-The prebuilt directory must contain the v3.3.2 binaries and current
+The prebuilt directory must contain the v3.4.0 binaries and current
 README, documentation, assets, and language files. Debug symbols are
 omitted from the ZIP.
 
@@ -325,8 +321,8 @@ exact file layout, and writes:
 
 ``` text
 release/
-  DesktopIniManager-v3.3.2-DIR-win-x64.zip
-  DesktopIniManager-v3.3.2-DIR-win-x64.zip.sha256
+  DesktopIniManager-v3.4.0-FFFE-win-x64.zip
+  DesktopIniManager-v3.4.0-FFFE-win-x64.zip.sha256
 ```
 
 The ZIP contains the application at its root:
@@ -360,6 +356,6 @@ dotnet run --project Tests/DesktopIniManager.DifferencerTests.csproj -c Release 
 ```
 
 The older [SMVVM progress memo](docs/smvvm-progress.md) is historical.
-The screenshots illustrate the DIR edition and may not show every v3.3.2
+The screenshots illustrate the DIR edition and may not show every v3.4.0
 control. See the release notes for this version's changes and validation
 status.

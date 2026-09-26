@@ -79,6 +79,8 @@ namespace DesktopIniManager.Views
             _window.FileIconList.MouseDoubleClick += FileList_MouseDoubleClick;
             InitializeFileContextMenu(_window.FileIconList);
             _window.FileIconList.ContextMenuOpening += FileList_ContextMenuOpening;
+            _window.QueryBox.TextChanged += QueryBox_TextChanged;
+            _window.TreeTabs.SelectionChanged += TreeTabs_SelectionChanged;
             _window.LanguageBox.SelectionChanged += LanguageBox_SelectionChanged;
             _window.RunScriptButton.Click += (sender, args) => RunScriptCommand();
             _window.BrowseScriptButton.Click += (sender, args) => BrowseScriptCommand();
@@ -186,6 +188,7 @@ namespace DesktopIniManager.Views
         private readonly System.Windows.Threading.DispatcherTimer _filterTimer;
         private bool _largeFileIcons;
         private bool _syncingTreeFromFile;
+        private bool _searchModeActive;
 
         internal MainWindowPresentationService(MainWindow window, StartupState startup)
         {
@@ -199,6 +202,7 @@ namespace DesktopIniManager.Views
             ConnectView();
             ViewModel.SearchHistoryRequested += () => { RootBox.CommitHistory(); QueryBox.CommitHistory(); IconPathBox.CommitHistory(); ScriptBox.CommitHistory(); };
             ViewModel.SearchRootSelectionRequested += SelectSearchRootForFileList;
+            ViewModel.SearchModeRequested += EnterSearchMode;
             ViewModel.FileScrollRequested += item =>
             {
                 if (item == null) return;
@@ -207,13 +211,24 @@ namespace DesktopIniManager.Views
                 {
                     FileList.SelectedItem = item;
                     FileIconList.SelectedItem = item;
-                    FileList.ScrollIntoView(item);
-                    FileIconList.ScrollIntoView(item);
                 }
                 finally
                 {
                     _syncingTreeFromFile = false;
                 }
+
+                // Search-hit navigation selects the file programmatically, so SelectionChanged
+                // is suppressed above. Reveal the owning folder explicitly after the file selection.
+                if (ViewModel.TreeViewIndex == 0 || ViewModel.TreeViewIndex == 2)
+                    RevealFolderInCurrentTree(item.Path);
+
+                // Selection can be outside the current viewport. Scroll after the tree reveal/layout
+                // so the selected search hit is always visible to the user.
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    FileList.ScrollIntoView(item);
+                    FileIconList.ScrollIntoView(item);
+                }), DispatcherPriority.Loaded);
             };
             ViewModel.OpenGrepRequested += OpenGrep;
             ViewModel.PropertyChanged += (sender, args) => { if (args.PropertyName == nameof(ViewModel.IsSearching)) SetSearching(ViewModel.IsSearching); };
@@ -1079,6 +1094,35 @@ namespace DesktopIniManager.Views
 
         // --- MainWindowPresentationService.Tree.cs ---
 
+        private void EnterSearchMode()
+        {
+            _searchModeActive = true;
+            _window.SearchTreeTab.IsEnabled = true;
+            _window.PhysicalTreeTab.IsEnabled = false;
+            _window.SolutionTreeTab.IsEnabled = false;
+        }
+
+        private void QueryBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (!_searchModeActive || !string.IsNullOrWhiteSpace(QueryBox.Text)) return;
+
+            ViewModel.ClearSearchSession();
+            _window.SearchTreeTab.IsEnabled = true;
+            _window.PhysicalTreeTab.IsEnabled = true;
+            _window.SolutionTreeTab.IsEnabled = true;
+        }
+
+        private void TreeTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!_searchModeActive || !string.IsNullOrWhiteSpace(QueryBox.Text)) return;
+            if (_window.TreeTabs.SelectedIndex != 0 && _window.TreeTabs.SelectedIndex != 1) return;
+
+            _searchModeActive = false;
+            _window.SearchTreeTab.IsEnabled = false;
+            _window.PhysicalTreeTab.IsEnabled = true;
+            _window.SolutionTreeTab.IsEnabled = true;
+        }
+
         private void SelectSearchRootForFileList()
         {
             FolderMatch root = ViewModel.SearchTabRoot;
@@ -1395,6 +1439,9 @@ namespace DesktopIniManager.Views
             FileListItem file = (sender as System.Windows.Controls.Primitives.Selector)?.SelectedItem as FileListItem;
             if (file == null) return;
             ViewModel.NoteSelectedSearchMatch(file);
+
+            // File-to-folder tracking belongs to the Search tree only.
+            // Physical / Solution keep their own selection and expansion state.
             if (ViewModel.TreeViewIndex != 0 && ViewModel.TreeViewIndex != 2) return;
             RevealFolderInCurrentTree(file.Path);
         }

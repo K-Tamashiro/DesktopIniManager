@@ -1,4 +1,4 @@
-# DesktopIniManager v3.4.1 --- FFFE edition
+# DesktopIniManager v3.4.2 --- FFFE edition
 
 ![DesktopIniManager DIR edition](docs/images/app-overview-dark.png)
 
@@ -7,7 +7,7 @@ folders, browsing Visual Studio solutions, searching source code,
 comparing working trees, and applying custom folder icons through
 `desktop.ini`.
 
-**v3.4.1 is a maintenance release based on v3.4.0, fixing the Developer Differencer Same selection regression.**
+**v3.4.2 is a maintenance release that corrects the packaged application version and refines Search / Physical / Solution tab state transitions and search-result navigation.**
 
 **v3.4.0 introduced high-speed workspace acquisition using native Windows
 directory enumeration (`FindFirstFileExW` / `FindNextFileW`, FFFE).** The
@@ -19,12 +19,12 @@ elevation just to enumerate folders.
 
 ## Download and requirements
 
-Release package: **DesktopIniManager-v3.4.1-FFFE-win-x64.zip**
+Release package: **DesktopIniManager-v3.4.2-FFFE-win-x64.zip**
 
 Download the asset from [GitHub
 Releases](https://github.com/K-Tamashiro/DesktopIniManager/releases)
-for v3.4.1. A locally generated package is placed in
-`release/`. See the [v3.4.1 release notes](docs/releases/v3.4.1-FFFE.md).
+for v3.4.2. A locally generated package is placed in
+`release/`. See the [v3.4.2 release notes](docs/releases/v3.4.2-FFFE.md).
 
 -   Windows 10 or Windows 11, x64.
 -   .NET 10 Desktop Runtime (x64) must be installed separately.
@@ -45,7 +45,18 @@ connectivity, permissions, and availability of file contents. They are
 not covered by a blanket compatibility guarantee. Make cloud files
 available locally before reading or synchronizing them.
 
-## What's new in v3.4.1
+## What's new in v3.4.2
+
+-   Correct the release binary version to v3.4.2.
+-   Separate Search mode from the normal Physical / Solution workflow.
+-   While a search is active, keep Search authoritative and disable Physical / Solution tabs.
+-   Clearing the search keyword clears the Search tree and file list, re-enables all three tabs, and keeps the current Search view until the user chooses another tab.
+-   Selecting Physical or Solution with an empty search keyword returns to normal mode and disables the empty Search tab.
+-   Improve search-hit navigation so the owning folder is selected and off-screen file hits are scrolled into view.
+-   When operating in the Physical tree, selecting a file selects and reveals its owning folder.
+-   Retain the v3.4.1 Developer Differencer Same-selection regression fix.
+
+### Changes introduced in v3.4.1
 
 -   Fix a Developer Differencer regression where Same selections made in
     previously selected folders could be cleared when operating on another folder.
@@ -321,7 +332,7 @@ To package an already-built Release directory without rebuilding:
 pwsh -File scripts/Build-Release.ps1 -PrebuiltDirectory bin/Release/net10.0-windows/win-x64
 ```
 
-The prebuilt directory must contain the v3.4.0 binaries and current
+The prebuilt directory must contain the v3.4.2 binaries and current
 README, documentation, assets, and language files. Debug symbols are
 omitted from the ZIP.
 
@@ -331,8 +342,8 @@ exact file layout, and writes:
 
 ``` text
 release/
-  DesktopIniManager-v3.4.0-FFFE-win-x64.zip
-  DesktopIniManager-v3.4.0-FFFE-win-x64.zip.sha256
+  DesktopIniManager-v3.4.2-FFFE-win-x64.zip
+  DesktopIniManager-v3.4.2-FFFE-win-x64.zip.sha256
 ```
 
 The ZIP contains the application at its root:
@@ -366,6 +377,6 @@ dotnet run --project Tests/DesktopIniManager.DifferencerTests.csproj -c Release 
 ```
 
 The older [SMVVM progress memo](docs/smvvm-progress.md) is historical.
-The screenshots illustrate the DIR edition and may not show every v3.4.0
+The screenshots illustrate the DIR edition and may not show every v3.4.2
 control. See the release notes for this version's changes and validation
 status.

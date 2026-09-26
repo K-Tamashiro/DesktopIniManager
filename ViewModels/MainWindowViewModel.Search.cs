@@ -17,6 +17,22 @@ namespace DesktopIniManager.ViewModels
     {
         private int _statusEpoch;
 
+        internal event Action SearchModeRequested;
+
+        internal void ClearSearchSession()
+        {
+            _searchCts?.Cancel();
+            _searchRoots.Clear();
+            _searchResultCount = 0;
+            _searchCurrent = null;
+            _files.Clear();
+            ClearSearchHits();
+            FileListCountLabel = string.Format(Strings.Main_NItems, 0);
+            FilePanelTitle = Strings.Common_Files;
+            FilePanelPath = null;
+            RefreshTreeItemsSource();
+        }
+
         internal Task PrepareTreesAtStartupAsync()
         {
             if (string.IsNullOrWhiteSpace(RootPath) || !Directory.Exists(RootPath.Trim()))
@@ -103,6 +119,9 @@ namespace DesktopIniManager.ViewModels
                     _dialogs.Show(Strings.Main_LocationMissing, Strings.App_Title);
                 return;
             }
+
+            if (searchOnly)
+                SearchModeRequested?.Invoke();
 
             // NAS Git analysis must use the same lazy tree path as startup.
             // Do not fall through to the recursive full VolumePathIndex scan.

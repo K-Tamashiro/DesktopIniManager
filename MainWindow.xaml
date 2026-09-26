@@ -1,4 +1,4 @@
-<Window
+﻿<Window
   x:Class="DesktopIniManager.MainWindow"
   xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -1255,7 +1255,7 @@
               Margin="0"
               SelectedIndex="{Binding SelectedTreeView, Mode=TwoWay}"
               TabStripPlacement="Bottom">
-                            <TabItem>
+                            <TabItem x:Name="PhysicalTreeTab">
                                 <TabItem.Header>
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock
@@ -1270,7 +1270,7 @@
                                     </StackPanel>
                                 </TabItem.Header>
                             </TabItem>
-                            <TabItem>
+                            <TabItem x:Name="SolutionTreeTab">
                                 <TabItem.Header>
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock
@@ -1285,7 +1285,7 @@
                                     </StackPanel>
                                 </TabItem.Header>
                             </TabItem>
-                            <TabItem>
+                            <TabItem x:Name="SearchTreeTab" IsEnabled="False">
                                 <TabItem.Header>
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock

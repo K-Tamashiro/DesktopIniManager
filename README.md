@@ -1,4 +1,4 @@
-# DesktopIniManager v3.4.0 --- FFFE edition
+# DesktopIniManager v3.4.1 --- FFFE edition
 
 ![DesktopIniManager DIR edition](docs/images/app-overview-dark.png)
 
@@ -7,7 +7,9 @@ folders, browsing Visual Studio solutions, searching source code,
 comparing working trees, and applying custom folder icons through
 `desktop.ini`.
 
-**v3.4.0 focuses on high-speed workspace acquisition using native Windows
+**v3.4.1 is a maintenance release based on v3.4.0, fixing the Developer Differencer Same selection regression.**
+
+**v3.4.0 introduced high-speed workspace acquisition using native Windows
 directory enumeration (`FindFirstFileExW` / `FindNextFileW`, FFFE).** The
 Physical tree, Solution analysis, search-related acquisition, and Developer
 Differencer share the optimized enumeration path where appropriate. Network
@@ -17,12 +19,12 @@ elevation just to enumerate folders.
 
 ## Download and requirements
 
-Release package: **DesktopIniManager-v3.4.0-FFFE-win-x64.zip**
+Release package: **DesktopIniManager-v3.4.1-FFFE-win-x64.zip**
 
 Download the asset from [GitHub
 Releases](https://github.com/K-Tamashiro/DesktopIniManager/releases)
-for v3.4.0. A locally generated package is placed in
-`release/`. See the [v3.4.0 release notes](docs/releases/v3.4.0-FFFE.md).
+for v3.4.1. A locally generated package is placed in
+`release/`. See the [v3.4.1 release notes](docs/releases/v3.4.1-FFFE.md).
 
 -   Windows 10 or Windows 11, x64.
 -   .NET 10 Desktop Runtime (x64) must be installed separately.
@@ -43,7 +45,15 @@ connectivity, permissions, and availability of file contents. They are
 not covered by a blanket compatibility guarantee. Make cloud files
 available locally before reading or synchronizing them.
 
-## What's new in v3.4.0
+## What's new in v3.4.1
+
+-   Fix a Developer Differencer regression where Same selections made in
+    previously selected folders could be cleared when operating on another folder.
+-   Preserve accumulated Same selections across folders while Same is visible.
+-   Keep Same ON/OFF limited to the currently selected folder without disturbing
+    Same selections already made in other folders.
+
+### Changes introduced in v3.4.0
 
 -   Optimize folder acquisition around native Windows FFFE enumeration
     (`FindFirstFileExW` / `FindNextFileW`) and reuse the acquired path data.
@@ -63,7 +73,7 @@ available locally before reading or synchronizing them.
     traversal cost because a complete comparison still requires walking both
     trees.
 
-### Retained improvements from v3.4.0
+### Retained improvements from v3.3.2
 
 -   Export selected Developer Differencer files to ZIP from Source or Target
     while preserving relative paths.

@@ -891,6 +891,7 @@ namespace DesktopIniManager.ViewModels
             token.ThrowIfCancellationRequested();
 
             MarkDirectFileRows(visible);
+            visible = OrderSelectedFolderFirst(visible);
             FileItems = visible;
             FilePanelTitle = "Files — " + (selectedFolder.Length == 0 ? "all levels" : selectedFolder) + " (" + visible.Count + ")";
             UpdateSelectionSummary();
@@ -1022,6 +1023,36 @@ namespace DesktopIniManager.ViewModels
                 row.SetDirectInSelectedFolder(IsDirectChildFile(folder, row.File.RelativePath));
         }
 
+        private static List<DiffRow> OrderSelectedFolderFirst(List<DiffRow> visible)
+        {
+            if (visible == null || visible.Count == 0)
+                return visible ?? new List<DiffRow>();
+
+            var selected = new List<DiffRow>();
+            var nested = new List<DiffRow>();
+            foreach (DiffRow row in visible)
+            {
+                if (row.IsDirectInSelectedFolder) selected.Add(row);
+                else nested.Add(row);
+            }
+
+            selected.Sort(CompareDiffRows);
+            nested.Sort(CompareDiffRows);
+            selected.AddRange(nested);
+            return selected;
+        }
+
+        private static int CompareDiffRows(DiffRow left, DiffRow right)
+        {
+            int name = StringComparer.CurrentCultureIgnoreCase.Compare(
+                left == null ? null : left.File.Name,
+                right == null ? null : right.File.Name);
+            if (name != 0) return name;
+            return StringComparer.CurrentCultureIgnoreCase.Compare(
+                left == null ? null : left.File.RelativePath,
+                right == null ? null : right.File.RelativePath);
+        }
+
         internal string RootLabel()
         { return string.IsNullOrWhiteSpace(treeSource) ? "All folders" : Path.GetFileName(treeSource.TrimEnd('\\', '/')) is string name && name.Length > 0 ? name : treeSource; }
 
@@ -1029,6 +1060,7 @@ namespace DesktopIniManager.ViewModels
         {
             var visible = rows.Where(r => IncludeBuildFolderFile(r.File) && (r.File.Kind & kindMask) != 0 && (selectedFolder.Length == 0 || r.File.RelativePath.StartsWith(selectedFolder + "\\", StringComparison.OrdinalIgnoreCase))).ToList();
             MarkDirectFileRows(visible);
+            visible = OrderSelectedFolderFirst(visible);
             FileItems = visible;
             FilePanelTitle = "Files — " + (selectedFolder.Length == 0 ? "all levels" : selectedFolder) + " (" + visible.Count + ")";
             UpdateRefreshButtonState();

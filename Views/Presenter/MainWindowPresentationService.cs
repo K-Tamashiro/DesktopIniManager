@@ -203,7 +203,7 @@ namespace DesktopIniManager.Views
             ViewModel.SearchHistoryRequested += () => { RootBox.CommitHistory(); QueryBox.CommitHistory(); IconPathBox.CommitHistory(); ScriptBox.CommitHistory(); };
             ViewModel.SearchRootSelectionRequested += SelectSearchRootForFileList;
             ViewModel.SearchModeRequested += EnterSearchMode;
-            ViewModel.FileScrollRequested += item =>
+            ViewModel.FileScrollRequested += (item, revealOwningFolder) =>
             {
                 if (item == null) return;
                 _syncingTreeFromFile = true;
@@ -217,9 +217,9 @@ namespace DesktopIniManager.Views
                     _syncingTreeFromFile = false;
                 }
 
-                // Search-hit navigation selects the file programmatically, so SelectionChanged
-                // is suppressed above. Reveal the owning folder explicitly after the file selection.
-                if (ViewModel.TreeViewIndex == 0 || ViewModel.TreeViewIndex == 2)
+                // Prev/Next hit navigation reveals the owning folder. Folder selection
+                // loads the list without stealing the tree selection.
+                if (revealOwningFolder && (ViewModel.TreeViewIndex == 0 || ViewModel.TreeViewIndex == 2))
                     RevealFolderInCurrentTree(item.Path);
 
                 // Selection can be outside the current viewport. Scroll after the tree reveal/layout

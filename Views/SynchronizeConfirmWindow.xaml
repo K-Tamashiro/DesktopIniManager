@@ -184,9 +184,7 @@
           <ColumnDefinition Width="*" />
           <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
-        <history:HistoryTextBox
-          x:Name="ZipPathBox"
-          HistoryKey="Differencer-ZipPath" />
+        <history:HistoryTextBox x:Name="ZipPathBox" HistoryKey="Differencer-ZipPath" />
         <Button
           x:Name="BrowseZipPathButton"
           Grid.Column="1"

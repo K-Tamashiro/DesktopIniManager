@@ -59,7 +59,7 @@ namespace DesktopIniManager.ViewModels
             NextSearchMatchCommand.NotifyCanExecuteChanged();
         }
 
-        private void SyncSearchMatches(IEnumerable<FileListItem> items, FileListItem preferred)
+        private void SyncSearchMatches(IEnumerable<FileListItem> items, FileListItem preferred, bool revealOwningFolder = false)
         {
             _searchMatches.Clear();
             if (items != null)
@@ -74,7 +74,7 @@ namespace DesktopIniManager.ViewModels
             int index = preferred == null ? 0 : _searchMatches.IndexOf(preferred);
             _searchMatchIndex = index >= 0 ? index + 1 : 1;
             RefreshSearchHitLabel();
-            FileScrollRequested?.Invoke(_searchMatches[_searchMatchIndex - 1]);
+            FileScrollRequested?.Invoke(_searchMatches[_searchMatchIndex - 1], revealOwningFolder);
         }
 
         internal void NoteSelectedSearchMatch(FileListItem file)
@@ -91,7 +91,7 @@ namespace DesktopIniManager.ViewModels
             if (_searchMatches.Count == 0) return;
             _searchMatchIndex = _searchMatchIndex <= 1 ? _searchMatches.Count : _searchMatchIndex - 1;
             RefreshSearchHitLabel();
-            FileScrollRequested?.Invoke(_searchMatches[_searchMatchIndex - 1]);
+            FileScrollRequested?.Invoke(_searchMatches[_searchMatchIndex - 1], true);
         }
 
         private void NextSearchMatch()
@@ -99,7 +99,7 @@ namespace DesktopIniManager.ViewModels
             if (_searchMatches.Count == 0) return;
             _searchMatchIndex = _searchMatchIndex >= _searchMatches.Count ? 1 : _searchMatchIndex + 1;
             RefreshSearchHitLabel();
-            FileScrollRequested?.Invoke(_searchMatches[_searchMatchIndex - 1]);
+            FileScrollRequested?.Invoke(_searchMatches[_searchMatchIndex - 1], true);
         }
 
         internal async Task LoadFilesAsync(FolderMatch folder)
@@ -154,7 +154,7 @@ namespace DesktopIniManager.ViewModels
                 {
                     string[] paths;
                     if (treeView == 2)
-                        paths = CollectSearchFiles(searchFolderPaths, fileListCts.Token);
+                        paths = CollectSearchFiles(searchFolderPaths, folderPath, fileListCts.Token);
                     else if (treeView == 1)
                         paths = CollectImmediateFiles(folderPath, fileListCts.Token);
                     else
@@ -199,7 +199,9 @@ namespace DesktopIniManager.ViewModels
                 else
                     FileListCountLabel = string.Format(Strings.Main_NItems, loaded.Item1.Count);
 
-                SyncSearchMatches(loaded.Item1, loaded.Item1.FirstOrDefault(item => item.IsSearchMatch));
+                FileListItem preferred = loaded.Item1.FirstOrDefault(item => item.IsSearchMatch && item.IsDirectChild)
+                    ?? loaded.Item1.FirstOrDefault(item => item.IsSearchMatch);
+                SyncSearchMatches(loaded.Item1, preferred);
             }
             catch (OperationCanceledException) { }
             finally
@@ -309,6 +311,29 @@ namespace DesktopIniManager.ViewModels
             catch (PathTooLongException) { return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar); }
         }
 
+        private static string[] OrderSelectedFolderFirst(List<string> paths, string selectedFolder)
+        {
+            if (paths == null || paths.Count == 0)
+                return Array.Empty<string>();
+
+            string selectedKey = NormalizeComparePath(selectedFolder);
+            var selected = new List<string>();
+            var nested = new List<string>();
+            foreach (string path in paths)
+            {
+                string parent = NormalizeComparePath(Path.GetDirectoryName(path));
+                if (string.Equals(parent, selectedKey, StringComparison.OrdinalIgnoreCase))
+                    selected.Add(path);
+                else
+                    nested.Add(path);
+            }
+
+            selected.Sort(StringComparer.CurrentCultureIgnoreCase);
+            nested.Sort(StringComparer.CurrentCultureIgnoreCase);
+            selected.AddRange(nested);
+            return selected.ToArray();
+        }
+
         internal static string[] CollectFilesUnder(VolumePathIndex index, string folderPath, CancellationToken token)
         {
             if (index == null || string.IsNullOrEmpty(folderPath))
@@ -343,8 +368,7 @@ namespace DesktopIniManager.ViewModels
                 }
             }
         Done:
-            paths.Sort(StringComparer.CurrentCultureIgnoreCase);
-            return paths.ToArray();
+            return OrderSelectedFolderFirst(paths, folderPath);
         }
 
         internal static string[] CollectFilesOnDisk(string folderPath, bool recursive, CancellationToken token)
@@ -380,26 +404,37 @@ namespace DesktopIniManager.ViewModels
                 catch (IOException) { }
             }
         Done:
+            if (recursive)
+                return OrderSelectedFolderFirst(paths, folderPath);
             paths.Sort(StringComparer.CurrentCultureIgnoreCase);
             return paths.ToArray();
         }
 
-        internal static string[] CollectSearchFiles(List<string> folderPaths, CancellationToken token)
+        internal static string[] CollectSearchFiles(List<string> folderPaths, string selectedFolder, CancellationToken token)
         {
             if (folderPaths == null || folderPaths.Count == 0)
                 return Array.Empty<string>();
 
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var paths = new List<string>();
+            var selected = new List<string>();
+            var nested = new List<string>();
+            string selectedKey = NormalizeComparePath(selectedFolder);
             foreach (string folderPath in folderPaths)
             {
                 token.ThrowIfCancellationRequested();
+                bool direct = string.Equals(NormalizeComparePath(folderPath), selectedKey, StringComparison.OrdinalIgnoreCase);
                 foreach (string file in CollectFilesOnDisk(folderPath, false, token))
-                    if (seen.Add(file)) paths.Add(file);
+                {
+                    if (!seen.Add(file)) continue;
+                    if (direct) selected.Add(file);
+                    else nested.Add(file);
+                }
             }
 
-            paths.Sort(StringComparer.CurrentCultureIgnoreCase);
-            return paths.ToArray();
+            selected.Sort(StringComparer.CurrentCultureIgnoreCase);
+            nested.Sort(StringComparer.CurrentCultureIgnoreCase);
+            selected.AddRange(nested);
+            return selected.ToArray();
         }
 
         internal static string[] CollectImmediateFiles(string folderPath, CancellationToken token)

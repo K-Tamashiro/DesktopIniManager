@@ -192,7 +192,16 @@ namespace DesktopIniManager.Views
             e.Handled = true;
             list.SelectedItem = item.Content;
             var menu = new ContextMenu();
-            var delete = new MenuItem { Header = "Delete" };
+            var deleteIcon = new TextBlock
+            {
+                Text = "\uE711",
+                FontFamily = new FontFamily("Segoe MDL2 Assets"),
+                FontSize = 15,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            deleteIcon.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
+            var delete = new MenuItem { Header = "Delete", Icon = deleteIcon };
             string value = item.Content as string;
             delete.Click += (s, args) => RemoveHistory(value);
             menu.Items.Add(delete);

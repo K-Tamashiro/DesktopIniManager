@@ -220,7 +220,7 @@ namespace DesktopIniManager.ViewModels
         }
         public event Action SearchHistoryRequested;
         public event Action SearchRootSelectionRequested;
-        public event Action<FileListItem> FileScrollRequested;
+        public event Action<FileListItem, bool> FileScrollRequested;
         public event Action<IReadOnlyList<string>> OpenGrepRequested;
         private bool _isSearching;
         public bool IsSearching { get => _isSearching; private set => SetProperty(ref _isSearching, value); }

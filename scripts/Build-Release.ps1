@@ -3,7 +3,7 @@ param([string]$PrebuiltDirectory)
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$version = '3.5.0'
+$version = '3.5.1'
 $releaseVersion = "$version-develop-fffe"
 $packageName = "DesktopIniManager-v$releaseVersion-win-x64"
 $releaseRoot = Join-Path $repoRoot 'release'

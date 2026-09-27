@@ -1,4 +1,4 @@
-# DesktopIniManager v3.5.0-develop-fffe — Pre-release
+# DesktopIniManager v3.5.1-develop-fffe — Pre-release
 
 ![DesktopIniManager DIR edition](docs/images/app-overview-dark.png)
 
@@ -7,7 +7,7 @@ folders, browsing Visual Studio solutions, searching source code,
 comparing working trees, and applying custom folder icons through
 `desktop.ini`.
 
-**v3.5.0-develop-fffe is a pre-release from `feature/develop-fffe`, adding persistent comparison and Grep result tabs for evaluation before stable v3.5.0.**
+**v3.5.1-develop-fffe is a pre-release from `feature/develop-fffe`, refining file-list ordering, search navigation, and history-menu icons.**
 
 **v3.4.0 introduced high-speed workspace acquisition using native Windows
 directory enumeration (`FindFirstFileExW` / `FindNextFileW`, FFFE).** The
@@ -19,12 +19,12 @@ elevation just to enumerate folders.
 
 ## Download and requirements
 
-Release package: **DesktopIniManager-v3.5.0-develop-fffe-win-x64.zip**
+Release package: **DesktopIniManager-v3.5.1-develop-fffe-win-x64.zip**
 
 Download the asset from [GitHub
 Releases](https://github.com/K-Tamashiro/DesktopIniManager/releases)
-for the **v3.5.0-develop-fffe pre-release**. A locally generated package is placed in
-`release/`. See the [release notes](docs/releases/v3.5.0-develop-fffe.md).
+for the **v3.5.1-develop-fffe pre-release**. A locally generated package is placed in
+`release/`. See the [release notes](docs/releases/v3.5.1-develop-fffe.md).
 
 -   Windows 10 or Windows 11, x64.
 -   .NET 10 Desktop Runtime (x64) must be installed separately.
@@ -45,7 +45,16 @@ connectivity, permissions, and availability of file contents. They are
 not covered by a blanket compatibility guarantee. Make cloud files
 available locally before reading or synchronizing them.
 
-## What's new in v3.5.0-develop-fffe
+## What's new in v3.5.1-develop-fffe
+
+- List files directly under the selected folder first, followed by descendant-folder files, in the main file list and Developer Differencer.
+- Keep direct-file and descendant-file styling distinct (white / gray in the dark theme).
+- Loading a folder's file list no longer moves the tree selection to the first search hit; previous/next hit navigation still reveals the owning folder.
+- Use a simple theme-colored × icon in history-entry deletion menus.
+- Add a Beyond Compare 5 external diff preset.
+
+### History tabs introduced in v3.5.0
+
 
 - Retain up to **20 comparison tabs** and **20 Grep tabs**, independently, across sessions.
 - Comparisons create dated tabs, newest on the left. Switching restores roots, results, folder selection/expansion, and filters.
@@ -60,7 +69,7 @@ History is stored in `%LOCALAPPDATA%\DesktopIniManager\result-history`.
 Comparison history stores result metadata, not file-content backups; Diff View reads current files.
 See the [history guide](docs/result-history.md) for details.
 
-**Validation:** the dedicated history suite passes 34 checks. The broader legacy suite is not fully passing: a folder-selection fixture with an unset path fails in `DiffFolder.FolderCanSync`. See the release notes for pre-release limitations.
+**Validation:** v3.5.1 uses the supplied Release build; packaging checks binary versions, file layout, and SHA-256 without rebuilding or rerunning tests. The v3.5.0 dedicated history suite previously passed 34 checks. The broader legacy suite is not fully passing: a folder-selection fixture with an unset path fails in `DiffFolder.FolderCanSync`. See the release notes for pre-release limitations.
 
 ### Changes introduced in v3.4.2
 
@@ -349,7 +358,7 @@ To package an already-built Release directory without rebuilding:
 pwsh -File scripts/Build-Release.ps1 -PrebuiltDirectory bin/Release/net10.0-windows/win-x64
 ```
 
-The prebuilt directory must contain the v3.5.0-develop-fffe binaries.
+The prebuilt directory must contain the v3.5.1-develop-fffe binaries.
 README, documentation, assets, and language files are taken from the current
 source tree. Debug symbols are omitted from the ZIP.
 
@@ -359,8 +368,8 @@ exact file layout, and writes:
 
 ``` text
 release/
-  DesktopIniManager-v3.5.0-develop-fffe-win-x64.zip
-  DesktopIniManager-v3.5.0-develop-fffe-win-x64.zip.sha256
+  DesktopIniManager-v3.5.1-develop-fffe-win-x64.zip
+  DesktopIniManager-v3.5.1-develop-fffe-win-x64.zip.sha256
 ```
 
 The ZIP contains the application at its root:

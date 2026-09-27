@@ -299,7 +299,13 @@
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="ListBoxItem">
-            <Border x:Name="TabChrome" Background="{DynamicResource HistoryTabBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="1,1,1,0" CornerRadius="5,5,0,0" Padding="{TemplateBinding Padding}">
+            <Border
+              x:Name="TabChrome"
+              Padding="{TemplateBinding Padding}"
+              Background="{DynamicResource HistoryTabBackground}"
+              BorderBrush="{DynamicResource Line}"
+              BorderThickness="1,1,1,0"
+              CornerRadius="5,5,0,0">
               <ContentPresenter TextElement.FontWeight="{TemplateBinding FontWeight}" TextElement.Foreground="{TemplateBinding Foreground}" />
             </Border>
             <ControlTemplate.Triggers>
@@ -322,7 +328,10 @@
         <Setter.Value>
           <ControlTemplate TargetType="ListBox">
             <Border Background="{DynamicResource HistoryTabBackground}" BorderThickness="0">
-              <ScrollViewer Background="{DynamicResource HistoryTabBackground}" HorizontalScrollBarVisibility="{TemplateBinding ScrollViewer.HorizontalScrollBarVisibility}" VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}">
+              <ScrollViewer
+                Background="{DynamicResource HistoryTabBackground}"
+                HorizontalScrollBarVisibility="{TemplateBinding ScrollViewer.HorizontalScrollBarVisibility}"
+                VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}">
                 <ItemsPresenter />
               </ScrollViewer>
             </Border>
@@ -330,29 +339,62 @@
         </Setter.Value>
       </Setter>
       <Setter Property="ItemContainerStyle" Value="{StaticResource HistoryTabItem}" />
-      <Setter Property="ItemsPanel"><Setter.Value><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></Setter.Value></Setter>
+      <Setter Property="ItemsPanel">
+        <Setter.Value>
+          <ItemsPanelTemplate>
+            <StackPanel Orientation="Horizontal" />
+          </ItemsPanelTemplate>
+        </Setter.Value>
+      </Setter>
       <Setter Property="ItemTemplate">
-        <Setter.Value><DataTemplate>
-          <StackPanel Orientation="Horizontal" Background="Transparent">
-            <StackPanel.ContextMenu>
-              <ContextMenu>
-                <MenuItem Click="DeleteAllHistoryTabs_Click" Header="{loc:L History_DeleteAllTabs}">
-                  <MenuItem.Icon>
-                    <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="{DynamicResource Ink}" Text="&#xE74D;" />
-                  </MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Click="DeleteOtherHistoryTabs_Click" Header="{loc:L History_DeleteOtherTabs}">
-                  <MenuItem.Icon>
-                    <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="{DynamicResource Ink}" Text="&#xE711;" />
-                  </MenuItem.Icon>
-                </MenuItem>
-              </ContextMenu>
-            </StackPanel.ContextMenu>
-            <TextBlock Text="{Binding Title}" MaxWidth="220" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip="{Binding Title}" />
-            <Button Content="×" Margin="8,0,0,0" Padding="3,0" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Background="Transparent" BorderThickness="0" ToolTip="{loc:L History_DeleteTab}"
-              Command="{Binding DataContext.DeleteHistoryTabCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding}" />
-          </StackPanel>
-        </DataTemplate></Setter.Value>
+        <Setter.Value>
+          <DataTemplate>
+            <StackPanel Background="Transparent" Orientation="Horizontal">
+              <StackPanel.ContextMenu>
+                <ContextMenu>
+                  <MenuItem Click="DeleteAllHistoryTabs_Click" Header="{loc:L History_DeleteAllTabs}">
+                    <MenuItem.Icon>
+                      <TextBlock
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontFamily="Segoe MDL2 Assets"
+                        FontSize="15"
+                        Foreground="{DynamicResource Ink}"
+                        Text="&#xE74D;" />
+                    </MenuItem.Icon>
+                  </MenuItem>
+                  <MenuItem Click="DeleteOtherHistoryTabs_Click" Header="{loc:L History_DeleteOtherTabs}">
+                    <MenuItem.Icon>
+                      <TextBlock
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontFamily="Segoe MDL2 Assets"
+                        FontSize="15"
+                        Foreground="{DynamicResource Ink}"
+                        Text="&#xE711;" />
+                    </MenuItem.Icon>
+                  </MenuItem>
+                </ContextMenu>
+              </StackPanel.ContextMenu>
+              <TextBlock
+                MaxWidth="220"
+                VerticalAlignment="Center"
+                Text="{Binding Title}"
+                TextTrimming="CharacterEllipsis"
+                ToolTip="{Binding Title}" />
+              <Button
+                Margin="8,0,0,0"
+                Padding="3,0"
+                Background="Transparent"
+                BorderThickness="0"
+                Command="{Binding DataContext.DeleteHistoryTabCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                CommandParameter="{Binding}"
+                Content="×"
+                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
+                ToolTip="{loc:L History_DeleteTab}" />
+            </StackPanel>
+          </DataTemplate>
+        </Setter.Value>
       </Setter>
     </Style>
   </Window.Resources>
@@ -629,8 +671,8 @@
                 </ToggleButton>
                 <ToggleButton
                   x:Name="TreeDensityToggle"
-                  Background="Transparent"
                   Margin="8,0,0,0"
+                  Background="Transparent"
                   Style="{StaticResource IconToggleButton}"
                   ToolTip="{loc:L Main_TreeComfortable}">
                   <Image
@@ -831,25 +873,37 @@
         BorderBrush="{DynamicResource Line}"
         BorderThickness="1">
         <DockPanel>
-          <ListBox DockPanel.Dock="Top" Style="{StaticResource HistoryTabStrip}" ItemsSource="{Binding HistoryTabs}" SelectedItem="{Binding SelectedHistoryTab, Mode=TwoWay}" MouseDoubleClick="HistoryTabStrip_MouseDoubleClick" />
+          <ListBox
+            DockPanel.Dock="Top"
+            ItemsSource="{Binding HistoryTabs}"
+            MouseDoubleClick="HistoryTabStrip_MouseDoubleClick"
+            SelectedItem="{Binding SelectedHistoryTab, Mode=TwoWay}"
+            Style="{StaticResource HistoryTabStrip}" />
           <Border
             Padding="10,7"
             Background="{DynamicResource HeaderBackground}"
             DockPanel.Dock="Top">
             <DockPanel>
-            <TextBlock DockPanel.Dock="Right" ToolTip="{Binding HistoryRootsTooltip}" MaxWidth="420" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="12,0,0,0" FontWeight="SemiBold">
-              <Run Foreground="{StaticResource SourceColor}" Text="{Binding HistorySourceRoot, Mode=OneWay}" />
-              <Run Text="   " />
-              <Run Foreground="{StaticResource TargetColor}" Text="{Binding HistoryTargetRoot, Mode=OneWay}" />
-            </TextBlock>
-            <TextBlock
-              x:Name="FilePanelTitle"
-              Height="36"
-              Padding="0,10,0,0"
-              VerticalAlignment="Center"
-              FontWeight="SemiBold"
-              Text="{Binding FilePanelTitle}"
-              TextTrimming="CharacterEllipsis" />
+              <TextBlock
+                MaxWidth="420"
+                Margin="12,0,0,0"
+                VerticalAlignment="Center"
+                DockPanel.Dock="Right"
+                FontWeight="SemiBold"
+                TextTrimming="CharacterEllipsis"
+                ToolTip="{Binding HistoryRootsTooltip}">
+                <Run Foreground="{StaticResource SourceColor}" Text="{Binding HistorySourceRoot, Mode=OneWay}" />
+                <Run Text="   " />
+                <Run Foreground="{StaticResource TargetColor}" Text="{Binding HistoryTargetRoot, Mode=OneWay}" />
+              </TextBlock>
+              <TextBlock
+                x:Name="FilePanelTitle"
+                Height="36"
+                Padding="0,10,0,0"
+                VerticalAlignment="Center"
+                FontWeight="SemiBold"
+                Text="{Binding FilePanelTitle}"
+                TextTrimming="CharacterEllipsis" />
             </DockPanel>
           </Border>
           <Grid>

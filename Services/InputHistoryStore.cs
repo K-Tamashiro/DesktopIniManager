@@ -29,7 +29,8 @@ namespace DesktopIniManager.Services
                     try
                     {
                         string value = Encoding.UTF8.GetString(Convert.FromBase64String(line));
-                        if (!string.IsNullOrWhiteSpace(value) && !result.Contains(value)) result.Add(value);
+                        if (IsFolderHistoryKey(key)) value = NormalizeFolderPath(value);
+                        if (!string.IsNullOrWhiteSpace(value) && !result.Exists(entry => FolderHistoryEquals(key, entry, value))) result.Add(value);
                         if (result.Count == Capacity) break;
                     }
                     catch (FormatException) { }
@@ -45,8 +46,9 @@ namespace DesktopIniManager.Services
             var entries = Load(key);
             // Preserve whitespace and case: both can be significant in searches and arguments.
             if (string.IsNullOrWhiteSpace(value)) return entries;
-            if (!promote && entries.Contains(value)) return entries;
-            entries.Remove(value);
+            if (IsFolderHistoryKey(key)) value = NormalizeFolderPath(value);
+            if (!promote && entries.Exists(entry => FolderHistoryEquals(key, entry, value))) return entries;
+            entries.RemoveAll(entry => FolderHistoryEquals(key, entry, value));
             if (promote) entries.Insert(0, value);
             else entries.Add(value);
             return Save(key, entries);
@@ -78,7 +80,7 @@ namespace DesktopIniManager.Services
         {
             var entries = Load(key);
             if (string.IsNullOrWhiteSpace(value)) return entries;
-            entries.Remove(value);
+            entries.RemoveAll(entry => FolderHistoryEquals(key, entry, value));
             return Save(key, entries);
         }
 
@@ -93,6 +95,26 @@ namespace DesktopIniManager.Services
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
             return entries;
+        }
+
+        private static bool IsFolderHistoryKey(string key)
+        {
+            return string.Equals(key, "Differencer-Source", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(key, "Differencer-Target", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizeFolderPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return path ?? "";
+            string trimmed = path.TrimEnd('\\', '/');
+            if (trimmed.Length == 2 && trimmed[1] == ':') return trimmed + "\\";
+            return trimmed;
+        }
+
+        private static bool FolderHistoryEquals(string key, string left, string right)
+        {
+            if (!IsFolderHistoryKey(key)) return left == right;
+            return string.Equals(NormalizeFolderPath(left), NormalizeFolderPath(right), StringComparison.OrdinalIgnoreCase);
         }
     }
 }

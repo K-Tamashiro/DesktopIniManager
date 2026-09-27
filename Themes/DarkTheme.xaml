@@ -15,6 +15,10 @@
   <SolidColorBrush x:Key="OverlayScrim" Color="#CC111821" />
   <SolidColorBrush x:Key="ThemeToggle" Color="#1A2330" />
   <SolidColorBrush x:Key="ThemeSelected" Color="#583047" />
+  <SolidColorBrush x:Key="HistoryTabBackground" Color="#1B2633" />
+  <SolidColorBrush x:Key="HistoryTabForeground" Color="#FFFFFF" />
+  <SolidColorBrush x:Key="HistoryTabSelectedBackground" Color="#111821" />
+  <SolidColorBrush x:Key="HistoryTabSelectedForeground" Color="#FFD83D" />
   <SolidColorBrush x:Key="ZoomToggle" Color="Transparent" />
   <SolidColorBrush x:Key="ZoomSelected" Color="Transparent" />
   <SolidColorBrush x:Key="SunGlyph" Color="#E27A2B" />

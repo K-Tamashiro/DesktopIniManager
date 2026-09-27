@@ -50,6 +50,7 @@ internal static class DifferencerTests
     {
         try
         {
+            if (args.Contains("--result-history")) return ResultHistoryTests.Execute();
             if (args.Contains("--input-history")) return InputHistoryTests.Run();
             if (args.Contains("--window-focus")) return TestWindowActivation();
             if (args.Contains("--scroll")) return ScrollPerformance.Run(args[1]);
@@ -58,6 +59,7 @@ internal static class DifferencerTests
             if (args.Contains("--startup")) return ScrollPerformance.Run(args[1], startup: true);
             if (args.Contains("--folder-tree")) return FolderTreePersistenceTests.Run(args[1]);
             string artifacts = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "fixtures-" + Guid.NewGuid().ToString("N"));
+            ResultHistoryStore.DirectoryPath = Path.Combine(artifacts, "result-history");
             string source = Path.Combine(artifacts, "source"), target = Path.Combine(artifacts, "target");
             Directory.CreateDirectory(source); Directory.CreateDirectory(target);
             if (args.Contains("--solution-clean"))

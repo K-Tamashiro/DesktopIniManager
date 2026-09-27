@@ -73,7 +73,7 @@ namespace DesktopIniManager.Views
             PreviewDragEnter += FolderDropPreview;
             PreviewDragOver += FolderDropPreview;
             PreviewDrop += Differencer_Drop;
-            Loaded += (s, e) => ViewModel.SetFilePanelBusy(false);
+            Loaded += async (s, e) => { ViewModel.SetFilePanelBusy(false); await ViewModel.RestoreHistoryAsync(); };
             StringOverlay.CultureChanged += OnCultureChanged;
             ViewModel.RestoreState();
         }
@@ -405,6 +405,28 @@ namespace DesktopIniManager.Views
             SetIcon(TreeDensityIcon, compact ? 91 : 90);
             if (TreeDensityToggle != null)
                 TreeDensityToggle.ToolTip = compact ? Strings.Main_TreeCompact : Strings.Main_TreeComfortable;
+        }
+
+        private void HistoryTabStrip_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            var item = ItemsControl.ContainerFromElement(sender as ItemsControl, e.OriginalSource as DependencyObject) as ListBoxItem;
+            if (item?.DataContext == null) return;
+            if (ViewModel.DeleteHistoryTabCommand.CanExecute(item.DataContext))
+                ViewModel.DeleteHistoryTabCommand.Execute(item.DataContext);
+        }
+
+        private void DeleteAllHistoryTabs_Click(object sender, RoutedEventArgs e)
+        {
+            if (ViewModel.DeleteAllHistoryTabsCommand.CanExecute(null))
+                ViewModel.DeleteAllHistoryTabsCommand.Execute(null);
+        }
+
+        private void DeleteOtherHistoryTabs_Click(object sender, RoutedEventArgs e)
+        {
+            var menu = (sender as MenuItem)?.Parent as ContextMenu;
+            object tab = (menu?.PlacementTarget as FrameworkElement)?.DataContext;
+            if (tab != null && ViewModel.DeleteOtherHistoryTabsCommand.CanExecute(tab))
+                ViewModel.DeleteOtherHistoryTabsCommand.Execute(tab);
         }
     }
 }

@@ -3,8 +3,9 @@ param([string]$PrebuiltDirectory)
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$version = '3.3.0'
-$packageName = "DesktopIniManager-v$version-DIR-win-x64"
+$version = '3.5.0'
+$releaseVersion = "$version-develop-fffe"
+$packageName = "DesktopIniManager-v$releaseVersion-win-x64"
 $releaseRoot = Join-Path $repoRoot 'release'
 [IO.Directory]::CreateDirectory($releaseRoot) | Out-Null
 $stage = Join-Path $releaseRoot ('.stage-' + $packageName + '-' + [guid]::NewGuid().ToString('N'))
@@ -21,38 +22,32 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Publish failed with exit code $LASTEXITCODE." }
     }
 
-    # Match the user's release layout. The supplied tree-listing report is not an application file.
+    # Keep the framework-dependent runtime layout explicit and include current documentation.
     $expected = @(
         'DesktopIniManager.exe', 'DesktopIniManager.dll', 'DesktopIniManager.deps.json',
         'DesktopIniManager.runtimeconfig.json', 'FastVolumeIndex.Core.dll', 'README.md',
         'Assets/DeveloperDifferencer_iconset.icl', 'Assets/Flag.icl', 'Assets/folder_set.icl',
-        'docs/mft-differencer.md', 'docs/smvvm-progress.md', 'docs/splash-screen.md',
-        'docs/releases/v3.0.0-DIR.md', 'docs/releases/v3.1.0-DIR.md',
-        'docs/releases/v3.2.0-DIR.md', 'docs/index.html',
-        'docs/releases/v3.2.1-DIR.md',
-        'docs/releases/v3.3.0-DIR.md',
         'Languages/culture.txt', 'Languages/ja.txt', 'Languages/ko.txt', 'Languages/zh-Hans.txt'
     )
-    $expected += @(
-        'app-overview-dark.png', 'download.png', 'folder-icon-apply-dark.png', 'icon-picker-dark.png',
-        'language-chinese.png', 'language-english.png', 'language-japanese.png', 'language-korean.png',
-        'mft-diff-view.png', 'mft-differencer.png', 'physical-tree-dark.png', 'physical-tree-light.png',
-        'repository-tree-dark.png', 'scoped-code-search.png', 'search-tree-dark.png', 'solution-tree-dark.png',
-        'diff-view-image-dark.png', 'search-file-highlight-dark.png', 'solution-build-menu-dark.png'
-    ) | ForEach-Object { 'docs/images/' + $_ }
+    $expected += @(Get-ChildItem -LiteralPath (Join-Path $repoRoot 'docs') -Recurse -File | ForEach-Object {
+        [IO.Path]::GetRelativePath($repoRoot, $_.FullName).Replace('\', '/')
+    })
 
     if ($PrebuiltDirectory) {
         $source = (Resolve-Path -LiteralPath $PrebuiltDirectory).Path
         foreach ($relative in $expected) {
             # Release documentation must match the current release commit,
             # even when binaries were built before documentation was updated.
-            $sourceFile = Join-Path $(if ($relative -eq 'README.md' -or $relative.StartsWith('docs/')) { $repoRoot } else { $source }) $relative
+            $sourceFile = Join-Path $(if ($relative -eq 'README.md' -or $relative.StartsWith('docs/') -or $relative.StartsWith('Languages/') -or $relative.StartsWith('Assets/')) { $repoRoot } else { $source }) $relative
             if (!(Test-Path -LiteralPath $sourceFile -PathType Leaf)) { throw "Missing package file: $sourceFile" }
             $destination = Join-Path $stage $relative
             [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($destination)) | Out-Null
             Copy-Item -LiteralPath $sourceFile -Destination $destination
         }
     }
+
+    Copy-Item -LiteralPath (Join-Path $repoRoot "docs/releases/v$releaseVersion.md") -Destination (Join-Path $stage 'RELEASE_NOTES.md')
+    $expected += 'RELEASE_NOTES.md'
 
     $actualFiles = @(Get-ChildItem $stage -Recurse -File -Force | ForEach-Object {
         [IO.Path]::GetRelativePath($stage, $_.FullName).Replace('\', '/')
@@ -64,6 +59,8 @@ try {
         $actual = [Reflection.AssemblyName]::GetAssemblyName((Join-Path $stage $relative)).Version
         if ($actual.ToString(3) -ne $assemblyVersions[$relative]) { throw "Unexpected assembly version in ${relative}: $actual" }
     }
+    $productVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $stage 'DesktopIniManager.dll')).ProductVersion
+    if ($productVersion -ne $releaseVersion) { throw "Unexpected prerelease product version: $productVersion" }
     $runtime = Get-Content -LiteralPath (Join-Path $stage 'DesktopIniManager.runtimeconfig.json') -Raw | ConvertFrom-Json
     if ($runtime.runtimeOptions.includedFrameworks -or !$runtime.runtimeOptions.frameworks) {
         throw 'Expected a framework-dependent release requiring .NET 10 Desktop Runtime.'

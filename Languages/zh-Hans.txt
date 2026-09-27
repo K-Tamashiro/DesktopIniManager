@@ -355,3 +355,23 @@ Differencer_CancellingCompare=正在取消比较…
 Differencer_HardLinkExcluded=已排除硬链接：{0}
 Differencer_OkPrefix=成功 {0}
 Differencer_LockedPrefix=锁定 {0}
+
+
+# Result history tabs
+History_AddTab=添加搜索标签页
+History_ComparisonLimit=比较标签页最多20个。删除最旧的标签页并进行比较吗？\n否：不进行比较。请使用 × 将标签页减少到19个或更少后重试。
+History_ComparisonTitle=比较历史
+History_DeleteConfirm=删除标签页“{0}”吗？
+History_DeleteTab=删除此标签页
+History_DeleteAllTabs=删除全部标签页
+History_DeleteOtherTabs=删除其他标签页
+History_DeleteAllConfirm=要删除全部标签页吗？
+History_DeleteOthersConfirm=要删除“{0}”以外的标签页吗？
+History_GrepAppend=追加到当前标签页“{0}”吗？\n是：追加\n否：在新标签页中搜索\n取消：不搜索
+History_GrepAppendAtLimit=已达到20个标签页的上限。使用当前标签页“{0}”吗？\n是：追加\n否：清除此标签页并搜索\n取消：不搜索，选择其他标签页
+History_GrepLimit=标签页最多20个。请选择现有标签页进行搜索。搜索时可选择追加结果或清除此标签页。
+History_LoadFailed=无法加载标签页历史：{0}
+History_NewSearch=新搜索
+History_Saved=标签页已保存。
+History_SaveFailed=无法保存标签页：{0}
+History_SaveTabs=保存标签页

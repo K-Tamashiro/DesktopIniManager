@@ -119,7 +119,17 @@ namespace DesktopIniManager.Views
 
         public void CommitHistory()
         {
-            if (!IsReadOnly && !string.IsNullOrEmpty(HistoryKey)) store.Remember(HistoryKey, Text, !PreserveOrder);
+            if (!IsReadOnly && !string.IsNullOrEmpty(HistoryKey))
+                store.Remember(HistoryKey, HistoryValue(HistoryKey, Text), !PreserveOrder);
+        }
+
+        private static string HistoryValue(string key, string value)
+        {
+            if (string.IsNullOrEmpty(key) || string.IsNullOrWhiteSpace(value)) return value;
+            if (!key.StartsWith("Differencer-", StringComparison.OrdinalIgnoreCase)) return value;
+            string trimmed = value.TrimEnd('\\', '/');
+            if (trimmed.Length == 2 && trimmed[1] == ':') return trimmed + "\\";
+            return trimmed;
         }
 
         public void ResetField(string text)

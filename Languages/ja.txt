@@ -371,3 +371,23 @@ Main_MsBuildStarted={0} を開始しました {1}
 Main_MsBuildFailed=MSBuild を起動できませんでした。
 
 Common_History=入力履歴 (Alt+↓ / F4)
+
+
+# Result history tabs
+History_AddTab=検索タブを追加
+History_ComparisonLimit=比較タブは最大20件です。一番古いタブを削除して比較しますか？\n「いいえ」の場合は比較しません。不要なタブの × で19件以下にしてから再実行してください。
+History_ComparisonTitle=比較履歴
+History_DeleteConfirm=タブ「{0}」を削除しますか？
+History_DeleteTab=このタブを削除
+History_DeleteAllTabs=タブを全て削除
+History_DeleteOtherTabs=他のタブを削除
+History_DeleteAllConfirm=タブを全て削除しますか？
+History_DeleteOthersConfirm=「{0}」以外のタブを削除しますか？
+History_GrepAppend=選択中のタブ「{0}」に追記しますか？\nはい: 追記\nいいえ: 新規タブでGrep\nキャンセル: 検索しない
+History_GrepAppendAtLimit=20件の上限に達しています。選択中のタブ「{0}」を使用しますか？\nはい: 追記\nいいえ: このタブをクリアしてGrep\nキャンセル: 検索せず別のタブを選択
+History_GrepLimit=タブは最大20件です。使用する既存タブを選択して検索してください。検索時に追記またはクリアを選べます。
+History_LoadFailed=タブ履歴を読み込めませんでした: {0}
+History_NewSearch=新しい検索
+History_Saved=タブを保存しました。
+History_SaveFailed=タブを保存できませんでした: {0}
+History_SaveTabs=タブを保存

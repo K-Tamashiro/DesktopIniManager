@@ -1,4 +1,4 @@
-# DesktopIniManager v3.4.2 --- FFFE edition
+# DesktopIniManager v3.5.0-develop-fffe — Pre-release
 
 ![DesktopIniManager DIR edition](docs/images/app-overview-dark.png)
 
@@ -7,7 +7,7 @@ folders, browsing Visual Studio solutions, searching source code,
 comparing working trees, and applying custom folder icons through
 `desktop.ini`.
 
-**v3.4.2 is a maintenance release that corrects the packaged application version and refines Search / Physical / Solution tab state transitions and search-result navigation.**
+**v3.5.0-develop-fffe is a pre-release from `feature/develop-fffe`, adding persistent comparison and Grep result tabs for evaluation before stable v3.5.0.**
 
 **v3.4.0 introduced high-speed workspace acquisition using native Windows
 directory enumeration (`FindFirstFileExW` / `FindNextFileW`, FFFE).** The
@@ -19,12 +19,12 @@ elevation just to enumerate folders.
 
 ## Download and requirements
 
-Release package: **DesktopIniManager-v3.4.2-FFFE-win-x64.zip**
+Release package: **DesktopIniManager-v3.5.0-develop-fffe-win-x64.zip**
 
 Download the asset from [GitHub
 Releases](https://github.com/K-Tamashiro/DesktopIniManager/releases)
-for v3.4.2. A locally generated package is placed in
-`release/`. See the [v3.4.2 release notes](docs/releases/v3.4.2-FFFE.md).
+for the **v3.5.0-develop-fffe pre-release**. A locally generated package is placed in
+`release/`. See the [release notes](docs/releases/v3.5.0-develop-fffe.md).
 
 -   Windows 10 or Windows 11, x64.
 -   .NET 10 Desktop Runtime (x64) must be installed separately.
@@ -45,7 +45,24 @@ connectivity, permissions, and availability of file contents. They are
 not covered by a blanket compatibility guarantee. Make cloud files
 available locally before reading or synchronizing them.
 
-## What's new in v3.4.2
+## What's new in v3.5.0-develop-fffe
+
+- Retain up to **20 comparison tabs** and **20 Grep tabs**, independently, across sessions.
+- Comparisons create dated tabs, newest on the left. Switching restores roots, results, folder selection/expansion, and filters.
+- The comparison header shows shortened Source / Target names with full paths in a tooltip.
+- Tabs follow the active theme, with bold text on the selected tab. The × button deletes tabs and remains usable after comparison finishes.
+- Grep tabs show search text and retain results and search settings. **Yes** appends, **No** searches in a new tab, and **Cancel** stops.
+- At the Grep limit, select an existing tab: **Yes** appends; **No** clears it before searching. Comparison instead asks to delete the oldest tab; declining stops comparison until there are 19 or fewer tabs.
+- Save Grep tabs with icon 95 and add them with icon 94, both on transparent buttons. Auto-save runs after search and on closing. A save error keeps the Grep window open.
+- New messages and tooltips support English, Japanese, Simplified Chinese, and Korean.
+
+History is stored in `%LOCALAPPDATA%\DesktopIniManager\result-history`.
+Comparison history stores result metadata, not file-content backups; Diff View reads current files.
+See the [history guide](docs/result-history.md) for details.
+
+**Validation:** the dedicated history suite passes 34 checks. The broader legacy suite is not fully passing: a folder-selection fixture with an unset path fails in `DiffFolder.FolderCanSync`. See the release notes for pre-release limitations.
+
+### Changes introduced in v3.4.2
 
 -   Correct the release binary version to v3.4.2.
 -   Separate Search mode from the normal Physical / Solution workflow.
@@ -332,9 +349,9 @@ To package an already-built Release directory without rebuilding:
 pwsh -File scripts/Build-Release.ps1 -PrebuiltDirectory bin/Release/net10.0-windows/win-x64
 ```
 
-The prebuilt directory must contain the v3.4.2 binaries and current
-README, documentation, assets, and language files. Debug symbols are
-omitted from the ZIP.
+The prebuilt directory must contain the v3.5.0-develop-fffe binaries.
+README, documentation, assets, and language files are taken from the current
+source tree. Debug symbols are omitted from the ZIP.
 
 The packaging script publishes a framework-dependent Windows x64
 application to a fresh staging directory, validates its version and
@@ -342,8 +359,8 @@ exact file layout, and writes:
 
 ``` text
 release/
-  DesktopIniManager-v3.4.2-FFFE-win-x64.zip
-  DesktopIniManager-v3.4.2-FFFE-win-x64.zip.sha256
+  DesktopIniManager-v3.5.0-develop-fffe-win-x64.zip
+  DesktopIniManager-v3.5.0-develop-fffe-win-x64.zip.sha256
 ```
 
 The ZIP contains the application at its root:
@@ -360,6 +377,7 @@ Assets/
   Flag.icl
 Languages/
 README.md
+RELEASE_NOTES.md
 docs/
 ```
 
@@ -373,10 +391,10 @@ solution:
 
 ``` powershell
 dotnet build Tests/DesktopIniManager.DifferencerTests.csproj -c Release
-dotnet run --project Tests/DesktopIniManager.DifferencerTests.csproj -c Release --no-build
+dotnet run --project Tests/DesktopIniManager.DifferencerTests.csproj -c Release --no-build -- --result-history
 ```
 
 The older [SMVVM progress memo](docs/smvvm-progress.md) is historical.
-The screenshots illustrate the DIR edition and may not show every v3.4.2
+The screenshots illustrate earlier editions and may not show every v3.5.0
 control. See the release notes for this version's changes and validation
 status.

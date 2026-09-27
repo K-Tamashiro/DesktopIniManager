@@ -17,7 +17,7 @@ using DesktopIniManager.Properties;
 
 namespace DesktopIniManager.ViewModels
 {
-    internal sealed class GrepWindowViewModel : ObservableObject
+    internal sealed partial class GrepWindowViewModel : ObservableObject
     {
         private readonly Func<IReadOnlyList<string>> _scopeProvider;
         private readonly ObservableCollection<GrepScopeItem> _scopes = new ObservableCollection<GrepScopeItem>();
@@ -155,6 +155,7 @@ namespace DesktopIniManager.ViewModels
             _resultTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(50), DispatcherPriority.Background,
                 (sender, args) => DrainPendingMatches(20), Dispatcher);
             _resultTimer.Stop();
+            InitializeHistoryCommands();
         }
 
         internal void Initialize(IReadOnlyList<string> initialScopes)
@@ -176,6 +177,7 @@ namespace DesktopIniManager.ViewModels
                 EditorArguments = SettingsService.LoadEditorArguments();
             }
             SetExplicitScopes(initialScopes);
+            RestoreHistory();
         }
 
         internal void SaveColumnWidths(double[] widths)
@@ -189,12 +191,14 @@ namespace DesktopIniManager.ViewModels
             string arguments;
             if (TryApplyEditorPreset(EditorPath, out arguments)) EditorArguments = arguments;
         }
-        internal void Close()
+        internal bool Close()
         {
+            if (!SaveHistory()) return false;
             Cancel(); _resultTimer.Stop();
             SettingsService.SaveEditor(EditorPath.Trim(), EditorArguments);
             SettingsService.SaveGrepProfile(SelectedProfile?.Name);
             if (SelectedProfile?.IsFree == true) SettingsService.SaveGrepFreeExtensions(Extensions.Trim());
+            return true;
         }
         public void SetExplicitScopes(IReadOnlyList<string> scopes)
         {
@@ -401,6 +405,7 @@ namespace DesktopIniManager.ViewModels
             bool useRegex = UseRegex == true;
             bool matchCase = MatchCase == true;
             bool wholeWord = WholeWord == true;
+            if (!PrepareSearchTab()) return;
 
             var cts = new CancellationTokenSource();
             _searchCts = cts;
@@ -425,7 +430,7 @@ namespace DesktopIniManager.ViewModels
             catch (OperationCanceledException) { _pendingMatches = new ConcurrentQueue<GrepMatch>(); Status = Strings.Grep_SearchCancelled; }
             catch (ArgumentException ex) { _dialogs.Show(string.Format(Strings.Grep_InvalidExpression, ErrorMessages.English(ex)), DialogTitle, MessageBoxButton.OK, MessageBoxImage.Warning); Status = Strings.Grep_InvalidExpressionStatus; }
             catch (Exception ex) { _dialogs.Show(ErrorMessages.English(ex), DialogTitle, MessageBoxButton.OK, MessageBoxImage.Error); Status = Strings.Grep_SearchFailed; }
-            finally { _resultTimer.Stop(); if (ReferenceEquals(_searchCts, cts)) _searchCts = null; SetSearching(false); cts.Dispose(); }
+            finally { _resultTimer.Stop(); if (ReferenceEquals(_searchCts, cts)) _searchCts = null; SetSearching(false); cts.Dispose(); SaveHistory(); }
         }
 
         private void ResetMatches()
@@ -471,6 +476,8 @@ namespace DesktopIniManager.ViewModels
             IsSearching = value; IsCancelling = false;
             OnPropertyChanged(nameof(CanEdit)); SearchCommand.NotifyCanExecuteChanged();
             CancelCommand.NotifyCanExecuteChanged(); ReloadScopesCommand.NotifyCanExecuteChanged();
+            AddHistoryTabCommand?.NotifyCanExecuteChanged(); SaveHistoryTabCommand?.NotifyCanExecuteChanged(); DeleteHistoryTabCommand?.NotifyCanExecuteChanged();
+            DeleteAllHistoryTabsCommand?.NotifyCanExecuteChanged(); DeleteOtherHistoryTabsCommand?.NotifyCanExecuteChanged();
             NotifyListCommands();
         }
 

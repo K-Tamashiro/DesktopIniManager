@@ -1181,4 +1181,28 @@ Solutions containing this running DIM are disabled. To clean them, start DIM fro
   <data name="Common_History" xml:space="preserve">
     <value>Input history (Alt+Down / F4)</value>
   </data>
+  <data name="History_AddTab" xml:space="preserve"><value>Add search tab</value></data>
+  <data name="History_ComparisonLimit" xml:space="preserve"><value>The limit is 20 comparison tabs. Delete the oldest tab and compare?
+No: do not compare. Use × to reduce the tabs to 19 or fewer, then try again.</value></data>
+  <data name="History_ComparisonTitle" xml:space="preserve"><value>Comparison history</value></data>
+  <data name="History_DeleteConfirm" xml:space="preserve"><value>Delete tab &quot;{0}&quot;?</value></data>
+  <data name="History_DeleteTab" xml:space="preserve"><value>Delete this tab</value></data>
+  <data name="History_DeleteAllTabs" xml:space="preserve"><value>Delete all tabs</value></data>
+  <data name="History_DeleteOtherTabs" xml:space="preserve"><value>Delete other tabs</value></data>
+  <data name="History_DeleteAllConfirm" xml:space="preserve"><value>Delete all tabs?</value></data>
+  <data name="History_DeleteOthersConfirm" xml:space="preserve"><value>Delete all tabs except &quot;{0}&quot;?</value></data>
+  <data name="History_GrepAppend" xml:space="preserve"><value>Append to the selected tab &quot;{0}&quot;?
+Yes: append
+No: search in a new tab
+Cancel: do not search</value></data>
+  <data name="History_GrepAppendAtLimit" xml:space="preserve"><value>All 20 tabs are in use. Use the selected tab &quot;{0}&quot;?
+Yes: append
+No: clear this tab and search
+Cancel: select a different tab without searching</value></data>
+  <data name="History_GrepLimit" xml:space="preserve"><value>The limit is 20 tabs. Select an existing tab and search. You can append results or clear that tab before searching.</value></data>
+  <data name="History_LoadFailed" xml:space="preserve"><value>Could not load tab history: {0}</value></data>
+  <data name="History_NewSearch" xml:space="preserve"><value>New search</value></data>
+  <data name="History_Saved" xml:space="preserve"><value>Tabs saved.</value></data>
+  <data name="History_SaveFailed" xml:space="preserve"><value>Could not save tabs: {0}</value></data>
+  <data name="History_SaveTabs" xml:space="preserve"><value>Save tabs</value></data>
 </root>

@@ -27,7 +27,7 @@ namespace DesktopIniManager.ViewModels
 
         private static ImageSource[] Load()
         {
-            var result = new ImageSource[94];
+            var result = new ImageSource[96];
             try
             {
                 string baseDir = AppDomain.CurrentDomain.BaseDirectory;
@@ -320,6 +320,13 @@ namespace DesktopIniManager.ViewModels
         public DiffSide Source { get { return source ?? (source = new DiffSide { Info = File.SourceInfo, Root = SourceRoot, Relative = File.RelativePath, Exists = File.Source != null }); } set { source = value; } }
         public DiffSide Target { get { return target ?? (target = new DiffSide { Info = File.TargetInfo, Root = TargetRoot, Relative = File.RelativePath, Exists = File.Target != null }); } set { target = value; } }
         public string Extension { get { return Path.GetExtension(File.RelativePath); } }
+        public bool IsDirectInSelectedFolder { get; private set; } = true;
+        public void SetDirectInSelectedFolder(bool value)
+        {
+            if (IsDirectInSelectedFolder == value) return;
+            IsDirectInSelectedFolder = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsDirectInSelectedFolder)));
+        }
         public string PathFileName
         {
             get

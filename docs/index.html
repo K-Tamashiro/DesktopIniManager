@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#07111d">
-  <title>DesktopIniManager v3.4.2 — FFFE edition</title>
+  <title>DesktopIniManager v3.5.0-develop-fffe — Pre-release</title>
   <meta name="description"
     content="Development workspace for Windows — Physical / Solution / Search, Scoped Grep, Developer Differencer, folder icons and solution build tools.">
   <style>
@@ -544,7 +544,7 @@
   <div class="progress" id="progress"></div>
   <nav>
     <div class="nav">
-      <a class="brand" href="#top">DesktopIniManager <b>3.4.2</b></a>
+      <a class="brand" href="#top">DesktopIniManager <b>3.5.0</b></a>
       <div class="links"><a href="#features">Features</a><a href="#screenshots">Screenshots</a><a
           href="#workflow">Workspace</a><a href="#new">What's new</a><a href="#download">Download</a></div>
       <button class="iconbtn" id="theme" aria-label="テーマ切替">◐</button>
@@ -554,7 +554,7 @@
   <main id="top">
     <header class="hero">
       <div>
-        <div class="eyebrow"><span class="dot"></span> Stable release · v3.4.2 · FFFE edition</div>
+        <div class="eyebrow"><span class="dot"></span> Pre-release · v3.5.0 · develop-fffe</div>
         <h1>開発フォルダーを、<span>ひとつの作業空間へ。</span></h1>
         <p class="lead">Physical / Solution / Search、Scoped Grep、Developer Differencer、フォルダーアイコン管理、Solution
           Build。Windows上の開発フォルダーを探索・検索・比較・同期するためのワークスペース。</p>
@@ -676,8 +676,22 @@
 
     <section id="new">
       <div class="release reveal">
-        <div class="kicker">v3.4.2</div>
-        <h2>検索モードの状態遷移とファイル追従を整理。</h2>
+        <div class="kicker">v3.5.0-develop-fffe · Pre-release</div>
+        <h2>比較とGrepの結果を、タブで残す。</h2>
+        <p>feature/develop-fffe のプレリリースです。正式版 v3.5.0 に向けた評価用として公開します。</p>
+        <ul>
+          <li>比較履歴とGrep結果をそれぞれ最大20件保存し、次回起動時に復元</li>
+          <li>比較は日付付きの新規タブを左に追加。配色はテーマに連動し、選択中は太字で強調</li>
+          <li>比較結果・Source / Target・フォルダー選択と展開・フィルターをタブに連動</li>
+          <li>比較完了後もタブの削除ボタンを使用可能に修正</li>
+          <li>Grepは「はい」で追記、「いいえ」で新規タブ検索、「キャンセル」で中止</li>
+          <li>20件到達時、Grepは既存タブへの追記・クリアを確認。比較は最古を削除するか確認し、断った場合は比較しない</li>
+          <li>Grepの保存・追加ボタンは透明背景。明示保存と終了時の自動保存に対応</li>
+          <li>追加した案内は英語・日本語・中国語・韓国語に対応</li>
+        </ul>
+        <p><a href="releases/v3.5.0-develop-fffe.md">v3.5.0-develop-fffe Release Notes</a> · <a href="result-history.md">履歴タブの使い方</a></p>
+        <div class="warning">プレリリース：履歴の専用テスト34項目は成功。既存の全体テストはフォルダー選択のテストデータに起因するエラーが残っています。比較履歴は結果メタデータを保存し、元ファイルの内容は保存しません。</div>
+        <h3>v3.4.2から継続する修正</h3>
         <ul>
           <li>リリースバイナリのバージョンを v3.4.2 に更新</li>
           <li>検索実行中はSearchを優位とし、Physical / Solutionタブを非活性化</li>
@@ -702,9 +716,9 @@
     </section>
 
     <section id="download" class="cta reveal">
-      <div class="kicker">Download</div>
-      <h2>DesktopIniManager v3.4.2</h2>
-      <p>Windows 10 / 11 x64 · .NET 10 Desktop Runtime (x64) · Release package: DesktopIniManager-v3.4.2-FFFE-win-x64.zip
+      <div class="kicker">Pre-release download</div>
+      <h2>DesktopIniManager v3.5.0-develop-fffe</h2>
+      <p>Windows 10 / 11 x64 · .NET 10 Desktop Runtime (x64) · Pre-release package: DesktopIniManager-v3.5.0-develop-fffe-win-x64.zip
       </p>
       <div class="actions" style="justify-content:center"><a class="btn primary"
           href="https://github.com/K-Tamashiro/DesktopIniManager/releases">Download from GitHub Releases →</a><a
@@ -714,7 +728,7 @@
 
   <footer>
     <div class="foot">
-      <span>DesktopIniManager v3.4.2 — FFFE edition</span>
+      <span>DesktopIniManager v3.5.0-develop-fffe — Pre-release</span>
       <span>Windows development workspace</span>
     </div>
 

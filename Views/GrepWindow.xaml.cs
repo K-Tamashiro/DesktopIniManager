@@ -357,7 +357,7 @@ namespace DesktopIniManager.Views
         public void ReloadFromMainWindow() => ViewModel.ReloadFromMainWindow();
         protected override void OnClosing(CancelEventArgs e)
         {
-            ViewModel.Close();
+            if (!ViewModel.Close()) { e.Cancel = true; return; }
             double[] widths = ResultsGrid.Columns.Select(column => column.ActualWidth).ToArray();
             ViewModel.SaveColumnWidths(widths);
             base.OnClosing(e);
@@ -432,6 +432,8 @@ namespace DesktopIniManager.Views
             SetIcon(ClearListFilterIcon, 25);
             SetIcon(OpenResultsIcon, 81);
             SetIcon(SaveResultsIcon, 82);
+            SetIcon(SaveHistoryTabIcon, 95);
+            SetIcon(AddHistoryTabIcon, 94);
             SetIcon(BrowseEditorIcon, 80);
             UpdateResultGroupsIcon();
         }
@@ -456,6 +458,28 @@ namespace DesktopIniManager.Views
             SetIcon(ResultGroupsIcon, expanded ? 56 : 55);
             if (ResultGroupsToggle != null)
                 ResultGroupsToggle.ToolTip = expanded ? Strings.Common_Collapse : Strings.Common_Expand;
+        }
+
+        private void HistoryTabStrip_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            var item = ItemsControl.ContainerFromElement(sender as ItemsControl, e.OriginalSource as DependencyObject) as ListBoxItem;
+            if (item?.DataContext == null) return;
+            if (ViewModel.DeleteHistoryTabCommand.CanExecute(item.DataContext))
+                ViewModel.DeleteHistoryTabCommand.Execute(item.DataContext);
+        }
+
+        private void DeleteAllHistoryTabs_Click(object sender, RoutedEventArgs e)
+        {
+            if (ViewModel.DeleteAllHistoryTabsCommand.CanExecute(null))
+                ViewModel.DeleteAllHistoryTabsCommand.Execute(null);
+        }
+
+        private void DeleteOtherHistoryTabs_Click(object sender, RoutedEventArgs e)
+        {
+            var menu = (sender as MenuItem)?.Parent as ContextMenu;
+            object tab = (menu?.PlacementTarget as FrameworkElement)?.DataContext;
+            if (tab != null && ViewModel.DeleteOtherHistoryTabsCommand.CanExecute(tab))
+                ViewModel.DeleteOtherHistoryTabsCommand.Execute(tab);
         }
     }
 

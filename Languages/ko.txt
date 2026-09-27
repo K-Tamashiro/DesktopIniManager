@@ -355,3 +355,23 @@ Differencer_CancellingCompare=비교를 취소하는 중…
 Differencer_HardLinkExcluded=하드 링크는 제외됩니다: {0}
 Differencer_OkPrefix=성공 {0}
 Differencer_LockedPrefix=잠김 {0}
+
+
+# Result history tabs
+History_AddTab=검색 탭 추가
+History_ComparisonLimit=비교 탭은 최대 20개입니다. 가장 오래된 탭을 삭제하고 비교하시겠습니까?\n아니요: 비교하지 않습니다. ×로 탭을 19개 이하로 줄인 후 다시 시도하세요.
+History_ComparisonTitle=비교 기록
+History_DeleteConfirm=탭 “{0}”을 삭제하시겠습니까?
+History_DeleteTab=이 탭 삭제
+History_DeleteAllTabs=모든 탭 삭제
+History_DeleteOtherTabs=다른 탭 삭제
+History_DeleteAllConfirm=모든 탭을 삭제하시겠습니까?
+History_DeleteOthersConfirm=“{0}” 이외의 탭을 삭제하시겠습니까?
+History_GrepAppend=선택한 탭 “{0}”에 추가하시겠습니까?\n예: 추가\n아니요: 새 탭에서 검색\n취소: 검색하지 않음
+History_GrepAppendAtLimit=탭이 20개로 가득 찼습니다. 선택한 탭 “{0}”을 사용하시겠습니까?\n예: 추가\n아니요: 이 탭을 비우고 검색\n취소: 검색하지 않고 다른 탭 선택
+History_GrepLimit=탭은 최대 20개입니다. 기존 탭을 선택하고 검색하세요. 결과를 추가하거나 해당 탭을 비운 후 검색할 수 있습니다.
+History_LoadFailed=탭 기록을 불러오지 못했습니다: {0}
+History_NewSearch=새 검색
+History_Saved=탭을 저장했습니다.
+History_SaveFailed=탭을 저장하지 못했습니다: {0}
+History_SaveTabs=탭 저장

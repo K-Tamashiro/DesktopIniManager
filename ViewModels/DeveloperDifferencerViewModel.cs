@@ -14,7 +14,7 @@ using System.Xml.Serialization;
 
 namespace DesktopIniManager.ViewModels
 {
-    internal sealed class DeveloperDifferencerViewModel : ObservableObject
+    internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
     {
         internal static readonly string StateDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DesktopIniManager");
         internal static string StatePath = Path.Combine(StateDirectory, "developer-differencer.xml");
@@ -181,6 +181,9 @@ namespace DesktopIniManager.ViewModels
             BuildFolderFilterCommand = new RelayCommand(ApplyBuildFolderFilter, () => !IsBusy);
             ExpandAllCommand = new RelayCommand(() => { foreach (var folder in folders.Values) folder.Expanded = true; });
             CollapseAllCommand = new RelayCommand(() => { foreach (var folder in folders.Values) folder.Expanded = false; });
+            DeleteHistoryTabCommand = new ParameterCommand(DeleteHistoryTab, () => !IsBusy);
+            DeleteAllHistoryTabsCommand = new RelayCommand(DeleteAllHistoryTabs, () => !IsBusy && HistoryTabs.Count > 0);
+            DeleteOtherHistoryTabsCommand = new ParameterCommand(DeleteOtherHistoryTabs, () => !IsBusy && HistoryTabs.Count > 1);
         }
         internal void SetFilePanelBusy(bool busyPanel, string message = null)
         { IsFileBusy = busyPanel; if (message != null) BusyMessage = message; }
@@ -305,8 +308,8 @@ namespace DesktopIniManager.ViewModels
                 if (!File.Exists(StatePath)) return;
                 DifferencerState state;
                 using (var stream = File.OpenRead(StatePath)) state = (DifferencerState)new XmlSerializer(typeof(DifferencerState)).Deserialize(stream);
-                SourcePath = state.Source; TargetPath = state.Target;
-                treeSource = state.Source; treeTarget = state.Target; selectedFolder = ""; cachedVisibleFolders = null;
+                SourcePath = DisplayRoot(state.Source); TargetPath = DisplayRoot(state.Target);
+                treeSource = SourcePath; treeTarget = TargetPath; selectedFolder = ""; cachedVisibleFolders = null;
                 Status = "Source and Target restored. Click Compare to build the difference tree.";
             }
             catch (Exception ex) { Status = "Failed to restore tree: " + ErrorMessages.English(ex); }
@@ -581,6 +584,8 @@ namespace DesktopIniManager.ViewModels
 
         internal void ClearComparisonView()
         {
+            CaptureHistoryTab();
+            CaptureHistoryTab();
             previewScope.Cancel();
             previewScope.Dispose();
             previewScope = new CancellationTokenSource();
@@ -589,6 +594,9 @@ namespace DesktopIniManager.ViewModels
             FolderItems = null;
             FileItems = null;
             snapshot = null; rows.Clear();
+            selectedHistoryTab = null;
+            NotifyHistory();
+            NotifyHistory();
             _selectAllFiles = false; OnPropertyChanged(nameof(SelectAllFiles));
             SelectedRow = null;
             OpenDiffCommand.NotifyCanExecuteChanged();
@@ -662,6 +670,8 @@ namespace DesktopIniManager.ViewModels
 
         internal async Task CompareAsync()
         {
+            if (IsBusy || !PrepareComparisonTab()) return;
+            CaptureHistoryTab();
             CommitRootHistoryRequested?.Invoke();
             var expanded = folders.Values.Where(f => f.Expanded).Select(f => f.Path).ToList();
             ClearComparisonView(); SetBusy(true);
@@ -688,6 +698,7 @@ namespace DesktopIniManager.ViewModels
                 token.ThrowIfCancellationRequested();
                 await BuildTreeAsync(snapshot.Folders, expanded, selectedFolder, token);
                 Status = folders[""].CountFor(DiffKind.Differences) + " differences / " + folders[""].CountFor(DiffKind.Same) + " identical. Check items to synchronize.";
+                AddComparisonTab();
                 SaveState();
             }
             catch (OperationCanceledException) { Status = "Compare cancelled"; }
@@ -740,10 +751,12 @@ namespace DesktopIniManager.ViewModels
 
                 string sourceFolderPath = snapshot == null ? null : System.IO.Path.Combine(snapshot.SourceRoot, path);
                 string targetFolderPath = snapshot == null ? null : System.IO.Path.Combine(snapshot.TargetRoot, path);
-                bool sourceExists = sourceFolderPath != null && Directory.Exists(sourceFolderPath);
-                bool targetExists = targetFolderPath != null && Directory.Exists(targetFolderPath);
-                bool sourceEmpty = sourceExists && !Directory.EnumerateFileSystemEntries(sourceFolderPath).Any();
-                bool targetEmpty = targetExists && !Directory.EnumerateFileSystemEntries(targetFolderPath).Any();
+                HistoryFolderState savedFolder = null;
+                restoringFolders?.TryGetValue(path, out savedFolder);
+                bool sourceExists = savedFolder != null ? savedFolder.SourceExists : sourceFolderPath != null && Directory.Exists(sourceFolderPath);
+                bool targetExists = savedFolder != null ? savedFolder.TargetExists : targetFolderPath != null && Directory.Exists(targetFolderPath);
+                bool sourceEmpty = savedFolder != null ? savedFolder.SourceEmpty : sourceExists && !Directory.EnumerateFileSystemEntries(sourceFolderPath).Any();
+                bool targetEmpty = savedFolder != null ? savedFolder.TargetEmpty : targetExists && !Directory.EnumerateFileSystemEntries(targetFolderPath).Any();
 
                 var node = new DiffFolder
                 {
@@ -877,6 +890,7 @@ namespace DesktopIniManager.ViewModels
                                                    .ToList(), token);
             token.ThrowIfCancellationRequested();
 
+            MarkDirectFileRows(visible);
             FileItems = visible;
             FilePanelTitle = "Files — " + (selectedFolder.Length == 0 ? "all levels" : selectedFolder) + " (" + visible.Count + ")";
             UpdateSelectionSummary();
@@ -1001,12 +1015,20 @@ namespace DesktopIniManager.ViewModels
             ZipTargetCommand.NotifyCanExecuteChanged();
         }
 
+        private void MarkDirectFileRows(List<DiffRow> visible)
+        {
+            string folder = selectedFolder ?? string.Empty;
+            foreach (DiffRow row in visible)
+                row.SetDirectInSelectedFolder(IsDirectChildFile(folder, row.File.RelativePath));
+        }
+
         internal string RootLabel()
         { return string.IsNullOrWhiteSpace(treeSource) ? "All folders" : Path.GetFileName(treeSource.TrimEnd('\\', '/')) is string name && name.Length > 0 ? name : treeSource; }
 
         internal void Filter()
         {
             var visible = rows.Where(r => IncludeBuildFolderFile(r.File) && (r.File.Kind & kindMask) != 0 && (selectedFolder.Length == 0 || r.File.RelativePath.StartsWith(selectedFolder + "\\", StringComparison.OrdinalIgnoreCase))).ToList();
+            MarkDirectFileRows(visible);
             FileItems = visible;
             FilePanelTitle = "Files — " + (selectedFolder.Length == 0 ? "all levels" : selectedFolder) + " (" + visible.Count + ")";
             UpdateRefreshButtonState();
@@ -1021,6 +1043,9 @@ namespace DesktopIniManager.ViewModels
             CompareCommand.NotifyCanExecuteChanged(); CleanCommand.NotifyCanExecuteChanged();
             BrowseSourceCommand.NotifyCanExecuteChanged(); BrowseTargetCommand.NotifyCanExecuteChanged();
             CloseCommand.NotifyCanExecuteChanged(); OpenDiffCommand.NotifyCanExecuteChanged();
+            DeleteHistoryTabCommand?.NotifyCanExecuteChanged();
+            DeleteAllHistoryTabsCommand?.NotifyCanExecuteChanged();
+            DeleteOtherHistoryTabsCommand?.NotifyCanExecuteChanged();
         }
 
         internal async Task<bool> RefreshFileAsync(DiffFile file)
@@ -1090,6 +1115,7 @@ namespace DesktopIniManager.ViewModels
 
         internal void SaveState()
         {
+            SaveHistory();
             try
             {
                 Directory.CreateDirectory(StateDirectory);

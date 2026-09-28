@@ -24,6 +24,7 @@ namespace DesktopIniManager.Views
         public string HistoryKey { get { return (string)GetValue(HistoryKeyProperty); } set { SetValue(HistoryKeyProperty, value); } }
         public bool PreserveOrder { get { return (bool)GetValue(PreserveOrderProperty); } set { SetValue(PreserveOrderProperty, value); } }
         public event EventHandler HistoryItemApplied;
+        public bool IsHistoryOpen => popup?.IsOpen == true;
         private Popup popup;
         private ListBox list;
         private Button button;

@@ -103,6 +103,13 @@ namespace DesktopIniManager.Services
         public HashSet<string> TargetFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "" };
     }
 
+    internal sealed class DiffIndex
+    {
+        public string Root;
+        public Dictionary<string, DiffStamp> Files;
+        public HashSet<string> Folders;
+    }
+
     /// <summary>Compares and synchronizes two development directory trees.</summary>
     internal static class DeveloperDifferencerService
     {
@@ -259,6 +266,34 @@ namespace DesktopIniManager.Services
             progress?.Report(ReportCompare("Classifying differences…", total, total));
             result.Files = Classify(left, right, true, compareTimestamp, token, progress, total);
             return result;
+        }
+
+        internal static DiffIndex BuildIndex(string root, CancellationToken token)
+        {
+            token.ThrowIfCancellationRequested();
+            root = Root(root);
+            var folders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "" };
+            var files = ScanSelectedFolder(root, string.Empty, folders, token);
+            return new DiffIndex { Root = root, Files = files, Folders = folders };
+        }
+
+        internal static DiffSnapshot Compare(DiffIndex source, DiffIndex target,
+            IProgress<DiffProgress> progress, bool compareTimestamp, CancellationToken token)
+        {
+            token.ThrowIfCancellationRequested();
+            ValidateRoots(Root(source.Root), Root(target.Root));
+            int total = Math.Max(1, source.Files.Count + target.Files.Count);
+            progress?.Report(ReportCompare("Classifying differences…", total, total));
+            return new DiffSnapshot
+            {
+                SourceRoot = source.Root,
+                TargetRoot = target.Root,
+                CompareTimestamp = compareTimestamp,
+                SourceFolders = new HashSet<string>(source.Folders, StringComparer.OrdinalIgnoreCase),
+                TargetFolders = new HashSet<string>(target.Folders, StringComparer.OrdinalIgnoreCase),
+                Folders = new HashSet<string>(source.Folders.Union(target.Folders), StringComparer.OrdinalIgnoreCase),
+                Files = Classify(source.Files, target.Files, true, compareTimestamp, token, progress, total)
+            };
         }
 
         /// <summary>Compares only the requested folder and its immediate child folders.</summary>

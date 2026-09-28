@@ -32,6 +32,13 @@ namespace DesktopIniManager.Views
             ViewModel = new GrepWindowViewModel(scopeProvider, Dispatcher, new UserDialogService(this));
             InitializeComponent();
             DataContext = ViewModel;
+            QueryBox.PreviewKeyDown += (sender, args) =>
+            {
+                if (args.Key != Key.Enter || Keyboard.Modifiers != ModifierKeys.None || QueryBox.IsHistoryOpen) return;
+                QueryBox.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
+                if (ViewModel.SearchCommand.CanExecute(null)) ViewModel.SearchCommand.Execute(null);
+                args.Handled = true;
+            };
             ViewModel.DialogTitle = Title;
             ViewModel.SearchHistoryRequested += () => { QueryBox.CommitHistory(); ExtensionsText.CommitHistory(); };
             ViewModel.MatchScrollRequested += ScrollToMatch;

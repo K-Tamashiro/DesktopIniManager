@@ -31,6 +31,7 @@ namespace DesktopIniManager.Views
 
         private readonly MainWindow _window;
         private readonly MsBuildMenuModel _msBuildMenu = new MsBuildMenuModel();
+        private bool _analyzeSelectedRoot;
         private Dispatcher Dispatcher => _window.Dispatcher;
         private string Title { get => _window.Title; set => _window.Title = value; }
         private object FindResource(object key) => _window.FindResource(key);
@@ -58,6 +59,9 @@ namespace DesktopIniManager.Views
 
         private void ConnectView()
         {
+            InputManager.Current.PreProcessInput += SwitchWindowShortcut;
+            _window.PreviewKeyDown += MainSearchKeyDown;
+            RootBox.HistoryItemApplied += (sender, args) => StartSelectedRootAnalysis();
             _window.FolderFilterBox.TextChanged += FolderFilter_TextChanged;
             _window.ResultsTree.SelectedItemChanged += ResultsTree_SelectedItemChanged;
             _window.ResultsTree.AddHandler(TreeViewItem.ExpandedEvent, new RoutedEventHandler(ResultsTree_ItemExpanded), true);
@@ -70,6 +74,10 @@ namespace DesktopIniManager.Views
                 MenuItem rebuildMenu = FindTaggedMenuItem(treeMenu, "dim-msbuild-rebuild");
                 if (buildMenu != null) buildMenu.ItemsSource = _msBuildMenu.BuildItems;
                 if (rebuildMenu != null) rebuildMenu.ItemsSource = _msBuildMenu.RebuildItems;
+                MenuItem sdkBuildMenu = FindTaggedMenuItem(treeMenu, "dim-sdk-build");
+                MenuItem sdkRebuildMenu = FindTaggedMenuItem(treeMenu, "dim-sdk-rebuild");
+                if (sdkBuildMenu != null) sdkBuildMenu.ItemsSource = _msBuildMenu.SdkBuildItems;
+                if (sdkRebuildMenu != null) sdkRebuildMenu.ItemsSource = _msBuildMenu.SdkRebuildItems;
             }
             _window.FileList.SelectionChanged += FileList_SelectionChanged;
             _window.FileList.MouseDoubleClick += FileList_MouseDoubleClick;
@@ -273,9 +281,96 @@ namespace DesktopIniManager.Views
             {
                 string selectedPath = Directory.Exists(ViewModel.RootPath) ? ViewModel.RootPath : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
                 string result = NativeFolderPicker.Show(new WindowInteropHelper(_window).Handle, selectedPath, Strings.Main_SelectSearchFolder);
-                if (!string.IsNullOrEmpty(result)) { ViewModel.RootPath = result; RootBox.CommitHistory(); SettingsService.SaveSearchRoot(result); ShowTextEnd(RootBox); }
+                if (!string.IsNullOrEmpty(result))
+                {
+                    ViewModel.RootPath = result;
+                    RootBox.CommitHistory();
+                    SettingsService.SaveSearchRoot(result);
+                    ShowTextEnd(RootBox);
+                    StartSelectedRootAnalysis();
+                }
             }
             catch (Exception ex) { ViewModel.ShowError(Strings.Main_FolderPickerFailed, ex); }
+        }
+
+        private void StartSelectedRootAnalysis()
+        {
+            _analyzeSelectedRoot = true;
+            if (ViewModel.IsSearching) { ViewModel.CancelSearch(); return; }
+            if (!ViewModel.GitSearchCommand.CanExecute(null)) return;
+            _analyzeSelectedRoot = false;
+            _searchModeActive = false;
+            _window.PhysicalTreeTab.IsEnabled = true;
+            _window.SolutionTreeTab.IsEnabled = true;
+            ViewModel.GitSearchCommand.Execute(null);
+        }
+
+        private void MainSearchKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Handled || Keyboard.Modifiers != ModifierKeys.None || QueryBox.IsHistoryOpen) return;
+            if (e.Key == Key.Enter && QueryBox.IsKeyboardFocusWithin)
+            {
+                QueryBox.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
+                if (ViewModel.SearchCommand.CanExecute(null)) ViewModel.SearchCommand.Execute(null);
+                e.Handled = true;
+                return;
+            }
+            if (ViewModel.IsSearching || (e.Key != Key.Up && e.Key != Key.Down)) return;
+            if (!QueryBox.IsKeyboardFocusWithin && !FileList.IsKeyboardFocusWithin
+                && !FileIconList.IsKeyboardFocusWithin && !ResultsTree.IsKeyboardFocusWithin) return;
+            ICommand command = e.Key == Key.Up ? ViewModel.PrevSearchMatchCommand : ViewModel.NextSearchMatchCommand;
+            if (!command.CanExecute(null)) return;
+            command.Execute(null);
+            e.Handled = true;
+        }
+
+        private void SwitchWindowShortcut(object sender, PreProcessInputEventArgs e)
+        {
+            if (!(e.StagingItem.Input is KeyEventArgs key) || key.RoutedEvent != Keyboard.PreviewKeyDownEvent
+                || key.Handled) return;
+            Window active = Application.Current.Windows.Cast<Window>().FirstOrDefault(window => window.IsActive);
+            if (active == null) return;
+            int destination;
+            if (key.Key == Key.Space && Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                // Treat owned windows (including DIFF VIEW) as their parent workspace.
+                while (active.Owner != null && active != _window
+                    && active != _differencerWindow && active != _grepWindow)
+                    active = active.Owner;
+                destination = active == _grepWindow ? 1 : active == _differencerWindow ? 3 : 2;
+            }
+            else if (Keyboard.Modifiers == ModifierKeys.Shift)
+            {
+                switch (key.Key)
+                {
+                    case Key.D1:
+                    case Key.NumPad1: destination = 1; break;
+                    case Key.D2:
+                    case Key.NumPad2: destination = 2; break;
+                    case Key.D3:
+                    case Key.NumPad3: destination = 3; break;
+                    default: return;
+                }
+            }
+            else return;
+            key.Handled = true;
+            e.Cancel();
+            if (key.IsRepeat) return;
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                try
+                {
+                    if (destination == 1) WindowActivationService.BringToFront(_window, selectWindow: true);
+                    else if (destination == 2)
+                    {
+                        if (_differencerWindow == null) DeveloperDifferencer();
+                        else WindowActivationService.BringToFront(_differencerWindow, selectWindow: true);
+                    }
+                    else if (_grepWindow != null) WindowActivationService.BringToFront(_grepWindow, selectWindow: true);
+                    else OpenGrep(ViewModel.GetSelectedGrepScopes());
+                }
+                catch (Exception ex) { ViewModel.ShowError(Strings.App_Unhandled, ex); }
+            }));
         }
 
         private void ChooseIconLibrary()
@@ -757,6 +852,7 @@ namespace DesktopIniManager.Views
 
         private void OnClosed(object sender, EventArgs e)
         {
+            InputManager.Current.PreProcessInput -= SwitchWindowShortcut;
             _filterTimer.Stop();
             ViewModel.CancelOperations();
             try { _grepWindow?.Close(); } catch { }
@@ -1046,6 +1142,7 @@ namespace DesktopIniManager.Views
             {
                 AnimateSearchProgress(false);
                 SetTreePanelBusy(false);
+                if (_analyzeSelectedRoot) Dispatcher.BeginInvoke(new Action(StartSelectedRootAnalysis));
             }
         }
 
@@ -1155,6 +1252,8 @@ namespace DesktopIniManager.Views
         {
             _msBuildMenu.BuildItems.Clear();
             _msBuildMenu.RebuildItems.Clear();
+            _msBuildMenu.SdkBuildItems.Clear();
+            _msBuildMenu.SdkRebuildItems.Clear();
             if (ViewModel.TreeViewIndex != 1 || folder == null) return;
 
             FolderMatch solution = folder.FindSolutionRoot();
@@ -1192,6 +1291,18 @@ namespace DesktopIniManager.Views
                     IconGlyph = glyph,
                     Command = new RelayCommand(() => RunMsBuild(file, captured, "Rebuild"))
                 });
+                _msBuildMenu.SdkBuildItems.Add(new MsBuildActionItem
+                {
+                    Header = captured,
+                    IconGlyph = glyph,
+                    Command = new RelayCommand(() => RunDotNetBuild(file, captured, false))
+                });
+                _msBuildMenu.SdkRebuildItems.Add(new MsBuildActionItem
+                {
+                    Header = captured,
+                    IconGlyph = glyph,
+                    Command = new RelayCommand(() => RunDotNetBuild(file, captured, true))
+                });
             }
         }
 
@@ -1201,6 +1312,8 @@ namespace DesktopIniManager.Views
             bool canBuild = ViewModel.TreeViewIndex == 1 && _msBuildMenu.BuildItems.Count > 0;
             bool show = ViewModel.TreeViewIndex != 1 || canBuild;
             Visibility visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            MenuItem rootMenu = FindTaggedMenuItem(menu, "dim-build");
+            if (rootMenu != null) { rootMenu.Visibility = visibility; rootMenu.IsEnabled = canBuild; }
             MenuItem buildMenu = FindTaggedMenuItem(menu, "dim-msbuild-build");
             MenuItem rebuildMenu = FindTaggedMenuItem(menu, "dim-msbuild-rebuild");
             Separator buildSeparator = FindTaggedSeparator(menu, "dim-msbuild");
@@ -1224,6 +1337,11 @@ namespace DesktopIniManager.Views
                 MenuItem menuItem = item as MenuItem;
                 if (menuItem != null && Equals(menuItem.Tag, tag))
                     return menuItem;
+                if (menuItem != null)
+                {
+                    MenuItem nested = FindTaggedMenuItem(menuItem, tag);
+                    if (nested != null) return nested;
+                }
             }
             return null;
         }
@@ -1288,6 +1406,27 @@ namespace DesktopIniManager.Views
             {
                 ViewModel.ShowError(ScriptText("Main_MsBuildFailed", "MSBuild could not be started."), ex);
             }
+        }
+
+        private void RunDotNetBuild(string solutionFile, string configurationPair, bool rebuild)
+        {
+            try
+            {
+                string configuration = configurationPair;
+                string platform = "Any CPU";
+                int bar = configurationPair.LastIndexOf('|');
+                if (bar >= 0)
+                {
+                    configuration = configurationPair.Substring(0, bar);
+                    platform = configurationPair.Substring(bar + 1);
+                }
+                string command = "dotnet build \"" + solutionFile + "\" --configuration \"" + configuration
+                    + "\" -p:Platform=\"" + platform + "\""
+                    + (rebuild ? " --no-incremental -t:Rebuild" : string.Empty);
+                StartKeepOpenConsole(Path.GetDirectoryName(solutionFile), command);
+                ViewModel.Status = "Started .NET SDK " + (rebuild ? "Rebuild " : "Build ") + configurationPair;
+            }
+            catch (Exception ex) { ViewModel.ShowError(".NET SDK build could not be started.", ex); }
         }
 
         private static string FindMsBuild()
@@ -1709,6 +1848,8 @@ namespace DesktopIniManager.Views
         {
             public ObservableCollection<MsBuildActionItem> BuildItems { get; } = new ObservableCollection<MsBuildActionItem>();
             public ObservableCollection<MsBuildActionItem> RebuildItems { get; } = new ObservableCollection<MsBuildActionItem>();
+            public ObservableCollection<MsBuildActionItem> SdkBuildItems { get; } = new ObservableCollection<MsBuildActionItem>();
+            public ObservableCollection<MsBuildActionItem> SdkRebuildItems { get; } = new ObservableCollection<MsBuildActionItem>();
         }
 
         private static string ConfigIconGlyph(string pair)

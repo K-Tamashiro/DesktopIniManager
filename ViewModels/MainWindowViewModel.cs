@@ -1,4 +1,4 @@
-using DesktopIniManager.Models;
+﻿using DesktopIniManager.Models;
 using DesktopIniManager.Services;
 using System;
 using System.Collections.ObjectModel;
@@ -50,7 +50,18 @@ namespace DesktopIniManager.ViewModels
         }
         private const int MaxFileListItems = 3000;
         private string _rootPath = string.Empty;
-        public string RootPath { get => _rootPath; set => SetProperty(ref _rootPath, value); }
+        public string RootPath
+        {
+            get => _rootPath;
+            set
+            {
+                if (string.Equals(_rootPath, value, StringComparison.Ordinal)) return;
+                SaveFolderTrees();
+                _searchCts?.Cancel();
+                InvalidateSolutionAnalysis();
+                SetProperty(ref _rootPath, value);
+            }
+        }
         private string _query = string.Empty;
         public string Query
         {
@@ -97,7 +108,14 @@ namespace DesktopIniManager.ViewModels
         private IEnumerable<FolderMatch> _treeItems = null;
         public IEnumerable<FolderMatch> TreeItems { get => _treeItems; set => SetProperty(ref _treeItems, value); }
         private bool _isTreeBusy = false;
-        public bool IsTreeBusy { get => _isTreeBusy; set => SetProperty(ref _isTreeBusy, value); }
+        public bool IsTreeBusy
+        {
+            get => _isTreeBusy;
+            set
+            {
+                if (SetProperty(ref _isTreeBusy, value)) CancelCommand?.NotifyCanExecuteChanged();
+            }
+        }
         private bool _isFileBusy = false;
         public bool IsFileBusy { get => _isFileBusy; set => SetProperty(ref _isFileBusy, value); }
         public AsyncRelayCommand SearchCommand { get; }
@@ -119,7 +137,7 @@ namespace DesktopIniManager.ViewModels
             TreeItems = _treeRoots;
             SearchCommand = new AsyncRelayCommand(SearchAsync, ReportCommandError, () => !IsSearching);
             GitSearchCommand = new AsyncRelayCommand(async () => { _pendingSearchQuery = ".git"; await SearchAsync(); }, ReportCommandError, () => !IsSearching);
-            CancelCommand = new RelayCommand(() => _searchCts?.Cancel(), () => IsSearching);
+            CancelCommand = new RelayCommand(CancelSearch, () => IsSearching || IsTreeBusy);
             InvertSelectionCommand = new RelayCommand(InvertSelection, () => !IsSearching);
             ExpandAllCommand = new RelayCommand(ExpandAll, () => !IsSearching);
             CollapseAllCommand = new RelayCommand(CollapseAll, () => !IsSearching);
@@ -235,7 +253,7 @@ namespace DesktopIniManager.ViewModels
         }
         private void SetTreePanelBusy(bool value) => IsTreeBusy = value;
         private void SetFilePanelBusy(bool value) => IsFileBusy = value;
-        internal void CancelOperations() { _searchCts?.Cancel(); _fileListCts?.Cancel(); _filterCts?.Cancel(); }
+        internal void CancelOperations() { _searchCts?.Cancel(); InvalidateSolutionAnalysis(); _fileListCts?.Cancel(); _filterCts?.Cancel(); }
 
         internal IReadOnlyList<string> ContainedFileNames(FolderMatch folder)
         {

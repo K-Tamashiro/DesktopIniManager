@@ -52,6 +52,7 @@ namespace DesktopIniManager.ViewModels
             var searchCts = new CancellationTokenSource();
             _searchCts = searchCts;
             SaveFolderTrees();
+            InvalidateSolutionAnalysis();
             _rebuildingFolderTrees = true;
             _results.Clear();
             _treeRoots.Clear();
@@ -63,11 +64,13 @@ namespace DesktopIniManager.ViewModels
             try
             {
                 await BuildLazyNetworkTreeAsync(root, searchCts.Token, intoSearch: false);
+                searchCts.Token.ThrowIfCancellationRequested();
                 _pathIndex = null;
                 _folderTreeRoot = root;
                 _physicalCurrent = _solutionCurrent = null;
                 _rebuildingFolderTrees = false;
                 ShowTreeView(0);
+                _ = StartSolutionAnalysis(root, null);
             }
             catch (OperationCanceledException)
             {
@@ -95,6 +98,7 @@ namespace DesktopIniManager.ViewModels
         internal void CancelSearch()
         {
             _searchCts?.Cancel();
+            if (_treeView == 1) _solutionCts?.Cancel();
         }
 
         internal async Task SearchAsync(bool quietMissingRoot)
@@ -142,6 +146,7 @@ namespace DesktopIniManager.ViewModels
             else
             {
                 SaveFolderTrees();
+                InvalidateSolutionAnalysis();
                 _rebuildingFolderTrees = true;
                 _results.Clear();
                 _treeRoots.Clear();
@@ -153,7 +158,6 @@ namespace DesktopIniManager.ViewModels
             CountLabel = Strings.Main_ZeroMatches; SetSearching(true);
             try
             {
-                System.Collections.Generic.List<FolderMatch> solutionRoots = new List<FolderMatch>();
                 if (folderListMode)
                 {
                     if (IsNetworkPath(root))
@@ -176,20 +180,13 @@ namespace DesktopIniManager.ViewModels
                     _pathIndex = standard.Paths;
                     RefreshTreeItemsSource();
                     await ApplyStandardDevelopmentAnalysis(gitSearchRequested, standard.Paths, searchCts.Token);
-                    if (!searchOnly) solutionRoots = await BuildSolutions(root, searchCts.Token);
                 }
-                foreach (FolderMatch solution in solutionRoots)
-                {
-                    AssignParents(solution);
-                    _solutionRoots.Add(solution);
-                }
-                ApplySolutionRootIcons(_solutionRoots);
                 if (!searchOnly)
                 {
+                    searchCts.Token.ThrowIfCancellationRequested();
                     _folderTreeRoot = root;
                     _physicalCurrent = _solutionCurrent = null;
                     _rebuildingFolderTrees = false;
-                    SaveFolderTrees();
                 }
                 if (searchOnly)
                 {
@@ -197,7 +194,10 @@ namespace DesktopIniManager.ViewModels
                     SearchRootSelectionRequested?.Invoke();
                 }
                 else
+                {
                     ShowTreeView(0);
+                    _ = StartSolutionAnalysis(root, _pathIndex);
+                }
             }
             catch (OperationCanceledException) { Status = Strings.Main_SearchCancelled; }
             catch (Exception ex) { _dialogs.Show(ErrorMessages.English(ex), Strings.App_Title); Status = Strings.Main_SearchFailed; }
@@ -429,73 +429,132 @@ namespace DesktopIniManager.ViewModels
             }
         }
 
-        internal async Task<List<FolderMatch>> BuildSolutions(string root, CancellationToken token)
+        // These fields belong to the physical acquisition, not ordinary searches.
+        private CancellationTokenSource _solutionCts;
+        private Task _solutionTask;
+        private VolumePathIndex _solutionPathIndex;
+        private string _solutionAnalysisRoot;
+        private Exception _solutionError;
+        private bool _solutionReady;
+        private int _solutionGeneration;
+        private int _treeViewGeneration;
+
+        private void InvalidateSolutionAnalysis()
         {
-            ShowTreeView(1);
-            SetTreePanelBusy(true);
+            _solutionGeneration++;
+            _solutionCts?.Cancel();
+            _solutionCts = null;
+            _solutionTask = null;
+            _solutionPathIndex = null;
+            _solutionAnalysisRoot = null;
+            _folderTreeRoot = null;
+            _solutionReady = false;
+            _solutionError = null;
+            _solutionRoots.Clear();
+            _solutionCurrent = null;
+            if (_treeView == 1)
+            {
+                _filterCts?.Cancel();
+                _filteredViewItems = null;
+                RefreshTreeItemsSource();
+                UpdateVisibleCount();
+            }
+            SetTreePanelBusy(false);
+        }
+
+        private Task StartSolutionAnalysis(string root, VolumePathIndex paths)
+        {
+            if (_solutionTask != null) return _solutionTask;
+            _solutionAnalysisRoot = root;
+            _solutionPathIndex = paths;
+            var cts = new CancellationTokenSource();
+            _solutionCts = cts;
+            _solutionTask = AnalyzeSolutionsAsync(root, paths, cts, _solutionGeneration);
+            return _solutionTask;
+        }
+
+        private async Task AnalyzeSolutionsAsync(string root, VolumePathIndex paths,
+            CancellationTokenSource cts, int generation)
+        {
             try
             {
-                IReadOnlyList<string> projectFiles = _pathIndex != null
-                    ? _pathIndex.ProjectFiles
-                    : (IReadOnlyList<string>)new string[0];
-
-                List<string> solutions = projectFiles
-                    .Where(path => !string.IsNullOrWhiteSpace(path)
-                        && string.Equals(Path.GetExtension(path), ".sln", StringComparison.OrdinalIgnoreCase))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-
-                CountLabel = string.Format(Strings.Main_NItems, 0);
-                Status = solutions.Count == 0
-                    ? Strings.Main_BuildingTree
-                    : string.Format(Strings.Main_SolutionsFound, 0) + " / " + solutions.Count.ToString("N0");
-
-                return await Task.Run(() =>
+                // Let physical rendering and the foreground command finish first.
+                await System.Windows.Threading.Dispatcher.Yield(DispatcherPriority.Background);
+                CancellationToken token = cts.Token;
+                List<FolderMatch> roots = await Task.Run(() =>
                 {
+                    List<string> solutions = (paths?.ProjectFiles ?? (IReadOnlyList<string>)Array.Empty<string>())
+                        .Where(path => !string.IsNullOrWhiteSpace(path)
+                            && string.Equals(Path.GetExtension(path), ".sln", StringComparison.OrdinalIgnoreCase))
+                        .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                    var built = new List<FolderMatch>();
                     if (solutions.Count == 0)
+                        built = SolutionTreeService.Build(root, token);
+                    else
                     {
-                        List<FolderMatch> scanned = SolutionTreeService.Build(root, token);
-                        Dispatcher.BeginInvoke(new Action(() =>
+                        int lastReport = Environment.TickCount;
+                        foreach (string path in solutions)
                         {
-                            if (!IsSearching) return;
-                            CountLabel = string.Format(Strings.Main_NItems, scanned.Count);
-                            Status = string.Format(Strings.Main_SolutionsFound, scanned.Count);
-                        }), System.Windows.Threading.DispatcherPriority.Background);
-                        return scanned;
-                    }
-
-                    var built = new List<FolderMatch>(solutions.Count);
-                    int lastReport = Environment.TickCount;
-                    for (int index = 0; index < solutions.Count; index++)
-                    {
-                        token.ThrowIfCancellationRequested();
-                        string path = solutions[index];
-                        List<FolderMatch> parsed = SolutionTreeService.BuildFromProjectFiles(new[] { path }, _pathIndex, token);
-                        built.AddRange(parsed);
-
-                        int now = Environment.TickCount;
-                        if (index == solutions.Count - 1 || unchecked(now - lastReport) >= 120)
-                        {
+                            token.ThrowIfCancellationRequested();
+                            built.AddRange(SolutionTreeService.BuildFromProjectFiles(new[] { path }, paths, token));
+                            int now = Environment.TickCount;
+                            if (unchecked(now - lastReport) < 120) continue;
                             lastReport = now;
                             int count = built.Count;
                             string name = Path.GetFileName(path);
                             Dispatcher.BeginInvoke(new Action(() =>
                             {
-                                if (!IsSearching) return;
+                                if (generation != _solutionGeneration || token.IsCancellationRequested
+                                    || _solutionReady || _treeView != 1 || !IsTreeBusy) return;
                                 CountLabel = string.Format(Strings.Main_NItems, count);
                                 Status = string.Format(Strings.Main_SolutionsFound, count)
-                                    + " / " + solutions.Count.ToString("N0")
-                                    + "  " + name;
-                            }), System.Windows.Threading.DispatcherPriority.Background);
+                                    + " / " + solutions.Count.ToString("N0") + "  " + name;
+                            }), DispatcherPriority.Background);
                         }
                     }
-
+                    foreach (FolderMatch solution in built) AssignParents(solution);
                     return built;
                 }, token);
+                token.ThrowIfCancellationRequested();
+                if (generation != _solutionGeneration) return;
+                foreach (FolderMatch solution in roots) _solutionRoots.Add(solution);
+                ApplySolutionRootIcons(_solutionRoots);
+                _solutionReady = true;
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                // Observe background failures; report them when this view is requested.
+                if (generation == _solutionGeneration) _solutionError = ex;
             }
             finally
             {
-                SetTreePanelBusy(false);
+                if (ReferenceEquals(_solutionCts, cts)) _solutionCts = null;
+                cts.Dispose();
+            }
+        }
+
+        private async Task EnsureSolutionViewAsync()
+        {
+            if (_solutionReady || _rebuildingFolderTrees || _folderTreeRoot == null) return;
+            int generation = _solutionGeneration;
+            int viewGeneration = _treeViewGeneration;
+            Task task = StartSolutionAnalysis(_solutionAnalysisRoot ?? _folderTreeRoot, _solutionPathIndex);
+            SetTreePanelBusy(true);
+            Status = Strings.Main_BuildingTree;
+            try
+            {
+                await task;
+                if (generation != _solutionGeneration || viewGeneration != _treeViewGeneration || _treeView != 1) return;
+                if (_solutionReady) ShowTreeView(1);
+                else if (_solutionError != null)
+                    ShowError(Strings.Main_SearchFailed, _solutionError);
+                else Status = Strings.Main_SearchCancelled;
+            }
+            finally
+            {
+                if (generation == _solutionGeneration && viewGeneration == _treeViewGeneration && _treeView == 1)
+                    SetTreePanelBusy(false);
             }
         }
 

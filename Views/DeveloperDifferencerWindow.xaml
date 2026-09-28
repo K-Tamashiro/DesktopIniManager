@@ -454,6 +454,16 @@
           BorderThickness="4,1,1,1"
           HistoryKey="Differencer-Source"
           Text="{Binding SourcePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+        <ProgressBar
+          Grid.Column="1"
+          Height="3"
+          Margin="4,0,9,7"
+          VerticalAlignment="Bottom"
+          IsHitTestVisible="False"
+          Background="{DynamicResource HeaderBackground}"
+          Foreground="{StaticResource SourceColor}"
+          IsIndeterminate="{Binding IsSourceIndexing}"
+          Visibility="{Binding IsSourceIndexing, Converter={StaticResource MvvmBooleanToVisibility}}" />
         <Button
           x:Name="BrowseSourceButton"
           Grid.Column="2"
@@ -487,6 +497,17 @@
           BorderThickness="4,1,1,1"
           HistoryKey="Differencer-Target"
           Text="{Binding TargetPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+        <ProgressBar
+          Grid.Row="1"
+          Grid.Column="1"
+          Height="3"
+          Margin="4,0,9,1"
+          VerticalAlignment="Bottom"
+          IsHitTestVisible="False"
+          Background="{DynamicResource HeaderBackground}"
+          Foreground="{StaticResource TargetColor}"
+          IsIndeterminate="{Binding IsTargetIndexing}"
+          Visibility="{Binding IsTargetIndexing, Converter={StaticResource MvvmBooleanToVisibility}}" />
         <Button
           x:Name="BrowseTargetButton"
           Grid.Row="1"

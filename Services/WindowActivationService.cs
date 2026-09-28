@@ -52,13 +52,19 @@ namespace DesktopIniManager.Services
             return !states.TryGetValue(window, out state) || (!state.Closed && (state.Closing == null || state.Closing.Cancel));
         }
 
-        internal static void BringToFront(Window window)
+        internal static void BringToFront(Window window, bool selectWindow = false)
         {
             if (!Available(window)) return;
+            if (selectWindow && window.IsEnabled)
+            {
+                // Modeless owned windows otherwise stay above the explicitly selected workspace.
+                foreach (Window owned in window.OwnedWindows.Cast<Window>().Where(Available))
+                    owned.WindowState = WindowState.Minimized;
+            }
             // Keep an open child/dialog above its owner, including on startup resume.
             Window child = window.OwnedWindows.Cast<Window>().LastOrDefault(w => Available(w) && w.IsActive)
                 ?? window.OwnedWindows.Cast<Window>().LastOrDefault(Available);
-            if (child != null) { BringToFront(child); return; }
+            if (child != null && (!selectWindow || !window.IsEnabled)) { BringToFront(child); return; }
             if (!window.IsEnabled) return;
             if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
             bool wasTopmost = window.Topmost;

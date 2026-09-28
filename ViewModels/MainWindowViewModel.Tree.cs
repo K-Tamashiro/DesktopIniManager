@@ -1,4 +1,4 @@
-using DesktopIniManager.Models;
+﻿using DesktopIniManager.Models;
 using DesktopIniManager.Services;
 using System;
 using System.Collections.ObjectModel;
@@ -77,6 +77,8 @@ namespace DesktopIniManager.ViewModels
 
         internal void ShowTreeView(int view)
         {
+            _treeViewGeneration++;
+            SetTreePanelBusy(false);
             if (view != 2) _baseTreeView = view;
             _treeView = view;
             _solutionView = view == 1;
@@ -90,6 +92,7 @@ namespace DesktopIniManager.ViewModels
                 : view == 1
                     ? string.Format(Strings.Main_SolutionsFound, _solutionRoots.Count)
                     : string.Format(Strings.Main_SearchResults, _searchResultCount);
+            if (view == 1) _ = EnsureSolutionViewAsync();
         }
 
         internal void SyncAllFoldersSelectedFlag()
@@ -390,6 +393,7 @@ namespace DesktopIniManager.ViewModels
                 _physicalCurrent = _results.FirstOrDefault(node => node.IsCurrent);
                 _solutionCurrent = Flatten(_solutionRoots).FirstOrDefault(node => node.IsCurrent);
                 _folderTreeRoot = state.Root;
+                _solutionReady = true;
                 ShowTreeView(state.View == 1 ? 1 : 0);
                 Status = Strings.Main_TreesRestored;
             }
@@ -399,7 +403,7 @@ namespace DesktopIniManager.ViewModels
         internal void SaveFolderTrees()
         {
             // A cancelled/in-progress rebuild must not replace the last complete trees.
-            if (_rebuildingFolderTrees || _folderTreeRoot == null) return;
+            if (_rebuildingFolderTrees || _folderTreeRoot == null || !_solutionReady) return;
             try
             {
                 var icons = new List<byte[]>();

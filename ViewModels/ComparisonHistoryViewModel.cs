@@ -94,6 +94,8 @@ namespace DesktopIniManager.ViewModels
             {
                 // Assign backing fields so restoring roots does not clear the selected snapshot.
                 _sourcePath = DisplayRoot(tab.Snapshot.SourceRoot); _targetPath = DisplayRoot(tab.Snapshot.TargetRoot);
+                if (sourceIndex == null || !string.Equals(sourceIndex.Path, _sourcePath, StringComparison.OrdinalIgnoreCase)) RestartIndex(true);
+                if (targetIndex == null || !string.Equals(targetIndex.Path, _targetPath, StringComparison.OrdinalIgnoreCase)) RestartIndex(false);
                 OnPropertyChanged(nameof(SourcePath)); OnPropertyChanged(nameof(TargetPath));
                 snapshot = tab.Snapshot; treeSource = SourcePath; treeTarget = TargetPath;
                 CompareTimestamp = snapshot.CompareTimestamp;

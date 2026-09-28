@@ -41,6 +41,7 @@ namespace DesktopIniManager.Views
         private bool imagePanning;
         private Point imagePanLast;
         private SizeChangedEventHandler imageFitHandler;
+        private Slider imageZoom;
 
         internal DiffSnapshot Snapshot => ViewModel.Snapshot;
 
@@ -49,6 +50,7 @@ namespace DesktopIniManager.Views
             ViewModel = new DiffViewModel(snapshot, file, new UserDialogService(this));
             InitializeComponent();
             DataContext = ViewModel;
+            PreviewKeyDown += DiffViewKeyDown;
             ViewModel.JumpRequested += Jump;
             ViewModel.ReloadRequested = LoadContent;
             ViewModel.CloseRequested += Close;
@@ -92,8 +94,74 @@ namespace DesktopIniManager.Views
 
         private void Body_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
-            if ((Keyboard.Modifiers & ModifierKeys.Shift) == 0) return;
-            if (ScrollHorizontally(-e.Delta)) e.Handled = true;
+            if (ViewModel.IsImage && imageZoom != null)
+            {
+                ChangeImageZoom(e.Delta / 120.0);
+                e.Handled = true;
+            }
+            else if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0)
+                e.Handled = ScrollHorizontally(-e.Delta);
+            else
+                e.Handled = ScrollVertically(-e.Delta * DiffLineHeight * 3 / 120.0);
+        }
+
+        private void DiffViewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Handled || Keyboard.FocusedElement is TextBox) return;
+            if (Keyboard.Modifiers == ModifierKeys.Shift)
+            {
+                ICommand command;
+                switch (e.Key)
+                {
+                    case Key.Up: command = ViewModel.PreviousHunkCommand; break;
+                    case Key.Down: command = ViewModel.NextHunkCommand; break;
+                    case Key.Left: command = ViewModel.PreviousFileCommand; break;
+                    case Key.Right: command = ViewModel.NextFileCommand; break;
+                    default: return;
+                }
+                e.Handled = true;
+                if (command.CanExecute(null)) command.Execute(null);
+                return;
+            }
+            if (Keyboard.Modifiers != ModifierKeys.None) return;
+            switch (e.Key)
+            {
+                case Key.Up: e.Handled = ScrollVertically(-DiffLineHeight); break;
+                case Key.Down: e.Handled = ScrollVertically(DiffLineHeight); break;
+                case Key.Left: e.Handled = ScrollHorizontally(-120); break;
+                case Key.Right: e.Handled = ScrollHorizontally(120); break;
+                case Key.PageUp:
+                case Key.PageDown:
+                    int direction = e.Key == Key.PageUp ? -1 : 1;
+                    if (ViewModel.IsImage && imageZoom != null)
+                    {
+                        ChangeImageZoom(-direction);
+                        e.Handled = true;
+                    }
+                    else
+                    {
+                        if (leftScroll == null) leftScroll = FindScroll(leftList);
+                        e.Handled = ScrollVertically(direction * (leftScroll?.ViewportHeight ?? 0));
+                    }
+                    break;
+            }
+        }
+
+        private void ChangeImageZoom(double steps)
+        {
+            imageZoom.Value = Math.Max(imageZoom.Minimum,
+                Math.Min(imageZoom.Maximum, imageZoom.Value * Math.Pow(1.25, steps)));
+        }
+
+        private bool ScrollVertically(double delta)
+        {
+            if (leftScroll == null) leftScroll = FindScroll(leftList);
+            if (rightScroll == null) rightScroll = FindScroll(rightList);
+            if (leftScroll == null || rightScroll == null) return false;
+            double offset = leftScroll.VerticalOffset + delta;
+            leftScroll.ScrollToVerticalOffset(offset);
+            rightScroll.ScrollToVerticalOffset(offset);
+            return true;
         }
 
         private void BuildToolbar()
@@ -169,6 +237,7 @@ namespace DesktopIniManager.Views
             BuildToolbar();
             leftList = rightList = null;
             leftScroll = rightScroll = null;
+            imageZoom = null;
             map = null;
             hunkOverlay = null;
             hunkStart = hunkEnd = -1;
@@ -629,9 +698,9 @@ namespace DesktopIniManager.Views
             {
                 viewportThumb = new Thumb { Cursor = System.Windows.Input.Cursors.SizeNS, ToolTip = StringOverlay.Get("Diff_VisibleRange"), Focusable = false };
                 var border = new FrameworkElementFactory(typeof(Border));
-                border.SetValue(Border.BorderBrushProperty, new DynamicResourceExtension("Accent"));
-                border.SetValue(Border.BorderThicknessProperty, new Thickness(2));
-                border.SetValue(Border.BackgroundProperty, Brushes.Transparent);
+                border.SetValue(Border.BorderThicknessProperty, new Thickness(0));
+                border.SetValue(Border.BackgroundProperty, new DynamicResourceExtension("Ink"));
+                border.SetValue(UIElement.OpacityProperty, 0.20);
                 viewportThumb.Template = new ControlTemplate(typeof(Thumb)) { VisualTree = border };
                 viewportThumb.DragStarted += (s, e) => viewportDragTop = Canvas.GetTop(viewportThumb);
                 viewportThumb.DragDelta += DragViewport;
@@ -671,7 +740,7 @@ namespace DesktopIniManager.Views
             body.Children.Add(rightScroll);
             leftScroll.ScrollChanged += ScrollChanged;
             rightScroll.ScrollChanged += ScrollChanged;
-            var zoom = new Slider
+            var zoom = imageZoom = new Slider
             {
                 Minimum = 0.05,
                 Maximum = 16,

@@ -78,9 +78,77 @@ namespace DesktopIniManager.ViewModels
             Filter();
         }
         private string _sourcePath = string.Empty;
-        public string SourcePath { get => _sourcePath; set { if (SetProperty(ref _sourcePath, value)) ClearComparisonView(); } }
+        public string SourcePath { get => _sourcePath; set { if (SetProperty(ref _sourcePath, value)) { ClearComparisonView(); RestartIndex(true); } } }
         private string _targetPath = string.Empty;
-        public string TargetPath { get => _targetPath; set { if (SetProperty(ref _targetPath, value)) ClearComparisonView(); } }
+        public string TargetPath { get => _targetPath; set { if (SetProperty(ref _targetPath, value)) { ClearComparisonView(); RestartIndex(false); } } }
+
+        private PendingIndex sourceIndex, targetIndex;
+        public bool IsSourceIndexing => !closed && sourceIndex != null && !sourceIndex.Task.IsCompleted;
+        public bool IsTargetIndexing => !closed && targetIndex != null && !targetIndex.Task.IsCompleted;
+
+        private void NotifyIndexProgress()
+        {
+            OnPropertyChanged(nameof(IsSourceIndexing));
+            OnPropertyChanged(nameof(IsTargetIndexing));
+        }
+
+        private async Task ObserveIndexProgressAsync(PendingIndex pending)
+        {
+            NotifyIndexProgress();
+            if (pending == null) return;
+            // PendingIndex observes failures; this continuation only updates the activity indicators.
+            await pending.Task;
+            if (!closed && (ReferenceEquals(sourceIndex, pending) || ReferenceEquals(targetIndex, pending)))
+                NotifyIndexProgress();
+        }
+
+        private sealed class PendingIndex
+        {
+            private readonly CancellationTokenSource cancellation = new CancellationTokenSource();
+            public Task<DiffIndex> Task { get; }
+            public string Path { get; }
+            public Exception Error { get; private set; }
+            public PendingIndex(string path) { Path = path; Task = BuildAsync(path); }
+            public void Cancel()
+            {
+                try { cancellation.Cancel(); } catch (ObjectDisposedException) { }
+            }
+            private async Task<DiffIndex> BuildAsync(string path)
+            {
+                try
+                {
+                    return await System.Threading.Tasks.Task.Run(
+                        () => DeveloperDifferencerService.BuildIndex(path, cancellation.Token), cancellation.Token);
+                }
+                catch (OperationCanceledException) { return null; }
+                catch (Exception ex) { Error = ex; return null; }
+                finally { cancellation.Dispose(); }
+            }
+        }
+
+        private void RestartIndex(bool source)
+        {
+            compareCts?.Cancel();
+            if (source)
+            {
+                sourceIndex?.Cancel();
+                sourceIndex = closed || string.IsNullOrWhiteSpace(SourcePath) ? null : new PendingIndex(SourcePath);
+            }
+            else
+            {
+                targetIndex?.Cancel();
+                targetIndex = closed || string.IsNullOrWhiteSpace(TargetPath) ? null : new PendingIndex(TargetPath);
+            }
+            _ = ObserveIndexProgressAsync(source ? sourceIndex : targetIndex);
+        }
+
+        private void InvalidateIndexes()
+        {
+            sourceIndex?.Cancel();
+            targetIndex?.Cancel();
+            sourceIndex = targetIndex = null;
+            NotifyIndexProgress();
+        }
         private string _status = "Ready";
         public string Status { get => _status; set => SetProperty(ref _status, value); }
         private string _countLabel = string.Empty;
@@ -191,6 +259,8 @@ namespace DesktopIniManager.ViewModels
         internal void Close()
         {
             closed = true;
+            sourceIndex?.Cancel();
+            targetIndex?.Cancel();
             compareCts?.Cancel();
             compareCts?.Dispose();
             previewScope.Cancel();
@@ -337,6 +407,7 @@ namespace DesktopIniManager.ViewModels
                 SyncDirectionIconRequested?.Invoke(null, false);
             }
             if (!confirmed) return;
+            InvalidateIndexes();
             ISynchronizationLog liveLog = openLog(direction, snapshot);
             SetBusy(true); Status = direction + " — syncing…";
             try
@@ -432,6 +503,7 @@ namespace DesktopIniManager.ViewModels
                 if (solutions.Count == 0) { Status = Strings.Differencer_NoSolutions; return; }
                 var selection = ChooseCleanSolutions?.Invoke(solutions, source);
                 if (selection == null) { Status = Strings.Differencer_CleanCancelled; return; }
+                InvalidateIndexes();
                 string[] configurations = selection.Configurations;
                 string msbuild = await Task.Run(() => SolutionCleanService.FindMSBuild());
                 ClearComparisonView();
@@ -683,11 +755,25 @@ namespace DesktopIniManager.ViewModels
             ProgressIndeterminate = true;
             Status = "Scanning files and comparing timestamps and sizes…";
             string source = SourcePath, target = TargetPath;
+            if (sourceIndex != null && !string.Equals(sourceIndex.Path, source, StringComparison.OrdinalIgnoreCase))
+            { sourceIndex.Cancel(); sourceIndex = null; }
+            if (targetIndex != null && !string.Equals(targetIndex.Path, target, StringComparison.OrdinalIgnoreCase))
+            { targetIndex.Cancel(); targetIndex = null; }
+            PendingIndex leftIndex = sourceIndex ?? (sourceIndex = new PendingIndex(source));
+            PendingIndex rightIndex = targetIndex ?? (targetIndex = new PendingIndex(target));
+            _ = ObserveIndexProgressAsync(leftIndex);
+            _ = ObserveIndexProgressAsync(rightIndex);
             try
             {
                 var progress = new Progress<DiffProgress>(UpdateProgress);
                 bool compareTimestamp = CompareTimestamp == true;
-                DiffSnapshot fresh = await Task.Run(() => DeveloperDifferencerService.Compare(source, target, progress, compareTimestamp, token), token);
+                BusyMessage = Status = "Preparing source / target indexes…";
+                DiffIndex[] indexes = await Task.WhenAll(leftIndex.Task, rightIndex.Task).WaitAsync(token);
+                token.ThrowIfCancellationRequested();
+                if (leftIndex.Error != null) throw leftIndex.Error;
+                if (rightIndex.Error != null) throw rightIndex.Error;
+                if (indexes[0] == null || indexes[1] == null) throw new OperationCanceledException();
+                DiffSnapshot fresh = await Task.Run(() => DeveloperDifferencerService.Compare(indexes[0], indexes[1], progress, compareTimestamp, token), token);
                 token.ThrowIfCancellationRequested();
                 Status = "Updating the difference tree…";
                 BusyMessage = "Updating the difference tree and file list…";
@@ -705,6 +791,14 @@ namespace DesktopIniManager.ViewModels
             catch (Exception ex) { Status = "Compare failed (sync disabled): " + ErrorMessages.English(ex); ShowError(ex); }
             finally
             {
+                if (token.IsCancellationRequested || leftIndex.Error != null || rightIndex.Error != null)
+                {
+                    leftIndex.Cancel();
+                    rightIndex.Cancel();
+                    if (ReferenceEquals(sourceIndex, leftIndex)) sourceIndex = null;
+                    if (ReferenceEquals(targetIndex, rightIndex)) targetIndex = null;
+                    NotifyIndexProgress();
+                }
                 comparing = false;
                 IsProgressVisible = false;
                 ProgressIndeterminate = false;
@@ -1096,6 +1190,7 @@ namespace DesktopIniManager.ViewModels
             bool changed = !DiffStamp.Same(file.Source, source, file.CompareTimestamp) ||
                            !DiffStamp.Same(file.Target, target, file.CompareTimestamp);
             if (!changed) return false;
+            InvalidateIndexes();
 
             var refreshedFile = new DiffFile
             {

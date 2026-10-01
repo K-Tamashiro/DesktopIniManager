@@ -1,4 +1,4 @@
-using DesktopIniManager.Models;
+﻿using DesktopIniManager.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -533,29 +533,7 @@ namespace DesktopIniManager.ViewModels
 
         internal void Grep()
         {
-            var visible = Flatten(CurrentTreeRoots())
-                .Where(item => item.IsActionable && !item.IsHidden && !item.IsFilterHidden && Directory.Exists(item.Path))
-                .ToList();
-
-            if (visible.Count == 0)
-            {
-                _dialogs.Show(Strings.Main_NoGrepFolders, Strings.App_Title, MessageBoxButton.OK, MessageBoxImage.Information);
-                return;
-            }
-
-            IReadOnlyList<string> scopes = GetSelectedGrepScopes();
-            if (scopes.Count == 0)
-            {
-                var candidates = new HashSet<FolderMatch>(visible);
-                foreach (var item in visible)
-                {
-                    var ancestor = item.Parent;
-                    while (ancestor != null && !candidates.Contains(ancestor)) ancestor = ancestor.Parent;
-                    if (ancestor == null) item.SetSelected(true);
-                }
-                scopes = GetSelectedGrepScopes();
-            }
-
+            IReadOnlyList<string> scopes = PrepareGrepScopes();
             if (scopes.Count == 0)
             {
                 _dialogs.Show(Strings.Main_NoGrepFolders, Strings.App_Title, MessageBoxButton.OK, MessageBoxImage.Information);
@@ -565,22 +543,90 @@ namespace DesktopIniManager.ViewModels
             OpenGrepRequested?.Invoke(scopes);
         }
 
-        internal IReadOnlyList<string> GetSelectedGrepScopes()
+        internal IReadOnlyList<string> CollectSelectedFolderPaths(bool requireExists = true)
         {
             // Walk the live tree, not the folder-filter flat list.
             // Same-branch children are dropped only when a selected ancestor already covers them.
-            List<string> selected = Flatten(CurrentTreeRoots())
-                .Where(item => item.IsActionable && item.IsSelected && !string.IsNullOrWhiteSpace(item.Path) && Directory.Exists(item.Path))
-                .Select(item => NormalizeFolderPath(item.Path))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            List<string> selected = new List<string>();
+            foreach (FolderMatch item in Flatten(CurrentTreeRoots()))
+            {
+                if (!item.IsActionable || !item.IsSelected || string.IsNullOrWhiteSpace(item.Path))
+                    continue;
+                string path = TryNormalizeFolderPath(item.Path);
+                if (path == null) continue;
+                if (requireExists && !Directory.Exists(path)) continue;
+                selected.Add(path);
+            }
 
-            return ExcludeNestedFolders(selected);
+            return ExcludeNestedFolders(selected.Distinct(StringComparer.OrdinalIgnoreCase).ToList());
+        }
+
+        internal IReadOnlyList<string> GetSelectedGrepScopes()
+        {
+            return PrepareGrepScopes();
+        }
+
+        internal IReadOnlyList<string> ResolveSearchScopes(string fallbackRoot = null)
+        {
+            return EnsureScopedFolders(fallbackRoot ?? RootPath);
+        }
+
+        internal IReadOnlyList<string> PrepareGrepScopes()
+        {
+            return EnsureScopedFolders(RootPath);
+        }
+
+        private IReadOnlyList<string> EnsureScopedFolders(string fallbackRoot)
+        {
+            IReadOnlyList<string> selected = CollectSelectedFolderPaths(true);
+            if (selected.Count > 0) return selected;
+
+            FolderMatch root = CurrentTreeRoots().FirstOrDefault(item =>
+                item.IsActionable && ExistingFolderPath(item.Path) != null);
+            if (root != null)
+            {
+                root.SetSelected(true);
+                SyncAllFoldersSelectedFlag();
+                return CollectSelectedFolderPaths(true);
+            }
+
+            string path = ExistingFolderPath(fallbackRoot);
+            return path == null ? Array.Empty<string>() : new[] { path };
+        }
+
+        internal static string ExistingFolderPath(string path)
+        {
+            string normalized = TryNormalizeFolderPath(path);
+            if (normalized == null) return null;
+            return Directory.Exists(normalized) ? normalized : null;
+        }
+
+        internal void RefreshScopedLabel()
+        {
+            int count = CollectSelectedFolderPaths(false).Count;
+            string label = "Scoped " + count;
+            if (!string.Equals(_scopedLabel, label, StringComparison.Ordinal))
+                ScopedLabel = label;
         }
 
         internal static string NormalizeFolderPath(string path)
         {
-            return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string fullPath = Path.GetFullPath(path);
+            string root = Path.GetPathRoot(fullPath);
+            return fullPath.Length == root.Length ? fullPath
+                : fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+
+        internal static string TryNormalizeFolderPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return null;
+            try
+            {
+                return NormalizeFolderPath(path);
+            }
+            catch (ArgumentException) { return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar); }
+            catch (NotSupportedException) { return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar); }
+            catch (PathTooLongException) { return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar); }
         }
 
         internal static IReadOnlyList<string> ExcludeNestedFolders(IReadOnlyList<string> folders)

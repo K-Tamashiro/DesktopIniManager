@@ -20,8 +20,10 @@ namespace DesktopIniManager.Services
             report(Strings.Splash_LoadingSettings, 0);
             var state = new StartupState
             {
-                DarkMode = SettingsService.LoadDarkMode(), TreeCompact = SettingsService.LoadTreeCompact(),
-                Root = SettingsService.LoadSearchRoot(), Query = SettingsService.LoadSearchQuery(),
+                DarkMode = SettingsService.LoadDarkMode(),
+                TreeCompact = SettingsService.LoadTreeCompact(),
+                Root = SettingsService.LoadSearchRoot(),
+                Query = SettingsService.LoadSearchQuery(),
                 IconLibrary = SettingsService.LoadIconLibraryPath()
             };
             if (string.IsNullOrWhiteSpace(state.IconLibrary))

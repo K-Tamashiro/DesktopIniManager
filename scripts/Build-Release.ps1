@@ -3,8 +3,8 @@ param([string]$PrebuiltDirectory)
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$version = '3.5.1'
-$releaseVersion = "$version-develop-fffe"
+$version = '3.6.0'
+$releaseVersion = $version
 $packageName = "DesktopIniManager-v$releaseVersion-win-x64"
 $releaseRoot = Join-Path $repoRoot 'release'
 [IO.Directory]::CreateDirectory($releaseRoot) | Out-Null
@@ -60,7 +60,7 @@ try {
         if ($actual.ToString(3) -ne $assemblyVersions[$relative]) { throw "Unexpected assembly version in ${relative}: $actual" }
     }
     $productVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $stage 'DesktopIniManager.dll')).ProductVersion
-    if ($productVersion -ne $releaseVersion) { throw "Unexpected prerelease product version: $productVersion" }
+    if ($productVersion -ne $releaseVersion) { throw "Unexpected release product version: $productVersion" }
     $runtime = Get-Content -LiteralPath (Join-Path $stage 'DesktopIniManager.runtimeconfig.json') -Raw | ConvertFrom-Json
     if ($runtime.runtimeOptions.includedFrameworks -or !$runtime.runtimeOptions.frameworks) {
         throw 'Expected a framework-dependent release requiring .NET 10 Desktop Runtime.'

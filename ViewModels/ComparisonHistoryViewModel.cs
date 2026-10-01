@@ -47,8 +47,14 @@ namespace DesktopIniManager.ViewModels
             selectedHistoryTab.KindMask = kindMask;
             selectedHistoryTab.ShowObj = showObj; selectedHistoryTab.ShowBin = showBin;
             selectedHistoryTab.Status = Status;
-            selectedHistoryTab.FolderStates = folders.Values.Select(f => new HistoryFolderState { Path = f.Path,
-                SourceExists = f.SourceExists, TargetExists = f.TargetExists, SourceEmpty = f.SourceEmpty, TargetEmpty = f.TargetEmpty }).ToList();
+            selectedHistoryTab.FolderStates = folders.Values.Select(f => new HistoryFolderState
+            {
+                Path = f.Path,
+                SourceExists = f.SourceExists,
+                TargetExists = f.TargetExists,
+                SourceEmpty = f.SourceEmpty,
+                TargetEmpty = f.TargetEmpty
+            }).ToList();
         }
         private bool PrepareComparisonTab()
         {
@@ -117,7 +123,6 @@ namespace DesktopIniManager.ViewModels
         {
             var tab = item as ComparisonHistoryTab;
             if (IsBusy || tab == null || !HistoryTabs.Contains(tab)) return;
-            if (dialogs.Show(string.Format(StringOverlay.Get("History_DeleteConfirm"), tab.Title), StringOverlay.Get("History_ComparisonTitle"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
             bool active = tab == selectedHistoryTab;
             changingHistoryTabs = true;
             try { HistoryTabs.Remove(tab); }
@@ -138,7 +143,6 @@ namespace DesktopIniManager.ViewModels
         private void DeleteAllHistoryTabs()
         {
             if (IsBusy || HistoryTabs.Count == 0) return;
-            if (dialogs.Show(StringOverlay.Get("History_DeleteAllConfirm"), StringOverlay.Get("History_ComparisonTitle"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
             changingHistoryTabs = true;
             try { HistoryTabs.Clear(); }
             finally { changingHistoryTabs = false; }
@@ -151,7 +155,6 @@ namespace DesktopIniManager.ViewModels
         {
             var tab = item as ComparisonHistoryTab;
             if (IsBusy || tab == null || !HistoryTabs.Contains(tab) || HistoryTabs.Count <= 1) return;
-            if (dialogs.Show(string.Format(StringOverlay.Get("History_DeleteOthersConfirm"), tab.Title), StringOverlay.Get("History_ComparisonTitle"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
             changingHistoryTabs = true;
             try
             {
@@ -180,8 +183,9 @@ namespace DesktopIniManager.ViewModels
             try
             {
                 var saved = ResultHistoryStore.Load<HistoryFile<ComparisonHistoryTab>>("comparison");
+                var selected = saved.Tabs.ElementAtOrDefault(saved.SelectedIndex);
                 foreach (var tab in saved.Tabs.Where(t => t.Snapshot != null).OrderByDescending(t => t.CreatedAt).Take(ResultHistoryStore.Limit)) HistoryTabs.Add(tab);
-                if (HistoryTabs.Count > 0) await SelectHistoryTabAsync(HistoryTabs[0]);
+                if (HistoryTabs.Count > 0) await SelectHistoryTabAsync(HistoryTabs.Contains(selected) ? selected : HistoryTabs[0]);
             }
             catch (Exception ex) { ShowError(ex); }
         }

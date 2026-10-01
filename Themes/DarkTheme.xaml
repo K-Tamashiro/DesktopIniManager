@@ -1,7 +1,7 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <SolidColorBrush x:Key="WindowBackground" Color="#111821" />
   <SolidColorBrush x:Key="CardBackground" Color="#1B2633" />
-  <SolidColorBrush x:Key="HeaderBackground" Color="#141E29" />
+  <SolidColorBrush x:Key="HeaderBackground" Color="#111821" />
   <SolidColorBrush x:Key="Accent" Color="#D95A96" />
   <SolidColorBrush x:Key="ButtonHover" Color="#A94273" />
   <SolidColorBrush x:Key="AccentSoft" Color="#2A1C29" />

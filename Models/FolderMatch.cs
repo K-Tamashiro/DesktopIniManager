@@ -12,6 +12,8 @@ namespace DesktopIniManager.Models
         private bool _isCurrent;
         public bool IsCurrent { get => _isCurrent; set { if (_isCurrent == value) return; _isCurrent = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsCurrent))); } }
         private ImageSource _iconPreview;
+        private ImageSource _naturalIcon;
+        internal static ImageSource CheckedFolderIcon { get; set; }
         private bool _isHidden;
         private bool _isFilterHidden;
         private string _reason;
@@ -22,13 +24,15 @@ namespace DesktopIniManager.Models
         public bool IsSelected { get => _isSelected; set { SetSelected(value); } }
 
         /// <summary>Sets this folder's selection without changing any parent or child selection.</summary>
+        public static event System.Action SelectionChanged;
+
         public void SetSelected(bool value)
         {
-            if (_isSelected != value)
-            {
-                _isSelected = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
-            }
+            if (_isSelected == value) return;
+            _isSelected = value;
+            ApplyCheckedIcon();
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+            SelectionChanged?.Invoke();
         }
         public bool IsExpanded { get => _isExpanded; set { if (_isExpanded == value) return; _isExpanded = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsExpanded))); } }
         public string Path { get; set; }
@@ -41,7 +45,34 @@ namespace DesktopIniManager.Models
         public bool IsFilterHidden { get => _isFilterHidden; set { if (_isFilterHidden == value) return; _isFilterHidden = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsFilterHidden))); PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ItemVisibility))); } }
         public Visibility ItemVisibility => IsHidden || IsFilterHidden ? Visibility.Collapsed : Visibility.Visible;
         public ObservableCollection<FolderMatch> Children { get; } = new ObservableCollection<FolderMatch>();
-        public ImageSource IconPreview { get => _iconPreview; set { if (ReferenceEquals(_iconPreview, value)) return; _iconPreview = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IconPreview))); } }
+        public ImageSource IconPreview
+        {
+            get => _iconPreview;
+            set
+            {
+                if (!IsSelected || !ReferenceEquals(value, CheckedFolderIcon))
+                    _naturalIcon = value;
+                ImageSource shown = IsSelected && CheckedFolderIcon != null ? CheckedFolderIcon : value;
+                if (ReferenceEquals(_iconPreview, shown)) return;
+                _iconPreview = shown;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IconPreview)));
+            }
+        }
+
+        private void ApplyCheckedIcon()
+        {
+            if (IsSelected && CheckedFolderIcon != null)
+            {
+                if (!ReferenceEquals(_iconPreview, CheckedFolderIcon))
+                    _naturalIcon = _iconPreview;
+                _iconPreview = CheckedFolderIcon;
+            }
+            else
+            {
+                _iconPreview = _naturalIcon ?? _iconPreview;
+            }
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IconPreview)));
+        }
         public string Name => !string.IsNullOrEmpty(DisplayName) ? DisplayName : System.IO.Path.GetFileName(Path.TrimEnd(System.IO.Path.DirectorySeparatorChar));
         public event PropertyChangedEventHandler PropertyChanged;
 

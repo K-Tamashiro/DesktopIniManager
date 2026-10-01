@@ -176,8 +176,8 @@ namespace DesktopIniManager.ViewModels
                 EditorPath = SettingsService.LoadEditorPath();
                 EditorArguments = SettingsService.LoadEditorArguments();
             }
-            SetExplicitScopes(initialScopes);
             RestoreHistory();
+            SetExplicitScopes(initialScopes ?? _scopeProvider?.Invoke() ?? Array.Empty<string>());
         }
 
         internal void SaveColumnWidths(double[] widths)
@@ -203,7 +203,7 @@ namespace DesktopIniManager.ViewModels
         public void SetExplicitScopes(IReadOnlyList<string> scopes)
         {
             if (_searchCts != null) { Status = Strings.Grep_CancelBeforeChange; return; }
-            SetScopes(scopes);
+            SetScopes(scopes, keepEnabledState: false);
         }
 
         public void AddDroppedFolders(IReadOnlyList<string> folders)
@@ -216,19 +216,23 @@ namespace DesktopIniManager.ViewModels
         public void ReloadFromMainWindow()
         {
             if (_searchCts != null) { Status = Strings.Grep_CancelBeforeChange; return; }
-            SetScopes(_scopeProvider());
+            SetScopes(_scopeProvider == null ? Array.Empty<string>() : _scopeProvider(), keepEnabledState: false);
         }
 
-        private void SetScopes(IEnumerable<string> paths)
+        private void SetScopes(IEnumerable<string> paths, bool keepEnabledState = true)
         {
-            var previous = _scopes.ToDictionary(item => item.FolderPath, item => item.IsEnabled, StringComparer.OrdinalIgnoreCase);
+            var previous = keepEnabledState
+                ? _scopes.ToDictionary(item => item.FolderPath, item => item.IsEnabled, StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
             foreach (GrepScopeItem item in _scopes)
                 item.PropertyChanged -= ScopeEnabledChanged;
             string[] normalized = NormalizeScopes(paths).ToArray();
             _scopes.Clear();
             foreach (string path in normalized)
             {
-                bool enabled = !previous.TryGetValue(path, out bool was) || was;
+                bool enabled = keepEnabledState
+                    ? (!previous.TryGetValue(path, out bool was) || was)
+                    : true;
                 var item = new GrepScopeItem(path, enabled);
                 item.PropertyChanged += ScopeEnabledChanged;
                 _scopes.Add(item);

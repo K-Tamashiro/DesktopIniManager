@@ -1,4 +1,4 @@
-﻿using DesktopIniManager.ViewModels;
+using DesktopIniManager.ViewModels;
 using DesktopIniManager.Services;
 using DesktopIniManager.Properties;
 using System;
@@ -21,6 +21,10 @@ namespace DesktopIniManager.Views
     {
         internal DeveloperDifferencerViewModel ViewModel { get; }
         internal bool IsWorking { get { return ViewModel.IsBusy; } }
+        private Point _zipDragStart;
+        private bool _zipDragFromSource;
+        private bool _zipDragging;
+        private bool _zipDragArmed;
         /// <summary>Initializes a new developer differencer window.</summary>
         public DeveloperDifferencerWindow()
         {
@@ -28,6 +32,8 @@ namespace DesktopIniManager.Views
                 ShowSyncConfirmation, (direction, currentSnapshot) => new SynchronizationLogWindow(this, direction, currentSnapshot));
             InitializeComponent();
             DataContext = ViewModel;
+            SourceLabelIcon.MouseLeftButtonUp += (sender, args) => ViewModel.RescanRoot(true);
+            TargetLabelIcon.MouseLeftButtonUp += (sender, args) => ViewModel.RescanRoot(false);
             ViewModel.ChooseCleanSolutions = ChooseCleanSolutions;
             ViewModel.CleanReportRequested += ShowCleanReport;
             ViewModel.ChooseFolder = (initialPath, title) =>
@@ -51,6 +57,17 @@ namespace DesktopIniManager.Views
             ObjFilterIcon.Source = DifferencerStatusIcons.GetBuildFolderIcon(true);
             BinFilterIcon.Source = DifferencerStatusIcons.GetBuildFolderIcon(false);
             ApplyToolbarIcons();
+            ViewModel.SelectionCountChanged += UpdateZipStageIcons;
+            if (ZipSourceButton != null)
+            {
+                ZipSourceButton.PreviewMouseLeftButtonDown += ZipButton_PreviewMouseLeftButtonDown;
+                ZipSourceButton.PreviewMouseMove += ZipButton_PreviewMouseMove;
+            }
+            if (ZipTargetButton != null)
+            {
+                ZipTargetButton.PreviewMouseLeftButtonDown += ZipButton_PreviewMouseLeftButtonDown;
+                ZipTargetButton.PreviewMouseMove += ZipButton_PreviewMouseMove;
+            }
             if (NodeExpandToggle != null)
             {
                 NodeExpandToggle.Checked += NodeExpandToggle_Changed;
@@ -95,12 +112,12 @@ namespace DesktopIniManager.Views
             bool toTarget = IsOver(TargetBox, point) || (!IsOver(SourceBox, point) && point.X >= ActualWidth / 2.0);
             if (toTarget)
             {
-                ViewModel.TargetPath = folders[0];
+                ViewModel.ApplyRootPath(false, folders[0]);
                 TargetBox.CommitHistory();
             }
             else
             {
-                ViewModel.SourcePath = folders[0];
+                ViewModel.ApplyRootPath(true, folders[0]);
                 SourceBox.CommitHistory();
             }
             e.Handled = true;
@@ -323,8 +340,8 @@ namespace DesktopIniManager.Views
         private void ApplyToolbarIcons()
         {
             SetIcon(CloseButtonIcon, 26);
-            SetIcon(SourceLabelIcon, 61);
-            SetIcon(TargetLabelIcon, 60);
+            SetIcon(SourceLabelIcon, 102);
+            SetIcon(TargetLabelIcon, 103);
             SetIcon(BrowseSourceIcon, 74);
             SetIcon(BrowseTargetIcon, 75);
             SetIcon(CompareButtonIcon, 84);
@@ -333,6 +350,7 @@ namespace DesktopIniManager.Views
             SetIcon(SelectAllFilesIcon, 48);
             SetIcon(ZipSourceButtonIcon, 93);
             SetIcon(ZipTargetButtonIcon, 92);
+            SetIcon(CheckedOnlyIcon, 100);
             SetIcon(ForwardButtonIcon, 85);
             SetIcon(ReverseButtonIcon, 86);
             UpdateNodeExpandIcon();
@@ -372,8 +390,8 @@ namespace DesktopIniManager.Views
             else
             {
                 // Normal
-                SetIcon(SourceLabelIcon, 61);
-                SetIcon(TargetLabelIcon, 60);
+                SetIcon(SourceLabelIcon, 102);
+                SetIcon(TargetLabelIcon, 103);
             }
         }
 
@@ -427,6 +445,55 @@ namespace DesktopIniManager.Views
             object tab = (menu?.PlacementTarget as FrameworkElement)?.DataContext;
             if (tab != null && ViewModel.DeleteOtherHistoryTabsCommand.CanExecute(tab))
                 ViewModel.DeleteOtherHistoryTabsCommand.Execute(tab);
+        }
+
+        private void UpdateZipStageIcons(int selectedFiles)
+        {
+            if (selectedFiles <= 0)
+            {
+                SetIcon(ZipSourceButtonIcon, 93);
+                SetIcon(ZipTargetButtonIcon, 92);
+                return;
+            }
+            if (selectedFiles <= 5)
+            {
+                SetIcon(ZipSourceButtonIcon, 98);
+                SetIcon(ZipTargetButtonIcon, 96);
+            }
+            else
+            {
+                SetIcon(ZipSourceButtonIcon, 99);
+                SetIcon(ZipTargetButtonIcon, 97);
+            }
+        }
+
+        private void ZipButton_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _zipDragArmed = true;
+            _zipDragging = false;
+            _zipDragFromSource = ReferenceEquals(sender, ZipSourceButton);
+            _zipDragStart = e.GetPosition(null);
+        }
+
+        private void ZipButton_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton != MouseButtonState.Pressed) { _zipDragArmed = false; return; }
+            if (!_zipDragArmed || _zipDragging) return;
+            if (!DropOutService.MovedEnough(_zipDragStart, e.GetPosition(null))) return;
+            if (!ViewModel.CanSynchronize) return;
+            _zipDragArmed = false;
+            _zipDragging = true;
+            e.Handled = true;
+            // End the button press before OLE takes over mouse input.
+            (sender as UIElement)?.ReleaseMouseCapture();
+            try
+            {
+                string staged = ViewModel.StageCheckedCopy(_zipDragFromSource);
+                if (!string.IsNullOrEmpty(staged))
+                    DropOutService.DragExisting(sender as DependencyObject, new[] { staged });
+            }
+            catch (Exception ex) { ViewModel.ShowError(ex); }
+            finally { _zipDragging = false; }
         }
     }
 }

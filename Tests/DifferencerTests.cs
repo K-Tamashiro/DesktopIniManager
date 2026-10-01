@@ -36,6 +36,70 @@ internal static class DifferencerTests
 
     private static void Check(bool condition, string message) { if (!condition) throw new Exception(message); checks++; Console.WriteLine("PASS " + message); }
     private static void Reject(Action action, string message) { try { action(); } catch (IOException) { Check(true, message); return; } throw new Exception("Not rejected: " + message); }
+    private static int TestSyncRetry()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "dim-retry-" + Guid.NewGuid().ToString("N"));
+        string source = Path.Combine(root, "source"), target = Path.Combine(root, "target");
+        Directory.CreateDirectory(source); Directory.CreateDirectory(target);
+        try
+        {
+            foreach (bool forward in new[] { true, false })
+            {
+                string from = forward ? source : target, to = forward ? target : source;
+                string prefix = forward ? "forward/" : "reverse/";
+                string locked = prefix + "locked.txt", good = prefix + "good.txt";
+                Write(from, locked, "copy after unlock"); Write(from, good, "normal operation");
+                var snapshot = Snapshot(source, target, locked, good);
+                var events = new List<string>();
+                FileStream handle = new FileStream(Path.Combine(from, locked), FileMode.Open, FileAccess.Read, FileShare.None);
+                try
+                {
+                    var results = DeveloperDifferencerService.Synchronize(snapshot, snapshot.Files, forward, line =>
+                    {
+                        events.Add(line);
+                        if (line.StartsWith("OK ") && line.EndsWith(good)) { handle.Dispose(); handle = null; }
+                    });
+                    Check(results.Count == 2 && results.All(l => l.StartsWith("OK ")), "retry recovery counts each operation once, direction " + forward);
+                    Check(events.Count(l => l.StartsWith("QUEUED ")) == 1 && events.Count(l => l.StartsWith("RETRY ")) == 1,
+                        "one failure enters one retry pass");
+                    Check(events.FindIndex(l => l.EndsWith(good)) < events.FindIndex(l => l.StartsWith("RETRY ")),
+                        "normal work finishes before retry");
+                    Check(File.ReadAllText(Path.Combine(to, locked)) == "copy after unlock", "retry copies original content");
+                }
+                finally { handle?.Dispose(); }
+
+                Write(from, prefix + "stale", "before");
+                snapshot = Snapshot(source, target, prefix + "stale");
+                Write(from, prefix + "stale", "changed since comparison");
+                events.Clear();
+                var failed = DeveloperDifferencerService.Synchronize(snapshot, snapshot.Files, forward, events.Add);
+                Check(failed.Count == 1 && failed[0].StartsWith("FAIL ") && events.Count(l => l.StartsWith("QUEUED ")) == 1
+                    && events.Count(l => l.StartsWith("RETRY ")) == 1 && !File.Exists(Path.Combine(to, prefix + "stale")),
+                    "permanent failure is final after one retry; stale source is never copied");
+
+                string dir = prefix + "delete-dir";
+                Write(to, dir + "/locked.txt", "delete after unlock");
+                snapshot = Snapshot(source, target, dir + "/locked.txt");
+                var folders = new[] { new DiffFolderSync { RelativePath = dir, SourceExists = !forward, TargetExists = forward } };
+                handle = new FileStream(Path.Combine(to, dir, "locked.txt"), FileMode.Open, FileAccess.Read, FileShare.None);
+                events.Clear();
+                try
+                {
+                    var results = DeveloperDifferencerService.Synchronize(snapshot, snapshot.Files, forward, line =>
+                    {
+                        events.Add(line);
+                        if (line.StartsWith("RETRY ")) { handle.Dispose(); handle = null; }
+                    }, folders);
+                    Check(results.Count == 2 && results.All(l => l.StartsWith("OK ")) && !Directory.Exists(Path.Combine(to, dir)),
+                        "retry deletes failed child file before failed parent folder");
+                }
+                finally { handle?.Dispose(); }
+            }
+            return 0;
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     private static readonly DateTime FixedTime = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
     private static void Write(string root, string relative, string content)
     { string path = Path.Combine(root, relative); Directory.CreateDirectory(Path.GetDirectoryName(path)); File.WriteAllText(path, content); File.SetLastWriteTimeUtc(path, FixedTime); }
@@ -50,6 +114,7 @@ internal static class DifferencerTests
     {
         try
         {
+            if (args.Contains("--sync-retry")) return TestSyncRetry();
             if (args.Contains("--result-history")) return ResultHistoryTests.Execute();
             if (args.Contains("--input-history")) return InputHistoryTests.Run();
             if (args.Contains("--window-focus")) return TestWindowActivation();

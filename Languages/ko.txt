@@ -375,3 +375,6 @@ History_NewSearch=새 검색
 History_Saved=탭을 저장했습니다.
 History_SaveFailed=탭을 저장하지 못했습니다: {0}
 History_SaveTabs=탭 저장
+
+Differencer_RescanSource=소스 폴더 다시 검색
+Differencer_RescanTarget=대상 폴더 다시 검색

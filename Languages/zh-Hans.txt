@@ -375,3 +375,6 @@ History_NewSearch=新搜索
 History_Saved=标签页已保存。
 History_SaveFailed=无法保存标签页：{0}
 History_SaveTabs=保存标签页
+
+Differencer_RescanSource=重新扫描源文件夹
+Differencer_RescanTarget=重新扫描目标文件夹

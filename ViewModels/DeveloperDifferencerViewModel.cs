@@ -78,9 +78,33 @@ namespace DesktopIniManager.ViewModels
             Filter();
         }
         private string _sourcePath = string.Empty;
-        public string SourcePath { get => _sourcePath; set { if (SetProperty(ref _sourcePath, value)) { ClearComparisonView(); RestartIndex(true); } } }
+        public string SourcePath { get => _sourcePath; set { ApplyRootPath(true, value, force: false); } }
         private string _targetPath = string.Empty;
-        public string TargetPath { get => _targetPath; set { if (SetProperty(ref _targetPath, value)) { ClearComparisonView(); RestartIndex(false); } } }
+        public string TargetPath { get => _targetPath; set { ApplyRootPath(false, value, force: false); } }
+
+        internal void ApplyRootPath(bool source, string path, bool force = false)
+        {
+            path = path ?? string.Empty;
+            string current = source ? SourcePath : TargetPath;
+            if (!force && string.Equals(MainWindowViewModel.TryNormalizeFolderPath(current),
+                MainWindowViewModel.TryNormalizeFolderPath(path), StringComparison.OrdinalIgnoreCase)) return;
+            if (source)
+            {
+                bool changed = SetProperty(ref _sourcePath, path, nameof(SourcePath));
+                if (!changed && !force) return;
+                if (!changed) OnPropertyChanged(nameof(SourcePath));
+                ClearComparisonView();
+                RestartIndex(true);
+            }
+            else
+            {
+                bool changed = SetProperty(ref _targetPath, path, nameof(TargetPath));
+                if (!changed && !force) return;
+                if (!changed) OnPropertyChanged(nameof(TargetPath));
+                ClearComparisonView();
+                RestartIndex(false);
+            }
+        }
 
         private PendingIndex sourceIndex, targetIndex;
         public bool IsSourceIndexing => !closed && sourceIndex != null && !sourceIndex.Task.IsCompleted;
@@ -140,6 +164,12 @@ namespace DesktopIniManager.ViewModels
                 targetIndex = closed || string.IsNullOrWhiteSpace(TargetPath) ? null : new PendingIndex(TargetPath);
             }
             _ = ObserveIndexProgressAsync(source ? sourceIndex : targetIndex);
+        }
+
+        internal void RescanRoot(bool source)
+        {
+            if (!IsBusy)
+                ApplyRootPath(source, source ? SourcePath : TargetPath, force: true);
         }
 
         private void InvalidateIndexes()
@@ -203,6 +233,24 @@ namespace DesktopIniManager.ViewModels
         public bool CanRefresh { get => _canRefresh; set => SetProperty(ref _canRefresh, value); }
         private bool _canSynchronize = false;
         public bool CanSynchronize { get => _canSynchronize; set => SetProperty(ref _canSynchronize, value); }
+        private bool _checkedOnlyFilter;
+        public bool CheckedOnlyFilter
+        {
+            get => _checkedOnlyFilter;
+            set
+            {
+                if (!SetProperty(ref _checkedOnlyFilter, value)) return;
+                if (snapshot == null) return;
+                if (value)
+                {
+                    ApplyCheckedOnlyFolderCollapse();
+                    Filter();
+                }
+                else
+                    ApplyKindFilter();
+            }
+        }
+        public event Action<int> SelectionCountChanged;
         private bool _canCancel = false;
         public bool CanCancel { get => _canCancel; set { if (SetProperty(ref _canCancel, value)) CancelCommand?.NotifyCanExecuteChanged(); } }
 
@@ -274,8 +322,7 @@ namespace DesktopIniManager.ViewModels
             {
                 string path = ChooseFolder?.Invoke(source ? SourcePath : TargetPath, source ? "Source folder" : "Target folder");
                 if (path == null) return;
-                if (source) SourcePath = path;
-                else TargetPath = path;
+                ApplyRootPath(source, path);
                 CommitBrowsedRootHistoryRequested?.Invoke(source);
             }
             catch (Exception ex) { ShowError(ex); }
@@ -668,7 +715,6 @@ namespace DesktopIniManager.ViewModels
             snapshot = null; rows.Clear();
             selectedHistoryTab = null;
             NotifyHistory();
-            NotifyHistory();
             _selectAllFiles = false; OnPropertyChanged(nameof(SelectAllFiles));
             SelectedRow = null;
             OpenDiffCommand.NotifyCanExecuteChanged();
@@ -976,11 +1022,13 @@ namespace DesktopIniManager.ViewModels
             }
 
             FolderItems = new[] { folders[""] };
+            ApplyCheckedOnlyFolderCollapse();
             await Dispatcher.Yield(DispatcherPriority.Background);
 
             var visible = await Task.Run(() => rows.Where(r => IncludeBuildFolderFile(r.File) &&
                                                                (r.File.Kind & kindMask) != 0 &&
-                                                               (selectedFolder.Length == 0 || r.File.RelativePath.StartsWith(selectedFolder + "\\", StringComparison.OrdinalIgnoreCase)))
+                                                               (selectedFolder.Length == 0 || r.File.RelativePath.StartsWith(selectedFolder + "\\", StringComparison.OrdinalIgnoreCase)) &&
+                                                               (!_checkedOnlyFilter || r.File.Selected))
                                                    .ToList(), token);
             token.ThrowIfCancellationRequested();
 
@@ -1015,7 +1063,9 @@ namespace DesktopIniManager.ViewModels
                 folders[selectedFolder].Active = false; selectedFolder = ""; folders[""].Active = true;
             }
             foreach (DiffFolder folder in folders.Values) folder.UpdateDisplayChildren();
-            FolderItems = new[] { folders[""] }; Filter(); UpdateSelectionSummary();
+            FolderItems = new[] { folders[""] };
+            ApplyCheckedOnlyFolderCollapse();
+            Filter(); UpdateSelectionSummary();
         }
 
         private void PromoteVisibleFolderAncestors()
@@ -1097,17 +1147,18 @@ namespace DesktopIniManager.ViewModels
         {
             DiffFolder root = null;
             int selectedFolderCount = snapshot == null ? 0 : folders.Values.Count(f => f.FolderCanSync && f.FolderSelected && IncludeBuildFolder(f.Path));
-            int folderDifferenceCount = snapshot == null ? 0 : folders.Values.Count(f => f.FolderCanSync && IncludeBuildFolder(f.Path));
-            int count = (snapshot != null && folders.TryGetValue("", out root) ? root.SelectedCount : 0) + selectedFolderCount;
-            int total = (root == null ? 0 : root.CountFor(DiffKind.All)) + folderDifferenceCount;
+            int fileCount = snapshot != null && folders.TryGetValue("", out root) ? root.SelectedCount : 0;
+            int count = fileCount + selectedFolderCount;
             int visibleSelectedFolders = snapshot == null ? 0 : folders.Values.Count(f => f.FolderCanSync && f.FolderSelected && IncludeBuildFolder(f.Path) && f.MatchesFolderMask(kindMask));
             int hidden = root == null ? 0 : count - root.SelectedFor(kindMask) - visibleSelectedFolders;
-            CountLabel = "Selected " + count + " / " + total + (hidden > 0 ? " (includes " + hidden + " hidden)" : "");
+            CountLabel = "Folder " + selectedFolderCount + " / Files " + fileCount
+                + (hidden > 0 ? " (includes " + hidden + " hidden)" : "");
             CanSynchronize = !IsBusy && count > 0;
             ForwardCommand.NotifyCanExecuteChanged();
             ReverseCommand.NotifyCanExecuteChanged();
             ZipSourceCommand.NotifyCanExecuteChanged();
             ZipTargetCommand.NotifyCanExecuteChanged();
+            SelectionCountChanged?.Invoke(fileCount);
         }
 
         private void MarkDirectFileRows(List<DiffRow> visible)
@@ -1150,9 +1201,59 @@ namespace DesktopIniManager.ViewModels
         internal string RootLabel()
         { return string.IsNullOrWhiteSpace(treeSource) ? "All folders" : Path.GetFileName(treeSource.TrimEnd('\\', '/')) is string name && name.Length > 0 ? name : treeSource; }
 
+
+        internal string StageCheckedCopy(bool fromSource)
+        {
+            if (snapshot == null) return null;
+            string root = fromSource ? snapshot.SourceRoot : snapshot.TargetRoot;
+            if (!Directory.Exists(root)) throw new DirectoryNotFoundException(root);
+            var dirs = folders.Values
+                .Where(f => f.FolderCanSync && f.FolderSelected && IncludeBuildFolder(f.Path) && f.Path.Length > 0
+                    && (fromSource ? f.SourceExists : f.TargetExists))
+                .Select(f => f.Path)
+                .ToList();
+            var files = snapshot.Files
+                .Where(f => (fromSource ? f.Source : f.Target) != null
+                    && (f.Selected || dirs.Any(dir => f.RelativePath.StartsWith(dir.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase))))
+                .Select(f => f.RelativePath).ToList();
+            string staged = DropOutService.StageStructuredCopy(root, files, dirs);
+            if (staged == null)
+                throw new InvalidOperationException("No selected files or folders exist on " + (fromSource ? "Source." : "Target."));
+            return staged;
+        }
+
+        private void ApplyCheckedOnlyFolderCollapse()
+        {
+            if (folders == null || folders.Count == 0 || !folders.ContainsKey(""))
+                return;
+            if (!_checkedOnlyFilter)
+                return;
+
+            if (!string.IsNullOrEmpty(selectedFolder) && folders.ContainsKey(selectedFolder))
+            {
+                folders[selectedFolder].Active = false;
+                selectedFolder = "";
+                folders[""].Active = true;
+            }
+
+            foreach (DiffFolder folder in folders.Values)
+            {
+                if (folder.Path.Length == 0)
+                {
+                    folder.Visible = true;
+                    folder.Expanded = false;
+                }
+                else
+                    folder.Visible = false;
+            }
+
+            folders[""].UpdateDisplayChildren();
+            FolderItems = new[] { folders[""] };
+        }
+
         internal void Filter()
         {
-            var visible = rows.Where(r => IncludeBuildFolderFile(r.File) && (r.File.Kind & kindMask) != 0 && (selectedFolder.Length == 0 || r.File.RelativePath.StartsWith(selectedFolder + "\\", StringComparison.OrdinalIgnoreCase))).ToList();
+            var visible = rows.Where(r => IncludeBuildFolderFile(r.File) && (r.File.Kind & kindMask) != 0 && (selectedFolder.Length == 0 || r.File.RelativePath.StartsWith(selectedFolder + "\\", StringComparison.OrdinalIgnoreCase)) && (!_checkedOnlyFilter || r.File.Selected)).ToList();
             MarkDirectFileRows(visible);
             visible = OrderSelectedFolderFirst(visible);
             FileItems = visible;

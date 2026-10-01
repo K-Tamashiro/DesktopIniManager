@@ -32,6 +32,11 @@ namespace DesktopIniManager.Views
         private readonly MainWindow _window;
         private readonly MsBuildMenuModel _msBuildMenu = new MsBuildMenuModel();
         private bool _analyzeSelectedRoot;
+        private Point _treeDragStart;
+        private FolderMatch _treeDragFolder;
+        private Point _fileDragStart;
+        private FileListItem _fileDragItem;
+        private bool _internalDragOut;
         private Dispatcher Dispatcher => _window.Dispatcher;
         private string Title { get => _window.Title; set => _window.Title = value; }
         private object FindResource(object key) => _window.FindResource(key);
@@ -66,6 +71,9 @@ namespace DesktopIniManager.Views
             _window.ResultsTree.SelectedItemChanged += ResultsTree_SelectedItemChanged;
             _window.ResultsTree.AddHandler(TreeViewItem.ExpandedEvent, new RoutedEventHandler(ResultsTree_ItemExpanded), true);
             _window.ResultsTree.PreviewMouseRightButtonDown += ResultsTree_PreviewMouseRightButtonDown;
+            _window.ResultsTree.PreviewMouseLeftButtonDown += ResultsTree_PreviewMouseLeftButtonDown;
+            _window.ResultsTree.PreviewMouseMove += ResultsTree_PreviewMouseMove;
+            FolderMatch.CheckedFolderIcon = DifferencerStatusIcons.GetCustomIcon(101);
             _window.ResultsTree.AddHandler(FrameworkElement.ContextMenuOpeningEvent, new ContextMenuEventHandler(ResultsTree_ContextMenuOpening), true);
             ContextMenu treeMenu = _window.Resources["FolderTreeContextMenu"] as ContextMenu;
             if (treeMenu != null)
@@ -80,11 +88,13 @@ namespace DesktopIniManager.Views
                 if (sdkRebuildMenu != null) sdkRebuildMenu.ItemsSource = _msBuildMenu.SdkRebuildItems;
             }
             _window.FileList.SelectionChanged += FileList_SelectionChanged;
-            _window.FileList.MouseDoubleClick += FileList_MouseDoubleClick;
+            _window.FileList.PreviewMouseLeftButtonDown += FileList_PreviewMouseLeftButtonDown;
+            _window.FileList.PreviewMouseMove += FileList_PreviewMouseMove;
+            _window.FileIconList.PreviewMouseLeftButtonDown += FileList_PreviewMouseLeftButtonDown;
+            _window.FileIconList.PreviewMouseMove += FileList_PreviewMouseMove;
             InitializeFileContextMenu(_window.FileList);
             _window.FileList.ContextMenuOpening += FileList_ContextMenuOpening;
             _window.FileIconList.SelectionChanged += FileList_SelectionChanged;
-            _window.FileIconList.MouseDoubleClick += FileList_MouseDoubleClick;
             InitializeFileContextMenu(_window.FileIconList);
             _window.FileIconList.ContextMenuOpening += FileList_ContextMenuOpening;
             _window.QueryBox.TextChanged += QueryBox_TextChanged;
@@ -139,8 +149,7 @@ namespace DesktopIniManager.Views
                     ? path
                     : File.Exists(path) ? Path.GetDirectoryName(path) : null;
                 if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder)) continue;
-                string normalized = Path.GetFullPath(folder)
-                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string normalized = MainWindowViewModel.NormalizeFolderPath(folder);
                 if (seen.Add(normalized))
                     folders.Add(normalized);
             }
@@ -150,6 +159,12 @@ namespace DesktopIniManager.Views
 
         private void MainWindow_Drop(object sender, DragEventArgs e)
         {
+            if (_internalDragOut)
+            {
+                e.Handled = true;
+                return;
+            }
+
             List<string> folders = FoldersFromDrop(e.Data);
             if (folders.Count == 0) return;
 
@@ -166,26 +181,26 @@ namespace DesktopIniManager.Views
             {
                 switch (action)
                 {
-                case MainWindowAction.ChooseRoot: ChooseRoot(); break;
-                case MainWindowAction.ChooseIconLibrary: ChooseIconLibrary(); break;
-                case MainWindowAction.ChooseIcon: ChooseIcon(); break;
-                case MainWindowAction.UseAsSearchLocation: UseAsSearchLocation(parameter as FolderMatch); break;
-                case MainWindowAction.OpenExplorer: OpenExplorer(parameter as FolderMatch); break;
-                case MainWindowAction.TreeToEditor: TreeToEditor(parameter as FolderMatch, false); break;
-                case MainWindowAction.TreeFilesToEditor: TreeToEditor(parameter as FolderMatch, true); break;
-                case MainWindowAction.FileListToEditor: FileListToEditor(); break;
-                case MainWindowAction.GrepFolder: GrepFolder(parameter as FolderMatch); break;
-                case MainWindowAction.CompactTree: CompactTree(); break;
-                case MainWindowAction.ComfortableTree: ComfortableTree(); break;
-                case MainWindowAction.FileListView: FileListView(); break;
-                case MainWindowAction.FileIconSmall: FileIconSmall(); break;
-                case MainWindowAction.FileIconLarge: FileIconLarge(); break;
-                case MainWindowAction.ClearFolderFilter: ClearFolderFilter(); break;
-                case MainWindowAction.DeveloperDifferencer: DeveloperDifferencer(); break;
-                case MainWindowAction.LightTheme: LightTheme(); break;
-                case MainWindowAction.DarkTheme: DarkTheme(); break;
-                case MainWindowAction.Reset: Reset(); break;
-                case MainWindowAction.Close: Close(); break;
+                    case MainWindowAction.ChooseRoot: ChooseRoot(); break;
+                    case MainWindowAction.ChooseIconLibrary: ChooseIconLibrary(); break;
+                    case MainWindowAction.ChooseIcon: ChooseIcon(); break;
+                    case MainWindowAction.UseAsSearchLocation: UseAsSearchLocation(parameter as FolderMatch); break;
+                    case MainWindowAction.OpenExplorer: OpenExplorer(parameter as FolderMatch); break;
+                    case MainWindowAction.TreeToEditor: TreeToEditor(parameter as FolderMatch, false); break;
+                    case MainWindowAction.TreeFilesToEditor: TreeToEditor(parameter as FolderMatch, true); break;
+                    case MainWindowAction.FileListToEditor: FileListToEditor(); break;
+                    case MainWindowAction.GrepFolder: GrepFolder(parameter as FolderMatch); break;
+                    case MainWindowAction.CompactTree: CompactTree(); break;
+                    case MainWindowAction.ComfortableTree: ComfortableTree(); break;
+                    case MainWindowAction.FileListView: FileListView(); break;
+                    case MainWindowAction.FileIconSmall: FileIconSmall(); break;
+                    case MainWindowAction.FileIconLarge: FileIconLarge(); break;
+                    case MainWindowAction.ClearFolderFilter: ClearFolderFilter(); break;
+                    case MainWindowAction.DeveloperDifferencer: DeveloperDifferencer(); break;
+                    case MainWindowAction.LightTheme: LightTheme(); break;
+                    case MainWindowAction.DarkTheme: DarkTheme(); break;
+                    case MainWindowAction.Reset: Reset(); break;
+                    case MainWindowAction.Close: Close(); break;
                 }
             }
             catch (Exception error) { ViewModel.ShowError(Strings.App_Unhandled, error); }
@@ -339,7 +354,7 @@ namespace DesktopIniManager.Views
                     active = active.Owner;
                 destination = active == _grepWindow ? 1 : active == _differencerWindow ? 3 : 2;
             }
-            else if (Keyboard.Modifiers == ModifierKeys.Shift)
+            else if (Keyboard.Modifiers == ModifierKeys.Control)
             {
                 switch (key.Key)
                 {
@@ -367,7 +382,7 @@ namespace DesktopIniManager.Views
                         else WindowActivationService.BringToFront(_differencerWindow, selectWindow: true);
                     }
                     else if (_grepWindow != null) WindowActivationService.BringToFront(_grepWindow, selectWindow: true);
-                    else OpenGrep(ViewModel.GetSelectedGrepScopes());
+                    else OpenGrep(ViewModel.PrepareGrepScopes());
                 }
                 catch (Exception ex) { ViewModel.ShowError(Strings.App_Unhandled, ex); }
             }));
@@ -426,10 +441,16 @@ namespace DesktopIniManager.Views
 
         private void UseAsSearchLocation(FolderMatch folder)
         {
-            if (folder == null) return;
-            ViewModel.RootPath = folder.Path; RootBox.CommitHistory();
-            SettingsService.SaveSearchRoot(folder.Path);
-            ViewModel.Status = string.Format(Strings.Main_LocationSet, folder.Path);
+            string path = MainWindowViewModel.ExistingFolderPath(folder?.Path);
+            if (path == null)
+            {
+                MessageBox.Show(Strings.Main_LocationMissing, Title);
+                return;
+            }
+            ViewModel.RootPath = path; RootBox.CommitHistory();
+            SettingsService.SaveSearchRoot(path);
+            ShowTextEnd(RootBox);
+            StartSelectedRootAnalysis();
         }
 
         private void OpenExplorer(FolderMatch folder)
@@ -544,9 +565,8 @@ namespace DesktopIniManager.Views
             OpenGrep(new[] { folder.Path });
         }
 
-        private void FileList_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private void OpenAssociatedFile(FileListItem file)
         {
-            FileListItem file = (sender as System.Windows.Controls.Primitives.Selector)?.SelectedItem as FileListItem;
             if (file == null) return;
             try
             {
@@ -853,6 +873,7 @@ namespace DesktopIniManager.Views
         private void OnClosed(object sender, EventArgs e)
         {
             InputManager.Current.PreProcessInput -= SwitchWindowShortcut;
+            FolderMatch.SelectionChanged -= ViewModel.RefreshScopedLabel;
             _filterTimer.Stop();
             ViewModel.CancelOperations();
             try { _grepWindow?.Close(); } catch { }
@@ -1239,6 +1260,122 @@ namespace DesktopIniManager.Views
             PrepareMsBuildMenu(FindFolderFromElement(e.OriginalSource as DependencyObject));
         }
 
+        private void ResultsTree_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _treeDragFolder = FindFolderFromElement(e.OriginalSource as DependencyObject);
+            _treeDragStart = e.GetPosition(null);
+            if (FindAncestor<CheckBox>(e.OriginalSource as DependencyObject) != null)
+                _treeDragFolder = null;
+        }
+
+        private void ResultsTree_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton != MouseButtonState.Pressed || _treeDragFolder == null) return;
+            if (!DropOutService.MovedEnough(_treeDragStart, e.GetPosition(null))) return;
+            FolderMatch folder = _treeDragFolder;
+            _treeDragFolder = null;
+            string staged = DropOutService.StageFolderWithImmediateFiles(folder.Path);
+            if (!string.IsNullOrEmpty(staged))
+            {
+                _internalDragOut = true;
+                try
+                {
+                    DropOutService.DragExisting(_window.ResultsTree, new[] { staged });
+                }
+                finally
+                {
+                    _internalDragOut = false;
+                }
+            }
+        }
+
+        private void FileList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _fileDragItem = FileFromElement(e.OriginalSource as DependencyObject);
+            _fileDragStart = e.GetPosition(null);
+            if (e.ClickCount == 2 && _fileDragItem != null)
+            {
+                FileListItem file = _fileDragItem;
+                _fileDragItem = null;
+                e.Handled = true;
+                OpenAssociatedFile(file);
+                return;
+            }
+            // Keep a multi-selection when dragging from an already selected row.
+            if (_fileDragItem != null
+                && Keyboard.Modifiers == ModifierKeys.None
+                && IsFileSelected(sender as ItemsControl, _fileDragItem))
+                e.Handled = true;
+        }
+
+        private void FileList_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton != MouseButtonState.Pressed || _fileDragItem == null) return;
+            if (!DropOutService.MovedEnough(_fileDragStart, e.GetPosition(null))) return;
+            FileListItem file = _fileDragItem;
+            _fileDragItem = null;
+            var paths = new List<string>();
+            ItemsControl list = FileList.Visibility == Visibility.Visible ? (ItemsControl)FileList : FileIconList;
+            var selected = new List<FileListItem>();
+            foreach (FileListItem item in list.Items)
+            {
+                if (IsFileSelected(list, item))
+                    selected.Add(item);
+            }
+            if (selected.Count > 1 && selected.Exists(item => string.Equals(item.Path, file.Path, StringComparison.OrdinalIgnoreCase)))
+            {
+                foreach (FileListItem item in selected)
+                    paths.Add(item.Path);
+            }
+            else
+            {
+                paths.Add(file.Path);
+            }
+            _internalDragOut = true;
+            try
+            {
+                DropOutService.DragExisting(list, paths);
+            }
+            finally
+            {
+                _internalDragOut = false;
+            }
+        }
+
+        private static bool IsFileSelected(ItemsControl list, FileListItem item)
+        {
+            var box = list as ListBox;
+            if (box != null)
+            {
+                foreach (object selected in box.SelectedItems)
+                    if (ReferenceEquals(selected, item)) return true;
+                return false;
+            }
+            return ReferenceEquals((list as System.Windows.Controls.Primitives.Selector)?.SelectedItem, item);
+        }
+
+        private static FileListItem FileFromElement(DependencyObject source)
+        {
+            for (DependencyObject current = source; current != null; current = current is ContentElement content ? ContentOperations.GetParent(content) ?? (content as FrameworkContentElement)?.Parent : VisualTreeHelper.GetParent(current))
+            {
+                FrameworkElement element = current as FrameworkElement;
+                if (element?.DataContext is FileListItem file)
+                    return file;
+            }
+            return null;
+        }
+
+        private static T FindAncestor<T>(DependencyObject current) where T : DependencyObject
+        {
+            while (current != null)
+            {
+                var match = current as T;
+                if (match != null) return match;
+                current = VisualTreeHelper.GetParent(current);
+            }
+            return null;
+        }
+
         private void ResultsTree_ContextMenuOpening(object sender, ContextMenuEventArgs e)
         {
             FrameworkElement source = e.OriginalSource as FrameworkElement;
@@ -1487,7 +1624,7 @@ namespace DesktopIniManager.Views
 
         private static FolderMatch FindFolderFromElement(DependencyObject source)
         {
-            for (DependencyObject current = source; current != null; current = VisualTreeHelper.GetParent(current))
+            for (DependencyObject current = source; current != null; current = current is ContentElement content ? ContentOperations.GetParent(content) ?? (content as FrameworkContentElement)?.Parent : VisualTreeHelper.GetParent(current))
             {
                 FrameworkElement element = current as FrameworkElement;
                 if (element?.DataContext is FolderMatch folder)
@@ -1498,7 +1635,7 @@ namespace DesktopIniManager.Views
 
         private static ContextMenu FindContextMenu(DependencyObject source)
         {
-            for (DependencyObject current = source; current != null; current = VisualTreeHelper.GetParent(current))
+            for (DependencyObject current = source; current != null; current = current is ContentElement content ? ContentOperations.GetParent(content) ?? (content as FrameworkContentElement)?.Parent : VisualTreeHelper.GetParent(current))
             {
                 FrameworkElement element = current as FrameworkElement;
                 if (element?.ContextMenu != null)
@@ -1892,6 +2029,9 @@ namespace DesktopIniManager.Views
 
         private void OpenGrep(IReadOnlyList<string> scopes)
         {
+            if (scopes == null || scopes.Count == 0)
+                scopes = ViewModel.PrepareGrepScopes();
+            if (scopes.Count == 0) return;
             if (_grepWindow == null)
             {
                 _grepWindow = new GrepWindow(ViewModel.GetSelectedGrepScopes, scopes);

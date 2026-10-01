@@ -253,7 +253,7 @@ namespace DesktopIniManager.ViewModels
             @"""C:\Program Files\MIFES11\MIW.exe"" /diff ""{source}"" ""{target}""",
             @"""C:\Program Files\WinMerge\WinMergeU.exe"" ""{source}"" ""{target}""",
             @"devenv /Diff ""{source}"" ""{target}""",
-			@"""C:\Program Files\Beyond Compare 5\BCompare.exe"" ""{source}"" ""{target}"""
+            @"""C:\Program Files\Beyond Compare 5\BCompare.exe"" ""{source}"" ""{target}"""
         };
 
         private static void SeedExternalDiffPresets()

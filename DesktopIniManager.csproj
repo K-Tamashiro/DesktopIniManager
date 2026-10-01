@@ -4,7 +4,7 @@
     <!-- Keep the existing explicit source/resource lists; exclude nested projects. -->
     <EnableDefaultItems>false</EnableDefaultItems>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <Version>3.5.9-develop-fffe</Version>
+    <Version>3.6.0</Version>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <PlatformTarget>x64</PlatformTarget>
@@ -29,8 +29,8 @@
   </PropertyGroup>
   <PropertyGroup>
     <ApplicationIcon>DesktopIniManager.ico</ApplicationIcon>
-    <AssemblyVersion>3.5.9.0</AssemblyVersion>
-    <FileVersion>3.5.9.0</FileVersion>
+    <AssemblyVersion>3.6.0.0</AssemblyVersion>
+    <FileVersion>3.6.0.0</FileVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>x64</PlatformTarget>
@@ -75,6 +75,7 @@
     <Compile Include="ViewModels\*.cs" />
     <Compile Include="Models\MainWindowAction.cs" />
     <Compile Include="Models\LanguageChoice.cs" />
+    <Compile Include="Services\DropOutService.cs" />
     <Compile Include="Services\LanguageIconService.cs" />
     <Compile Include="Views\Presenter\MainWindowPresentationService.cs" />
     <Compile Include="Views\VirtualizingUniformGrid.cs" />

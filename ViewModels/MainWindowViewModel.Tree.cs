@@ -99,9 +99,12 @@ namespace DesktopIniManager.ViewModels
         {
             IEnumerable<FolderMatch> items = SelectableFolders();
             bool all = items.Any() && items.All(item => item.IsSelected);
-            if (_allFoldersSelected == all) return;
-            _allFoldersSelected = all;
-            OnPropertyChanged(nameof(AllFoldersSelected));
+            if (_allFoldersSelected != all)
+            {
+                _allFoldersSelected = all;
+                OnPropertyChanged(nameof(AllFoldersSelected));
+            }
+            RefreshScopedLabel();
         }
 
         internal void RefreshTreeItemsSource() { TreeItems = _treeView == 0 ? _treeRoots : _treeView == 1 ? _solutionRoots : _searchRoots; }

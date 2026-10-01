@@ -365,73 +365,98 @@ namespace DesktopIniManager.Services
         {
             Root(snapshot.SourceRoot); Root(snapshot.TargetRoot); ValidateRoots(snapshot.SourceRoot, snapshot.TargetRoot);
             var log = new List<string>();
-            Action<string> writeLog = line =>
+            var retryQueue = new Queue<Action>();
+            Action<int, string> writeLog = (index, line) =>
             {
-                log.Add(line);
+                log[index] = line;
                 onLog?.Invoke(line);
             };
             foreach (DiffFile file in selected)
             {
-                string operation = Operation(file, toTarget);
-                string left = null;
-                string right = null;
-                string from = null;
-                string to = null;
-                try
-                {
-                    left = SafePath(snapshot.SourceRoot, file.RelativePath);
-                    right = SafePath(snapshot.TargetRoot, file.RelativePath);
-                    if (!DiffStamp.Same(file.Source, DiffStamp.Read(left), snapshot.CompareTimestamp) || !DiffStamp.Same(file.Target, DiffStamp.Read(right), snapshot.CompareTimestamp))
-                        throw new IOException("Changed after compare. Compare again.");
-                    from = toTarget ? left : right;
-                    to = toTarget ? right : left;
-                    if (File.Exists(from)) RejectHardLinks(from);
-                    if (File.Exists(to)) RejectHardLinks(to);
-                    if (operation == "Delete") File.Delete(to);
-                    else
-                    {
-                        Directory.CreateDirectory(Path.GetDirectoryName(to));
-                        string destinationRoot = toTarget ? snapshot.TargetRoot : snapshot.SourceRoot;
-                        string temporaryRelative = Path.Combine(Path.GetDirectoryName(file.RelativePath) ?? "", ".dim-sync-" + Guid.NewGuid().ToString("N") + ".tmp");
-                        string temporary = SafePath(destinationRoot, temporaryRelative);
-                        try
-                        {
-                            File.Copy(from, temporary, false);
-                            File.SetAttributes(temporary, File.GetAttributes(temporary) & ~FileAttributes.ReadOnly);
-                            File.SetLastWriteTimeUtc(temporary, (toTarget ? file.Source : file.Target).ModifiedUtc);
-                            SafePath(snapshot.SourceRoot, file.RelativePath); SafePath(snapshot.TargetRoot, file.RelativePath);
-                            if (!DiffStamp.Same(file.Source, DiffStamp.Read(left), snapshot.CompareTimestamp) || !DiffStamp.Same(file.Target, DiffStamp.Read(right), snapshot.CompareTimestamp))
-                                throw new IOException("Changed during copy. Compare again.");
-                            if (File.Exists(to)) { RejectHardLinks(to); File.Replace(temporary, to, null); }
-                            else File.Move(temporary, to);
-                            // Apply the timestamp to the final file, after replacement/rename.
-                            // The temporary file's metadata alone does not guarantee the final state.
-                            SafePath(destinationRoot, file.RelativePath);
-                            RejectHardLinks(to);
-                            File.SetLastWriteTimeUtc(to, (toTarget ? file.Source : file.Target).ModifiedUtc);
-                        }
-                        finally
-                        {
-                            SafePath(destinationRoot, temporaryRelative);
-                            if (File.Exists(temporary)) File.Delete(temporary);
-                        }
-                    }
-                    SafePath(snapshot.SourceRoot, file.RelativePath); SafePath(snapshot.TargetRoot, file.RelativePath);
-                    if (!DiffStamp.Same(toTarget ? file.Source : file.Target, DiffStamp.Read(to), snapshot.CompareTimestamp))
-                        throw new IOException("Synchronization verification failed: destination timestamp, size or existence differs. Compare again.");
-                    writeLog("OK " + operation + " " + file.RelativePath);
-                }
-                catch (Exception ex)
-                {
-                    // Do not classify every "access denied" as a lock.
-                    // Probe the actual source/destination file and report LOCKED only when
-                    // Windows refuses an exclusive open because another process is using it.
-                    bool locked = IsFileLocked(to) || IsFileLocked(from);
+                int logIndex = log.Count;
+                log.Add(null);
+                bool destinationCommitted = false;
+                ExecuteFile(false);
 
-                    if (locked)
-                        writeLog("LOCKED " + operation + " " + file.RelativePath + " : " + ErrorMessages.English(ex));
-                    else
-                        writeLog("FAIL " + operation + " " + file.RelativePath + " : " + ErrorMessages.English(ex));
+                void ExecuteFile(bool retry)
+                {
+                    string operation = Operation(file, toTarget);
+                    string left = null;
+                    string right = null;
+                    string from = null;
+                    string to = null;
+                    try
+                    {
+                        left = SafePath(snapshot.SourceRoot, file.RelativePath);
+                        right = SafePath(snapshot.TargetRoot, file.RelativePath);
+                        from = toTarget ? left : right;
+                        to = toTarget ? right : left;
+                        if (File.Exists(from)) RejectHardLinks(from);
+                        if (File.Exists(to)) RejectHardLinks(to);
+                        // A failure after replacement/deletion may already have produced the
+                        // desired state. Verify it without overwriting a newly changed file.
+                        if (retry && destinationCommitted
+                            && DiffStamp.Same(toTarget ? file.Source : file.Target, DiffStamp.Read(from), snapshot.CompareTimestamp)
+                            && DiffStamp.Same(toTarget ? file.Source : file.Target, DiffStamp.Read(to), snapshot.CompareTimestamp))
+                        {
+                            writeLog(logIndex, "OK " + operation + " " + file.RelativePath);
+                            return;
+                        }
+                        if (!DiffStamp.Same(file.Source, DiffStamp.Read(left), snapshot.CompareTimestamp) || !DiffStamp.Same(file.Target, DiffStamp.Read(right), snapshot.CompareTimestamp))
+                            throw new IOException("Changed after compare. Compare again.");
+                        if (operation == "Delete") { File.Delete(to); destinationCommitted = true; }
+                        else
+                        {
+                            Directory.CreateDirectory(Path.GetDirectoryName(to));
+                            string destinationRoot = toTarget ? snapshot.TargetRoot : snapshot.SourceRoot;
+                            string temporaryRelative = Path.Combine(Path.GetDirectoryName(file.RelativePath) ?? "", ".dim-sync-" + Guid.NewGuid().ToString("N") + ".tmp");
+                            string temporary = SafePath(destinationRoot, temporaryRelative);
+                            try
+                            {
+                                File.Copy(from, temporary, false);
+                                File.SetAttributes(temporary, File.GetAttributes(temporary) & ~FileAttributes.ReadOnly);
+                                File.SetLastWriteTimeUtc(temporary, (toTarget ? file.Source : file.Target).ModifiedUtc);
+                                SafePath(snapshot.SourceRoot, file.RelativePath); SafePath(snapshot.TargetRoot, file.RelativePath);
+                                if (!DiffStamp.Same(file.Source, DiffStamp.Read(left), snapshot.CompareTimestamp) || !DiffStamp.Same(file.Target, DiffStamp.Read(right), snapshot.CompareTimestamp))
+                                    throw new IOException("Changed during copy. Compare again.");
+                                if (File.Exists(to)) { RejectHardLinks(to); File.Replace(temporary, to, null); }
+                                else File.Move(temporary, to);
+                                destinationCommitted = true;
+                                // Apply the timestamp to the final file, after replacement/rename.
+                                // The temporary file's metadata alone does not guarantee the final state.
+                                SafePath(destinationRoot, file.RelativePath);
+                                RejectHardLinks(to);
+                                File.SetLastWriteTimeUtc(to, (toTarget ? file.Source : file.Target).ModifiedUtc);
+                            }
+                            finally
+                            {
+                                SafePath(destinationRoot, temporaryRelative);
+                                if (File.Exists(temporary)) File.Delete(temporary);
+                            }
+                        }
+                        SafePath(snapshot.SourceRoot, file.RelativePath); SafePath(snapshot.TargetRoot, file.RelativePath);
+                        if (!DiffStamp.Same(toTarget ? file.Source : file.Target, DiffStamp.Read(to), snapshot.CompareTimestamp))
+                            throw new IOException("Synchronization verification failed: destination timestamp, size or existence differs. Compare again.");
+                        writeLog(logIndex, "OK " + operation + " " + file.RelativePath);
+                    }
+                    catch (Exception ex)
+                    {
+                        if (!retry)
+                        {
+                            retryQueue.Enqueue(() => ExecuteFile(true));
+                            onLog?.Invoke("QUEUED " + operation + " " + file.RelativePath + " : " + ErrorMessages.English(ex));
+                            return;
+                        }
+                        // Do not classify every "access denied" as a lock.
+                        // Probe the actual source/destination file and report LOCKED only when
+                        // Windows refuses an exclusive open because another process is using it.
+                        bool locked = IsFileLocked(to) || IsFileLocked(from);
+
+                        if (locked)
+                            writeLog(logIndex, "LOCKED " + operation + " " + file.RelativePath + " : " + ErrorMessages.English(ex));
+                        else
+                            writeLog(logIndex, "FAIL " + operation + " " + file.RelativePath + " : " + ErrorMessages.English(ex));
+                    }
                 }
             }
             // Directory differences are applied after file operations. This lets file deletions
@@ -444,30 +469,47 @@ namespace DesktopIniManager.Services
 
             foreach (DiffFolderSync folder in folderOperations)
             {
-                bool fromExists = toTarget ? folder.SourceExists : folder.TargetExists;
-                string operation = fromExists ? "CreateDir" : "DeleteDir";
-                try
-                {
-                    string leftFolder = SafeFolderPath(snapshot.SourceRoot, folder.RelativePath);
-                    string rightFolder = SafeFolderPath(snapshot.TargetRoot, folder.RelativePath);
-                    string origin = toTarget ? leftFolder : rightFolder;
-                    if (Directory.Exists(origin) != fromExists)
-                        throw new IOException("Folder changed after compare. Compare again.");
+                int logIndex = log.Count;
+                log.Add(null);
+                ExecuteFolder(false);
 
-                    string destination = toTarget ? rightFolder : leftFolder;
-                    if (fromExists) Directory.CreateDirectory(destination);
-                    else if (Directory.Exists(destination)) Directory.Delete(destination, false);
-
-                    if (Directory.Exists(destination) != fromExists)
-                        throw new IOException("Folder synchronization verification failed. Compare again.");
-                    writeLog("OK " + operation + " " + folder.RelativePath);
-                }
-                catch (Exception ex)
+                void ExecuteFolder(bool retry)
                 {
-                    writeLog("FAIL " + operation + " " + folder.RelativePath + " : " + ErrorMessages.English(ex));
+                    bool fromExists = toTarget ? folder.SourceExists : folder.TargetExists;
+                    string operation = fromExists ? "CreateDir" : "DeleteDir";
+                    try
+                    {
+                        string leftFolder = SafeFolderPath(snapshot.SourceRoot, folder.RelativePath);
+                        string rightFolder = SafeFolderPath(snapshot.TargetRoot, folder.RelativePath);
+                        string origin = toTarget ? leftFolder : rightFolder;
+                        if (Directory.Exists(origin) != fromExists)
+                            throw new IOException("Folder changed after compare. Compare again.");
+
+                        string destination = toTarget ? rightFolder : leftFolder;
+                        if (fromExists) Directory.CreateDirectory(destination);
+                        else if (Directory.Exists(destination)) Directory.Delete(destination, false);
+
+                        if (Directory.Exists(destination) != fromExists)
+                            throw new IOException("Folder synchronization verification failed. Compare again.");
+                        writeLog(logIndex, "OK " + operation + " " + folder.RelativePath);
+                    }
+                    catch (Exception ex)
+                    {
+                        if (!retry)
+                        {
+                            retryQueue.Enqueue(() => ExecuteFolder(true));
+                            onLog?.Invoke("QUEUED " + operation + " " + folder.RelativePath + " : " + ErrorMessages.English(ex));
+                            return;
+                        }
+                        writeLog(logIndex, "FAIL " + operation + " " + folder.RelativePath + " : " + ErrorMessages.English(ex));
+                    }
                 }
             }
 
+            // Drain exactly once, after all normal file/folder operations. Retry failures
+            // produce final results and never add another entry to this queue.
+            if (retryQueue.Count > 0) onLog?.Invoke("RETRY " + retryQueue.Count + " queued operation(s)");
+            while (retryQueue.Count > 0) retryQueue.Dequeue()();
             return log;
         }
         private static int FolderDepth(string relativePath)

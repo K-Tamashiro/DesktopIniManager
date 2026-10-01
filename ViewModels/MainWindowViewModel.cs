@@ -47,6 +47,7 @@ namespace DesktopIniManager.ViewModels
             _pathIndex = null; _searchResultCount = 0; _filteredViewItems = null; _folderTreeRoot = null;
             _physicalCurrent = _solutionCurrent = _searchCurrent = null;
             _selectedIconIndex = 0; _selectedIconPreview = null; _pendingSearchQuery = null; SelectedIcon = null;
+            RefreshScopedLabel();
         }
         private const int MaxFileListItems = 3000;
         private string _rootPath = string.Empty;
@@ -59,7 +60,26 @@ namespace DesktopIniManager.ViewModels
                 SaveFolderTrees();
                 _searchCts?.Cancel();
                 InvalidateSolutionAnalysis();
+                // A new root must not reuse checked folders or indexed paths from
+                // the previous workspace while acquisition is being restarted.
+                _fileListCts?.Cancel();
+                _filterCts?.Cancel();
+                _pathIndex = null;
+                _filteredViewItems = null;
+                _results.Clear();
+                _treeRoots.Clear();
+                _searchRoots.Clear();
+                _files.Clear();
+                _physicalCurrent = _solutionCurrent = _searchCurrent = null;
+                _searchResultCount = 0;
+                ClearSearchHits();
+                FilePanelPath = null;
+                FilePanelTitle = Strings.Common_Files;
+                FileListCountLabel = string.Format(Strings.Main_NItems, 0);
+                SetFilePanelBusy(false);
                 SetProperty(ref _rootPath, value);
+                RefreshTreeItemsSource();
+                RefreshScopedLabel();
             }
         }
         private string _query = string.Empty;
@@ -130,11 +150,15 @@ namespace DesktopIniManager.ViewModels
         public RelayCommand RemoveCommand { get; }
         public RelayCommand GrepCommand { get; }
         public RelayCommand ClearQueryCommand { get; }
+        private string _scopedLabel = string.Empty;
+        public string ScopedLabel { get => _scopedLabel; set => SetProperty(ref _scopedLabel, value); }
         internal MainWindowViewModel(StartupState startup, Dispatcher dispatcher, IUserDialogService dialogs)
         {
             _startup = startup; Dispatcher = dispatcher; _dialogs = dialogs;
+            FolderMatch.SelectionChanged += RefreshScopedLabel;
             InitializeInteractionCommands();
             TreeItems = _treeRoots;
+            RefreshScopedLabel();
             SearchCommand = new AsyncRelayCommand(SearchAsync, ReportCommandError, () => !IsSearching);
             GitSearchCommand = new AsyncRelayCommand(async () => { _pendingSearchQuery = ".git"; await SearchAsync(); }, ReportCommandError, () => !IsSearching);
             CancelCommand = new RelayCommand(CancelSearch, () => IsSearching || IsTreeBusy);

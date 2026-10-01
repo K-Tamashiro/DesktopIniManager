@@ -111,6 +111,9 @@ namespace DesktopIniManager.ViewModels
             string query = _pendingSearchQuery ?? visibleQuery;
             bool folderListMode = string.IsNullOrWhiteSpace(query);
             bool gitSearchRequested = _pendingSearchQuery != null && string.Equals(query, ".git", StringComparison.OrdinalIgnoreCase);
+            IReadOnlyList<string> searchRoots = gitSearchRequested
+                ? new[] { root }
+                : ResolveSearchScopes(root);
             // Searches own the Search tab. Physical and Solution
             // are populated exclusively by the Git acquisition workflow.
             bool searchOnly = !gitSearchRequested;
@@ -160,14 +163,14 @@ namespace DesktopIniManager.ViewModels
             {
                 if (folderListMode)
                 {
-                    if (IsNetworkPath(root))
+                    if (searchRoots.Count == 1 && IsNetworkPath(searchRoots[0]))
                     {
-                        await BuildLazyNetworkTreeAsync(root, searchCts.Token, searchOnly);
+                        await BuildLazyNetworkTreeAsync(searchRoots[0], searchCts.Token, searchOnly);
                         _pathIndex = null;
                     }
                     else
                     {
-                        StandardSearchResult standard = await RunStandardIndexedSearch(root, string.Empty, searchCts.Token);
+                        StandardSearchResult standard = await RunStandardIndexedSearch(searchRoots, string.Empty, searchCts.Token);
                         await AddTreeResultsAsync(standard.Matches, searchCts.Token, searchOnly);
                         _pathIndex = standard.Paths;
                         RefreshTreeItemsSource();
@@ -175,7 +178,7 @@ namespace DesktopIniManager.ViewModels
                 }
                 else
                 {
-                    StandardSearchResult standard = await RunStandardIndexedSearch(root, query, searchCts.Token);
+                    StandardSearchResult standard = await RunStandardIndexedSearch(searchRoots, query, searchCts.Token);
                     await AddTreeResultsAsync(standard.Matches, searchCts.Token, searchOnly);
                     _pathIndex = standard.Paths;
                     RefreshTreeItemsSource();
@@ -380,33 +383,50 @@ namespace DesktopIniManager.ViewModels
             }
         }
 
-        private Task<StandardSearchResult> RunStandardIndexedSearch(string root, string query, CancellationToken token)
+        private Task<StandardSearchResult> RunStandardIndexedSearch(IReadOnlyList<string> roots, string query, CancellationToken token)
         {
             ImageSource defaultFolderIcon = FolderIconService.GetDefaultFolderIcon();
+            IReadOnlyList<string> searchRoots = roots == null || roots.Count == 0
+                ? new[] { RootPath.Trim() }
+                : roots;
             return Task.Run(() =>
             {
+                VolumePathIndex merged = null;
+                var matches = new List<FolderMatch>();
+                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 int lastReport = Environment.TickCount;
-                VolumePathIndex paths = VolumePathIndex.BuildFromNativeEnumeration(root,
-                    count =>
-                    {
-                        int now = Environment.TickCount;
-                        if (unchecked(now - lastReport) < 125) return;
-                        lastReport = now;
-                        Dispatcher.BeginInvoke(new Action(() =>
+                foreach (string root in searchRoots)
+                {
+                    token.ThrowIfCancellationRequested();
+                    if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root)) continue;
+                    VolumePathIndex paths = VolumePathIndex.BuildFromNativeEnumeration(root,
+                        count =>
                         {
-                            if (!IsSearching) return;
-                            Status = string.Format(Strings.Main_IndexedFoldersEllipsis, count.ToString("N0"));
-                        }), System.Windows.Threading.DispatcherPriority.Background);
-                    }, token);
-                token.ThrowIfCancellationRequested();
+                            int now = Environment.TickCount;
+                            if (unchecked(now - lastReport) < 125) return;
+                            lastReport = now;
+                            Dispatcher.BeginInvoke(new Action(() =>
+                            {
+                                if (!IsSearching) return;
+                                Status = string.Format(Strings.Main_IndexedFoldersEllipsis, count.ToString("N0"));
+                            }), System.Windows.Threading.DispatcherPriority.Background);
+                        }, token);
+                    token.ThrowIfCancellationRequested();
+                    merged = paths;
+                    List<FolderMatch> found = new FastFolderSearchService().Search(paths, query, token);
+                    foreach (FolderMatch item in found)
+                    {
+                        if (!seen.Add(item.Path)) continue;
+                        item.IconPreview = defaultFolderIcon;
+                        matches.Add(item);
+                    }
+                }
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
                     if (!IsSearching) return;
                     Status = Strings.Main_BuildingTree;
                 }));
-                List<FolderMatch> matches = new FastFolderSearchService().Search(paths, query, token);
-                foreach (FolderMatch item in matches) item.IconPreview = defaultFolderIcon;
-                return new StandardSearchResult(paths, matches);
+                return new StandardSearchResult(merged, matches);
             }, token);
         }
 

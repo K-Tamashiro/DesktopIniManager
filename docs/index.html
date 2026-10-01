@@ -1,14 +1,12 @@
 <!doctype html>
 <html lang="ja">
-
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#07111d">
-  <title>DesktopIniManager v3.5.1-develop-fffe — Pre-release</title>
-  <meta name="description"
-    content="Development workspace for Windows — Physical / Solution / Search, Scoped Grep, Developer Differencer, folder icons and solution build tools.">
-  <style>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1">
+        <meta name="theme-color" content="#07111d">
+        <title>DesktopIniManager v3.6.0</title>
+        <meta name="description" content="Development workspace for Windows — Physical / Solution / Search, Scoped Grep, Developer Differencer, folder icons and solution build tools.">
+        <style>
     :root {
       --bg: #07111d;
       --bg2: #0b1624;
@@ -537,206 +535,253 @@
       letter-spacing: .08em;
       color: var(--muted);
     }
-  </style>
-</head>
-
-<body>
-  <div class="progress" id="progress"></div>
-  <nav>
-    <div class="nav">
-      <a class="brand" href="#top">DesktopIniManager <b>3.5.1</b></a>
-      <div class="links"><a href="#features">Features</a><a href="#screenshots">Screenshots</a><a
-          href="#workflow">Workspace</a><a href="#new">What's new</a><a href="#download">Download</a></div>
-      <button class="iconbtn" id="theme" aria-label="テーマ切替">◐</button>
-    </div>
-  </nav>
-
-  <main id="top">
-    <header class="hero">
-      <div>
-        <div class="eyebrow"><span class="dot"></span> Pre-release · v3.5.1 · develop-fffe</div>
-        <h1>開発フォルダーを、<span>ひとつの作業空間へ。</span></h1>
-        <p class="lead">Physical / Solution / Search、Scoped Grep、Developer Differencer、フォルダーアイコン管理、Solution
-          Build。Windows上の開発フォルダーを探索・検索・比較・同期するためのワークスペース。</p>
-        <div class="actions">
-          <a class="btn primary" href="https://github.com/K-Tamashiro/DesktopIniManager/releases">GitHub Releases →</a>
-          <a class="btn" href="https://github.com/K-Tamashiro/DesktopIniManager">View on GitHub</a>
-        </div>
-        <div class="facts"><span class="fact">Windows 10 / 11 x64</span><span class="fact">.NET 10</span><span
-            class="fact">No MFT access</span><span class="fact">No elevation for enumeration</span></div>
-      </div>
-      <div class="window" id="tilt">
-        <div class="bar"><i></i><i></i><i></i></div><img src="images/app-overview-dark.png"
-          alt="DesktopIniManager overview">
-      </div>
-    </header>
-
-    <section id="features">
-      <div class="reveal">
-        <div class="kicker">Core tools</div>
-        <h2>調べる。絞る。比較する。同期する。</h2>
-        <p class="sectionlead">巨大な開発ツリーを、用途ごとに別の道具へ渡し続けるのではなく、同じワークスペース上で扱う。</p>
-      </div>
-      <div class="grid">
-        <article class="card reveal"><span class="num">01</span>
-          <h3>Physical / Solution / Search</h3>
-          <p>実フォルダー、Visual Studio Solution の再構築ツリー、一時的な検索結果を独立したビューとして保持。</p>
-        </article>
-        <article class="card reveal"><span class="num">02</span>
-          <h3>Scoped Code Search</h3>
-          <p>必要なプロジェクトやフォルダーだけをスコープにして Grep。正規表現、単語一致、言語プロファイル、外部エディタ連携。</p>
-        </article>
-        <article class="card reveal"><span class="num">03</span>
-          <h3>Developer Differencer</h3>
-          <p>Source / Target を比較し、差分を選択して双方向同期。テキストと画像の Diff View も統合。</p>
-        </article>
-        <article class="card reveal"><span class="num">04</span>
-          <h3>Solution actions</h3>
-          <p>Solution View から構成を選択し Build / Rebuild。比較前には MSBuild Clean も実行可能。</p>
-        </article>
-        <article class="card reveal"><span class="num">05</span>
-          <h3>Tree exports & scripts</h3>
-          <p>保持済みデータから Tree / Tree /F / File List を即座にエディタへ。スクリプトもコンテキストメニューから実行。</p>
-        </article>
-        <article class="card reveal"><span class="num">06</span>
-          <h3>Folder icon management</h3>
-          <p>ICO / ICL / DLL / EXE リソースを desktop.ini に適用。開発用フォルダーアイコンセットを同梱。</p>
-        </article>
-      </div>
-    </section>
-
-
-    <section id="screenshots">
-      <div class="reveal">
-        <div class="kicker">v3.4.0 in action</div>
-        <h2>追加された操作を、画面で確認する。</h2>
-        <p class="sectionlead">検索ナビゲーション、SolutionのBuild / Rebuild、Diff Viewを実際の画面で紹介します。</p>
-      </div>
-      <div class="grid screenshot-grid">
-        <article class="card reveal">
-          <div class="shot feature-shot"><img src="images/search-file-highlight-dark.png" alt="検索結果ファイルのハイライト表示">
-          </div>
-          <span class="num">SEARCH</span>
-          <h3>検索結果ファイルをハイライト</h3>
-          <p>検索対象ファイルを右側のファイル一覧でもハイライト。前／次ボタンで一致ファイルを順番に移動できます。</p>
-        </article>
-        <article class="card reveal">
-          <div class="shot feature-shot"><img src="images/solution-build-menu-dark.png"
-              alt="Solution Build and Rebuild context menu"></div>
-          <span class="num">BUILD</span>
-          <h3>SolutionからBuild / Rebuild</h3>
-          <p>Solution Viewの右クリックメニューから構成を選択し、Build / Rebuildを直接実行できます。</p>
-        </article>
-        <article class="card reveal">
-          <div class="shot feature-shot"><img src="images/diff-view-image-dark.png"
-              alt="Developer Differencer image Diff View"></div>
-          <span class="num">DIFF VIEW</span>
-          <h3>画像Diff View</h3>
-          <p>Source / Targetを並べ、共通ズーム、Fit、100%表示で画像差分を確認できます。</p>
-        </article>
-      </div>
-    </section>
-
-    <section id="workflow">
-      <div class="showcase reveal">
-        <div>
-          <div class="kicker">Workspace</div>
-          <h2>物理構造とSolution構造を切り替える。</h2>
-          <p class="sectionlead">検索場所を取得すると Physical と Solution のツリーを構築。検索やフィルターを行っても、取得済みワークスペースは維持される。</p>
-          <div class="tags"><span class="tag">Physical</span><span class="tag">Solution</span><span
-              class="tag">Search</span><span class="tag">Repository markers</span></div>
-        </div>
-        <div class="shot"><img src="images/repository-tree-dark.png" alt="Repository workspace"></div>
-      </div>
-      <div class="showcase reveal">
-        <div>
-          <div class="kicker">Scoped Grep</div>
-          <h2>見る必要のあるコードだけを検索する。</h2>
-          <p class="sectionlead">複数のツリー枝から検索スコープを保持。ファイル、行、桁、マッチ文字列をグループ表示し、設定したエディタへ直接移動できる。</p>
-        </div>
-        <div class="shot"><img src="images/scoped-code-search.png" alt="Scoped Code Search"></div>
-      </div>
-      <div class="showcase reveal">
-        <div>
-          <div class="kicker">Differencer</div>
-          <h2>比較から同期まで、方向を見失わない。</h2>
-          <p class="sectionlead">相対パスで Source / Target を比較。Same / Diff / Left / Right で絞り込み、実行前にコピー・上書き・削除件数を確認する。</p>
-        </div>
-        <div class="shot"><img src="images/mft-differencer.png" alt="Developer Differencer"></div>
-      </div>
-      <div class="showcase reveal">
-        <div>
-          <div class="kicker">Diff View</div>
-          <h2>差分そのものを、その場で確認する。</h2>
-          <p class="sectionlead">行番号、変更表示、連動スクロール、差分マップ、前後移動を備えた読み取り専用ビュー。画像は Fit / 100% / 共通ズームに対応。</p>
-        </div>
-        <div class="shot"><img src="images/mft-diff-view.png" alt="Side-by-side Diff View"></div>
-      </div>
-    </section>
-
-    <section id="new">
-      <div class="release reveal">
-        <div class="kicker">v3.5.1-develop-fffe · Pre-release</div>
-        <h2>選択フォルダーのファイルを先頭に。</h2><p>v3.5.1では直下のファイルを先に、配下のファイルをその下に表示します。フォルダー選択の追従動作を整理し、履歴削除メニューをシンプルな×アイコンに更新。Beyond Compare 5のプリセットも追加しました。</p>
-        <p>feature/develop-fffe のプレリリースです。正式版 v3.5.0 に向けた評価用として公開します。</p>
-        <ul>
-          <li>比較履歴とGrep結果をそれぞれ最大20件保存し、次回起動時に復元</li>
-          <li>比較は日付付きの新規タブを左に追加。配色はテーマに連動し、選択中は太字で強調</li>
-          <li>比較結果・Source / Target・フォルダー選択と展開・フィルターをタブに連動</li>
-          <li>比較完了後もタブの削除ボタンを使用可能に修正</li>
-          <li>Grepは「はい」で追記、「いいえ」で新規タブ検索、「キャンセル」で中止</li>
-          <li>20件到達時、Grepは既存タブへの追記・クリアを確認。比較は最古を削除するか確認し、断った場合は比較しない</li>
-          <li>Grepの保存・追加ボタンは透明背景。明示保存と終了時の自動保存に対応</li>
-          <li>追加した案内は英語・日本語・中国語・韓国語に対応</li>
-        </ul>
-        <p><a href="releases/v3.5.1-develop-fffe.md">v3.5.1-develop-fffe Release Notes</a> · <a href="result-history.md">履歴タブの使い方</a></p>
-        <div class="warning">プレリリース：v3.5.1は提供されたReleaseビルドを梱包し、バージョン・同梱内容・SHA-256を確認。テストは再実行していません（v3.5.0では履歴の専用テスト34項目成功）。既存の全体テストはフォルダー選択のテストデータに起因するエラーが残っています。比較履歴は結果メタデータを保存し、元ファイルの内容は保存しません。</div>
-        <h3>v3.4.2から継続する修正</h3>
-        <ul>
-          <li>リリースバイナリのバージョンを v3.4.2 に更新</li>
-          <li>検索実行中はSearchを優位とし、Physical / Solutionタブを非活性化</li>
-          <li>検索キーワードを消すとSearchツリーとファイルリストをクリアし、3タブを有効化</li>
-          <li>キーワードが空の状態でPhysical / Solutionを選択するとSearchタブを非活性化</li>
-          <li>検索ヒット選択時、該当する親フォルダーを選択し、画面外のヒットへ自動スクロール</li>
-          <li>Physicalのファイルリストでファイルを選択した場合、該当する親フォルダーを選択・展開</li>
-          <li>v3.4.1のDeveloper Differencer Same選択動作修正を継続</li>
-        </ul>
-        <p><a href="releases/v3.4.2-FFFE.md">v3.4.2 Release Notes</a></p>
-        <h3>v3.4.1から継続する修正</h3>
-        <ul>
-          <li>フォルダー移動後も、以前のフォルダーで選択したSameファイルを保持</li>
-          <li>フォルダー切替時にSame ON/OFFをOFFへリセット</li>
-          <li>Same OFFは現在選択中のフォルダーだけに適用</li>
-          <li>Sameカテゴリを非表示にした場合のみ、非表示のSame選択を解除</li>
-          <li>FFFE高速走査、NAS遅延展開、パス構造を維持したZIP出力を継続</li>
-        </ul>
-        <div class="warning">Solution View は軽量な再構築であり、MSBuild imports・conditions・Visual Studio virtual nodes
-          を完全評価するものではありません。</div>
-      </div>
-    </section>
-
-    <section id="download" class="cta reveal">
-      <div class="kicker">Pre-release download</div>
-      <h2>DesktopIniManager v3.5.1-develop-fffe</h2>
-      <p>Windows 10 / 11 x64 · .NET 10 Desktop Runtime (x64) · Pre-release package: DesktopIniManager-v3.5.1-develop-fffe-win-x64.zip
-      </p>
-      <div class="actions" style="justify-content:center"><a class="btn primary"
-          href="https://github.com/K-Tamashiro/DesktopIniManager/releases">Download from GitHub Releases →</a><a
-          class="btn" href="https://github.com/K-Tamashiro/DesktopIniManager">Source / Documentation</a></div>
-    </section>
-  </main>
-
-  <footer>
-    <div class="foot">
-      <span>DesktopIniManager v3.5.1-develop-fffe — Pre-release</span>
-      <span>Windows development workspace</span>
-    </div>
-
-    <div class="brand-signature">
-      ZEBRASOFT <span>by Tamayan</span>
-    </div>
-  </footer>
-  <script>
+        </style>
+    </head>
+    <body>
+        <div class="progress" id="progress"></div>
+        <nav>
+            <div class="nav">
+                <a class="brand" href="#top">
+                    DesktopIniManager
+                    <b>3.6.0</b>
+                </a>
+                <div class="links">
+                    <a href="#features">Features</a>
+                    <a href="#screenshots">Screenshots</a>
+                    <a href="#workflow">Workspace</a>
+                    <a href="#new">What's new</a>
+                    <a href="#download">Download</a>
+                </div>
+                <button class="iconbtn" id="theme" aria-label="テーマ切替">◐</button>
+            </div>
+        </nav>
+        <main id="top">
+            <header class="hero">
+                <div>
+                    <div class="eyebrow">
+                        <span class="dot"></span>
+                        Release · v3.6.0
+                    </div>
+                    <h1>
+                        開発フォルダーを、
+                        <span>ひとつの作業空間へ。</span>
+                    </h1>
+                    <p class="lead">
+                        Physical / Solution / Search、Scoped Grep、Developer Differencer、フォルダーアイコン管理、Solution
+          Build。Windows上の開発フォルダーを探索・検索・比較・同期するためのワークスペース。
+                    </p>
+                    <div class="actions">
+                        <a class="btn primary" href="https://github.com/K-Tamashiro/DesktopIniManager/releases">GitHub Releases →</a>
+                        <a class="btn" href="https://github.com/K-Tamashiro/DesktopIniManager">View on GitHub</a>
+                    </div>
+                    <div class="facts">
+                        <span class="fact">Windows 10 / 11 x64</span>
+                        <span class="fact">.NET 10</span>
+                        <span class="fact">No MFT access</span>
+                        <span class="fact">No elevation for enumeration</span>
+                    </div>
+                </div>
+                <div class="window" id="tilt">
+                    <div class="bar">
+                        <i></i>
+                        <i></i>
+                        <i></i>
+                    </div>
+                    <img src="images/app-overview-dark.png" alt="DesktopIniManager overview">
+                </div>
+            </header>
+            <section id="features">
+                <div class="reveal">
+                    <div class="kicker">Core tools</div>
+                    <h2>調べる。絞る。比較する。同期する。</h2>
+                    <p class="sectionlead">巨大な開発ツリーを、用途ごとに別の道具へ渡し続けるのではなく、同じワークスペース上で扱う。</p>
+                </div>
+                <div class="grid">
+                    <article class="card reveal">
+                        <span class="num">01</span>
+                        <h3>Physical / Solution / Search</h3>
+                        <p>実フォルダー、Visual Studio Solution の再構築ツリー、一時的な検索結果を独立したビューとして保持。</p>
+                    </article>
+                    <article class="card reveal">
+                        <span class="num">02</span>
+                        <h3>Scoped Code Search</h3>
+                        <p>必要なプロジェクトやフォルダーだけをスコープにして Grep。正規表現、単語一致、言語プロファイル、外部エディタ連携。</p>
+                    </article>
+                    <article class="card reveal">
+                        <span class="num">03</span>
+                        <h3>Developer Differencer</h3>
+                        <p>Source / Target を比較し、差分を選択して双方向同期。テキストと画像の Diff View も統合。</p>
+                    </article>
+                    <article class="card reveal">
+                        <span class="num">04</span>
+                        <h3>Solution actions</h3>
+                        <p>Solution View から構成を選択し Build / Rebuild。比較前には MSBuild Clean も実行可能。</p>
+                    </article>
+                    <article class="card reveal">
+                        <span class="num">05</span>
+                        <h3>Tree exports & scripts</h3>
+                        <p>保持済みデータから Tree / Tree /F / File List を即座にエディタへ。スクリプトもコンテキストメニューから実行。</p>
+                    </article>
+                    <article class="card reveal">
+                        <span class="num">06</span>
+                        <h3>Folder icon management</h3>
+                        <p>ICO / ICL / DLL / EXE リソースを desktop.ini に適用。開発用フォルダーアイコンセットを同梱。</p>
+                    </article>
+                </div>
+            </section>
+            <section id="screenshots">
+                <div class="reveal">
+                    <div class="kicker">v3.4.0 in action</div>
+                    <h2>追加された操作を、画面で確認する。</h2>
+                    <p class="sectionlead">検索ナビゲーション、SolutionのBuild / Rebuild、Diff Viewを実際の画面で紹介します。</p>
+                </div>
+                <div class="grid screenshot-grid">
+                    <article class="card reveal">
+                        <div class="shot feature-shot">
+                            <img src="images/search-file-highlight-dark.png" alt="検索結果ファイルのハイライト表示">
+                        </div>
+                        <span class="num">SEARCH</span>
+                        <h3>検索結果ファイルをハイライト</h3>
+                        <p>検索対象ファイルを右側のファイル一覧でもハイライト。前／次ボタンで一致ファイルを順番に移動できます。</p>
+                    </article>
+                    <article class="card reveal">
+                        <div class="shot feature-shot">
+                            <img src="images/solution-build-menu-dark.png" alt="Solution Build and Rebuild context menu">
+                        </div>
+                        <span class="num">BUILD</span>
+                        <h3>SolutionからBuild / Rebuild</h3>
+                        <p>Solution Viewの右クリックメニューから構成を選択し、Build / Rebuildを直接実行できます。</p>
+                    </article>
+                    <article class="card reveal">
+                        <div class="shot feature-shot">
+                            <img src="images/diff-view-image-dark.png" alt="Developer Differencer image Diff View">
+                        </div>
+                        <span class="num">DIFF VIEW</span>
+                        <h3>画像Diff View</h3>
+                        <p>Source / Targetを並べ、共通ズーム、Fit、100%表示で画像差分を確認できます。</p>
+                    </article>
+                </div>
+            </section>
+            <section id="workflow">
+                <div class="showcase reveal">
+                    <div>
+                        <div class="kicker">Workspace</div>
+                        <h2>物理構造とSolution構造を切り替える。</h2>
+                        <p class="sectionlead">検索場所を取得すると Physical と Solution のツリーを構築。検索やフィルターを行っても、取得済みワークスペースは維持される。</p>
+                        <div class="tags">
+                            <span class="tag">Physical</span>
+                            <span class="tag">Solution</span>
+                            <span class="tag">Search</span>
+                            <span class="tag">Repository markers</span>
+                        </div>
+                    </div>
+                    <div class="shot">
+                        <img src="images/repository-tree-dark.png" alt="Repository workspace">
+                    </div>
+                </div>
+                <div class="showcase reveal">
+                    <div>
+                        <div class="kicker">Scoped Grep</div>
+                        <h2>見る必要のあるコードだけを検索する。</h2>
+                        <p class="sectionlead">複数のツリー枝から検索スコープを保持。ファイル、行、桁、マッチ文字列をグループ表示し、設定したエディタへ直接移動できる。</p>
+                    </div>
+                    <div class="shot">
+                        <img src="images/scoped-code-search.png" alt="Scoped Code Search">
+                    </div>
+                </div>
+                <div class="showcase reveal">
+                    <div>
+                        <div class="kicker">Differencer</div>
+                        <h2>比較から同期まで、方向を見失わない。</h2>
+                        <p class="sectionlead">相対パスで Source / Target を比較。Same / Diff / Left / Right で絞り込み、実行前にコピー・上書き・削除件数を確認する。</p>
+                    </div>
+                    <div class="shot">
+                        <img src="images/mft-differencer.png" alt="Developer Differencer">
+                    </div>
+                </div>
+                <div class="showcase reveal">
+                    <div>
+                        <div class="kicker">Diff View</div>
+                        <h2>差分そのものを、その場で確認する。</h2>
+                        <p class="sectionlead">行番号、変更表示、連動スクロール、差分マップ、前後移動を備えた読み取り専用ビュー。画像は Fit / 100% / 共通ズームに対応。</p>
+                    </div>
+                    <div class="shot">
+                        <img src="images/mft-diff-view.png" alt="Side-by-side Diff View">
+                    </div>
+                </div>
+            </section>
+            <section id="new">
+                <div class="release reveal">
+                    <div class="kicker">v3.6.0 · Release</div>
+                    <h2>操作の修復と、同期失敗の再実行。</h2>
+                    <p>右クリックで検索場所を変更すると即座に走査。同一比較パスの再選択では走査せず、タイトルのフォルダーアイコンで再走査します。Ctrl + 1 / 2 / 3で画面切替。タブ削除確認を廃止し、同期失敗は最後に1回だけ再試行します。ファイルのダブルクリック起動も修復しました。</p>
+                    <p>v3.6.0正式版向けの変更です。公開状況はGitHub Releasesをご確認ください。</p>
+                    <ul>
+                        <li>比較履歴とGrep結果をそれぞれ最大20件保存し、次回起動時に復元</li>
+                        <li>比較は日付付きの新規タブを左に追加。配色はテーマに連動し、選択中は太字で強調</li>
+                        <li>比較結果・Source / Target・フォルダー選択と展開・フィルターをタブに連動</li>
+                        <li>比較完了後もタブの削除ボタンを使用可能に修正</li>
+                        <li>Grepは「はい」で追記、「いいえ」で新規タブ検索、「キャンセル」で中止</li>
+                        <li>20件到達時、Grepは既存タブへの追記・クリアを確認。比較は最古を削除するか確認し、断った場合は比較しない</li>
+                        <li>Grepの保存・追加ボタンは透明背景。明示保存と終了時の自動保存に対応</li>
+                        <li>追加した案内は英語・日本語・中国語・韓国語に対応</li>
+                    </ul>
+                    <p>
+                        <a href="releases/v3.6.0.md">v3.6.0 Release Notes</a>
+                        ·
+                        <a href="result-history.md">履歴タブの使い方</a>
+                    </p>
+                    <div class="warning">ビルド・動作確認は作者が実施します。公開前の確認項目は<a href="releases/v3.6.0-validation.md">Release確認表</a>を参照してください。比較履歴は結果メタデータを保存し、元ファイルの内容は保存しません。</div>
+                    <h3>v3.4.2から継続する修正</h3>
+                    <ul>
+                        <li>リリースバイナリのバージョンを v3.4.2 に更新</li>
+                        <li>検索実行中はSearchを優位とし、Physical / Solutionタブを非活性化</li>
+                        <li>検索キーワードを消すとSearchツリーとファイルリストをクリアし、3タブを有効化</li>
+                        <li>キーワードが空の状態でPhysical / Solutionを選択するとSearchタブを非活性化</li>
+                        <li>検索ヒット選択時、該当する親フォルダーを選択し、画面外のヒットへ自動スクロール</li>
+                        <li>Physicalのファイルリストでファイルを選択した場合、該当する親フォルダーを選択・展開</li>
+                        <li>v3.4.1のDeveloper Differencer Same選択動作修正を継続</li>
+                    </ul>
+                    <p>
+                        <a href="releases/v3.4.2-FFFE.md">v3.4.2 Release Notes</a>
+                    </p>
+                    <h3>v3.4.1から継続する修正</h3>
+                    <ul>
+                        <li>フォルダー移動後も、以前のフォルダーで選択したSameファイルを保持</li>
+                        <li>フォルダー切替時にSame ON/OFFをOFFへリセット</li>
+                        <li>Same OFFは現在選択中のフォルダーだけに適用</li>
+                        <li>Sameカテゴリを非表示にした場合のみ、非表示のSame選択を解除</li>
+                        <li>FFFE高速走査、NAS遅延展開、パス構造を維持したZIP出力を継続</li>
+                    </ul>
+                    <div class="warning">
+                        Solution View は軽量な再構築であり、MSBuild imports・conditions・Visual Studio virtual nodes
+          を完全評価するものではありません。
+                    </div>
+                </div>
+            </section>
+            <section id="download" class="cta reveal">
+                <div class="kicker">Download</div>
+                <h2>DesktopIniManager v3.6.0</h2>
+                <p>
+                    Windows 10 / 11 x64 · .NET 10 Desktop Runtime (x64) · Release package: DesktopIniManager-v3.6.0-win-x64.zip
+                </p>
+                <div class="actions" style="justify-content:center">
+                    <a class="btn primary" href="https://github.com/K-Tamashiro/DesktopIniManager/releases">Download from GitHub Releases →</a>
+                    <a class="btn" href="https://github.com/K-Tamashiro/DesktopIniManager">Source / Documentation</a>
+                </div>
+            </section>
+        </main>
+        <footer>
+            <div class="foot">
+                <span>DesktopIniManager v3.6.0</span>
+                <span>Windows development workspace</span>
+            </div>
+            <div class="brand-signature">
+                ZEBRASOFT
+                <span>by Tamayan</span>
+            </div>
+        </footer>
+        <script>
     const root = document.body, theme = document.getElementById('theme');
     theme.onclick = () => { root.classList.toggle('light'); localStorage.setItem('dim-theme', root.classList.contains('light') ? 'light' : 'dark') };
     if (localStorage.getItem('dim-theme') === 'light') root.classList.add('light');
@@ -748,7 +793,6 @@
       tilt.addEventListener('mousemove', e => { const r = tilt.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5; tilt.style.transform = `perspective(1200px) rotateY(${x * 5}deg) rotateX(${-y * 5}deg)` });
       tilt.addEventListener('mouseleave', () => tilt.style.transform = 'perspective(1200px) rotateY(-3deg) rotateX(2deg)');
     }
-  </script>
-</body>
-
+        </script>
+    </body>
 </html>

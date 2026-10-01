@@ -38,8 +38,14 @@ namespace DesktopIniManager.Services
                 rows.Add(row);
             }
             for (int i = suffix; i > 0; i--)
-                rows.Add(new DiffLine { Left = left[left.Length - i], Right = right[right.Length - i],
-                    LeftNumber = left.Length - i + 1, RightNumber = right.Length - i + 1, Kind = DiffLineKind.Unchanged });
+                rows.Add(new DiffLine
+                {
+                    Left = left[left.Length - i],
+                    Right = right[right.Length - i],
+                    LeftNumber = left.Length - i + 1,
+                    RightNumber = right.Length - i + 1,
+                    Kind = DiffLineKind.Unchanged
+                });
             return rows;
         }
 

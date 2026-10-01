@@ -66,8 +66,14 @@ namespace DesktopIniManager.ViewModels
                 return;
             }
             CaptureHistoryTab();
-            var tab = new GrepHistoryTab { Title = StringOverlay.Get("History_NewSearch"), Profile = SelectedProfile?.Name, Extensions = Extensions,
-                Scopes = _scopes.Select(s => s.FolderPath).ToList(), EnabledScopes = EnabledScopePaths().ToList() };
+            var tab = new GrepHistoryTab
+            {
+                Title = StringOverlay.Get("History_NewSearch"),
+                Profile = SelectedProfile?.Name,
+                Extensions = Extensions,
+                Scopes = _scopes.Select(s => s.FolderPath).ToList(),
+                EnabledScopes = EnabledScopePaths().ToList()
+            };
             HistoryTabs.Add(tab);
             SelectedHistoryTab = tab;
         }
@@ -95,7 +101,6 @@ namespace DesktopIniManager.ViewModels
         private void DeleteHistoryTab(GrepHistoryTab tab)
         {
             if (tab == null || !HistoryTabs.Contains(tab)) return;
-            if (_dialogs.Show(string.Format(StringOverlay.Get("History_DeleteConfirm"), tab.Title), DialogTitle, MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
             bool active = tab == selectedHistoryTab;
             changingHistoryTabs = true;
             try { HistoryTabs.Remove(tab); }
@@ -111,7 +116,6 @@ namespace DesktopIniManager.ViewModels
         private void DeleteAllHistoryTabs()
         {
             if (IsSearching || HistoryTabs.Count == 0) return;
-            if (_dialogs.Show(StringOverlay.Get("History_DeleteAllConfirm"), DialogTitle, MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
             changingHistoryTabs = true;
             try { HistoryTabs.Clear(); }
             finally { changingHistoryTabs = false; }
@@ -122,7 +126,6 @@ namespace DesktopIniManager.ViewModels
         private void DeleteOtherHistoryTabs(GrepHistoryTab tab)
         {
             if (IsSearching || tab == null || !HistoryTabs.Contains(tab) || HistoryTabs.Count <= 1) return;
-            if (_dialogs.Show(string.Format(StringOverlay.Get("History_DeleteOthersConfirm"), tab.Title), DialogTitle, MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
             changingHistoryTabs = true;
             try
             {
@@ -149,7 +152,7 @@ namespace DesktopIniManager.ViewModels
             {
                 var saved = ResultHistoryStore.Load<HistoryFile<GrepHistoryTab>>("grep");
                 foreach (var tab in saved.Tabs.Take(ResultHistoryStore.Limit)) HistoryTabs.Add(tab);
-                if (HistoryTabs.Count > 0) SelectedHistoryTab = HistoryTabs[0];
+                if (HistoryTabs.Count > 0) SelectedHistoryTab = HistoryTabs[Math.Max(0, Math.Min(saved.SelectedIndex, HistoryTabs.Count - 1))];
                 else AddHistoryTab();
             }
             catch (Exception ex) { _dialogs.Show(string.Format(StringOverlay.Get("History_LoadFailed"), ex.Message), DialogTitle); AddHistoryTab(); }

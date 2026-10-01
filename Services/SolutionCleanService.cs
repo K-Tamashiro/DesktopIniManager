@@ -109,9 +109,17 @@ namespace DesktopIniManager.Services
         private static int Run(string executable, string arguments, string directory, out string output)
         {
             var log = new StringBuilder();
-            using (var process = new Process { StartInfo = new ProcessStartInfo(executable, arguments) {
-                WorkingDirectory = directory, UseShellExecute = false, CreateNoWindow = true,
-                RedirectStandardOutput = true, RedirectStandardError = true } })
+            using (var process = new Process
+            {
+                StartInfo = new ProcessStartInfo(executable, arguments)
+                {
+                    WorkingDirectory = directory,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                }
+            })
             {
                 DataReceivedEventHandler append = (s, e) => { if (e.Data != null) lock (log) log.AppendLine(e.Data); };
                 process.OutputDataReceived += append; process.ErrorDataReceived += append;

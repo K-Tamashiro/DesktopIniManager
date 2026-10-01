@@ -391,3 +391,6 @@ History_NewSearch=新しい検索
 History_Saved=タブを保存しました。
 History_SaveFailed=タブを保存できませんでした: {0}
 History_SaveTabs=タブを保存
+
+Differencer_RescanSource=ソースフォルダーを再走査
+Differencer_RescanTarget=ターゲットフォルダーを再走査

@@ -25,6 +25,8 @@ namespace DesktopIniManager.Views
         private bool _resultGroupsExpanded = true;
         private bool _applyingGroupExpansion;
         private readonly Dictionary<string, bool> _resultGroupStates = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        private Point _groupDragStart;
+        private string _groupDragPath;
         private HwndSource _inputSource;
 
         public GrepWindow(Func<IReadOnlyList<string>> scopeProvider, IReadOnlyList<string> initialScopes)
@@ -270,6 +272,24 @@ namespace DesktopIniManager.Views
                 _resultGroupStates[Convert.ToString(group.Name) ?? string.Empty] = expanded;
                 if (!group.IsBottomLevel) RecordGroupStates(group.Items, expanded);
             }
+        }
+
+
+        private void GroupHeader_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _groupDragPath = ResultGroupKey(FindAncestor<Expander>(sender as DependencyObject) ?? sender as Expander);
+            _groupDragStart = e.GetPosition(null);
+        }
+
+        private void GroupHeader_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton != MouseButtonState.Pressed || string.IsNullOrEmpty(_groupDragPath)) return;
+            if (!DropOutService.MovedEnough(_groupDragStart, e.GetPosition(null))) return;
+            string group = _groupDragPath;
+            _groupDragPath = null;
+            string path = ViewModel.FilePathForGroup(group);
+            if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                DropOutService.DragExisting(sender as DependencyObject, new[] { path });
         }
 
         private void GroupHeader_Click(object sender, MouseButtonEventArgs e)

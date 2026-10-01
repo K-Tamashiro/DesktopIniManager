@@ -12,257 +12,257 @@
   Background="{DynamicResource WindowBackground}"
   Foreground="{DynamicResource Ink}"
   WindowStartupLocation="CenterOwner">
-  <Window.Resources>
-    <BooleanToVisibilityConverter x:Key="MvvmBooleanToVisibility" />
-    <SolidColorBrush x:Key="SourceColor" Color="#E8B949" />
-    <SolidColorBrush x:Key="TargetColor" Color="#2878BF" />
-    <SolidColorBrush x:Key="CleanColor" Color="#28784B" />
-    <Style
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="MvvmBooleanToVisibility" />
+        <SolidColorBrush x:Key="SourceColor" Color="#E8B949" />
+        <SolidColorBrush x:Key="TargetColor" Color="#2878BF" />
+        <SolidColorBrush x:Key="CleanColor" Color="#28784B" />
+        <Style
       x:Key="DifferencerActionButton"
       BasedOn="{StaticResource IconTextButton}"
       TargetType="Button">
-      <Setter Property="Template">
-        <Setter.Value>
-          <ControlTemplate TargetType="Button">
-            <Grid x:Name="Frame">
-              <Border Background="{TemplateBinding Background}" CornerRadius="10" />
-              <Border
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid x:Name="Frame">
+                            <Border Background="{TemplateBinding Background}" CornerRadius="10" />
+                            <Border
                 x:Name="Highlight"
                 Background="White"
                 CornerRadius="10"
                 Opacity="0" />
-              <Border Padding="{TemplateBinding Padding}">
-                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-              </Border>
-            </Grid>
-            <ControlTemplate.Triggers>
-              <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Highlight" Property="Opacity" Value="0.12" />
-              </Trigger>
-              <Trigger Property="IsPressed" Value="True">
-                <Setter TargetName="Highlight" Property="Opacity" Value="0.22" />
-              </Trigger>
-              <Trigger Property="IsEnabled" Value="False">
-                <Setter TargetName="Frame" Property="Opacity" Value="0.48" />
-              </Trigger>
-            </ControlTemplate.Triggers>
-          </ControlTemplate>
-        </Setter.Value>
-      </Setter>
-    </Style>
-    <Style x:Key="FilterActionButtonStyle" TargetType="Button">
-      <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="Margin" Value="0,0,6,0" />
-      <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-      <Setter Property="Template">
-        <Setter.Value>
-          <ControlTemplate TargetType="Button">
-            <Border
+                            <Border Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Highlight" Property="Opacity" Value="0.12" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Highlight" Property="Opacity" Value="0.22" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Frame" Property="Opacity" Value="0.48" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="FilterActionButtonStyle" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border
               x:Name="Frame"
               Padding="5,4"
               Background="{DynamicResource Secondary}"
               CornerRadius="8"
               SnapsToDevicePixels="True">
-              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-            </Border>
-            <ControlTemplate.Triggers>
-              <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Frame" Property="Background" Value="{DynamicResource AccentSoft}" />
-              </Trigger>
-              <Trigger Property="IsPressed" Value="True">
-                <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource Accent}" />
-                <Setter TargetName="Frame" Property="BorderThickness" Value="1" />
-              </Trigger>
-              <Trigger Property="IsEnabled" Value="False">
-                <Setter Property="Opacity" Value="0.45" />
-              </Trigger>
-            </ControlTemplate.Triggers>
-          </ControlTemplate>
-        </Setter.Value>
-      </Setter>
-    </Style>
-    <Style x:Key="KindFilterStyle" TargetType="CheckBox">
-      <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="Margin" Value="0,0,6,0" />
-      <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-      <Setter Property="Template">
-        <Setter.Value>
-          <ControlTemplate TargetType="CheckBox">
-            <Border
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Frame" Property="Background" Value="{DynamicResource AccentSoft}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                                <Setter TargetName="Frame" Property="BorderThickness" Value="1" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="KindFilterStyle" TargetType="CheckBox">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Border
               x:Name="Frame"
               Padding="5,4"
               Background="{DynamicResource Secondary}"
               CornerRadius="8"
               SnapsToDevicePixels="True">
-              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-            </Border>
-            <ControlTemplate.Triggers>
-              <Trigger Property="IsChecked" Value="True">
-                <Setter TargetName="Frame" Property="Background" Value="{DynamicResource AccentSoft}" />
-                <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource Accent}" />
-                <Setter TargetName="Frame" Property="BorderThickness" Value="1" />
-              </Trigger>
-              <Trigger Property="IsChecked" Value="False">
-                <Setter Property="Opacity" Value="0.55" />
-              </Trigger>
-              <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Opacity" Value="1" />
-              </Trigger>
-              <Trigger Property="IsEnabled" Value="False">
-                <Setter Property="Opacity" Value="0.35" />
-              </Trigger>
-            </ControlTemplate.Triggers>
-          </ControlTemplate>
-        </Setter.Value>
-      </Setter>
-    </Style>
-    <Style x:Key="FileListItemStyle" TargetType="ListViewItem">
-      <Setter Property="Height" Value="80" />
-      <EventSetter Event="Loaded" Handler="FileRowLoaded" />
-      <EventSetter Event="Unloaded" Handler="FileRowUnloaded" />
-      <Setter Property="Foreground" Value="{DynamicResource Muted}" />
-      <Setter Property="Background" Value="Transparent" />
-      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-      <Setter Property="Template">
-        <Setter.Value>
-          <ControlTemplate TargetType="ListViewItem">
-            <Border
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Frame" Property="Background" Value="{DynamicResource AccentSoft}" />
+                                <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                                <Setter TargetName="Frame" Property="BorderThickness" Value="1" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="False">
+                                <Setter Property="Opacity" Value="0.55" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Opacity" Value="1" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.35" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="FileListItemStyle" TargetType="ListViewItem">
+            <Setter Property="Height" Value="80" />
+            <EventSetter Event="Loaded" Handler="FileRowLoaded" />
+            <EventSetter Event="Unloaded" Handler="FileRowUnloaded" />
+            <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListViewItem">
+                        <Border
               x:Name="RowBorder"
               Padding="2,1"
               Background="{TemplateBinding Background}"
               BorderBrush="Transparent"
               BorderThickness="2,0,0,0"
               TextElement.Foreground="{TemplateBinding Foreground}">
-              <GridViewRowPresenter Columns="{Binding View.Columns, RelativeSource={RelativeSource AncestorType=ListView}}" Content="{TemplateBinding Content}" />
-            </Border>
-            <ControlTemplate.Triggers>
-              <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource AccentSoft}" />
-              </Trigger>
-              <Trigger Property="IsSelected" Value="True">
-                <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource ThemeSelected}" />
-                <Setter TargetName="RowBorder" Property="BorderBrush" Value="{DynamicResource Accent}" />
-              </Trigger>
-            </ControlTemplate.Triggers>
-          </ControlTemplate>
-        </Setter.Value>
-      </Setter>
-      <Style.Triggers>
-        <DataTrigger Binding="{Binding IsDirectInSelectedFolder}" Value="True">
-          <Setter Property="Foreground" Value="{DynamicResource Ink}" />
-        </DataTrigger>
-      </Style.Triggers>
-    </Style>
-    <Style TargetType="GridViewColumnHeader">
-      <Setter Property="Background" Value="{DynamicResource HeaderBackground}" />
-      <Setter Property="Foreground" Value="{DynamicResource Ink}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource Line}" />
-      <Setter Property="BorderThickness" Value="0,0,1,1" />
-      <Setter Property="Padding" Value="8,5" />
-      <Setter Property="HorizontalContentAlignment" Value="Left" />
-      <Setter Property="Template">
-        <Setter.Value>
-          <ControlTemplate TargetType="GridViewColumnHeader">
-            <Border
+                            <GridViewRowPresenter Columns="{Binding View.Columns, RelativeSource={RelativeSource AncestorType=ListView}}" Content="{TemplateBinding Content}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource AccentSoft}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource ThemeSelected}" />
+                                <Setter TargetName="RowBorder" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsDirectInSelectedFolder}" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style TargetType="GridViewColumnHeader">
+            <Setter Property="Background" Value="{DynamicResource HeaderBackground}" />
+            <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Line}" />
+            <Setter Property="BorderThickness" Value="0,0,1,1" />
+            <Setter Property="Padding" Value="8,5" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GridViewColumnHeader">
+                        <Border
               x:Name="HeaderBorder"
               Padding="{TemplateBinding Padding}"
               Background="{TemplateBinding Background}"
               BorderBrush="{TemplateBinding BorderBrush}"
               BorderThickness="{TemplateBinding BorderThickness}">
-              <Grid>
-                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" />
-                <Thumb
+                            <Grid>
+                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" />
+                                <Thumb
                   x:Name="PART_HeaderGripper"
                   Width="6"
                   HorizontalAlignment="Right"
                   Cursor="SizeWE">
-                  <Thumb.Template>
-                    <ControlTemplate TargetType="Thumb">
-                      <Border Background="Transparent" />
+                                    <Thumb.Template>
+                                        <ControlTemplate TargetType="Thumb">
+                                            <Border Background="Transparent" />
+                                        </ControlTemplate>
+                                    </Thumb.Template>
+                                </Thumb>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource AccentSoft}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
-                  </Thumb.Template>
-                </Thumb>
-              </Grid>
-            </Border>
-            <ControlTemplate.Triggers>
-              <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource AccentSoft}" />
-              </Trigger>
-            </ControlTemplate.Triggers>
-          </ControlTemplate>
-        </Setter.Value>
-      </Setter>
-    </Style>
-    <Style x:Key="FolderItemStyle" TargetType="TreeViewItem">
-      <Setter Property="IsExpanded" Value="{Binding Expanded, Mode=TwoWay}" />
-      <Setter Property="IsSelected" Value="{Binding Active, Mode=TwoWay}" />
-      <Setter Property="Foreground" Value="{DynamicResource Ink}" />
-      <Setter Property="Background" Value="Transparent" />
-      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-      <Setter Property="Padding" Value="0" />
-      <Setter Property="Template">
-        <Setter.Value>
-          <ControlTemplate TargetType="TreeViewItem">
-            <Grid Background="Transparent">
-              <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-              </Grid.RowDefinitions>
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="20" />
-                <ColumnDefinition />
-              </Grid.ColumnDefinitions>
-              <ToggleButton
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="FolderItemStyle" TargetType="TreeViewItem">
+            <Setter Property="IsExpanded" Value="{Binding Expanded, Mode=TwoWay}" />
+            <Setter Property="IsSelected" Value="{Binding Active, Mode=TwoWay}" />
+            <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TreeViewItem">
+                        <Grid Background="Transparent">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="20" />
+                                <ColumnDefinition />
+                            </Grid.ColumnDefinitions>
+                            <ToggleButton
                 x:Name="Expander"
                 Content="▶"
                 Focusable="False"
                 Foreground="{DynamicResource Muted}"
                 IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}">
-                <ToggleButton.Template>
-                  <ControlTemplate TargetType="ToggleButton">
-                    <TextBlock
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <TextBlock
                       HorizontalAlignment="Center"
                       VerticalAlignment="Center"
                       Foreground="{TemplateBinding Foreground}"
                       Text="{TemplateBinding Content}" />
-                  </ControlTemplate>
-                </ToggleButton.Template>
-              </ToggleButton>
-              <Border Grid.Column="1" Background="{TemplateBinding Background}">
-                <ContentPresenter HorizontalAlignment="Stretch" ContentSource="Header" />
-              </Border>
-              <ItemsPresenter
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <Border Grid.Column="1" Background="{TemplateBinding Background}">
+                                <ContentPresenter HorizontalAlignment="Stretch" ContentSource="Header" />
+                            </Border>
+                            <ItemsPresenter
                 x:Name="ItemsHost"
                 Grid.Row="1"
                 Grid.Column="1" />
-            </Grid>
-            <ControlTemplate.Triggers>
-              <Trigger Property="HasItems" Value="False">
-                <Setter TargetName="Expander" Property="Visibility" Value="Hidden" />
-              </Trigger>
-              <Trigger Property="IsExpanded" Value="True">
-                <Setter TargetName="Expander" Property="Content" Value="▼" />
-              </Trigger>
-              <Trigger Property="IsExpanded" Value="False">
-                <Setter TargetName="ItemsHost" Property="Visibility" Value="Collapsed" />
-              </Trigger>
-            </ControlTemplate.Triggers>
-          </ControlTemplate>
-        </Setter.Value>
-      </Setter>
-      <Style.Triggers>
-        <Trigger Property="IsSelected" Value="True">
-          <Setter Property="Background" Value="{DynamicResource ThemeSelected}" />
-        </Trigger>
-      </Style.Triggers>
-    </Style>
-    <DataTemplate x:Key="SideTemplate">
-      <DockPanel
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="HasItems" Value="False">
+                                <Setter TargetName="Expander" Property="Visibility" Value="Hidden" />
+                            </Trigger>
+                            <Trigger Property="IsExpanded" Value="True">
+                                <Setter TargetName="Expander" Property="Content" Value="▼" />
+                            </Trigger>
+                            <Trigger Property="IsExpanded" Value="False">
+                                <Setter TargetName="ItemsHost" Property="Visibility" Value="Collapsed" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource ThemeSelected}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <DataTemplate x:Key="SideTemplate">
+            <DockPanel
         Margin="6"
         VerticalAlignment="Center"
         LastChildFill="True"
         ToolTip="{Binding Info}">
-        <Image
+                <Image
           Width="56"
           Height="48"
           Margin="0,0,6,0"
@@ -270,119 +270,119 @@
           DockPanel.Dock="Left"
           Source="{Binding Thumbnail}"
           Stretch="Uniform">
-          <Image.Style>
-            <Style TargetType="Image">
-              <Style.Triggers>
-                <DataTrigger Binding="{Binding HasImage}" Value="False">
-                  <Setter Property="Visibility" Value="Collapsed" />
-                </DataTrigger>
-              </Style.Triggers>
-            </Style>
-          </Image.Style>
-        </Image>
-        <StackPanel VerticalAlignment="Center">
-          <TextBlock FontSize="11" Text="{Binding SummaryInfo}" />
-          <TextBlock
+                    <Image.Style>
+                        <Style TargetType="Image">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasImage}" Value="False">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Image.Style>
+                </Image>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock FontSize="11" Text="{Binding SummaryInfo}" />
+                    <TextBlock
             FontSize="10"
             Text="{Binding Dimensions}"
             TextTrimming="CharacterEllipsis" />
-        </StackPanel>
-      </DockPanel>
-    </DataTemplate>
-    <Style x:Key="HistoryTabItem" TargetType="ListBoxItem">
-      <Setter Property="OverridesDefaultStyle" Value="True" />
-      <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-      <Setter Property="Foreground" Value="{DynamicResource HistoryTabForeground}" />
-      <Setter Property="Background" Value="Transparent" />
-      <Setter Property="FontWeight" Value="Normal" />
-      <Setter Property="Padding" Value="12,6" />
-      <Setter Property="Template">
-        <Setter.Value>
-          <ControlTemplate TargetType="ListBoxItem">
-            <Border
+                </StackPanel>
+            </DockPanel>
+        </DataTemplate>
+        <Style x:Key="HistoryTabItem" TargetType="ListBoxItem">
+            <Setter Property="OverridesDefaultStyle" Value="True" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Foreground" Value="{DynamicResource HistoryTabForeground}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border
               x:Name="TabChrome"
               Padding="{TemplateBinding Padding}"
               Background="{DynamicResource HistoryTabBackground}"
               BorderBrush="{DynamicResource Line}"
               BorderThickness="1,1,1,0"
               CornerRadius="5,5,0,0">
-              <ContentPresenter TextElement.FontWeight="{TemplateBinding FontWeight}" TextElement.Foreground="{TemplateBinding Foreground}" />
-            </Border>
-            <ControlTemplate.Triggers>
-              <Trigger Property="IsSelected" Value="True">
-                <Setter TargetName="TabChrome" Property="Background" Value="{DynamicResource HistoryTabSelectedBackground}" />
-                <Setter Property="Foreground" Value="{DynamicResource HistoryTabSelectedForeground}" />
-                <Setter Property="FontWeight" Value="Bold" />
-              </Trigger>
-            </ControlTemplate.Triggers>
-          </ControlTemplate>
-        </Setter.Value>
-      </Setter>
-    </Style>
-    <Style x:Key="HistoryTabStrip" TargetType="ListBox">
-      <Setter Property="Background" Value="{DynamicResource HistoryTabBackground}" />
-      <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto" />
-      <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
-      <Setter Property="Template">
-        <Setter.Value>
-          <ControlTemplate TargetType="ListBox">
-            <Border Background="{DynamicResource HistoryTabBackground}" BorderThickness="0">
-              <ScrollViewer
+                            <ContentPresenter TextElement.FontWeight="{TemplateBinding FontWeight}" TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="TabChrome" Property="Background" Value="{DynamicResource HistoryTabSelectedBackground}" />
+                                <Setter Property="Foreground" Value="{DynamicResource HistoryTabSelectedForeground}" />
+                                <Setter Property="FontWeight" Value="Bold" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="HistoryTabStrip" TargetType="ListBox">
+            <Setter Property="Background" Value="{DynamicResource HistoryTabBackground}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto" />
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBox">
+                        <Border Background="{DynamicResource HistoryTabBackground}" BorderThickness="0">
+                            <ScrollViewer
                 Background="{DynamicResource HistoryTabBackground}"
                 HorizontalScrollBarVisibility="{TemplateBinding ScrollViewer.HorizontalScrollBarVisibility}"
                 VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}">
-                <ItemsPresenter />
-              </ScrollViewer>
-            </Border>
-          </ControlTemplate>
-        </Setter.Value>
-      </Setter>
-      <Setter Property="ItemContainerStyle" Value="{StaticResource HistoryTabItem}" />
-      <Setter Property="ItemsPanel">
-        <Setter.Value>
-          <ItemsPanelTemplate>
-            <StackPanel Orientation="Horizontal" />
-          </ItemsPanelTemplate>
-        </Setter.Value>
-      </Setter>
-      <Setter Property="ItemTemplate">
-        <Setter.Value>
-          <DataTemplate>
-            <StackPanel Background="Transparent" Orientation="Horizontal">
-              <StackPanel.ContextMenu>
-                <ContextMenu>
-                  <MenuItem Click="DeleteAllHistoryTabs_Click" Header="{loc:L History_DeleteAllTabs}">
-                    <MenuItem.Icon>
-                      <TextBlock
+                                <ItemsPresenter />
+                            </ScrollViewer>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemContainerStyle" Value="{StaticResource HistoryTabItem}" />
+            <Setter Property="ItemsPanel">
+                <Setter.Value>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemTemplate">
+                <Setter.Value>
+                    <DataTemplate>
+                        <StackPanel Background="Transparent" Orientation="Horizontal">
+                            <StackPanel.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Click="DeleteAllHistoryTabs_Click" Header="{loc:L History_DeleteAllTabs}">
+                                        <MenuItem.Icon>
+                                            <TextBlock
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
                         FontFamily="Segoe MDL2 Assets"
                         FontSize="15"
                         Foreground="{DynamicResource Ink}"
                         Text="&#xE74D;" />
-                    </MenuItem.Icon>
-                  </MenuItem>
-                  <MenuItem Click="DeleteOtherHistoryTabs_Click" Header="{loc:L History_DeleteOtherTabs}">
-                    <MenuItem.Icon>
-                      <TextBlock
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Click="DeleteOtherHistoryTabs_Click" Header="{loc:L History_DeleteOtherTabs}">
+                                        <MenuItem.Icon>
+                                            <TextBlock
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
                         FontFamily="Segoe MDL2 Assets"
                         FontSize="15"
                         Foreground="{DynamicResource Ink}"
                         Text="&#xE711;" />
-                    </MenuItem.Icon>
-                  </MenuItem>
-                </ContextMenu>
-              </StackPanel.ContextMenu>
-              <TextBlock
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                </ContextMenu>
+                            </StackPanel.ContextMenu>
+                            <TextBlock
                 MaxWidth="220"
                 VerticalAlignment="Center"
                 Text="{Binding Title}"
                 TextTrimming="CharacterEllipsis"
                 ToolTip="{Binding Title}" />
-              <Button
+                            <Button
                 Margin="8,0,0,0"
                 Padding="3,0"
                 Background="Transparent"
@@ -392,61 +392,65 @@
                 Content="×"
                 Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
                 ToolTip="{loc:L History_DeleteTab}" />
-            </StackPanel>
-          </DataTemplate>
-        </Setter.Value>
-      </Setter>
-    </Style>
-  </Window.Resources>
-  <DockPanel Margin="16">
-    <StackPanel DockPanel.Dock="Top">
-      <Grid Margin="0,0,0,10">
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="*" />
-          <ColumnDefinition Width="Auto" />
-          <ColumnDefinition Width="Auto" />
-        </Grid.ColumnDefinitions>
-        <TextBlock
+                        </StackPanel>
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    <DockPanel Margin="16">
+        <StackPanel DockPanel.Dock="Top">
+            <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="563*" />
+                    <ColumnDefinition Width="43*"/>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock
           VerticalAlignment="Center"
           FontSize="26"
           FontWeight="SemiBold"
           Foreground="{DynamicResource Accent}"
-          Text="{loc:L Differencer_Title}" />
-        <Button
+          Text="{loc:L Differencer_Title}" ToolTip="Ctrl + 2" Grid.ColumnSpan="2" />
+                <Button
           x:Name="CloseButton"
-          Grid.Column="2"
-          HorizontalAlignment="Right"
+          Grid.Column="3"
+          HorizontalAlignment="Center"
           VerticalAlignment="Center"
           Command="{Binding CloseCommand}"
           Style="{StaticResource IconButton}"
           ToolTip="{loc:L Common_Close}">
-          <Image
+                    <Image
             x:Name="CloseButtonIcon"
             RenderOptions.BitmapScalingMode="HighQuality"
             Stretch="Uniform" />
-        </Button>
-      </Grid>
-      <Grid x:Name="RootControls" IsEnabled="{Binding CanEdit}">
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="Auto" />
-          <ColumnDefinition />
-          <ColumnDefinition Width="Auto" />
-        </Grid.ColumnDefinitions>
-        <Grid.RowDefinitions>
-          <RowDefinition />
-          <RowDefinition />
-        </Grid.RowDefinitions>
-        <Image
-          x:Name="SourceLabelIcon"
-          Width="28"
-          Height="28"
-          Margin="0,0,12,6"
-          HorizontalAlignment="Left"
-          VerticalAlignment="Center"
-          RenderOptions.BitmapScalingMode="HighQuality"
-          Stretch="Uniform"
-          ToolTip="{loc:L Common_Source}" />
-        <history:HistoryTextBox
+                </Button>
+            </Grid>
+            <Grid x:Name="RootControls" IsEnabled="{Binding CanEdit}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition />
+                    <RowDefinition />
+                </Grid.RowDefinitions>
+                <Image
+    x:Name="SourceLabelIcon"
+    Grid.Row="0"
+    Grid.Column="0"
+    Width="32"
+    Height="32"
+    Margin="0,0,10,6"
+    HorizontalAlignment="Center"
+    VerticalAlignment="Center"
+    RenderOptions.BitmapScalingMode="HighQuality"
+    Stretch="Uniform"
+    Cursor="Hand"
+    ToolTip="{loc:L Differencer_RescanSource}" />
+                <history:HistoryTextBox
           x:Name="SourceBox"
           Grid.Column="1"
           Margin="0,0,8,6"
@@ -454,17 +458,17 @@
           BorderThickness="4,1,1,1"
           HistoryKey="Differencer-Source"
           Text="{Binding SourcePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-        <ProgressBar
+                <ProgressBar
           Grid.Column="1"
           Height="3"
           Margin="4,0,9,7"
           VerticalAlignment="Bottom"
-          IsHitTestVisible="False"
           Background="{DynamicResource HeaderBackground}"
           Foreground="{StaticResource SourceColor}"
+          IsHitTestVisible="False"
           IsIndeterminate="{Binding IsSourceIndexing}"
           Visibility="{Binding IsSourceIndexing, Converter={StaticResource MvvmBooleanToVisibility}}" />
-        <Button
+                <Button
           x:Name="BrowseSourceButton"
           Grid.Column="2"
           Margin="0,0,0,6"
@@ -472,23 +476,25 @@
           Command="{Binding BrowseSourceCommand}"
           Style="{StaticResource IconButton}"
           ToolTip="{loc:L Common_Browse}">
-          <Image
+                    <Image
             x:Name="BrowseSourceIcon"
             RenderOptions.BitmapScalingMode="HighQuality"
             Stretch="Uniform" />
-        </Button>
-        <Image
-          x:Name="TargetLabelIcon"
-          Grid.Row="1"
-          Width="28"
-          Height="28"
-          Margin="0,0,12,0"
-          HorizontalAlignment="Left"
-          VerticalAlignment="Center"
-          RenderOptions.BitmapScalingMode="HighQuality"
-          Stretch="Uniform"
-          ToolTip="{loc:L Common_Target}" />
-        <history:HistoryTextBox
+                </Button>
+                <Image
+    x:Name="TargetLabelIcon"
+    Grid.Row="1"
+    Grid.Column="0"
+    Width="32"
+    Height="32"
+    Margin="0,0,10,0"
+    HorizontalAlignment="Center"
+    VerticalAlignment="Center"
+    RenderOptions.BitmapScalingMode="HighQuality"
+    Stretch="Uniform"
+    Cursor="Hand"
+    ToolTip="{loc:L Differencer_RescanTarget}" />
+                <history:HistoryTextBox
           x:Name="TargetBox"
           Grid.Row="1"
           Grid.Column="1"
@@ -497,18 +503,18 @@
           BorderThickness="4,1,1,1"
           HistoryKey="Differencer-Target"
           Text="{Binding TargetPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-        <ProgressBar
+                <ProgressBar
           Grid.Row="1"
           Grid.Column="1"
           Height="3"
           Margin="4,0,9,1"
           VerticalAlignment="Bottom"
-          IsHitTestVisible="False"
           Background="{DynamicResource HeaderBackground}"
           Foreground="{StaticResource TargetColor}"
+          IsHitTestVisible="False"
           IsIndeterminate="{Binding IsTargetIndexing}"
           Visibility="{Binding IsTargetIndexing, Converter={StaticResource MvvmBooleanToVisibility}}" />
-        <Button
+                <Button
           x:Name="BrowseTargetButton"
           Grid.Row="1"
           Grid.Column="2"
@@ -516,31 +522,31 @@
           Command="{Binding BrowseTargetCommand}"
           Style="{StaticResource IconButton}"
           ToolTip="{loc:L Common_Browse}">
-          <Image
+                    <Image
             x:Name="BrowseTargetIcon"
             RenderOptions.BitmapScalingMode="HighQuality"
             Stretch="Uniform" />
-        </Button>
-      </Grid>
-      <Grid Margin="0,10">
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="Auto" />
-          <ColumnDefinition Width="*" />
-          <ColumnDefinition Width="Auto" />
-        </Grid.ColumnDefinitions>
-        <StackPanel Orientation="Horizontal">
-          <Button
+                </Button>
+            </Grid>
+            <Grid Margin="0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal">
+                    <Button
             x:Name="CompareButton"
             Background="Transparent"
             Command="{Binding CompareCommand}"
             Style="{StaticResource IconButton}"
             ToolTip="{loc:L Common_Compare}">
-            <Image
+                        <Image
               x:Name="CompareButtonIcon"
               RenderOptions.BitmapScalingMode="HighQuality"
               Stretch="Uniform" />
-          </Button>
-          <Button
+                    </Button>
+                    <Button
             x:Name="CancelCompareButton"
             Margin="8,0,0,0"
             Background="Transparent"
@@ -548,12 +554,12 @@
             IsEnabled="{Binding CanCancel}"
             Style="{StaticResource IconButton}"
             ToolTip="{loc:L Differencer_CancelCompare}">
-            <Image
+                        <Image
               x:Name="CancelCompareIcon"
               RenderOptions.BitmapScalingMode="HighQuality"
               Stretch="Uniform" />
-          </Button>
-          <CheckBox
+                    </Button>
+                    <CheckBox
             x:Name="CompareTimestampBox"
             Margin="12,0,0,0"
             VerticalAlignment="Center"
@@ -561,43 +567,43 @@
             IsChecked="{Binding CompareTimestamp}"
             IsEnabled="{Binding CanEdit}"
             ToolTip="{loc:L Differencer_CompareDatesTip}" />
-          <Button
+                    <Button
             x:Name="CleanSolutionButton"
             Margin="12,0,0,0"
             Background="Transparent"
             Command="{Binding CleanCommand}"
             Style="{StaticResource IconButton}"
             ToolTip="{loc:L Differencer_CleanTip}">
-            <Image
+                        <Image
               x:Name="CleanSolutionIcon"
               RenderOptions.BitmapScalingMode="HighQuality"
               Stretch="Uniform" />
-          </Button>
-          <Button
+                    </Button>
+                    <Button
             x:Name="ZipSourceButton"
             Margin="12,0,0,0"
             Background="Transparent"
             Command="{Binding ZipSourceCommand}"
             Style="{StaticResource IconButton}"
             ToolTip="{loc:L Differencer_ZipSource}">
-            <Image
+                        <Image
               x:Name="ZipSourceButtonIcon"
               RenderOptions.BitmapScalingMode="HighQuality"
               Stretch="Uniform" />
-          </Button>
-          <Button
+                    </Button>
+                    <Button
             x:Name="ZipTargetButton"
             Margin="8,0,0,0"
             Background="Transparent"
             Command="{Binding ZipTargetCommand}"
             Style="{StaticResource IconButton}"
             ToolTip="{loc:L Differencer_ZipTarget}">
-            <Image
+                        <Image
               x:Name="ZipTargetButtonIcon"
               RenderOptions.BitmapScalingMode="HighQuality"
               Stretch="Uniform" />
-          </Button>
-          <ToggleButton
+                    </Button>
+                    <ToggleButton
             x:Name="SelectAllFilesToggle"
             Margin="12,0,0,0"
             Background="Transparent"
@@ -605,50 +611,63 @@
             IsEnabled="{Binding CanFilter}"
             Style="{StaticResource IconToggleButton}"
             ToolTip="Select / clear all files">
-            <Image
+                        <Image
               x:Name="SelectAllFilesIcon"
               RenderOptions.BitmapScalingMode="HighQuality"
               Stretch="Uniform" />
-          </ToggleButton>
-        </StackPanel>
-        <StackPanel
+                    </ToggleButton>
+                    <ToggleButton
+            x:Name="CheckedOnlyToggle"
+            Margin="8,0,0,0"
+            Background="Transparent"
+            IsChecked="{Binding CheckedOnlyFilter, Mode=TwoWay}"
+            IsEnabled="{Binding CanFilter}"
+            Style="{StaticResource IconToggleButton}"
+            ToolTip="Show checked files only">
+                        <Image
+              x:Name="CheckedOnlyIcon"
+              RenderOptions.BitmapScalingMode="HighQuality"
+              Stretch="Uniform" />
+                    </ToggleButton>
+                </StackPanel>
+                <StackPanel
           Grid.Column="2"
           HorizontalAlignment="Right"
           Orientation="Horizontal">
-          <TextBlock
+                    <TextBlock
             x:Name="CountText"
             Margin="16,0,0,0"
             VerticalAlignment="Center"
             Text="{Binding CountLabel}" />
-          <Button
+                    <Button
             x:Name="ForwardButton"
             Margin="12,0,0,0"
             Background="Transparent"
             Command="{Binding ForwardCommand}"
             Style="{StaticResource IconButton}"
             ToolTip="{loc:L Differencer_SourceToTarget}">
-            <Image
+                        <Image
               x:Name="ForwardButtonIcon"
               RenderOptions.BitmapScalingMode="HighQuality"
               Stretch="Uniform" />
-          </Button>
-          <Button
+                    </Button>
+                    <Button
             x:Name="ReverseButton"
             Margin="8,0,0,0"
             Background="Transparent"
             Command="{Binding ReverseCommand}"
             Style="{StaticResource IconButton}"
             ToolTip="{loc:L Differencer_TargetToSource}">
-            <Image
+                        <Image
               x:Name="ReverseButtonIcon"
               RenderOptions.BitmapScalingMode="HighQuality"
               Stretch="Uniform" />
-          </Button>
+                    </Button>
+                </StackPanel>
+            </Grid>
         </StackPanel>
-      </Grid>
-    </StackPanel>
-    <StackPanel Margin="0,10,0,0" DockPanel.Dock="Bottom">
-      <ProgressBar
+        <StackPanel Margin="0,10,0,0" DockPanel.Dock="Bottom">
+            <ProgressBar
         x:Name="CompareProgress"
         Height="6"
         Margin="0,0,0,6"
@@ -658,158 +677,158 @@
         Maximum="{Binding ProgressMaximum}"
         Visibility="{Binding IsProgressVisible, Converter={StaticResource MvvmBooleanToVisibility}}"
         Value="{Binding ProgressValue}" />
-      <TextBlock
+            <TextBlock
         x:Name="StatusText"
         Text="{Binding Status}"
         TextWrapping="Wrap" />
-    </StackPanel>
-    <Grid>
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="300" MinWidth="220" />
-        <ColumnDefinition Width="5" />
-        <ColumnDefinition MinWidth="400" />
-      </Grid.ColumnDefinitions>
-      <Border
+        </StackPanel>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="300" MinWidth="220" />
+                <ColumnDefinition Width="5" />
+                <ColumnDefinition MinWidth="400" />
+            </Grid.ColumnDefinitions>
+            <Border
         Background="{DynamicResource CardBackground}"
         BorderBrush="{DynamicResource Line}"
         BorderThickness="1">
-        <DockPanel>
-          <Border
+                <DockPanel>
+                    <Border
             Padding="10,7"
             Background="{DynamicResource HeaderBackground}"
             DockPanel.Dock="Top">
-            <DockPanel>
-              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                <ToggleButton
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                <ToggleButton
                   x:Name="NodeExpandToggle"
                   Background="Transparent"
                   Style="{StaticResource IconToggleButton}"
                   ToolTip="{loc:L Common_Expand}">
-                  <Image
+                                    <Image
                     x:Name="NodeExpandIcon"
                     RenderOptions.BitmapScalingMode="HighQuality"
                     Stretch="Uniform" />
-                </ToggleButton>
-                <ToggleButton
+                                </ToggleButton>
+                                <ToggleButton
                   x:Name="TreeDensityToggle"
                   Margin="8,0,0,0"
                   Background="Transparent"
                   Style="{StaticResource IconToggleButton}"
                   ToolTip="{loc:L Main_TreeComfortable}">
-                  <Image
+                                    <Image
                     x:Name="TreeDensityIcon"
                     RenderOptions.BitmapScalingMode="HighQuality"
                     Stretch="Uniform" />
-                </ToggleButton>
-              </StackPanel>
-              <TextBlock
+                                </ToggleButton>
+                            </StackPanel>
+                            <TextBlock
                 VerticalAlignment="Center"
                 FontWeight="SemiBold"
                 Text="{loc:L Common_Folders}" />
-            </DockPanel>
-          </Border>
-          <Border
+                        </DockPanel>
+                    </Border>
+                    <Border
             Padding="8,5"
             BorderBrush="{DynamicResource Line}"
             BorderThickness="0,0,0,1"
             DockPanel.Dock="Top">
-            <WrapPanel x:Name="CategoryFilters" IsEnabled="{Binding CanFilter}">
-              <Button
+                        <WrapPanel x:Name="CategoryFilters" IsEnabled="{Binding CanFilter}">
+                            <Button
                 x:Name="RefreshCompareButton"
                 AutomationProperties.Name="Refresh selected folder"
                 Command="{Binding RefreshCommand}"
                 Style="{StaticResource FilterActionButtonStyle}"
                 ToolTip="Refresh selected folder">
-                <Image
+                                <Image
                   x:Name="RefreshCompareIcon"
                   Width="22"
                   Height="22"
                   RenderOptions.BitmapScalingMode="HighQuality"
                   Stretch="Uniform" />
-              </Button>
-              <CheckBox
+                            </Button>
+                            <CheckBox
                 x:Name="SameFilter"
                 Command="{Binding CategoryFilterCommand}"
                 IsChecked="{Binding ShowSame}"
                 Style="{StaticResource KindFilterStyle}"
                 ToolTip="{loc:L Differencer_SameTimeSize}">
-                <Image
+                                <Image
                   x:Name="SameFilterIcon"
                   Width="22"
                   Height="22"
                   RenderOptions.BitmapScalingMode="HighQuality"
                   Stretch="Uniform" />
-              </CheckBox>
-              <CheckBox
+                            </CheckBox>
+                            <CheckBox
                 x:Name="DifferentFilter"
                 Command="{Binding CategoryFilterCommand}"
                 IsChecked="{Binding ShowDifferent}"
                 Style="{StaticResource KindFilterStyle}"
                 ToolTip="{loc:L Differencer_DifferentMeta}">
-                <Image
+                                <Image
                   x:Name="DifferentFilterIcon"
                   Width="22"
                   Height="22"
                   RenderOptions.BitmapScalingMode="HighQuality"
                   Stretch="Uniform" />
-              </CheckBox>
-              <CheckBox
+                            </CheckBox>
+                            <CheckBox
                 x:Name="SourceOnlyFilter"
                 Command="{Binding CategoryFilterCommand}"
                 IsChecked="{Binding ShowSourceOnly}"
                 Style="{StaticResource KindFilterStyle}"
                 ToolTip="{loc:L Differencer_SourceOnly}">
-                <Image
+                                <Image
                   x:Name="SourceOnlyFilterIcon"
                   Width="22"
                   Height="22"
                   RenderOptions.BitmapScalingMode="HighQuality"
                   Stretch="Uniform" />
-              </CheckBox>
-              <CheckBox
+                            </CheckBox>
+                            <CheckBox
                 x:Name="TargetOnlyFilter"
                 Command="{Binding CategoryFilterCommand}"
                 IsChecked="{Binding ShowTargetOnly}"
                 Style="{StaticResource KindFilterStyle}"
                 ToolTip="{loc:L Differencer_TargetOnly}">
-                <Image
+                                <Image
                   x:Name="TargetOnlyFilterIcon"
                   Width="22"
                   Height="22"
                   RenderOptions.BitmapScalingMode="HighQuality"
                   Stretch="Uniform" />
-              </CheckBox>
-              <CheckBox
+                            </CheckBox>
+                            <CheckBox
                 x:Name="ObjFilter"
                 AutomationProperties.Name="Show OBJ"
                 Command="{Binding BuildFolderFilterCommand}"
                 IsChecked="{Binding ShowObj}"
                 Style="{StaticResource KindFilterStyle}"
                 ToolTip="{loc:L Differencer_ShowObj}">
-                <Image
+                                <Image
                   x:Name="ObjFilterIcon"
                   Width="22"
                   Height="22"
                   RenderOptions.BitmapScalingMode="HighQuality"
                   Stretch="Uniform" />
-              </CheckBox>
-              <CheckBox
+                            </CheckBox>
+                            <CheckBox
                 x:Name="BinFilter"
                 AutomationProperties.Name="Show BIN"
                 Command="{Binding BuildFolderFilterCommand}"
                 IsChecked="{Binding ShowBin}"
                 Style="{StaticResource KindFilterStyle}"
                 ToolTip="{loc:L Differencer_ShowBin}">
-                <Image
+                                <Image
                   x:Name="BinFilterIcon"
                   Width="22"
                   Height="22"
                   RenderOptions.BitmapScalingMode="HighQuality"
                   Stretch="Uniform" />
-              </CheckBox>
-            </WrapPanel>
-          </Border>
-          <TreeView
+                            </CheckBox>
+                        </WrapPanel>
+                    </Border>
+                    <TreeView
             x:Name="FolderTree"
             HorizontalContentAlignment="Stretch"
             Background="{DynamicResource CardBackground}"
@@ -825,87 +844,87 @@
             VirtualizingPanel.CacheLength="0"
             VirtualizingStackPanel.IsVirtualizing="True"
             VirtualizingStackPanel.VirtualizationMode="Recycling">
-            <TreeView.ItemTemplate>
-              <HierarchicalDataTemplate ItemsSource="{Binding DisplayChildren}">
-                <Grid ToolTip="{Binding Path}">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition />
-                  </Grid.ColumnDefinitions>
-                  <CheckBox
+                        <TreeView.ItemTemplate>
+                            <HierarchicalDataTemplate ItemsSource="{Binding DisplayChildren}">
+                                <Grid ToolTip="{Binding Path}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition />
+                                    </Grid.ColumnDefinitions>
+                                    <CheckBox
                     Margin="5"
                     VerticalAlignment="Center"
                     IsChecked="{Binding Checked, Mode=TwoWay}"
                     IsThreeState="True"
                     PreviewMouseLeftButtonDown="FolderCheckBox_PreviewMouseLeftButtonDown" />
-                  <Image
+                                    <Image
                     Grid.Column="1"
                     VerticalAlignment="Center"
                     RenderOptions.BitmapScalingMode="HighQuality"
                     Source="{Binding IconPreview}"
                     Stretch="Uniform">
-                    <Image.Style>
-                      <Style TargetType="Image">
-                        <Setter Property="Width" Value="48" />
-                        <Setter Property="Height" Value="48" />
-                        <Setter Property="Margin" Value="5,3" />
-                        <Style.Triggers>
-                          <DataTrigger Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
-                            <Setter Property="Width" Value="22" />
-                            <Setter Property="Height" Value="22" />
-                            <Setter Property="Margin" Value="3,1" />
-                          </DataTrigger>
-                        </Style.Triggers>
-                      </Style>
-                    </Image.Style>
-                  </Image>
-                  <TextBlock
+                                        <Image.Style>
+                                            <Style TargetType="Image">
+                                                <Setter Property="Width" Value="48" />
+                                                <Setter Property="Height" Value="48" />
+                                                <Setter Property="Margin" Value="5,3" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                        <Setter Property="Width" Value="22" />
+                                                        <Setter Property="Height" Value="22" />
+                                                        <Setter Property="Margin" Value="3,1" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Image.Style>
+                                    </Image>
+                                    <TextBlock
                     Grid.Column="2"
                     Margin="0,5,5,5"
                     VerticalAlignment="Center"
                     Text="{Binding Label}"
                     TextTrimming="CharacterEllipsis">
-                    <TextBlock.Style>
-                      <Style TargetType="TextBlock">
-                        <Setter Property="FontSize" Value="14" />
-                        <Style.Triggers>
-                          <DataTrigger Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
-                            <Setter Property="FontSize" Value="11" />
-                          </DataTrigger>
-                        </Style.Triggers>
-                      </Style>
-                    </TextBlock.Style>
-                  </TextBlock>
-                </Grid>
-              </HierarchicalDataTemplate>
-            </TreeView.ItemTemplate>
-          </TreeView>
-        </DockPanel>
-      </Border>
-      <GridSplitter
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="FontSize" Value="14" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                        <Setter Property="FontSize" Value="11" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+                            </HierarchicalDataTemplate>
+                        </TreeView.ItemTemplate>
+                    </TreeView>
+                </DockPanel>
+            </Border>
+            <GridSplitter
         Grid.Column="1"
         Width="5"
         HorizontalAlignment="Stretch"
         Background="{DynamicResource Line}" />
-      <Border
+            <Border
         Grid.Column="2"
         Background="{DynamicResource CardBackground}"
         BorderBrush="{DynamicResource Line}"
         BorderThickness="1">
-        <DockPanel>
-          <ListBox
+                <DockPanel>
+                    <ListBox
             DockPanel.Dock="Top"
             ItemsSource="{Binding HistoryTabs}"
             MouseDoubleClick="HistoryTabStrip_MouseDoubleClick"
             SelectedItem="{Binding SelectedHistoryTab, Mode=TwoWay}"
             Style="{StaticResource HistoryTabStrip}" />
-          <Border
+                    <Border
             Padding="10,7"
             Background="{DynamicResource HeaderBackground}"
             DockPanel.Dock="Top">
-            <DockPanel>
-              <TextBlock
+                        <DockPanel>
+                            <TextBlock
                 MaxWidth="420"
                 Margin="12,0,0,0"
                 VerticalAlignment="Center"
@@ -916,8 +935,8 @@
                 <Run Foreground="{StaticResource SourceColor}" Text="{Binding HistorySourceRoot, Mode=OneWay}" />
                 <Run Text="   " />
                 <Run Foreground="{StaticResource TargetColor}" Text="{Binding HistoryTargetRoot, Mode=OneWay}" />
-              </TextBlock>
-              <TextBlock
+                            </TextBlock>
+                            <TextBlock
                 x:Name="FilePanelTitle"
                 Height="36"
                 Padding="0,10,0,0"
@@ -925,10 +944,10 @@
                 FontWeight="SemiBold"
                 Text="{Binding FilePanelTitle}"
                 TextTrimming="CharacterEllipsis" />
-            </DockPanel>
-          </Border>
-          <Grid>
-            <ListView
+                        </DockPanel>
+                    </Border>
+                    <Grid>
+                        <ListView
               x:Name="FilesGrid"
               Background="{DynamicResource CardBackground}"
               BorderThickness="0"
@@ -946,120 +965,120 @@
               VirtualizingPanel.ScrollUnit="Item"
               VirtualizingStackPanel.IsVirtualizing="True"
               VirtualizingStackPanel.VirtualizationMode="Recycling">
-              <ListView.View>
-                <GridView AllowsColumnReorder="False">
-                  <GridViewColumn Width="45" Header="{loc:L Common_Sync}">
-                    <GridViewColumn.CellTemplate>
-                      <DataTemplate>
-                        <CheckBox
+                            <ListView.View>
+                                <GridView AllowsColumnReorder="False">
+                                    <GridViewColumn Width="45" Header="{loc:L Common_Sync}">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox
                           HorizontalAlignment="Center"
                           VerticalAlignment="Center"
                           IsChecked="{Binding File.Selected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                           IsEnabled="{Binding File.CanToggleSelection}" />
-                      </DataTemplate>
-                    </GridViewColumn.CellTemplate>
-                  </GridViewColumn>
-                  <GridViewColumn Width="35" Header="">
-                    <GridViewColumn.CellTemplate>
-                      <DataTemplate>
-                        <Image
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Width="35" Header="">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Image
                           Width="24"
                           Height="24"
                           RenderOptions.BitmapScalingMode="HighQuality"
                           Source="{Binding StatusIcon}"
                           Stretch="Uniform" />
-                      </DataTemplate>
-                    </GridViewColumn.CellTemplate>
-                  </GridViewColumn>
-                  <GridViewColumn Width="35" Header="">
-                    <GridViewColumn.CellTemplate>
-                      <DataTemplate>
-                        <Image
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Width="35" Header="">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Image
                           Width="24"
                           Height="24"
                           RenderOptions.BitmapScalingMode="HighQuality"
                           Source="{Binding Icon}"
                           Stretch="Uniform" />
-                      </DataTemplate>
-                    </GridViewColumn.CellTemplate>
-                  </GridViewColumn>
-                  <GridViewColumn Width="330" Header="{loc:L Common_Name}">
-                    <GridViewColumn.CellTemplate>
-                      <DataTemplate>
-                        <TextBlock
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Width="330" Header="{loc:L Common_Name}">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock
                           VerticalAlignment="Center"
                           Text="{Binding PathFileName, Mode=OneWay}"
                           TextTrimming="CharacterEllipsis"
                           ToolTip="{Binding File.RelativePath}" />
-                      </DataTemplate>
-                    </GridViewColumn.CellTemplate>
-                  </GridViewColumn>
-                  <GridViewColumn
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn
                     Width="70"
                     DisplayMemberBinding="{Binding Extension}"
                     Header="{loc:L Common_Type}" />
-                  <GridViewColumn Width="70" Header="{loc:L Common_State}">
-                    <GridViewColumn.CellTemplate>
-                      <DataTemplate>
-                        <TextBlock
+                                    <GridViewColumn Width="70" Header="{loc:L Common_State}">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock
                           VerticalAlignment="Center"
                           Text="{Binding File.State}"
                           TextWrapping="Wrap" />
-                      </DataTemplate>
-                    </GridViewColumn.CellTemplate>
-                  </GridViewColumn>
-                  <GridViewColumn Width="125" Header="{loc:L Common_Source}">
-                    <GridViewColumn.CellTemplate>
-                      <DataTemplate>
-                        <ContentControl Content="{Binding Source}" ContentTemplate="{StaticResource SideTemplate}" />
-                      </DataTemplate>
-                    </GridViewColumn.CellTemplate>
-                  </GridViewColumn>
-                  <GridViewColumn Width="125" Header="{loc:L Common_Target}">
-                    <GridViewColumn.CellTemplate>
-                      <DataTemplate>
-                        <ContentControl Content="{Binding Target}" ContentTemplate="{StaticResource SideTemplate}" />
-                      </DataTemplate>
-                    </GridViewColumn.CellTemplate>
-                  </GridViewColumn>
-                </GridView>
-              </ListView.View>
-            </ListView>
-            <Border
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Width="125" Header="{loc:L Common_Source}">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <ContentControl Content="{Binding Source}" ContentTemplate="{StaticResource SideTemplate}" />
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Width="125" Header="{loc:L Common_Target}">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <ContentControl Content="{Binding Target}" ContentTemplate="{StaticResource SideTemplate}" />
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                </GridView>
+                            </ListView.View>
+                        </ListView>
+                        <Border
               x:Name="FilePanelBusy"
               Background="{DynamicResource OverlayScrim}"
               IsHitTestVisible="True"
               Visibility="{Binding IsFileBusy, Converter={StaticResource MvvmBooleanToVisibility}}">
-              <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <Grid
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Grid
                   x:Name="FilePanelProgress"
                   Width="160"
                   Height="5"
                   ClipToBounds="True">
-                  <Border Background="{DynamicResource HeaderBackground}" CornerRadius="3" />
-                  <Border
+                                    <Border Background="{DynamicResource HeaderBackground}" CornerRadius="3" />
+                                    <Border
                     x:Name="FilePanelMarquee"
                     Width="48"
                     Height="5"
                     HorizontalAlignment="Left"
                     Background="{DynamicResource Accent}"
                     CornerRadius="3">
-                    <Border.RenderTransform>
-                      <TranslateTransform x:Name="FilePanelMarqueeTransform" />
-                    </Border.RenderTransform>
-                  </Border>
-                </Grid>
-                <TextBlock
+                                        <Border.RenderTransform>
+                                            <TranslateTransform x:Name="FilePanelMarqueeTransform" />
+                                        </Border.RenderTransform>
+                                    </Border>
+                                </Grid>
+                                <TextBlock
                   x:Name="FilePanelBusyText"
                   Margin="0,10,0,0"
                   HorizontalAlignment="Center"
                   Foreground="{DynamicResource Muted}"
                   Text="{Binding BusyMessage}" />
-              </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </DockPanel>
             </Border>
-          </Grid>
-        </DockPanel>
-      </Border>
-    </Grid>
-  </DockPanel>
+        </Grid>
+    </DockPanel>
 </Window>

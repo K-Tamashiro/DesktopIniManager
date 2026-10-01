@@ -44,9 +44,14 @@ namespace DesktopIniManager.Services
             // Capture the underlying trees, never the filtered or search view.
             return roots.Select(node => new FolderTreeNodeState
             {
-                Path = node.Path, DisplayName = node.DisplayName, Reason = node.Reason,
-                Actionable = node.IsActionable, Expanded = node.IsExpanded, Hidden = node.IsHidden,
-                Current = ReferenceEquals(node, current), Icon = CaptureIcon(node.IconPreview, icons, iconIds),
+                Path = node.Path,
+                DisplayName = node.DisplayName,
+                Reason = node.Reason,
+                Actionable = node.IsActionable,
+                Expanded = node.IsExpanded,
+                Hidden = node.IsHidden,
+                Current = ReferenceEquals(node, current),
+                Icon = CaptureIcon(node.IconPreview, icons, iconIds),
                 Children = Capture(node.Children, current, icons, iconIds)
             }).ToList();
         }
@@ -88,9 +93,14 @@ namespace DesktopIniManager.Services
             {
                 var node = new FolderMatch
                 {
-                    Path = saved.Path, DisplayName = saved.DisplayName, Reason = saved.Reason,
-                    IsActionable = saved.Actionable, IsExpanded = saved.Expanded, IsHidden = saved.Hidden,
-                    IsCurrent = saved.Current, Parent = parent,
+                    Path = saved.Path,
+                    DisplayName = saved.DisplayName,
+                    Reason = saved.Reason,
+                    IsActionable = saved.Actionable,
+                    IsExpanded = saved.Expanded,
+                    IsHidden = saved.Hidden,
+                    IsCurrent = saved.Current,
+                    Parent = parent,
                     IconPreview = icons != null && saved.Icon >= 0 && saved.Icon < icons.Count
                         ? icons[saved.Icon] : FolderIconService.GetDefaultFolderIcon()
                 };

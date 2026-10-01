@@ -344,7 +344,8 @@
           FontSize="27"
           FontWeight="SemiBold"
           Foreground="{DynamicResource Accent}"
-          Text="{loc:L Grep_Title}" />
+          Text="{loc:L Grep_Title}"
+          ToolTip="Ctrl + 1: Main   /   Ctrl + 2: Compare   /   Ctrl + 3: GREP" />
         <Button
           x:Name="CloseButton"
           Grid.Column="2"
@@ -724,7 +725,9 @@
                                   Background="{DynamicResource HeaderBackground}"
                                   BorderThickness="0"
                                   DockPanel.Dock="Top"
-                                  MouseLeftButtonDown="GroupHeader_Click">
+                                  MouseLeftButtonDown="GroupHeader_Click"
+                                  PreviewMouseLeftButtonDown="GroupHeader_PreviewMouseLeftButtonDown"
+                                  PreviewMouseMove="GroupHeader_PreviewMouseMove">
                                   <Border.ContextMenu>
                                     <ContextMenu>
                                       <MenuItem Click="CopyGroupPath_Click" Header="{loc:L Grep_CopyPath}">

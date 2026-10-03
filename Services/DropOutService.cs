@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 
@@ -19,6 +20,13 @@ namespace DesktopIniManager.Services
             string[] existing = Existing(paths);
             if (existing.Length == 0 || source == null) return;
             DragDrop.DoDragDrop(source, new DataObject(DataFormats.FileDrop, existing), DragDropEffects.Copy);
+        }
+
+        internal static Task<string> StageFolderWithImmediateFilesAsync(string folderPath)
+        {
+            // Directory enumeration and file copies may hit a cold local disk or NAS.
+            // Keep all staging I/O off the WPF UI thread.
+            return Task.Run(() => StageFolderWithImmediateFiles(folderPath));
         }
 
         internal static string StageFolderWithImmediateFiles(string folderPath)

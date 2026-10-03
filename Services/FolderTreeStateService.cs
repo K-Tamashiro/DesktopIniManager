@@ -1,4 +1,4 @@
-using DesktopIniManager.Models;
+﻿using DesktopIniManager.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -33,9 +33,7 @@ namespace DesktopIniManager.Services
 
     internal static class FolderTreeStateService
     {
-        internal static string StatePath = System.IO.Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "DesktopIniManager", "folder-trees.xml");
+        internal static string StatePath { get; set; } = System.IO.Path.Combine(AppSlot.Directory, "folder-trees.xml");
 
         internal static List<FolderTreeNodeState> Capture(IEnumerable<FolderMatch> roots, FolderMatch current,
             List<byte[]> icons = null, Dictionary<ImageSource, int> iconIds = null)

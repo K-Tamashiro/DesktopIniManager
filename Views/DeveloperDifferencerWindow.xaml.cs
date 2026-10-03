@@ -1,4 +1,4 @@
-using DesktopIniManager.ViewModels;
+﻿using DesktopIniManager.ViewModels;
 using DesktopIniManager.Services;
 using DesktopIniManager.Properties;
 using System;
@@ -39,8 +39,14 @@ namespace DesktopIniManager.Views
             ViewModel.ChooseFolder = (initialPath, title) =>
                 NativeFolderPicker.Show(new WindowInteropHelper(this).Handle, initialPath, title);
             ViewModel.CloseRequested += Close;
-            ViewModel.DiffRequested += (snapshot, file) => new DiffViewWindow(snapshot, file) { Owner = this }.Show();
+            ViewModel.DiffRequested += (snapshot, file) =>
+            {
+                var diff = new DiffViewWindow(snapshot, file) { Owner = this };
+                diff.MatchOwnerSize();
+                diff.Show();
+            };
             ViewModel.FolderRevealRequested += ScheduleFolderIntoView;
+            ViewModel.FileProgressRequested += ScrollToProgressFile;
             ViewModel.CommitBrowsedRootHistoryRequested += source =>
             {
                 if (source) SourceBox.CommitHistory();
@@ -95,8 +101,33 @@ namespace DesktopIniManager.Views
             ViewModel.RestoreState();
         }
 
-        private static void FolderDropPreview(object sender, DragEventArgs e)
+        private DiffRow pendingProgressRow;
+        private bool progressScrollPending;
+
+        private void ScrollToProgressFile(DiffRow row)
         {
+            pendingProgressRow = row;
+            if (progressScrollPending || row == null) return;
+            progressScrollPending = true;
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                progressScrollPending = false;
+                DiffRow latest = pendingProgressRow;
+                if (latest == null || !FilesGrid.Items.Contains(latest)) return;
+                FilesGrid.ScrollIntoView(latest);
+                FindScrollViewer(FilesGrid)?.ScrollToEnd();
+            }), DispatcherPriority.Background);
+        }
+
+        private void FolderDropPreview(object sender, DragEventArgs e)
+        {
+            if (_zipDragging)
+            {
+                e.Effects = DragDropEffects.None;
+                e.Handled = true;
+                return;
+            }
+
             if (e.Data == null || !e.Data.GetDataPresent(DataFormats.FileDrop))
                 return;
             e.Effects = DragDropEffects.Copy;
@@ -105,6 +136,13 @@ namespace DesktopIniManager.Views
 
         private void Differencer_Drop(object sender, DragEventArgs e)
         {
+            if (_zipDragging)
+            {
+                e.Effects = DragDropEffects.None;
+                e.Handled = true;
+                return;
+            }
+
             List<string> folders = FoldersFromDrop(e.Data);
             if (folders.Count == 0) return;
 
@@ -494,6 +532,75 @@ namespace DesktopIniManager.Views
             }
             catch (Exception ex) { ViewModel.ShowError(ex); }
             finally { _zipDragging = false; }
+        }
+    }
+
+    internal sealed class OutlinedPairCaption : FrameworkElement
+    {
+        public static readonly DependencyProperty SourceTextProperty = DependencyProperty.Register(nameof(SourceText), typeof(string), typeof(OutlinedPairCaption), new FrameworkPropertyMetadata(string.Empty, FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsRender));
+        public static readonly DependencyProperty TargetTextProperty = DependencyProperty.Register(nameof(TargetText), typeof(string), typeof(OutlinedPairCaption), new FrameworkPropertyMetadata(string.Empty, FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsRender));
+        public static readonly DependencyProperty SourceFillProperty = DependencyProperty.Register(nameof(SourceFill), typeof(Brush), typeof(OutlinedPairCaption), new FrameworkPropertyMetadata(Brushes.Goldenrod, FrameworkPropertyMetadataOptions.AffectsRender));
+        public static readonly DependencyProperty TargetFillProperty = DependencyProperty.Register(nameof(TargetFill), typeof(Brush), typeof(OutlinedPairCaption), new FrameworkPropertyMetadata(Brushes.SteelBlue, FrameworkPropertyMetadataOptions.AffectsRender));
+        public static readonly DependencyProperty OutlineFillProperty = DependencyProperty.Register(nameof(OutlineFill), typeof(Brush), typeof(OutlinedPairCaption), new FrameworkPropertyMetadata(Brushes.White, FrameworkPropertyMetadataOptions.AffectsRender));
+
+        public string SourceText { get => (string)GetValue(SourceTextProperty); set => SetValue(SourceTextProperty, value); }
+        public string TargetText { get => (string)GetValue(TargetTextProperty); set => SetValue(TargetTextProperty, value); }
+        public Brush SourceFill { get => (Brush)GetValue(SourceFillProperty); set => SetValue(SourceFillProperty, value); }
+        public Brush TargetFill { get => (Brush)GetValue(TargetFillProperty); set => SetValue(TargetFillProperty, value); }
+        public Brush OutlineFill { get => (Brush)GetValue(OutlineFillProperty); set => SetValue(OutlineFillProperty, value); }
+
+        public OutlinedPairCaption()
+        {
+            SnapsToDevicePixels = true;
+            UseLayoutRounding = true;
+        }
+
+        protected override Size MeasureOverride(Size available)
+        {
+            double width = Limit(available.Width);
+            FormattedText text = Build(width);
+            return new Size(Math.Min(width, text.WidthIncludingTrailingWhitespace + 3), text.Height + 3);
+        }
+
+        protected override void OnRender(DrawingContext dc)
+        {
+            FormattedText text = Build(Math.Max(1, ActualWidth));
+            var geometry = text.BuildGeometry(new Point(1.5, 1.5));
+            var pen = new Pen(OutlineFill ?? Brushes.White, 2.6)
+            {
+                LineJoin = PenLineJoin.Round,
+                StartLineCap = PenLineCap.Round,
+                EndLineCap = PenLineCap.Round
+            };
+            pen.Freeze();
+            dc.DrawGeometry(null, pen, geometry);
+            dc.DrawText(text, new Point(1.5, 1.5));
+        }
+
+        private double Limit(double available)
+        {
+            double max = double.IsNaN(MaxWidth) || double.IsInfinity(MaxWidth) ? 420 : MaxWidth;
+            if (double.IsInfinity(available) || available <= 0) return max;
+            return Math.Max(1, Math.Min(available, max));
+        }
+
+        private FormattedText Build(double width)
+        {
+            string source = SourceText ?? string.Empty;
+            string target = TargetText ?? string.Empty;
+            string gap = string.IsNullOrEmpty(source) || string.IsNullOrEmpty(target) ? string.Empty : "   ";
+            string whole = source + gap + target;
+            var typeface = new Typeface(new FontFamily("Yu Gothic UI, Meiryo UI, Segoe UI"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
+            double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
+            var text = new FormattedText(whole, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface, 12, SourceFill ?? Brushes.Goldenrod, dpi)
+            {
+                MaxTextWidth = Math.Max(1, width - 3),
+                Trimming = TextTrimming.CharacterEllipsis,
+                MaxLineCount = 1
+            };
+            if (gap.Length + target.Length > 0 && source.Length < whole.Length)
+                text.SetForegroundBrush(TargetFill ?? Brushes.SteelBlue, source.Length + gap.Length, target.Length);
+            return text;
         }
     }
 }

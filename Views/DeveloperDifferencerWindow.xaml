@@ -1,36 +1,36 @@
 <Window
-  x:Class="DesktopIniManager.Views.DeveloperDifferencerWindow"
-  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-  xmlns:history="clr-namespace:DesktopIniManager.Views"
-  xmlns:loc="clr-namespace:DesktopIniManager.Properties"
-  Title="{loc:L Differencer_Title}"
-  Width="1280"
-  Height="800"
-  MinWidth="960"
-  MinHeight="540"
-  Background="{DynamicResource WindowBackground}"
-  Foreground="{DynamicResource Ink}"
-  WindowStartupLocation="CenterOwner">
+    x:Class="DesktopIniManager.Views.DeveloperDifferencerWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:history="clr-namespace:DesktopIniManager.Views"
+    xmlns:loc="clr-namespace:DesktopIniManager.Properties"
+    Title="{loc:L Differencer_Title}"
+    Width="1280"
+    Height="800"
+    MinWidth="960"
+    MinHeight="540"
+    Background="{DynamicResource WindowBackground}"
+    Foreground="{DynamicResource Ink}"
+    WindowStartupLocation="CenterOwner">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="MvvmBooleanToVisibility" />
         <SolidColorBrush x:Key="SourceColor" Color="#E8B949" />
         <SolidColorBrush x:Key="TargetColor" Color="#2878BF" />
         <SolidColorBrush x:Key="CleanColor" Color="#28784B" />
         <Style
-      x:Key="DifferencerActionButton"
-      BasedOn="{StaticResource IconTextButton}"
-      TargetType="Button">
+            x:Key="DifferencerActionButton"
+            BasedOn="{StaticResource IconTextButton}"
+            TargetType="Button">
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Grid x:Name="Frame">
                             <Border Background="{TemplateBinding Background}" CornerRadius="10" />
                             <Border
-                x:Name="Highlight"
-                Background="White"
-                CornerRadius="10"
-                Opacity="0" />
+                                x:Name="Highlight"
+                                Background="White"
+                                CornerRadius="10"
+                                Opacity="0" />
                             <Border Padding="{TemplateBinding Padding}">
                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Border>
@@ -58,11 +58,11 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border
-              x:Name="Frame"
-              Padding="5,4"
-              Background="{DynamicResource Secondary}"
-              CornerRadius="8"
-              SnapsToDevicePixels="True">
+                            x:Name="Frame"
+                            Padding="5,4"
+                            Background="{DynamicResource Secondary}"
+                            CornerRadius="8"
+                            SnapsToDevicePixels="True">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -89,11 +89,11 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="CheckBox">
                         <Border
-              x:Name="Frame"
-              Padding="5,4"
-              Background="{DynamicResource Secondary}"
-              CornerRadius="8"
-              SnapsToDevicePixels="True">
+                            x:Name="Frame"
+                            Padding="5,4"
+                            Background="{DynamicResource Secondary}"
+                            CornerRadius="8"
+                            SnapsToDevicePixels="True">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -127,12 +127,12 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="ListViewItem">
                         <Border
-              x:Name="RowBorder"
-              Padding="2,1"
-              Background="{TemplateBinding Background}"
-              BorderBrush="Transparent"
-              BorderThickness="2,0,0,0"
-              TextElement.Foreground="{TemplateBinding Foreground}">
+                            x:Name="RowBorder"
+                            Padding="2,1"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="Transparent"
+                            BorderThickness="2,0,0,0"
+                            TextElement.Foreground="{TemplateBinding Foreground}">
                             <GridViewRowPresenter Columns="{Binding View.Columns, RelativeSource={RelativeSource AncestorType=ListView}}" Content="{TemplateBinding Content}" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -164,18 +164,18 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="GridViewColumnHeader">
                         <Border
-              x:Name="HeaderBorder"
-              Padding="{TemplateBinding Padding}"
-              Background="{TemplateBinding Background}"
-              BorderBrush="{TemplateBinding BorderBrush}"
-              BorderThickness="{TemplateBinding BorderThickness}">
+                            x:Name="HeaderBorder"
+                            Padding="{TemplateBinding Padding}"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}">
                             <Grid>
                                 <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" />
                                 <Thumb
-                  x:Name="PART_HeaderGripper"
-                  Width="6"
-                  HorizontalAlignment="Right"
-                  Cursor="SizeWE">
+                                    x:Name="PART_HeaderGripper"
+                                    Width="6"
+                                    HorizontalAlignment="Right"
+                                    Cursor="SizeWE">
                                     <Thumb.Template>
                                         <ControlTemplate TargetType="Thumb">
                                             <Border Background="Transparent" />
@@ -213,18 +213,18 @@
                                 <ColumnDefinition />
                             </Grid.ColumnDefinitions>
                             <ToggleButton
-                x:Name="Expander"
-                Content="▶"
-                Focusable="False"
-                Foreground="{DynamicResource Muted}"
-                IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}">
+                                x:Name="Expander"
+                                Content="▶"
+                                Focusable="False"
+                                Foreground="{DynamicResource Muted}"
+                                IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}">
                                 <ToggleButton.Template>
                                     <ControlTemplate TargetType="ToggleButton">
                                         <TextBlock
-                      HorizontalAlignment="Center"
-                      VerticalAlignment="Center"
-                      Foreground="{TemplateBinding Foreground}"
-                      Text="{TemplateBinding Content}" />
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Foreground="{TemplateBinding Foreground}"
+                                            Text="{TemplateBinding Content}" />
                                     </ControlTemplate>
                                 </ToggleButton.Template>
                             </ToggleButton>
@@ -232,9 +232,9 @@
                                 <ContentPresenter HorizontalAlignment="Stretch" ContentSource="Header" />
                             </Border>
                             <ItemsPresenter
-                x:Name="ItemsHost"
-                Grid.Row="1"
-                Grid.Column="1" />
+                                x:Name="ItemsHost"
+                                Grid.Row="1"
+                                Grid.Column="1" />
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="HasItems" Value="False">
@@ -258,18 +258,18 @@
         </Style>
         <DataTemplate x:Key="SideTemplate">
             <DockPanel
-        Margin="6"
-        VerticalAlignment="Center"
-        LastChildFill="True"
-        ToolTip="{Binding Info}">
+                Margin="6"
+                VerticalAlignment="Center"
+                LastChildFill="True"
+                ToolTip="{Binding Info}">
                 <Image
-          Width="56"
-          Height="48"
-          Margin="0,0,6,0"
-          HorizontalAlignment="Left"
-          DockPanel.Dock="Left"
-          Source="{Binding Thumbnail}"
-          Stretch="Uniform">
+                    Width="56"
+                    Height="48"
+                    Margin="0,0,6,0"
+                    HorizontalAlignment="Left"
+                    DockPanel.Dock="Left"
+                    Source="{Binding Thumbnail}"
+                    Stretch="Uniform">
                     <Image.Style>
                         <Style TargetType="Image">
                             <Style.Triggers>
@@ -283,9 +283,9 @@
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock FontSize="11" Text="{Binding SummaryInfo}" />
                     <TextBlock
-            FontSize="10"
-            Text="{Binding Dimensions}"
-            TextTrimming="CharacterEllipsis" />
+                        FontSize="10"
+                        Text="{Binding Dimensions}"
+                        TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </DockPanel>
         </DataTemplate>
@@ -300,12 +300,12 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
                         <Border
-              x:Name="TabChrome"
-              Padding="{TemplateBinding Padding}"
-              Background="{DynamicResource HistoryTabBackground}"
-              BorderBrush="{DynamicResource Line}"
-              BorderThickness="1,1,1,0"
-              CornerRadius="5,5,0,0">
+                            x:Name="TabChrome"
+                            Padding="{TemplateBinding Padding}"
+                            Background="{DynamicResource HistoryTabBackground}"
+                            BorderBrush="{DynamicResource Line}"
+                            BorderThickness="1,1,1,0"
+                            CornerRadius="5,5,0,0">
                             <ContentPresenter TextElement.FontWeight="{TemplateBinding FontWeight}" TextElement.Foreground="{TemplateBinding Foreground}" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -329,9 +329,9 @@
                     <ControlTemplate TargetType="ListBox">
                         <Border Background="{DynamicResource HistoryTabBackground}" BorderThickness="0">
                             <ScrollViewer
-                Background="{DynamicResource HistoryTabBackground}"
-                HorizontalScrollBarVisibility="{TemplateBinding ScrollViewer.HorizontalScrollBarVisibility}"
-                VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}">
+                                Background="{DynamicResource HistoryTabBackground}"
+                                HorizontalScrollBarVisibility="{TemplateBinding ScrollViewer.HorizontalScrollBarVisibility}"
+                                VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}">
                                 <ItemsPresenter />
                             </ScrollViewer>
                         </Border>
@@ -355,43 +355,43 @@
                                     <MenuItem Click="DeleteAllHistoryTabs_Click" Header="{loc:L History_DeleteAllTabs}">
                                         <MenuItem.Icon>
                                             <TextBlock
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        FontFamily="Segoe MDL2 Assets"
-                        FontSize="15"
-                        Foreground="{DynamicResource Ink}"
-                        Text="&#xE74D;" />
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                FontFamily="Segoe MDL2 Assets"
+                                                FontSize="15"
+                                                Foreground="{DynamicResource Ink}"
+                                                Text="&#xE74D;" />
                                         </MenuItem.Icon>
                                     </MenuItem>
                                     <MenuItem Click="DeleteOtherHistoryTabs_Click" Header="{loc:L History_DeleteOtherTabs}">
                                         <MenuItem.Icon>
                                             <TextBlock
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        FontFamily="Segoe MDL2 Assets"
-                        FontSize="15"
-                        Foreground="{DynamicResource Ink}"
-                        Text="&#xE711;" />
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                FontFamily="Segoe MDL2 Assets"
+                                                FontSize="15"
+                                                Foreground="{DynamicResource Ink}"
+                                                Text="&#xE711;" />
                                         </MenuItem.Icon>
                                     </MenuItem>
                                 </ContextMenu>
                             </StackPanel.ContextMenu>
                             <TextBlock
-                MaxWidth="220"
-                VerticalAlignment="Center"
-                Text="{Binding Title}"
-                TextTrimming="CharacterEllipsis"
-                ToolTip="{Binding Title}" />
+                                MaxWidth="220"
+                                VerticalAlignment="Center"
+                                Text="{Binding Title}"
+                                TextTrimming="CharacterEllipsis"
+                                ToolTip="{Binding Title}" />
                             <Button
-                Margin="8,0,0,0"
-                Padding="3,0"
-                Background="Transparent"
-                BorderThickness="0"
-                Command="{Binding DataContext.DeleteHistoryTabCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                CommandParameter="{Binding}"
-                Content="×"
-                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
-                ToolTip="{loc:L History_DeleteTab}" />
+                                Margin="8,0,0,0"
+                                Padding="3,0"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Command="{Binding DataContext.DeleteHistoryTabCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                CommandParameter="{Binding}"
+                                Content="×"
+                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
+                                ToolTip="{loc:L History_DeleteTab}" />
                         </StackPanel>
                     </DataTemplate>
                 </Setter.Value>
@@ -403,28 +403,29 @@
             <Grid Margin="0,0,0,10">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="563*" />
-                    <ColumnDefinition Width="43*"/>
+                    <ColumnDefinition Width="43*" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBlock
-          VerticalAlignment="Center"
-          FontSize="26"
-          FontWeight="SemiBold"
-          Foreground="{DynamicResource Accent}"
-          Text="{loc:L Differencer_Title}" ToolTip="Ctrl + 2" Grid.ColumnSpan="2" />
+                    Grid.ColumnSpan="2"
+                    VerticalAlignment="Center"
+                    FontSize="26"
+                    FontWeight="SemiBold"
+                    Foreground="{DynamicResource Accent}"
+                    Text="{loc:L Differencer_Title}" />
                 <Button
-          x:Name="CloseButton"
-          Grid.Column="3"
-          HorizontalAlignment="Center"
-          VerticalAlignment="Center"
-          Command="{Binding CloseCommand}"
-          Style="{StaticResource IconButton}"
-          ToolTip="{loc:L Common_Close}">
+                    x:Name="CloseButton"
+                    Grid.Column="3"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Command="{Binding CloseCommand}"
+                    Style="{StaticResource IconButton}"
+                    ToolTip="{loc:L Common_Close}">
                     <Image
-            x:Name="CloseButtonIcon"
-            RenderOptions.BitmapScalingMode="HighQuality"
-            Stretch="Uniform" />
+                        x:Name="CloseButtonIcon"
+                        RenderOptions.BitmapScalingMode="HighQuality"
+                        Stretch="Uniform" />
                 </Button>
             </Grid>
             <Grid x:Name="RootControls" IsEnabled="{Binding CanEdit}">
@@ -438,94 +439,94 @@
                     <RowDefinition />
                 </Grid.RowDefinitions>
                 <Image
-    x:Name="SourceLabelIcon"
-    Grid.Row="0"
-    Grid.Column="0"
-    Width="32"
-    Height="32"
-    Margin="0,0,10,6"
-    HorizontalAlignment="Center"
-    VerticalAlignment="Center"
-    RenderOptions.BitmapScalingMode="HighQuality"
-    Stretch="Uniform"
-    Cursor="Hand"
-    ToolTip="{loc:L Differencer_RescanSource}" />
+                    x:Name="SourceLabelIcon"
+                    Grid.Row="0"
+                    Grid.Column="0"
+                    Width="32"
+                    Height="32"
+                    Margin="0,0,10,6"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Cursor="Hand"
+                    RenderOptions.BitmapScalingMode="HighQuality"
+                    Stretch="Uniform"
+                    ToolTip="{loc:L Differencer_RescanSource}" />
                 <history:HistoryTextBox
-          x:Name="SourceBox"
-          Grid.Column="1"
-          Margin="0,0,8,6"
-          BorderBrush="{StaticResource SourceColor}"
-          BorderThickness="4,1,1,1"
-          HistoryKey="Differencer-Source"
-          Text="{Binding SourcePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    x:Name="SourceBox"
+                    Grid.Column="1"
+                    Margin="0,0,8,6"
+                    BorderBrush="{StaticResource SourceColor}"
+                    BorderThickness="4,1,1,1"
+                    HistoryKey="Differencer-Source"
+                    Text="{Binding SourcePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                 <ProgressBar
-          Grid.Column="1"
-          Height="3"
-          Margin="4,0,9,7"
-          VerticalAlignment="Bottom"
-          Background="{DynamicResource HeaderBackground}"
-          Foreground="{StaticResource SourceColor}"
-          IsHitTestVisible="False"
-          IsIndeterminate="{Binding IsSourceIndexing}"
-          Visibility="{Binding IsSourceIndexing, Converter={StaticResource MvvmBooleanToVisibility}}" />
+                    Grid.Column="1"
+                    Height="3"
+                    Margin="4,0,9,7"
+                    VerticalAlignment="Bottom"
+                    Background="{DynamicResource HeaderBackground}"
+                    Foreground="{StaticResource SourceColor}"
+                    IsHitTestVisible="False"
+                    IsIndeterminate="{Binding IsSourceIndexing}"
+                    Visibility="{Binding IsSourceIndexing, Converter={StaticResource MvvmBooleanToVisibility}}" />
                 <Button
-          x:Name="BrowseSourceButton"
-          Grid.Column="2"
-          Margin="0,0,0,6"
-          Background="Transparent"
-          Command="{Binding BrowseSourceCommand}"
-          Style="{StaticResource IconButton}"
-          ToolTip="{loc:L Common_Browse}">
+                    x:Name="BrowseSourceButton"
+                    Grid.Column="2"
+                    Margin="0,0,0,6"
+                    Background="Transparent"
+                    Command="{Binding BrowseSourceCommand}"
+                    Style="{StaticResource IconButton}"
+                    ToolTip="{loc:L Common_Browse}">
                     <Image
-            x:Name="BrowseSourceIcon"
-            RenderOptions.BitmapScalingMode="HighQuality"
-            Stretch="Uniform" />
+                        x:Name="BrowseSourceIcon"
+                        RenderOptions.BitmapScalingMode="HighQuality"
+                        Stretch="Uniform" />
                 </Button>
                 <Image
-    x:Name="TargetLabelIcon"
-    Grid.Row="1"
-    Grid.Column="0"
-    Width="32"
-    Height="32"
-    Margin="0,0,10,0"
-    HorizontalAlignment="Center"
-    VerticalAlignment="Center"
-    RenderOptions.BitmapScalingMode="HighQuality"
-    Stretch="Uniform"
-    Cursor="Hand"
-    ToolTip="{loc:L Differencer_RescanTarget}" />
+                    x:Name="TargetLabelIcon"
+                    Grid.Row="1"
+                    Grid.Column="0"
+                    Width="32"
+                    Height="32"
+                    Margin="0,0,10,0"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Cursor="Hand"
+                    RenderOptions.BitmapScalingMode="HighQuality"
+                    Stretch="Uniform"
+                    ToolTip="{loc:L Differencer_RescanTarget}" />
                 <history:HistoryTextBox
-          x:Name="TargetBox"
-          Grid.Row="1"
-          Grid.Column="1"
-          Margin="0,0,8,0"
-          BorderBrush="{StaticResource TargetColor}"
-          BorderThickness="4,1,1,1"
-          HistoryKey="Differencer-Target"
-          Text="{Binding TargetPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    x:Name="TargetBox"
+                    Grid.Row="1"
+                    Grid.Column="1"
+                    Margin="0,0,8,0"
+                    BorderBrush="{StaticResource TargetColor}"
+                    BorderThickness="4,1,1,1"
+                    HistoryKey="Differencer-Target"
+                    Text="{Binding TargetPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                 <ProgressBar
-          Grid.Row="1"
-          Grid.Column="1"
-          Height="3"
-          Margin="4,0,9,1"
-          VerticalAlignment="Bottom"
-          Background="{DynamicResource HeaderBackground}"
-          Foreground="{StaticResource TargetColor}"
-          IsHitTestVisible="False"
-          IsIndeterminate="{Binding IsTargetIndexing}"
-          Visibility="{Binding IsTargetIndexing, Converter={StaticResource MvvmBooleanToVisibility}}" />
+                    Grid.Row="1"
+                    Grid.Column="1"
+                    Height="3"
+                    Margin="4,0,9,1"
+                    VerticalAlignment="Bottom"
+                    Background="{DynamicResource HeaderBackground}"
+                    Foreground="{StaticResource TargetColor}"
+                    IsHitTestVisible="False"
+                    IsIndeterminate="{Binding IsTargetIndexing}"
+                    Visibility="{Binding IsTargetIndexing, Converter={StaticResource MvvmBooleanToVisibility}}" />
                 <Button
-          x:Name="BrowseTargetButton"
-          Grid.Row="1"
-          Grid.Column="2"
-          Background="Transparent"
-          Command="{Binding BrowseTargetCommand}"
-          Style="{StaticResource IconButton}"
-          ToolTip="{loc:L Common_Browse}">
+                    x:Name="BrowseTargetButton"
+                    Grid.Row="1"
+                    Grid.Column="2"
+                    Background="Transparent"
+                    Command="{Binding BrowseTargetCommand}"
+                    Style="{StaticResource IconButton}"
+                    ToolTip="{loc:L Common_Browse}">
                     <Image
-            x:Name="BrowseTargetIcon"
-            RenderOptions.BitmapScalingMode="HighQuality"
-            Stretch="Uniform" />
+                        x:Name="BrowseTargetIcon"
+                        RenderOptions.BitmapScalingMode="HighQuality"
+                        Stretch="Uniform" />
                 </Button>
             </Grid>
             <Grid Margin="0,10">
@@ -536,151 +537,151 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal">
                     <Button
-            x:Name="CompareButton"
-            Background="Transparent"
-            Command="{Binding CompareCommand}"
-            Style="{StaticResource IconButton}"
-            ToolTip="{loc:L Common_Compare}">
+                        x:Name="CompareButton"
+                        Background="Transparent"
+                        Command="{Binding CompareCommand}"
+                        Style="{StaticResource IconButton}"
+                        ToolTip="{loc:L Common_Compare}">
                         <Image
-              x:Name="CompareButtonIcon"
-              RenderOptions.BitmapScalingMode="HighQuality"
-              Stretch="Uniform" />
+                            x:Name="CompareButtonIcon"
+                            RenderOptions.BitmapScalingMode="HighQuality"
+                            Stretch="Uniform" />
                     </Button>
                     <Button
-            x:Name="CancelCompareButton"
-            Margin="8,0,0,0"
-            Background="Transparent"
-            Command="{Binding CancelCommand}"
-            IsEnabled="{Binding CanCancel}"
-            Style="{StaticResource IconButton}"
-            ToolTip="{loc:L Differencer_CancelCompare}">
+                        x:Name="CancelCompareButton"
+                        Margin="8,0,0,0"
+                        Background="Transparent"
+                        Command="{Binding CancelCommand}"
+                        IsEnabled="{Binding CanCancel}"
+                        Style="{StaticResource IconButton}"
+                        ToolTip="{loc:L Differencer_CancelCompare}">
                         <Image
-              x:Name="CancelCompareIcon"
-              RenderOptions.BitmapScalingMode="HighQuality"
-              Stretch="Uniform" />
+                            x:Name="CancelCompareIcon"
+                            RenderOptions.BitmapScalingMode="HighQuality"
+                            Stretch="Uniform" />
                     </Button>
                     <CheckBox
-            x:Name="CompareTimestampBox"
-            Margin="12,0,0,0"
-            VerticalAlignment="Center"
-            Content="{loc:L Differencer_CompareDates}"
-            IsChecked="{Binding CompareTimestamp}"
-            IsEnabled="{Binding CanEdit}"
-            ToolTip="{loc:L Differencer_CompareDatesTip}" />
+                        x:Name="CompareTimestampBox"
+                        Margin="12,0,0,0"
+                        VerticalAlignment="Center"
+                        Content="{loc:L Differencer_CompareDates}"
+                        IsChecked="{Binding CompareTimestamp}"
+                        IsEnabled="{Binding CanEdit}"
+                        ToolTip="{loc:L Differencer_CompareDatesTip}" />
                     <Button
-            x:Name="CleanSolutionButton"
-            Margin="12,0,0,0"
-            Background="Transparent"
-            Command="{Binding CleanCommand}"
-            Style="{StaticResource IconButton}"
-            ToolTip="{loc:L Differencer_CleanTip}">
+                        x:Name="CleanSolutionButton"
+                        Margin="12,0,0,0"
+                        Background="Transparent"
+                        Command="{Binding CleanCommand}"
+                        Style="{StaticResource IconButton}"
+                        ToolTip="{loc:L Differencer_CleanTip}">
                         <Image
-              x:Name="CleanSolutionIcon"
-              RenderOptions.BitmapScalingMode="HighQuality"
-              Stretch="Uniform" />
+                            x:Name="CleanSolutionIcon"
+                            RenderOptions.BitmapScalingMode="HighQuality"
+                            Stretch="Uniform" />
                     </Button>
                     <Button
-            x:Name="ZipSourceButton"
-            Margin="12,0,0,0"
-            Background="Transparent"
-            Command="{Binding ZipSourceCommand}"
-            Style="{StaticResource IconButton}"
-            ToolTip="{loc:L Differencer_ZipSource}">
+                        x:Name="ZipSourceButton"
+                        Margin="12,0,0,0"
+                        Background="Transparent"
+                        Command="{Binding ZipSourceCommand}"
+                        Style="{StaticResource IconButton}"
+                        ToolTip="{loc:L Differencer_ZipSource}">
                         <Image
-              x:Name="ZipSourceButtonIcon"
-              RenderOptions.BitmapScalingMode="HighQuality"
-              Stretch="Uniform" />
+                            x:Name="ZipSourceButtonIcon"
+                            RenderOptions.BitmapScalingMode="HighQuality"
+                            Stretch="Uniform" />
                     </Button>
                     <Button
-            x:Name="ZipTargetButton"
-            Margin="8,0,0,0"
-            Background="Transparent"
-            Command="{Binding ZipTargetCommand}"
-            Style="{StaticResource IconButton}"
-            ToolTip="{loc:L Differencer_ZipTarget}">
+                        x:Name="ZipTargetButton"
+                        Margin="8,0,0,0"
+                        Background="Transparent"
+                        Command="{Binding ZipTargetCommand}"
+                        Style="{StaticResource IconButton}"
+                        ToolTip="{loc:L Differencer_ZipTarget}">
                         <Image
-              x:Name="ZipTargetButtonIcon"
-              RenderOptions.BitmapScalingMode="HighQuality"
-              Stretch="Uniform" />
+                            x:Name="ZipTargetButtonIcon"
+                            RenderOptions.BitmapScalingMode="HighQuality"
+                            Stretch="Uniform" />
                     </Button>
                     <ToggleButton
-            x:Name="SelectAllFilesToggle"
-            Margin="12,0,0,0"
-            Background="Transparent"
-            IsChecked="{Binding SelectAllFiles, Mode=TwoWay}"
-            IsEnabled="{Binding CanFilter}"
-            Style="{StaticResource IconToggleButton}"
-            ToolTip="Select / clear all files">
+                        x:Name="SelectAllFilesToggle"
+                        Margin="12,0,0,0"
+                        Background="Transparent"
+                        IsChecked="{Binding SelectAllFiles, Mode=TwoWay}"
+                        IsEnabled="{Binding CanFilter}"
+                        Style="{StaticResource IconToggleButton}"
+                        ToolTip="Select / clear all files">
                         <Image
-              x:Name="SelectAllFilesIcon"
-              RenderOptions.BitmapScalingMode="HighQuality"
-              Stretch="Uniform" />
+                            x:Name="SelectAllFilesIcon"
+                            RenderOptions.BitmapScalingMode="HighQuality"
+                            Stretch="Uniform" />
                     </ToggleButton>
                     <ToggleButton
-            x:Name="CheckedOnlyToggle"
-            Margin="8,0,0,0"
-            Background="Transparent"
-            IsChecked="{Binding CheckedOnlyFilter, Mode=TwoWay}"
-            IsEnabled="{Binding CanFilter}"
-            Style="{StaticResource IconToggleButton}"
-            ToolTip="Show checked files only">
+                        x:Name="CheckedOnlyToggle"
+                        Margin="8,0,0,0"
+                        Background="Transparent"
+                        IsChecked="{Binding CheckedOnlyFilter, Mode=TwoWay}"
+                        IsEnabled="{Binding CanFilter}"
+                        Style="{StaticResource IconToggleButton}"
+                        ToolTip="Show checked files only">
                         <Image
-              x:Name="CheckedOnlyIcon"
-              RenderOptions.BitmapScalingMode="HighQuality"
-              Stretch="Uniform" />
+                            x:Name="CheckedOnlyIcon"
+                            RenderOptions.BitmapScalingMode="HighQuality"
+                            Stretch="Uniform" />
                     </ToggleButton>
                 </StackPanel>
                 <StackPanel
-          Grid.Column="2"
-          HorizontalAlignment="Right"
-          Orientation="Horizontal">
+                    Grid.Column="2"
+                    HorizontalAlignment="Right"
+                    Orientation="Horizontal">
                     <TextBlock
-            x:Name="CountText"
-            Margin="16,0,0,0"
-            VerticalAlignment="Center"
-            Text="{Binding CountLabel}" />
+                        x:Name="CountText"
+                        Margin="16,0,0,0"
+                        VerticalAlignment="Center"
+                        Text="{Binding CountLabel}" />
                     <Button
-            x:Name="ForwardButton"
-            Margin="12,0,0,0"
-            Background="Transparent"
-            Command="{Binding ForwardCommand}"
-            Style="{StaticResource IconButton}"
-            ToolTip="{loc:L Differencer_SourceToTarget}">
+                        x:Name="ForwardButton"
+                        Margin="12,0,0,0"
+                        Background="Transparent"
+                        Command="{Binding ForwardCommand}"
+                        Style="{StaticResource IconButton}"
+                        ToolTip="{loc:L Differencer_SourceToTarget}">
                         <Image
-              x:Name="ForwardButtonIcon"
-              RenderOptions.BitmapScalingMode="HighQuality"
-              Stretch="Uniform" />
+                            x:Name="ForwardButtonIcon"
+                            RenderOptions.BitmapScalingMode="HighQuality"
+                            Stretch="Uniform" />
                     </Button>
                     <Button
-            x:Name="ReverseButton"
-            Margin="8,0,0,0"
-            Background="Transparent"
-            Command="{Binding ReverseCommand}"
-            Style="{StaticResource IconButton}"
-            ToolTip="{loc:L Differencer_TargetToSource}">
+                        x:Name="ReverseButton"
+                        Margin="8,0,0,0"
+                        Background="Transparent"
+                        Command="{Binding ReverseCommand}"
+                        Style="{StaticResource IconButton}"
+                        ToolTip="{loc:L Differencer_TargetToSource}">
                         <Image
-              x:Name="ReverseButtonIcon"
-              RenderOptions.BitmapScalingMode="HighQuality"
-              Stretch="Uniform" />
+                            x:Name="ReverseButtonIcon"
+                            RenderOptions.BitmapScalingMode="HighQuality"
+                            Stretch="Uniform" />
                     </Button>
                 </StackPanel>
             </Grid>
         </StackPanel>
         <StackPanel Margin="0,10,0,0" DockPanel.Dock="Bottom">
             <ProgressBar
-        x:Name="CompareProgress"
-        Height="6"
-        Margin="0,0,0,6"
-        Background="{DynamicResource HeaderBackground}"
-        Foreground="{DynamicResource Accent}"
-        IsIndeterminate="{Binding ProgressIndeterminate}"
-        Maximum="{Binding ProgressMaximum}"
-        Visibility="{Binding IsProgressVisible, Converter={StaticResource MvvmBooleanToVisibility}}"
-        Value="{Binding ProgressValue}" />
+                x:Name="CompareProgress"
+                Height="6"
+                Margin="0,0,0,6"
+                Background="{DynamicResource HeaderBackground}"
+                Foreground="{DynamicResource Accent}"
+                IsIndeterminate="{Binding ProgressIndeterminate}"
+                Maximum="{Binding ProgressMaximum}"
+                Visibility="{Binding IsProgressVisible, Converter={StaticResource MvvmBooleanToVisibility}}"
+                Value="{Binding ProgressValue}" />
             <TextBlock
-        x:Name="StatusText"
-        Text="{Binding Status}"
-        TextWrapping="Wrap" />
+                x:Name="StatusText"
+                Text="{Binding Status}"
+                TextWrapping="Wrap" />
         </StackPanel>
         <Grid>
             <Grid.ColumnDefinitions>
@@ -689,161 +690,161 @@
                 <ColumnDefinition MinWidth="400" />
             </Grid.ColumnDefinitions>
             <Border
-        Background="{DynamicResource CardBackground}"
-        BorderBrush="{DynamicResource Line}"
-        BorderThickness="1">
+                Background="{DynamicResource CardBackground}"
+                BorderBrush="{DynamicResource Line}"
+                BorderThickness="1">
                 <DockPanel>
                     <Border
-            Padding="10,7"
-            Background="{DynamicResource HeaderBackground}"
-            DockPanel.Dock="Top">
+                        Padding="10,7"
+                        Background="{DynamicResource HeaderBackground}"
+                        DockPanel.Dock="Top">
                         <DockPanel>
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                                 <ToggleButton
-                  x:Name="NodeExpandToggle"
-                  Background="Transparent"
-                  Style="{StaticResource IconToggleButton}"
-                  ToolTip="{loc:L Common_Expand}">
+                                    x:Name="NodeExpandToggle"
+                                    Background="Transparent"
+                                    Style="{StaticResource IconToggleButton}"
+                                    ToolTip="{loc:L Common_Expand}">
                                     <Image
-                    x:Name="NodeExpandIcon"
-                    RenderOptions.BitmapScalingMode="HighQuality"
-                    Stretch="Uniform" />
+                                        x:Name="NodeExpandIcon"
+                                        RenderOptions.BitmapScalingMode="HighQuality"
+                                        Stretch="Uniform" />
                                 </ToggleButton>
                                 <ToggleButton
-                  x:Name="TreeDensityToggle"
-                  Margin="8,0,0,0"
-                  Background="Transparent"
-                  Style="{StaticResource IconToggleButton}"
-                  ToolTip="{loc:L Main_TreeComfortable}">
+                                    x:Name="TreeDensityToggle"
+                                    Margin="8,0,0,0"
+                                    Background="Transparent"
+                                    Style="{StaticResource IconToggleButton}"
+                                    ToolTip="{loc:L Main_TreeComfortable}">
                                     <Image
-                    x:Name="TreeDensityIcon"
-                    RenderOptions.BitmapScalingMode="HighQuality"
-                    Stretch="Uniform" />
+                                        x:Name="TreeDensityIcon"
+                                        RenderOptions.BitmapScalingMode="HighQuality"
+                                        Stretch="Uniform" />
                                 </ToggleButton>
                             </StackPanel>
                             <TextBlock
-                VerticalAlignment="Center"
-                FontWeight="SemiBold"
-                Text="{loc:L Common_Folders}" />
+                                VerticalAlignment="Center"
+                                FontWeight="SemiBold"
+                                Text="{loc:L Common_Folders}" />
                         </DockPanel>
                     </Border>
                     <Border
-            Padding="8,5"
-            BorderBrush="{DynamicResource Line}"
-            BorderThickness="0,0,0,1"
-            DockPanel.Dock="Top">
+                        Padding="8,5"
+                        BorderBrush="{DynamicResource Line}"
+                        BorderThickness="0,0,0,1"
+                        DockPanel.Dock="Top">
                         <WrapPanel x:Name="CategoryFilters" IsEnabled="{Binding CanFilter}">
                             <Button
-                x:Name="RefreshCompareButton"
-                AutomationProperties.Name="Refresh selected folder"
-                Command="{Binding RefreshCommand}"
-                Style="{StaticResource FilterActionButtonStyle}"
-                ToolTip="Refresh selected folder">
+                                x:Name="RefreshCompareButton"
+                                AutomationProperties.Name="Refresh selected folder"
+                                Command="{Binding RefreshCommand}"
+                                Style="{StaticResource FilterActionButtonStyle}"
+                                ToolTip="Refresh selected folder">
                                 <Image
-                  x:Name="RefreshCompareIcon"
-                  Width="22"
-                  Height="22"
-                  RenderOptions.BitmapScalingMode="HighQuality"
-                  Stretch="Uniform" />
+                                    x:Name="RefreshCompareIcon"
+                                    Width="22"
+                                    Height="22"
+                                    RenderOptions.BitmapScalingMode="HighQuality"
+                                    Stretch="Uniform" />
                             </Button>
                             <CheckBox
-                x:Name="SameFilter"
-                Command="{Binding CategoryFilterCommand}"
-                IsChecked="{Binding ShowSame}"
-                Style="{StaticResource KindFilterStyle}"
-                ToolTip="{loc:L Differencer_SameTimeSize}">
+                                x:Name="SameFilter"
+                                Command="{Binding CategoryFilterCommand}"
+                                IsChecked="{Binding ShowSame}"
+                                Style="{StaticResource KindFilterStyle}"
+                                ToolTip="{loc:L Differencer_SameTimeSize}">
                                 <Image
-                  x:Name="SameFilterIcon"
-                  Width="22"
-                  Height="22"
-                  RenderOptions.BitmapScalingMode="HighQuality"
-                  Stretch="Uniform" />
+                                    x:Name="SameFilterIcon"
+                                    Width="22"
+                                    Height="22"
+                                    RenderOptions.BitmapScalingMode="HighQuality"
+                                    Stretch="Uniform" />
                             </CheckBox>
                             <CheckBox
-                x:Name="DifferentFilter"
-                Command="{Binding CategoryFilterCommand}"
-                IsChecked="{Binding ShowDifferent}"
-                Style="{StaticResource KindFilterStyle}"
-                ToolTip="{loc:L Differencer_DifferentMeta}">
+                                x:Name="DifferentFilter"
+                                Command="{Binding CategoryFilterCommand}"
+                                IsChecked="{Binding ShowDifferent}"
+                                Style="{StaticResource KindFilterStyle}"
+                                ToolTip="{loc:L Differencer_DifferentMeta}">
                                 <Image
-                  x:Name="DifferentFilterIcon"
-                  Width="22"
-                  Height="22"
-                  RenderOptions.BitmapScalingMode="HighQuality"
-                  Stretch="Uniform" />
+                                    x:Name="DifferentFilterIcon"
+                                    Width="22"
+                                    Height="22"
+                                    RenderOptions.BitmapScalingMode="HighQuality"
+                                    Stretch="Uniform" />
                             </CheckBox>
                             <CheckBox
-                x:Name="SourceOnlyFilter"
-                Command="{Binding CategoryFilterCommand}"
-                IsChecked="{Binding ShowSourceOnly}"
-                Style="{StaticResource KindFilterStyle}"
-                ToolTip="{loc:L Differencer_SourceOnly}">
+                                x:Name="SourceOnlyFilter"
+                                Command="{Binding CategoryFilterCommand}"
+                                IsChecked="{Binding ShowSourceOnly}"
+                                Style="{StaticResource KindFilterStyle}"
+                                ToolTip="{loc:L Differencer_SourceOnly}">
                                 <Image
-                  x:Name="SourceOnlyFilterIcon"
-                  Width="22"
-                  Height="22"
-                  RenderOptions.BitmapScalingMode="HighQuality"
-                  Stretch="Uniform" />
+                                    x:Name="SourceOnlyFilterIcon"
+                                    Width="22"
+                                    Height="22"
+                                    RenderOptions.BitmapScalingMode="HighQuality"
+                                    Stretch="Uniform" />
                             </CheckBox>
                             <CheckBox
-                x:Name="TargetOnlyFilter"
-                Command="{Binding CategoryFilterCommand}"
-                IsChecked="{Binding ShowTargetOnly}"
-                Style="{StaticResource KindFilterStyle}"
-                ToolTip="{loc:L Differencer_TargetOnly}">
+                                x:Name="TargetOnlyFilter"
+                                Command="{Binding CategoryFilterCommand}"
+                                IsChecked="{Binding ShowTargetOnly}"
+                                Style="{StaticResource KindFilterStyle}"
+                                ToolTip="{loc:L Differencer_TargetOnly}">
                                 <Image
-                  x:Name="TargetOnlyFilterIcon"
-                  Width="22"
-                  Height="22"
-                  RenderOptions.BitmapScalingMode="HighQuality"
-                  Stretch="Uniform" />
+                                    x:Name="TargetOnlyFilterIcon"
+                                    Width="22"
+                                    Height="22"
+                                    RenderOptions.BitmapScalingMode="HighQuality"
+                                    Stretch="Uniform" />
                             </CheckBox>
                             <CheckBox
-                x:Name="ObjFilter"
-                AutomationProperties.Name="Show OBJ"
-                Command="{Binding BuildFolderFilterCommand}"
-                IsChecked="{Binding ShowObj}"
-                Style="{StaticResource KindFilterStyle}"
-                ToolTip="{loc:L Differencer_ShowObj}">
+                                x:Name="ObjFilter"
+                                AutomationProperties.Name="Show OBJ"
+                                Command="{Binding BuildFolderFilterCommand}"
+                                IsChecked="{Binding ShowObj}"
+                                Style="{StaticResource KindFilterStyle}"
+                                ToolTip="{loc:L Differencer_ShowObj}">
                                 <Image
-                  x:Name="ObjFilterIcon"
-                  Width="22"
-                  Height="22"
-                  RenderOptions.BitmapScalingMode="HighQuality"
-                  Stretch="Uniform" />
+                                    x:Name="ObjFilterIcon"
+                                    Width="22"
+                                    Height="22"
+                                    RenderOptions.BitmapScalingMode="HighQuality"
+                                    Stretch="Uniform" />
                             </CheckBox>
                             <CheckBox
-                x:Name="BinFilter"
-                AutomationProperties.Name="Show BIN"
-                Command="{Binding BuildFolderFilterCommand}"
-                IsChecked="{Binding ShowBin}"
-                Style="{StaticResource KindFilterStyle}"
-                ToolTip="{loc:L Differencer_ShowBin}">
+                                x:Name="BinFilter"
+                                AutomationProperties.Name="Show BIN"
+                                Command="{Binding BuildFolderFilterCommand}"
+                                IsChecked="{Binding ShowBin}"
+                                Style="{StaticResource KindFilterStyle}"
+                                ToolTip="{loc:L Differencer_ShowBin}">
                                 <Image
-                  x:Name="BinFilterIcon"
-                  Width="22"
-                  Height="22"
-                  RenderOptions.BitmapScalingMode="HighQuality"
-                  Stretch="Uniform" />
+                                    x:Name="BinFilterIcon"
+                                    Width="22"
+                                    Height="22"
+                                    RenderOptions.BitmapScalingMode="HighQuality"
+                                    Stretch="Uniform" />
                             </CheckBox>
                         </WrapPanel>
                     </Border>
                     <TreeView
-            x:Name="FolderTree"
-            HorizontalContentAlignment="Stretch"
-            Background="{DynamicResource CardBackground}"
-            BorderThickness="0"
-            Focusable="{Binding CanEdit}"
-            Foreground="{DynamicResource Ink}"
-            IsHitTestVisible="{Binding CanEdit}"
-            ItemContainerStyle="{StaticResource FolderItemStyle}"
-            ItemsSource="{Binding FolderItems}"
-            ScrollViewer.CanContentScroll="True"
-            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-            SelectedItemChanged="FolderChanged"
-            VirtualizingPanel.CacheLength="0"
-            VirtualizingStackPanel.IsVirtualizing="True"
-            VirtualizingStackPanel.VirtualizationMode="Recycling">
+                        x:Name="FolderTree"
+                        HorizontalContentAlignment="Stretch"
+                        Background="{DynamicResource CardBackground}"
+                        BorderThickness="0"
+                        Focusable="{Binding CanEdit}"
+                        Foreground="{DynamicResource Ink}"
+                        IsHitTestVisible="{Binding CanEdit}"
+                        ItemContainerStyle="{StaticResource FolderItemStyle}"
+                        ItemsSource="{Binding FolderItems}"
+                        ScrollViewer.CanContentScroll="True"
+                        ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                        SelectedItemChanged="FolderChanged"
+                        VirtualizingPanel.CacheLength="0"
+                        VirtualizingStackPanel.IsVirtualizing="True"
+                        VirtualizingStackPanel.VirtualizationMode="Recycling">
                         <TreeView.ItemTemplate>
                             <HierarchicalDataTemplate ItemsSource="{Binding DisplayChildren}">
                                 <Grid ToolTip="{Binding Path}">
@@ -853,17 +854,17 @@
                                         <ColumnDefinition />
                                     </Grid.ColumnDefinitions>
                                     <CheckBox
-                    Margin="5"
-                    VerticalAlignment="Center"
-                    IsChecked="{Binding Checked, Mode=TwoWay}"
-                    IsThreeState="True"
-                    PreviewMouseLeftButtonDown="FolderCheckBox_PreviewMouseLeftButtonDown" />
+                                        Margin="5"
+                                        VerticalAlignment="Center"
+                                        IsChecked="{Binding Checked, Mode=TwoWay}"
+                                        IsThreeState="True"
+                                        PreviewMouseLeftButtonDown="FolderCheckBox_PreviewMouseLeftButtonDown" />
                                     <Image
-                    Grid.Column="1"
-                    VerticalAlignment="Center"
-                    RenderOptions.BitmapScalingMode="HighQuality"
-                    Source="{Binding IconPreview}"
-                    Stretch="Uniform">
+                                        Grid.Column="1"
+                                        VerticalAlignment="Center"
+                                        RenderOptions.BitmapScalingMode="HighQuality"
+                                        Source="{Binding IconPreview}"
+                                        Stretch="Uniform">
                                         <Image.Style>
                                             <Style TargetType="Image">
                                                 <Setter Property="Width" Value="48" />
@@ -880,11 +881,11 @@
                                         </Image.Style>
                                     </Image>
                                     <TextBlock
-                    Grid.Column="2"
-                    Margin="0,5,5,5"
-                    VerticalAlignment="Center"
-                    Text="{Binding Label}"
-                    TextTrimming="CharacterEllipsis">
+                                        Grid.Column="2"
+                                        Margin="0,5,5,5"
+                                        VerticalAlignment="Center"
+                                        Text="{Binding Label}"
+                                        TextTrimming="CharacterEllipsis">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
                                                 <Setter Property="FontSize" Value="14" />
@@ -903,78 +904,86 @@
                 </DockPanel>
             </Border>
             <GridSplitter
-        Grid.Column="1"
-        Width="5"
-        HorizontalAlignment="Stretch"
-        Background="{DynamicResource Line}" />
+                Grid.Column="1"
+                Width="5"
+                HorizontalAlignment="Stretch"
+                Background="{DynamicResource Line}" />
             <Border
-        Grid.Column="2"
-        Background="{DynamicResource CardBackground}"
-        BorderBrush="{DynamicResource Line}"
-        BorderThickness="1">
+                Grid.Column="2"
+                Background="{DynamicResource CardBackground}"
+                BorderBrush="{DynamicResource Line}"
+                BorderThickness="1">
                 <DockPanel>
                     <ListBox
-            DockPanel.Dock="Top"
-            ItemsSource="{Binding HistoryTabs}"
-            MouseDoubleClick="HistoryTabStrip_MouseDoubleClick"
-            SelectedItem="{Binding SelectedHistoryTab, Mode=TwoWay}"
-            Style="{StaticResource HistoryTabStrip}" />
+                        DockPanel.Dock="Top"
+                        ItemsSource="{Binding HistoryTabs}"
+                        MouseDoubleClick="HistoryTabStrip_MouseDoubleClick"
+                        SelectedItem="{Binding SelectedHistoryTab, Mode=TwoWay}"
+                        Style="{StaticResource HistoryTabStrip}" />
                     <Border
-            Padding="10,7"
-            Background="{DynamicResource HeaderBackground}"
-            DockPanel.Dock="Top">
+                        Padding="10,7"
+                        Background="{DynamicResource HeaderBackground}"
+                        DockPanel.Dock="Top">
                         <DockPanel>
+                            <history:OutlinedPairCaption
+                                MaxWidth="420"
+                                Margin="12,0,0,0"
+                                VerticalAlignment="Center"
+                                DockPanel.Dock="Right"
+                                OutlineFill="{DynamicResource FolderCaptionOutline}"
+                                SourceFill="{StaticResource SourceColor}"
+                                SourceText="{Binding HistorySourceRoot, Mode=OneWay}"
+                                TargetFill="{StaticResource TargetColor}"
+                                TargetText="{Binding HistoryTargetRoot, Mode=OneWay}"
+                                ToolTip="{Binding HistoryRootsTooltip}" />
                             <TextBlock
-                MaxWidth="420"
-                Margin="12,0,0,0"
-                VerticalAlignment="Center"
-                DockPanel.Dock="Right"
-                FontWeight="SemiBold"
-                TextTrimming="CharacterEllipsis"
-                ToolTip="{Binding HistoryRootsTooltip}">
-                <Run Foreground="{StaticResource SourceColor}" Text="{Binding HistorySourceRoot, Mode=OneWay}" />
-                <Run Text="   " />
-                <Run Foreground="{StaticResource TargetColor}" Text="{Binding HistoryTargetRoot, Mode=OneWay}" />
-                            </TextBlock>
-                            <TextBlock
-                x:Name="FilePanelTitle"
-                Height="36"
-                Padding="0,10,0,0"
-                VerticalAlignment="Center"
-                FontWeight="SemiBold"
-                Text="{Binding FilePanelTitle}"
-                TextTrimming="CharacterEllipsis" />
+                                x:Name="FilePanelTitle"
+                                Height="36"
+                                Padding="0,10,0,0"
+                                VerticalAlignment="Center"
+                                FontWeight="SemiBold"
+                                Text="{Binding FilePanelTitle}"
+                                TextTrimming="CharacterEllipsis" />
                         </DockPanel>
                     </Border>
                     <Grid>
                         <ListView
-              x:Name="FilesGrid"
-              Background="{DynamicResource CardBackground}"
-              BorderThickness="0"
-              Focusable="{Binding CanEdit}"
-              Foreground="{DynamicResource Ink}"
-              IsHitTestVisible="{Binding CanEdit}"
-              ItemContainerStyle="{StaticResource FileListItemStyle}"
-              ItemsSource="{Binding FileItems}"
-              MouseDoubleClick="OpenDiff"
-              ScrollViewer.CanContentScroll="True"
-              ScrollViewer.HorizontalScrollBarVisibility="Auto"
-              SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
-              SelectionMode="Single"
-              VirtualizingPanel.CacheLength="0"
-              VirtualizingPanel.ScrollUnit="Item"
-              VirtualizingStackPanel.IsVirtualizing="True"
-              VirtualizingStackPanel.VirtualizationMode="Recycling">
+                            x:Name="FilesGrid"
+                            Background="{DynamicResource CardBackground}"
+                            BorderThickness="0"
+                            Focusable="{Binding CanEdit}"
+                            Foreground="{DynamicResource Ink}"
+                            ItemContainerStyle="{StaticResource FileListItemStyle}"
+                            ItemsSource="{Binding FileItems}"
+                            MouseDoubleClick="OpenDiff"
+                            ScrollViewer.CanContentScroll="True"
+                            ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                            SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
+                            SelectionMode="Single"
+                            VirtualizingPanel.CacheLength="0"
+                            VirtualizingPanel.ScrollUnit="Item"
+                            VirtualizingStackPanel.IsVirtualizing="True"
+                            VirtualizingStackPanel.VirtualizationMode="Recycling">
                             <ListView.View>
                                 <GridView AllowsColumnReorder="False">
                                     <GridViewColumn Width="45" Header="{loc:L Common_Sync}">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>
                                                 <CheckBox
-                          HorizontalAlignment="Center"
-                          VerticalAlignment="Center"
-                          IsChecked="{Binding File.Selected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                          IsEnabled="{Binding File.CanToggleSelection}" />
+                                                    HorizontalAlignment="Center"
+                                                    VerticalAlignment="Center"
+                                                    IsChecked="{Binding File.Selected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                                                    <CheckBox.Style>
+                                                        <Style BasedOn="{StaticResource {x:Type CheckBox}}" TargetType="CheckBox">
+                                                            <Setter Property="IsEnabled" Value="{Binding File.CanToggleSelection}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding DataContext.CanEdit, RelativeSource={RelativeSource AncestorType=ListView}}" Value="False">
+                                                                    <Setter Property="IsEnabled" Value="False" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </CheckBox.Style>
+                                                </CheckBox>
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
@@ -982,11 +991,11 @@
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>
                                                 <Image
-                          Width="24"
-                          Height="24"
-                          RenderOptions.BitmapScalingMode="HighQuality"
-                          Source="{Binding StatusIcon}"
-                          Stretch="Uniform" />
+                                                    Width="24"
+                                                    Height="24"
+                                                    RenderOptions.BitmapScalingMode="HighQuality"
+                                                    Source="{Binding StatusIcon}"
+                                                    Stretch="Uniform" />
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
@@ -994,11 +1003,11 @@
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>
                                                 <Image
-                          Width="24"
-                          Height="24"
-                          RenderOptions.BitmapScalingMode="HighQuality"
-                          Source="{Binding Icon}"
-                          Stretch="Uniform" />
+                                                    Width="24"
+                                                    Height="24"
+                                                    RenderOptions.BitmapScalingMode="HighQuality"
+                                                    Source="{Binding Icon}"
+                                                    Stretch="Uniform" />
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
@@ -1006,24 +1015,24 @@
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>
                                                 <TextBlock
-                          VerticalAlignment="Center"
-                          Text="{Binding PathFileName, Mode=OneWay}"
-                          TextTrimming="CharacterEllipsis"
-                          ToolTip="{Binding File.RelativePath}" />
+                                                    VerticalAlignment="Center"
+                                                    Text="{Binding PathFileName, Mode=OneWay}"
+                                                    TextTrimming="CharacterEllipsis"
+                                                    ToolTip="{Binding File.RelativePath}" />
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
                                     <GridViewColumn
-                    Width="70"
-                    DisplayMemberBinding="{Binding Extension}"
-                    Header="{loc:L Common_Type}" />
+                                        Width="70"
+                                        DisplayMemberBinding="{Binding Extension}"
+                                        Header="{loc:L Common_Type}" />
                                     <GridViewColumn Width="70" Header="{loc:L Common_State}">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>
                                                 <TextBlock
-                          VerticalAlignment="Center"
-                          Text="{Binding File.State}"
-                          TextWrapping="Wrap" />
+                                                    VerticalAlignment="Center"
+                                                    Text="{Binding File.State}"
+                                                    TextWrapping="Wrap" />
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
@@ -1045,35 +1054,35 @@
                             </ListView.View>
                         </ListView>
                         <Border
-              x:Name="FilePanelBusy"
-              Background="{DynamicResource OverlayScrim}"
-              IsHitTestVisible="True"
-              Visibility="{Binding IsFileBusy, Converter={StaticResource MvvmBooleanToVisibility}}">
+                            x:Name="FilePanelBusy"
+                            Background="{DynamicResource OverlayScrim}"
+                            IsHitTestVisible="True"
+                            Visibility="{Binding IsFileBusy, Converter={StaticResource MvvmBooleanToVisibility}}">
                             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <Grid
-                  x:Name="FilePanelProgress"
-                  Width="160"
-                  Height="5"
-                  ClipToBounds="True">
+                                    x:Name="FilePanelProgress"
+                                    Width="160"
+                                    Height="5"
+                                    ClipToBounds="True">
                                     <Border Background="{DynamicResource HeaderBackground}" CornerRadius="3" />
                                     <Border
-                    x:Name="FilePanelMarquee"
-                    Width="48"
-                    Height="5"
-                    HorizontalAlignment="Left"
-                    Background="{DynamicResource Accent}"
-                    CornerRadius="3">
+                                        x:Name="FilePanelMarquee"
+                                        Width="48"
+                                        Height="5"
+                                        HorizontalAlignment="Left"
+                                        Background="{DynamicResource Accent}"
+                                        CornerRadius="3">
                                         <Border.RenderTransform>
                                             <TranslateTransform x:Name="FilePanelMarqueeTransform" />
                                         </Border.RenderTransform>
                                     </Border>
                                 </Grid>
                                 <TextBlock
-                  x:Name="FilePanelBusyText"
-                  Margin="0,10,0,0"
-                  HorizontalAlignment="Center"
-                  Foreground="{DynamicResource Muted}"
-                  Text="{Binding BusyMessage}" />
+                                    x:Name="FilePanelBusyText"
+                                    Margin="0,10,0,0"
+                                    HorizontalAlignment="Center"
+                                    Foreground="{DynamicResource Muted}"
+                                    Text="{Binding BusyMessage}" />
                             </StackPanel>
                         </Border>
                     </Grid>

@@ -327,7 +327,7 @@ namespace DesktopIniManager.ViewModels
                 {
                     service.Remove(item.Path, false);
                     FolderIconService.Invalidate(item.Path);
-                    item.IconPreview = FolderIconService.GetDefaultFolderIcon();
+                    item.IconPreview = FolderIconService.GetStateIcon(item.Path, item.Reason) ?? FolderIconService.GetDefaultFolderIcon();
                     changedFolders.Add(item.Path);
                     succeeded++;
                 }

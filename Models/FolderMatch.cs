@@ -10,6 +10,8 @@ namespace DesktopIniManager.Models
         private bool _isSelected;
         private bool _isExpanded;
         private bool _isCurrent;
+        private bool _isSearchMatch;
+        public bool IsSearchMatch { get => _isSearchMatch; set { if (_isSearchMatch == value) return; _isSearchMatch = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSearchMatch))); } }
         public bool IsCurrent { get => _isCurrent; set { if (_isCurrent == value) return; _isCurrent = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsCurrent))); } }
         private ImageSource _iconPreview;
         private ImageSource _naturalIcon;

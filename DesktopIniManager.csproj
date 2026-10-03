@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <!-- Keep the existing explicit source/resource lists; exclude nested projects. -->
     <EnableDefaultItems>false</EnableDefaultItems>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <Version>3.6.0</Version>
+    <Version>4.0.0</Version>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <PlatformTarget>x64</PlatformTarget>
@@ -29,8 +29,8 @@
   </PropertyGroup>
   <PropertyGroup>
     <ApplicationIcon>DesktopIniManager.ico</ApplicationIcon>
-    <AssemblyVersion>3.6.0.0</AssemblyVersion>
-    <FileVersion>3.6.0.0</FileVersion>
+    <AssemblyVersion>4.0.0.0</AssemblyVersion>
+    <FileVersion>4.0.0.0</FileVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>x64</PlatformTarget>
@@ -64,6 +64,10 @@
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="ExcelDataReader" Version="3.7.0" />
+    <PackageReference Include="PdfPig" Version="0.1.13" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="FastVolumeIndex\FastVolumeIndex.Core\FastVolumeIndex.Core.csproj">
       <Project>{A67C59A1-8E4E-4F44-9A88-D2D1BE56DD81}</Project>
@@ -177,12 +181,14 @@
     <Compile Include="Models\LanguageProfile.cs" />
     <Compile Include="Services\FastFolderSearchService.cs" />
     <Compile Include="Services\CodeGrepService.cs" />
+    <Compile Include="Services\DocumentGrepService.cs" />
     <Compile Include="Services\SolutionTreeService.cs" />
     <Compile Include="Services\DesktopIniService.cs" />
     <Compile Include="Services\FolderIconService.cs" />
     <Compile Include="Services\FileIconService.cs" />
     <Compile Include="Services\IconResourceReader.cs" />
     <Compile Include="Services\NativeFolderPicker.cs" />
+    <Compile Include="Services\AppSlot.cs" />
     <Compile Include="Services\SettingsService.cs" />
     <Compile Include="Services\InputHistoryStore.cs" />
     <Compile Include="Views\Presenter\InputHistory.cs" />

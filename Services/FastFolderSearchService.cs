@@ -37,7 +37,11 @@ namespace DesktopIniManager.Services
                             if (!NameMatches(entry.Name, key, fileNameQuery)) continue;
                             string folder = FolderPathOf(entry);
                             VolumePathNode folderNode = !string.IsNullOrEmpty(folder) ? paths.Find(folder) : null;
-                            if (folderNode != null && IsDisplayable(folderNode)) Add(matches, folder, "Name: " + key);
+                            if (folderNode != null && IsDisplayable(folderNode))
+                            {
+                                Add(matches, folder, "Name: " + key);
+                                if (entry.IsDirectory) matches[folder].IsSearchMatch = true;
+                            }
                         }
                     }
                     if (fileNameQuery) continue;

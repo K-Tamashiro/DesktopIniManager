@@ -41,7 +41,7 @@ namespace DesktopIniManager.ViewModels
         public bool TreeCompact { get => treeCompact; set => SetProperty(ref treeCompact, value); }
         internal void ResetSettings()
         {
-            CancelOperations(); SettingsService.ClearAll(); FolderTreeStateService.Clear();
+            CancelOperations(); ResetPhysicalFileScan(); SettingsService.ClearAll(); FolderTreeStateService.Clear();
             _results.Clear(); _treeRoots.Clear(); _solutionRoots.Clear(); _searchRoots.Clear(); _files.Clear();
             SyncSearchMatches(null, null);
             _pathIndex = null; _searchResultCount = 0; _filteredViewItems = null; _folderTreeRoot = null;
@@ -49,7 +49,6 @@ namespace DesktopIniManager.ViewModels
             _selectedIconIndex = 0; _selectedIconPreview = null; _pendingSearchQuery = null; SelectedIcon = null;
             RefreshScopedLabel();
         }
-        private const int MaxFileListItems = 3000;
         private string _rootPath = string.Empty;
         public string RootPath
         {
@@ -63,6 +62,7 @@ namespace DesktopIniManager.ViewModels
                 // A new root must not reuse checked folders or indexed paths from
                 // the previous workspace while acquisition is being restarted.
                 _fileListCts?.Cancel();
+                ResetPhysicalFileScan();
                 _filterCts?.Cancel();
                 _pathIndex = null;
                 _filteredViewItems = null;
@@ -126,7 +126,34 @@ namespace DesktopIniManager.ViewModels
         private string _filePanelPath = null;
         public string FilePanelPath { get => _filePanelPath; set => SetProperty(ref _filePanelPath, value); }
         private IEnumerable<FolderMatch> _treeItems = null;
-        public IEnumerable<FolderMatch> TreeItems { get => _treeItems; set => SetProperty(ref _treeItems, value); }
+        public IEnumerable<FolderMatch> TreeItems
+        {
+            get => _treeItems;
+            set
+            {
+                if (ReferenceEquals(_treeItems, value)) return;
+                if (_treeItems is System.Collections.Specialized.INotifyCollectionChanged oldItems)
+                    oldItems.CollectionChanged -= TreeRootsChanged;
+                SetProperty(ref _treeItems, value);
+                if (_treeItems is System.Collections.Specialized.INotifyCollectionChanged newItems)
+                    newItems.CollectionChanged += TreeRootsChanged;
+                RefreshFrozenRoot();
+            }
+        }
+        public FolderMatch FrozenRoot { get; private set; }
+        public IEnumerable<FolderMatch> FrozenRootItems => FrozenRoot == null ? Array.Empty<FolderMatch>() : new[] { FrozenRoot };
+        public IEnumerable<FolderMatch> ScrollingTreeItems => FrozenRoot == null ? TreeItems : FrozenRoot.Children;
+
+        private void TreeRootsChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) => RefreshFrozenRoot();
+
+        private void RefreshFrozenRoot()
+        {
+            FolderMatch[] roots = TreeItems?.Take(2).ToArray();
+            FrozenRoot = roots != null && roots.Length == 1 && roots[0].Parent == null ? roots[0] : null;
+            OnPropertyChanged(nameof(FrozenRoot));
+            OnPropertyChanged(nameof(FrozenRootItems));
+            OnPropertyChanged(nameof(ScrollingTreeItems));
+        }
         private bool _isTreeBusy = false;
         public bool IsTreeBusy
         {

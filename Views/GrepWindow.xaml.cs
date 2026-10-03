@@ -1,4 +1,4 @@
-using DesktopIniManager.Models;
+﻿using DesktopIniManager.Models;
 using DesktopIniManager.ViewModels;
 using DesktopIniManager.Services;
 using Microsoft.Win32;
@@ -28,6 +28,7 @@ namespace DesktopIniManager.Views
         private Point _groupDragStart;
         private string _groupDragPath;
         private HwndSource _inputSource;
+        private double _matchColumnBaseWidth = 550;
 
         public GrepWindow(Func<IReadOnlyList<string>> scopeProvider, IReadOnlyList<string> initialScopes)
         {
@@ -386,6 +387,8 @@ namespace DesktopIniManager.Views
         {
             if (!ViewModel.Close()) { e.Cancel = true; return; }
             double[] widths = ResultsGrid.Columns.Select(column => column.ActualWidth).ToArray();
+            if (widths.Length > 4 && ResultsGrid.Columns[4].Width.UnitType != DataGridLengthUnitType.Pixel)
+                widths[4] = _matchColumnBaseWidth;
             ViewModel.SaveColumnWidths(widths);
             base.OnClosing(e);
         }
@@ -399,6 +402,17 @@ namespace DesktopIniManager.Views
                 widths[0] >= 90 && widths[1] >= 160 && widths[2] >= 50 && widths[3] >= 50 && widths[4] >= 200;
             for (int index = 0; index < ResultsGrid.Columns.Count && index < defaults.Length; index++)
             {
+                if (index == 4)
+                {
+                    // The match column keeps its normal width for short results, but grows to
+                    // the widest realized match. Horizontal scrolling therefore appears only
+                    // when the match text actually needs more room.
+                    _matchColumnBaseWidth = saved ? widths[index] : defaults[index];
+                    ResultsGrid.Columns[index].MinWidth = Math.Max(mins[index], _matchColumnBaseWidth);
+                    ResultsGrid.Columns[index].Width = new DataGridLength(1, DataGridLengthUnitType.SizeToCells);
+                    continue;
+                }
+
                 ResultsGrid.Columns[index].MinWidth = mins[index];
                 ResultsGrid.Columns[index].Width = new DataGridLength(saved ? widths[index] : defaults[index]);
             }
@@ -459,7 +473,6 @@ namespace DesktopIniManager.Views
             SetIcon(ClearListFilterIcon, 25);
             SetIcon(OpenResultsIcon, 81);
             SetIcon(SaveResultsIcon, 82);
-            SetIcon(SaveHistoryTabIcon, 95);
             SetIcon(AddHistoryTabIcon, 94);
             SetIcon(BrowseEditorIcon, 80);
             UpdateResultGroupsIcon();

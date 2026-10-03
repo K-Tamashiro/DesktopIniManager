@@ -1,9 +1,10 @@
+using DesktopIniManager.Models;
+using DesktopIniManager.Services;
+using DesktopIniManager.Properties;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows;
-using DesktopIniManager.Models;
-using DesktopIniManager.Properties;
 
 namespace DesktopIniManager.ViewModels
 {
@@ -18,19 +19,7 @@ namespace DesktopIniManager.ViewModels
             set
             {
                 if (changingHistoryTabs || IsSearching || value == null || value == selectedHistoryTab) return;
-                CaptureHistoryTab();
-                SetProperty(ref selectedHistoryTab, value);
-                Query = value.Query;
-                SelectedProfile = LanguageProfile.All.FirstOrDefault(p => p.Name == value.Profile) ?? SelectedProfile;
-                Extensions = value.Extensions;
-                UseRegex = value.UseRegex; MatchCase = value.MatchCase; WholeWord = value.WholeWord;
-                SetScopes(value.Scopes);
-                foreach (var scope in _scopes) scope.IsEnabled = value.EnabledScopes.Contains(scope.FolderPath, StringComparer.OrdinalIgnoreCase);
-                ResetMatches();
-                foreach (var match in value.Matches) _matches.Add(match);
-                ListFilter = value.Filter; Status = value.Status;
-                SelectedMatch = null;
-                NotifyListCommands();
+                SelectHistoryTab(value);
             }
         }
         public RelayCommand AddHistoryTabCommand { get; private set; }
@@ -42,22 +31,71 @@ namespace DesktopIniManager.ViewModels
         private void InitializeHistoryCommands()
         {
             AddHistoryTabCommand = new RelayCommand(AddHistoryTab, () => !IsSearching);
-            SaveHistoryTabCommand = new RelayCommand(() => { if (SaveHistory()) Status = StringOverlay.Get("History_Saved"); }, () => !IsSearching);
-            DeleteHistoryTabCommand = new ParameterCommand(item => DeleteHistoryTab(item as GrepHistoryTab), () => !IsSearching);
+            SaveHistoryTabCommand = new RelayCommand(() => SaveHistory(), () => !IsSearching && HistoryTabs.Count > 0);
+            DeleteHistoryTabCommand = new ParameterCommand(DeleteHistoryTab, () => !IsSearching);
             DeleteAllHistoryTabsCommand = new RelayCommand(DeleteAllHistoryTabs, () => !IsSearching && HistoryTabs.Count > 0);
-            DeleteOtherHistoryTabsCommand = new ParameterCommand(item => DeleteOtherHistoryTabs(item as GrepHistoryTab), () => !IsSearching && HistoryTabs.Count > 1);
+            DeleteOtherHistoryTabsCommand = new ParameterCommand(DeleteOtherHistoryTabs, () => !IsSearching && HistoryTabs.Count > 1);
         }
-        private void CaptureHistoryTab()
+
+        private void RestoreHistory()
         {
-            if (selectedHistoryTab == null) return;
-            var tab = selectedHistoryTab;
-            tab.Query = Query; tab.Profile = SelectedProfile?.Name; tab.Extensions = Extensions;
-            tab.UseRegex = UseRegex == true; tab.MatchCase = MatchCase == true; tab.WholeWord = WholeWord == true;
-            tab.Filter = ListFilter; tab.Status = Status;
-            tab.Scopes = _scopes.Select(s => s.FolderPath).ToList();
-            tab.EnabledScopes = EnabledScopePaths().ToList();
-            tab.Matches = _matches.ToList();
+            try
+            {
+                var saved = ResultHistoryStore.Load<HistoryFile<GrepHistoryTab>>("grep");
+                foreach (GrepHistoryTab tab in saved.Tabs.Take(ResultHistoryStore.Limit))
+                    HistoryTabs.Add(tab);
+                GrepHistoryTab selected = saved.Tabs.ElementAtOrDefault(saved.SelectedIndex);
+                if (HistoryTabs.Count == 0) return;
+                SelectHistoryTab(HistoryTabs.Contains(selected) ? selected : HistoryTabs[0]);
+            }
+            catch (Exception ex)
+            {
+                _dialogs.Show(string.Format(StringOverlay.Get("History_LoadFailed"), ex.Message), DialogTitle);
+            }
         }
+
+        internal bool SaveHistory()
+        {
+            try
+            {
+                CaptureHistoryTab();
+                ResultHistoryStore.Save("grep", new HistoryFile<GrepHistoryTab>
+                {
+                    Tabs = HistoryTabs.ToList(),
+                    SelectedIndex = HistoryTabs.IndexOf(selectedHistoryTab)
+                });
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _dialogs.Show(ErrorMessages.English(ex), DialogTitle, MessageBoxButton.OK, MessageBoxImage.Error);
+                return false;
+            }
+        }
+
+        private bool PrepareSearchTab()
+        {
+            string query = Query;
+            bool? regex = UseRegex, matchCase = MatchCase, wholeWord = WholeWord;
+            if (selectedHistoryTab == null) AddHistoryTab();
+            if (selectedHistoryTab == null) return false;
+            if (_matches.Count > 0)
+            {
+                bool full = HistoryTabs.Count >= ResultHistoryStore.Limit;
+                var answer = _dialogs.Show(string.Format(StringOverlay.Get(full ? "History_GrepAppendAtLimit" : "History_GrepAppend"), selectedHistoryTab.Title),
+                    DialogTitle, MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+                if (answer != MessageBoxResult.Yes && answer != MessageBoxResult.No) return false;
+                if (answer == MessageBoxResult.No)
+                {
+                    if (full) ResetMatches();
+                    else AddHistoryTab();
+                }
+            }
+            Query = query; UseRegex = regex; MatchCase = matchCase; WholeWord = wholeWord;
+            selectedHistoryTab.Title = Query;
+            return true;
+        }
+
         private void AddHistoryTab()
         {
             if (HistoryTabs.Count >= ResultHistoryStore.Limit)
@@ -68,39 +106,81 @@ namespace DesktopIniManager.ViewModels
             CaptureHistoryTab();
             var tab = new GrepHistoryTab
             {
-                Title = StringOverlay.Get("History_NewSearch"),
                 Profile = SelectedProfile?.Name,
                 Extensions = Extensions,
-                Scopes = _scopes.Select(s => s.FolderPath).ToList(),
+                Scopes = _scopes.Select(item => item.FolderPath).ToList(),
                 EnabledScopes = EnabledScopePaths().ToList()
             };
-            HistoryTabs.Add(tab);
-            SelectedHistoryTab = tab;
+            changingHistoryTabs = true;
+            try { HistoryTabs.Insert(0, tab); }
+            finally { changingHistoryTabs = false; }
+            selectedHistoryTab = tab;
+            ApplyHistoryTab(tab);
+            OnPropertyChanged(nameof(SelectedHistoryTab));
+            NotifyListCommands();
         }
-        private bool PrepareSearchTab()
+
+        private void SelectHistoryTab(GrepHistoryTab tab)
         {
-            string query = Query;
-            bool regex = UseRegex == true, matchCase = MatchCase == true, wholeWord = WholeWord == true;
-            if (SelectedHistoryTab == null) AddHistoryTab();
-            if (SelectedHistoryTab == null) return false;
-            if (_matches.Count > 0)
+            if (tab == null) return;
+            CaptureHistoryTab();
+            changingHistoryTabs = true;
+            try { selectedHistoryTab = tab; }
+            finally { changingHistoryTabs = false; }
+            ApplyHistoryTab(tab);
+            OnPropertyChanged(nameof(SelectedHistoryTab));
+        }
+
+        private void CaptureHistoryTab()
+        {
+            if (selectedHistoryTab == null) return;
+            selectedHistoryTab.Title = string.IsNullOrWhiteSpace(Query) ? selectedHistoryTab.Title : Query;
+            selectedHistoryTab.Query = Query ?? string.Empty;
+            selectedHistoryTab.Profile = SelectedProfile?.Name;
+            selectedHistoryTab.Extensions = Extensions ?? string.Empty;
+            selectedHistoryTab.UseRegex = UseRegex == true;
+            selectedHistoryTab.MatchCase = MatchCase == true;
+            selectedHistoryTab.WholeWord = WholeWord == true;
+            selectedHistoryTab.Filter = ListFilter ?? string.Empty;
+            selectedHistoryTab.Status = Status;
+            selectedHistoryTab.Scopes = _scopes.Select(item => item.FolderPath).ToList();
+            selectedHistoryTab.EnabledScopes = _scopes.Where(item => item.IsEnabled).Select(item => item.FolderPath).ToList();
+            selectedHistoryTab.Matches = _matches.ToList();
+        }
+
+        private void ApplyHistoryTab(GrepHistoryTab tab)
+        {
+            Query = tab.Query ?? string.Empty;
+            ListFilter = tab.Filter ?? string.Empty;
+            UseRegex = tab.UseRegex;
+            MatchCase = tab.MatchCase;
+            WholeWord = tab.WholeWord;
+            if (!string.IsNullOrWhiteSpace(tab.Profile))
             {
-                bool full = HistoryTabs.Count >= ResultHistoryStore.Limit;
-                var answer = _dialogs.Show(string.Format(StringOverlay.Get(full ? "History_GrepAppendAtLimit" : "History_GrepAppend"), SelectedHistoryTab.Title), DialogTitle, MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
-                if (answer != MessageBoxResult.Yes && answer != MessageBoxResult.No) return false;
-                if (answer == MessageBoxResult.No)
-                {
-                    if (full) ResetMatches();
-                    else AddHistoryTab();
-                }
+                LanguageProfile profile = LanguageProfile.All.FirstOrDefault(item =>
+                    string.Equals(item.Name, tab.Profile, StringComparison.OrdinalIgnoreCase));
+                if (profile != null) SelectedProfile = profile;
             }
-            Query = query; UseRegex = regex; MatchCase = matchCase; WholeWord = wholeWord;
-            SelectedHistoryTab.Title = Query;
-            return true;
+            Extensions = tab.Extensions ?? string.Empty;
+            if (tab.Scopes != null)
+            {
+                SetScopes(tab.Scopes, keepEnabledState: false);
+                var enabled = new System.Collections.Generic.HashSet<string>(tab.EnabledScopes ?? tab.Scopes, StringComparer.OrdinalIgnoreCase);
+                foreach (GrepScopeItem item in _scopes)
+                    item.IsEnabled = enabled.Contains(item.FolderPath);
+            }
+            ResetMatches();
+            SelectedMatch = null;
+            if (tab.Matches != null)
+                foreach (GrepMatch match in tab.Matches) _matches.Add(match);
+            Status = string.IsNullOrWhiteSpace(tab.Status) ? Strings.Common_Ready : tab.Status;
+            NotifyListCommands();
         }
-        private void DeleteHistoryTab(GrepHistoryTab tab)
+
+        private void DeleteHistoryTab(object item)
         {
-            if (tab == null || !HistoryTabs.Contains(tab)) return;
+            var tab = item as GrepHistoryTab;
+            if (IsSearching || tab == null || !HistoryTabs.Contains(tab)) return;
             bool active = tab == selectedHistoryTab;
             changingHistoryTabs = true;
             try { HistoryTabs.Remove(tab); }
@@ -108,11 +188,12 @@ namespace DesktopIniManager.ViewModels
             if (active)
             {
                 selectedHistoryTab = null;
-                if (HistoryTabs.Count == 0) AddHistoryTab();
-                else SelectedHistoryTab = HistoryTabs[0];
+                if (HistoryTabs.Count > 0) SelectHistoryTab(HistoryTabs[0]);
+                else { ResetMatches(); SelectedMatch = null; OnPropertyChanged(nameof(SelectedHistoryTab)); }
             }
             SaveHistory();
         }
+
         private void DeleteAllHistoryTabs()
         {
             if (IsSearching || HistoryTabs.Count == 0) return;
@@ -120,11 +201,15 @@ namespace DesktopIniManager.ViewModels
             try { HistoryTabs.Clear(); }
             finally { changingHistoryTabs = false; }
             selectedHistoryTab = null;
-            AddHistoryTab();
+            ResetMatches();
+            SelectedMatch = null;
+            OnPropertyChanged(nameof(SelectedHistoryTab));
             SaveHistory();
         }
-        private void DeleteOtherHistoryTabs(GrepHistoryTab tab)
+
+        private void DeleteOtherHistoryTabs(object item)
         {
+            var tab = item as GrepHistoryTab;
             if (IsSearching || tab == null || !HistoryTabs.Contains(tab) || HistoryTabs.Count <= 1) return;
             changingHistoryTabs = true;
             try
@@ -133,29 +218,8 @@ namespace DesktopIniManager.ViewModels
                     if (!ReferenceEquals(HistoryTabs[i], tab)) HistoryTabs.RemoveAt(i);
             }
             finally { changingHistoryTabs = false; }
-            if (selectedHistoryTab != tab) SelectedHistoryTab = tab;
+            if (selectedHistoryTab != tab) SelectHistoryTab(tab);
             SaveHistory();
-        }
-        internal bool SaveHistory()
-        {
-            try
-            {
-                CaptureHistoryTab();
-                ResultHistoryStore.Save("grep", new HistoryFile<GrepHistoryTab> { Tabs = HistoryTabs.ToList(), SelectedIndex = HistoryTabs.IndexOf(selectedHistoryTab) });
-                return true;
-            }
-            catch (Exception ex) { _dialogs.Show(string.Format(StringOverlay.Get("History_SaveFailed"), ex.Message), DialogTitle, MessageBoxButton.OK, MessageBoxImage.Error); return false; }
-        }
-        private void RestoreHistory()
-        {
-            try
-            {
-                var saved = ResultHistoryStore.Load<HistoryFile<GrepHistoryTab>>("grep");
-                foreach (var tab in saved.Tabs.Take(ResultHistoryStore.Limit)) HistoryTabs.Add(tab);
-                if (HistoryTabs.Count > 0) SelectedHistoryTab = HistoryTabs[Math.Max(0, Math.Min(saved.SelectedIndex, HistoryTabs.Count - 1))];
-                else AddHistoryTab();
-            }
-            catch (Exception ex) { _dialogs.Show(string.Format(StringOverlay.Get("History_LoadFailed"), ex.Message), DialogTitle); AddHistoryTab(); }
         }
     }
 }

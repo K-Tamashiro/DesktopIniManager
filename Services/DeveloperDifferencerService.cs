@@ -108,6 +108,7 @@ namespace DesktopIniManager.Services
         public string Root;
         public Dictionary<string, DiffStamp> Files;
         public HashSet<string> Folders;
+        public HashSet<string> NonEmptyFolders;
     }
 
     /// <summary>Compares and synchronizes two development directory trees.</summary>
@@ -156,7 +157,8 @@ namespace DesktopIniManager.Services
         {
         }
 
-        private static Dictionary<string, DiffStamp> ScanSelectedFolder(string root, string relativeFolder, HashSet<string> folders, CancellationToken token, IProgress<DiffProgress> progress = null, string stage = null, int offset = 0, int total = 0)
+        private static Dictionary<string, DiffStamp> ScanSelectedFolder(string root, string relativeFolder, HashSet<string> folders, CancellationToken token, IProgress<DiffProgress> progress = null, string stage = null, int offset = 0, int total = 0,
+            HashSet<string> nonEmptyFolders = null)
         {
             var files = new Dictionary<string, DiffStamp>(StringComparer.OrdinalIgnoreCase);
             string baseDirectory = relativeFolder.Length == 0
@@ -179,6 +181,8 @@ namespace DesktopIniManager.Services
                 foreach (var entry in VolumePathIndex.EnumerateNativeDirectory(directory, token))
                 {
                     token.ThrowIfCancellationRequested();
+                    // Protected entries still count for the physical empty-folder indicator.
+                    nonEmptyFolders?.Add(directoryRelative);
                     string path = Path.Combine(directory, entry.Name);
                     string relative = RelativeFromRoot(root, path);
                     if (Protected(relative)) continue;
@@ -273,17 +277,19 @@ namespace DesktopIniManager.Services
             token.ThrowIfCancellationRequested();
             root = Root(root);
             var folders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "" };
-            var files = ScanSelectedFolder(root, string.Empty, folders, token);
-            return new DiffIndex { Root = root, Files = files, Folders = folders };
+            var nonEmptyFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var files = ScanSelectedFolder(root, string.Empty, folders, token, nonEmptyFolders: nonEmptyFolders);
+            return new DiffIndex { Root = root, Files = files, Folders = folders, NonEmptyFolders = nonEmptyFolders };
         }
 
         internal static DiffSnapshot Compare(DiffIndex source, DiffIndex target,
-            IProgress<DiffProgress> progress, bool compareTimestamp, CancellationToken token)
+            IProgress<DiffProgress> progress, bool compareTimestamp, CancellationToken token,
+            Action<IReadOnlyList<DiffFile>> onBatch = null, Comparison<string> pathComparison = null)
         {
             token.ThrowIfCancellationRequested();
             ValidateRoots(Root(source.Root), Root(target.Root));
             int total = Math.Max(1, source.Files.Count + target.Files.Count);
-            progress?.Report(ReportCompare("Classifying differences…", total, total));
+            progress?.Report(ReportCompare("Classifying differences…", 0, total));
             return new DiffSnapshot
             {
                 SourceRoot = source.Root,
@@ -292,7 +298,7 @@ namespace DesktopIniManager.Services
                 SourceFolders = new HashSet<string>(source.Folders, StringComparer.OrdinalIgnoreCase),
                 TargetFolders = new HashSet<string>(target.Folders, StringComparer.OrdinalIgnoreCase),
                 Folders = new HashSet<string>(source.Folders.Union(target.Folders), StringComparer.OrdinalIgnoreCase),
-                Files = Classify(source.Files, target.Files, true, compareTimestamp, token, progress, total)
+                Files = Classify(source.Files, target.Files, true, compareTimestamp, token, progress, total, onBatch, pathComparison)
             };
         }
 
@@ -338,20 +344,36 @@ namespace DesktopIniManager.Services
             }
         }
 
-        internal static List<DiffFile> Classify(Dictionary<string, DiffStamp> left, Dictionary<string, DiffStamp> right, bool includeSame = false, bool compareTimestamp = true, CancellationToken token = default(CancellationToken), IProgress<DiffProgress> progress = null, int offset = 0)
+        internal static List<DiffFile> Classify(Dictionary<string, DiffStamp> left, Dictionary<string, DiffStamp> right, bool includeSame = false, bool compareTimestamp = true, CancellationToken token = default(CancellationToken), IProgress<DiffProgress> progress = null, int offset = 0,
+            Action<IReadOnlyList<DiffFile>> onBatch = null, Comparison<string> pathComparison = null)
         {
             var files = new List<DiffFile>();
-            string[] paths = left.Keys.Union(right.Keys, StringComparer.OrdinalIgnoreCase).OrderBy(p => p, StringComparer.OrdinalIgnoreCase).ToArray();
+            var batch = onBatch == null ? null : new List<DiffFile>(128);
+            string[] paths = left.Keys.Union(right.Keys, StringComparer.OrdinalIgnoreCase).ToArray();
+            if (pathComparison != null) Array.Sort(paths, pathComparison);
+            else Array.Sort(paths, StringComparer.OrdinalIgnoreCase);
             for (int index = 0; index < paths.Length; index++)
             {
                 token.ThrowIfCancellationRequested();
                 string path = paths[index];
+                if (progress != null && index % 128 == 0)
+                    progress.Report(ReportCompare("Classifying differences…", index, paths.Length));
                 if (Protected(path)) continue;
                 DiffStamp a, b; left.TryGetValue(path, out a); right.TryGetValue(path, out b);
-                if (includeSame || !DiffStamp.Same(a, b, compareTimestamp)) files.Add(new DiffFile { RelativePath = path, Source = a, Target = b, CompareTimestamp = compareTimestamp });
-                if (progress != null && index + 1 == paths.Length)
-                    progress.Report(ReportCompare("Classifying differences…", Math.Max(offset, paths.Length), Math.Max(offset, paths.Length)));
+                if (includeSame || !DiffStamp.Same(a, b, compareTimestamp))
+                {
+                    var file = new DiffFile { RelativePath = path, Source = a, Target = b, CompareTimestamp = compareTimestamp };
+                    files.Add(file);
+                    batch?.Add(file);
+                    if (batch?.Count >= 128)
+                    {
+                        onBatch(batch.ToArray());
+                        batch.Clear();
+                    }
+                }
             }
+            if (batch?.Count > 0) onBatch(batch.ToArray());
+            progress?.Report(ReportCompare("Classifying differences…", Math.Max(1, paths.Length), Math.Max(1, paths.Length)));
             return files;
         }
         /// <summary>Returns the synchronization operation required for a difference.</summary>

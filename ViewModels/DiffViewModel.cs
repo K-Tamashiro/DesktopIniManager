@@ -25,8 +25,8 @@ namespace DesktopIniManager.ViewModels
             }
         }
         public string Title => string.Format(StringOverlay.Get("Diff_TitleFile"), File.RelativePath);
-        public string SourceHeader => HeaderText(StringOverlay.Get("Common_Source"), File.SourceInfo);
-        public string TargetHeader => HeaderText(StringOverlay.Get("Common_Target"), File.TargetInfo);
+        public string SourceHeader => HeaderMeta(File.SourceInfo);
+        public string TargetHeader => HeaderMeta(File.TargetInfo);
         public bool IsImage => DiffMedia.IsImage(File.RelativePath);
         private string externalDiff = string.Empty;
         public string ExternalDiff { get => externalDiff; set => SetProperty(ref externalDiff, value); }
@@ -39,6 +39,45 @@ namespace DesktopIniManager.ViewModels
         private bool loadingContent, navigating, closed;
         private string[][] preparedText;
         public List<DiffLine> Lines { get; private set; }
+        private List<DiffLine> allLines;
+        internal bool DifferencesOnly { get; private set; }
+
+        internal bool ToggleDifferencesOnly()
+        {
+            if (loadingContent || navigating || closed || IsImage || allLines == null) return false;
+            DifferencesOnly = !DifferencesOnly;
+            UpdateDisplayedLines();
+            return true;
+        }
+
+        private void UpdateDisplayedLines()
+        {
+            if (!DifferencesOnly) Lines = allLines;
+            else
+            {
+                var visible = new List<DiffLine>();
+                for (int i = 0; i < allLines.Count; i++)
+                {
+                    if (allLines[i].Kind != DiffLineKind.Unchanged)
+                    {
+                        visible.Add(allLines[i]);
+                        continue;
+                    }
+                    int start = i;
+                    while (i + 1 < allLines.Count && allLines[i + 1].Kind == DiffLineKind.Unchanged) i++;
+                    int count = i - start + 1;
+                    string label = string.Format(StringOverlay.Get("Diff_FilteredLines"), count);
+                    visible.Add(new DiffLine { Kind = DiffLineKind.Unchanged, Left = label, Right = label, FilteredLineCount = count });
+                }
+                Lines = visible;
+            }
+            Hunks.Clear();
+            CurrentHunk = -1;
+            for (int i = 0; i < Lines.Count; i++)
+                if (Lines[i].Kind != DiffLineKind.Unchanged && (i == 0 || Lines[i - 1].Kind == DiffLineKind.Unchanged)) Hunks.Add(i);
+            OnPropertyChanged(nameof(Lines));
+            OnPropertyChanged(nameof(Hunks));
+        }
         public List<int> Hunks { get; } = new List<int>();
         internal int CurrentHunk { get; set; } = -1;
         private string status = string.Empty;
@@ -61,6 +100,7 @@ namespace DesktopIniManager.ViewModels
         internal DiffViewModel(DiffSnapshot snapshot, DiffFile file, IUserDialogService dialogs)
         {
             this.dialogs = dialogs;
+            DifferencesOnly = SettingsService.LoadDiffDifferencesOnly();
             Snapshot = snapshot; File = file;
             PreviousHunkCommand = new RelayCommand(() => NavigateHunk(-1));
             NextHunkCommand = new RelayCommand(() => NavigateHunk(1));
@@ -77,6 +117,7 @@ namespace DesktopIniManager.ViewModels
         internal void Close()
         {
             closed = true;
+            SettingsService.SaveDiffDifferencesOnly(DifferencesOnly);
             externalDiffPending = false;
             FileClosed?.Invoke(File);
             if (string.IsNullOrWhiteSpace(ExternalDiff)) return;
@@ -141,11 +182,8 @@ namespace DesktopIniManager.ViewModels
             string left = GetPath(true), right = GetPath(false);
             var prepared = preparedText;
             preparedText = null;
-            Lines = await Task.Run(() => DiffTextService.Compare(prepared == null ? ReadText(left) : prepared[0], prepared == null ? ReadText(right) : prepared[1]));
-            Hunks.Clear();
-            for (int i = 0; i < Lines.Count; i++)
-                if (Lines[i].Kind != DiffLineKind.Unchanged && (i == 0 || Lines[i - 1].Kind == DiffLineKind.Unchanged)) Hunks.Add(i);
-            OnPropertyChanged(nameof(Lines)); OnPropertyChanged(nameof(Hunks));
+            allLines = await Task.Run(() => DiffTextService.Compare(prepared == null ? ReadText(left) : prepared[0], prepared == null ? ReadText(right) : prepared[1]));
+            UpdateDisplayedLines();
         }
         private void NavigateHunk(int direction)
         {
@@ -232,10 +270,17 @@ namespace DesktopIniManager.ViewModels
             return null;
         }
 
-        private static string HeaderText(string title, string info)
+        private static string HeaderMeta(string info)
         {
-            string cleanInfo = System.Text.RegularExpressions.Regex.Replace(info ?? "", @"(\d{2}:\d{2}:\d{2})\.\d+", "$1");
-            return title + "\n" + cleanInfo;
+            string clean = System.Text.RegularExpressions.Regex.Replace(info ?? string.Empty, @"(\d{2}:\d{2}:\d{2})\.\d+", "$1");
+            var kept = new List<string>();
+            foreach (string line in clean.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                string text = line.Trim();
+                if (text.IndexOf('/') >= 0 || text.EndsWith("bytes", StringComparison.OrdinalIgnoreCase))
+                    kept.Add(text);
+            }
+            return string.Join("\n", kept);
         }
 
         private static BitmapSource LoadImage(string path)
@@ -258,9 +303,7 @@ namespace DesktopIniManager.ViewModels
 
         private static void SeedExternalDiffPresets()
         {
-            string settingsDirectory = System.IO.Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "DesktopIniManager");
+            string settingsDirectory = AppSlot.Directory;
             string markerPath = System.IO.Path.Combine(settingsDirectory, "diff-view-presets-v2.txt");
             if (System.IO.File.Exists(markerPath)) return;
 

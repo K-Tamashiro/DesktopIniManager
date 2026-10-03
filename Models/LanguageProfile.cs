@@ -1,3 +1,4 @@
+﻿using System;
 using System.Collections.Generic;
 
 namespace DesktopIniManager.Models
@@ -8,6 +9,7 @@ namespace DesktopIniManager.Models
         public string Name { get; }
         public string[] Extensions { get; }
         public bool IsFree => Extensions.Length == 0;
+        public bool IsDocument => string.Equals(Name, "Document", StringComparison.OrdinalIgnoreCase);
         public string ExtensionText => string.Join(" ", Extensions);
         public override string ToString() => Name;
 
@@ -23,7 +25,8 @@ namespace DesktopIniManager.Models
             new LanguageProfile("PHP", ".php", ".phtml", ".html", ".htm", ".css", ".js", ".json", ".ini", ".log"),
             new LanguageProfile("Java", ".java", ".jsp", ".xml", ".properties", ".gradle", ".json", ".log"),
             new LanguageProfile("Delphi", ".pas", ".dpr", ".dpk", ".dfm", ".fmx", ".ini", ".log"),
-            new LanguageProfile("SQL", ".sql", ".ddl", ".ini", ".json", ".xml", ".log")
+            new LanguageProfile("SQL", ".sql", ".ddl", ".ini", ".json", ".xml", ".log"),
+            new LanguageProfile("Document", ".xls", ".xlsx", ".xlsm", ".pdf")
         };
     }
 }

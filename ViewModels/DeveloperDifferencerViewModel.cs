@@ -3,6 +3,7 @@ using DesktopIniManager.Properties;
 using DesktopIniManager.Services;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
@@ -16,8 +17,8 @@ namespace DesktopIniManager.ViewModels
 {
     internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
     {
-        internal static readonly string StateDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DesktopIniManager");
-        internal static string StatePath = Path.Combine(StateDirectory, "developer-differencer.xml");
+        internal static string StateDirectory => AppSlot.Directory;
+        internal static string StatePath { get; set; } = Path.Combine(StateDirectory, "developer-differencer.xml");
         private DiffSnapshot snapshot;
         private int previewInFlight;
         private readonly SemaphoreSlim previewWorkers = new SemaphoreSlim(2);
@@ -43,6 +44,7 @@ namespace DesktopIniManager.ViewModels
         public event Action<bool> CommitBrowsedRootHistoryRequested;
         public event Action<DiffSnapshot, DiffFile> DiffRequested;
         public event Action<IReadOnlyList<DiffFolder>> FolderRevealRequested;
+        public event Action<DiffRow> FileProgressRequested;
         public RelayCommand BrowseSourceCommand { get; }
         public RelayCommand BrowseTargetCommand { get; }
         public RelayCommand CloseCommand { get; }
@@ -51,6 +53,8 @@ namespace DesktopIniManager.ViewModels
         public RelayCommand OpenDiffCommand { get; }
         private readonly Dictionary<string, DiffFolder> folders = new Dictionary<string, DiffFolder>(StringComparer.OrdinalIgnoreCase);
         private List<DiffRow> rows = new List<DiffRow>();
+        private ObservableCollection<DiffRow> streamingRows;
+        private DiffIndex[] comparisonIndexes;
         private string selectedFolder = "";
         private bool bulk;
         private bool comparing;
@@ -63,7 +67,7 @@ namespace DesktopIniManager.ViewModels
         public IReadOnlyDictionary<string, DiffFolder> Folders => folders;
         public void SelectFolder(string path)
         {
-            if (syncingTreeFromFile) return;
+            if (syncingTreeFromFile || IsBusy || string.Equals(selectedFolder, path ?? "", StringComparison.OrdinalIgnoreCase)) return;
             selectedFolder = path ?? "";
 
             // A folder change starts a new Same-selection operation.
@@ -95,15 +99,46 @@ namespace DesktopIniManager.ViewModels
                 if (!changed) OnPropertyChanged(nameof(SourcePath));
                 ClearComparisonView();
                 RestartIndex(true);
+                if (changed) pendingRootLink = LinkTargetFolderAsync(path, TargetPath);
             }
             else
             {
                 bool changed = SetProperty(ref _targetPath, path, nameof(TargetPath));
                 if (!changed && !force) return;
+                rootLinkVersion++;
                 if (!changed) OnPropertyChanged(nameof(TargetPath));
                 ClearComparisonView();
                 RestartIndex(false);
             }
+        }
+
+        private int rootLinkVersion;
+        private Task pendingRootLink = Task.CompletedTask;
+
+        private async Task LinkTargetFolderAsync(string source, string target)
+        {
+            int version = ++rootLinkVersion;
+            // Text input is debounced; network lookups must not block the UI thread.
+            await Task.Delay(300);
+            if (closed || IsBusy || version != rootLinkVersion || SourcePath != source || TargetPath != target) return;
+            string match = await Task.Run(() =>
+            {
+                try
+                {
+                    if (!Directory.Exists(source) || !Directory.Exists(target)) return null;
+                    string sourceRoot = Path.GetFullPath(source);
+                    string name = new DirectoryInfo(sourceRoot).Name;
+                    if (new DirectoryInfo(sourceRoot).Parent == null) return null;
+                    string targetRoot = Path.GetFullPath(target);
+                    if (string.Equals(new DirectoryInfo(targetRoot).Name, name, StringComparison.OrdinalIgnoreCase)) return null;
+                    // Only select an existing direct child of the current Target.
+                    string child = Path.Combine(targetRoot, name);
+                    return Directory.Exists(child) ? child : null;
+                }
+                catch { return null; }
+            });
+            if (match != null && !closed && !IsBusy && version == rootLinkVersion && SourcePath == source && TargetPath == target)
+                ApplyRootPath(false, match);
         }
 
         private PendingIndex sourceIndex, targetIndex;
@@ -363,7 +398,7 @@ namespace DesktopIniManager.ViewModels
 
         internal async Task LoadPreviewAsync(DiffRow row)
         {
-            if (closed || row == null || snapshot == null) return;
+            if (closed || row == null || (snapshot == null && !comparing)) return;
             bool wait = !row.IsPreviewReady;
             if (wait) previewInFlight++;
             try { await row.LoadPreviewAsync(previewWorkers, previewScope.Token); }
@@ -426,6 +461,7 @@ namespace DesktopIniManager.ViewModels
                 DifferencerState state;
                 using (var stream = File.OpenRead(StatePath)) state = (DifferencerState)new XmlSerializer(typeof(DifferencerState)).Deserialize(stream);
                 SourcePath = DisplayRoot(state.Source); TargetPath = DisplayRoot(state.Target);
+                rootLinkVersion++; // Restoring saved paths must not initiate automatic linking.
                 treeSource = SourcePath; treeTarget = TargetPath; selectedFolder = ""; cachedVisibleFolders = null;
                 Status = "Source and Target restored. Click Compare to build the difference tree.";
             }
@@ -704,7 +740,6 @@ namespace DesktopIniManager.ViewModels
         internal void ClearComparisonView()
         {
             CaptureHistoryTab();
-            CaptureHistoryTab();
             previewScope.Cancel();
             previewScope.Dispose();
             previewScope = new CancellationTokenSource();
@@ -712,6 +747,7 @@ namespace DesktopIniManager.ViewModels
             DetachSelectionHandlers();
             FolderItems = null;
             FileItems = null;
+            streamingRows = null;
             snapshot = null; rows.Clear();
             selectedHistoryTab = null;
             NotifyHistory();
@@ -788,12 +824,17 @@ namespace DesktopIniManager.ViewModels
 
         internal async Task CompareAsync()
         {
-            if (IsBusy || !PrepareComparisonTab()) return;
+            if (IsBusy) return;
+            await pendingRootLink;
+            if (closed || IsBusy || !PrepareComparisonTab()) return;
             CaptureHistoryTab();
             CommitRootHistoryRequested?.Invoke();
             var expanded = folders.Values.Where(f => f.Expanded).Select(f => f.Path).ToList();
             ClearComparisonView(); SetBusy(true);
             comparing = true; CanCancel = true;
+            SetFilePanelBusy(false);
+            streamingRows = new ObservableCollection<DiffRow>();
+            FileItems = streamingRows;
             compareCts?.Dispose();
             compareCts = new CancellationTokenSource();
             var token = compareCts.Token;
@@ -809,9 +850,13 @@ namespace DesktopIniManager.ViewModels
             PendingIndex rightIndex = targetIndex ?? (targetIndex = new PendingIndex(target));
             _ = ObserveIndexProgressAsync(leftIndex);
             _ = ObserveIndexProgressAsync(rightIndex);
+            bool classifying = true;
             try
             {
-                var progress = new Progress<DiffProgress>(UpdateProgress);
+                var progress = new Progress<DiffProgress>(value =>
+                {
+                    if (classifying && !token.IsCancellationRequested) UpdateProgress(value);
+                });
                 bool compareTimestamp = CompareTimestamp == true;
                 BusyMessage = Status = "Preparing source / target indexes…";
                 DiffIndex[] indexes = await Task.WhenAll(leftIndex.Task, rightIndex.Task).WaitAsync(token);
@@ -819,32 +864,60 @@ namespace DesktopIniManager.ViewModels
                 if (leftIndex.Error != null) throw leftIndex.Error;
                 if (rightIndex.Error != null) throw rightIndex.Error;
                 if (indexes[0] == null || indexes[1] == null) throw new OperationCanceledException();
-                DiffSnapshot fresh = await Task.Run(() => DeveloperDifferencerService.Compare(indexes[0], indexes[1], progress, compareTimestamp, token), token);
+                comparisonIndexes = indexes;
+                if (!indexes[0].Folders.Contains(selectedFolder) && !indexes[1].Folders.Contains(selectedFolder)) selectedFolder = "";
+                string displayFolder = selectedFolder;
+                var pathComparer = StringComparer.CurrentCultureIgnoreCase;
+                DiffSnapshot fresh = await Task.Run(() => DeveloperDifferencerService.Compare(indexes[0], indexes[1], progress, compareTimestamp, token,
+                    batch => dispatcher.Invoke(() =>
+                    {
+                        token.ThrowIfCancellationRequested();
+                        DiffRow last = null;
+                        foreach (DiffFile file in batch)
+                        {
+                            var row = new DiffRow { File = file, SourceRoot = source, TargetRoot = target };
+                            row.SetDirectInSelectedFolder(IsDirectChildFile(displayFolder, file.RelativePath));
+                            rows.Add(row);
+                            if (!IncludeBuildFolderFile(file) || (file.Kind & kindMask) == 0 || (_checkedOnlyFilter && !file.Selected) ||
+                                (displayFolder.Length > 0 && !file.RelativePath.StartsWith(displayFolder + "\\", StringComparison.OrdinalIgnoreCase))) continue;
+                            streamingRows.Add(row);
+                            last = row;
+                        }
+                        FilePanelTitle = "Files — " + (displayFolder.Length == 0 ? "all levels" : displayFolder) + " (" + streamingRows.Count + ")";
+                        if (last != null) FileProgressRequested?.Invoke(last);
+                    }, DispatcherPriority.Background),
+                    (left, right) =>
+                    {
+                        int direct = IsDirectChildFile(displayFolder, right).CompareTo(IsDirectChildFile(displayFolder, left));
+                        if (direct != 0) return direct;
+                        int name = pathComparer.Compare(Path.GetFileName(left), Path.GetFileName(right));
+                        return name != 0 ? name : pathComparer.Compare(left, right);
+                    }), token);
+                classifying = false;
                 token.ThrowIfCancellationRequested();
                 Status = "Updating the difference tree…";
                 BusyMessage = "Updating the difference tree and file list…";
                 snapshot = fresh; treeSource = source; treeTarget = target;
-                rows = await Task.Run(() => snapshot.Files
-                    .Select(f => new DiffRow { File = f, SourceRoot = snapshot.SourceRoot, TargetRoot = snapshot.TargetRoot })
-                    .ToList(), token);
-                token.ThrowIfCancellationRequested();
                 await BuildTreeAsync(snapshot.Folders, expanded, selectedFolder, token);
+                FileProgressRequested?.Invoke(FileItems?.LastOrDefault());
                 Status = folders[""].CountFor(DiffKind.Differences) + " differences / " + folders[""].CountFor(DiffKind.Same) + " identical. Check items to synchronize.";
                 AddComparisonTab();
                 SaveState();
             }
-            catch (OperationCanceledException) { Status = "Compare cancelled"; }
-            catch (Exception ex) { Status = "Compare failed (sync disabled): " + ErrorMessages.English(ex); ShowError(ex); }
+            catch (OperationCanceledException) { ClearComparisonView(); Status = "Compare cancelled"; }
+            catch (Exception ex) { ClearComparisonView(); Status = "Compare failed (sync disabled): " + ErrorMessages.English(ex); ShowError(ex); }
             finally
             {
-                if (token.IsCancellationRequested || leftIndex.Error != null || rightIndex.Error != null)
-                {
-                    leftIndex.Cancel();
-                    rightIndex.Cancel();
-                    if (ReferenceEquals(sourceIndex, leftIndex)) sourceIndex = null;
-                    if (ReferenceEquals(targetIndex, rightIndex)) targetIndex = null;
-                    NotifyIndexProgress();
-                }
+                classifying = false;
+                comparisonIndexes = null;
+                streamingRows = null;
+                SetFilePanelBusy(false);
+                // A later comparison must see files/folders added or deleted since this run.
+                leftIndex.Cancel();
+                rightIndex.Cancel();
+                if (ReferenceEquals(sourceIndex, leftIndex)) sourceIndex = null;
+                if (ReferenceEquals(targetIndex, rightIndex)) targetIndex = null;
+                NotifyIndexProgress();
                 comparing = false;
                 IsProgressVisible = false;
                 ProgressIndeterminate = false;
@@ -867,8 +940,71 @@ namespace DesktopIniManager.ViewModels
             Status = detail;
         }
 
+        private void SetTreeProgress(string stage, int completed, int total)
+        {
+            IsProgressVisible = true;
+            ProgressIndeterminate = false;
+            ProgressMaximum = Math.Max(1, total);
+            ProgressValue = Math.Min(completed, ProgressMaximum);
+            BusyMessage = Status = stage + " " + completed.ToString("N0") + " / " + total.ToString("N0");
+        }
+
+        private Task<Dictionary<string, HistoryFolderState>> ReadFolderStatesAsync(string[] paths, CancellationToken token)
+        {
+            var saved = restoringFolders;
+            var indexes = comparisonIndexes;
+            var current = snapshot;
+            return Task.Run(() =>
+            {
+                var states = new Dictionary<string, HistoryFolderState>(StringComparer.OrdinalIgnoreCase);
+                for (int i = 0; i < paths.Length; i++)
+                {
+                    token.ThrowIfCancellationRequested();
+                    string path = paths[i];
+                    HistoryFolderState state;
+                    if (saved != null && saved.TryGetValue(path, out state)) states[path] = state;
+                    else
+                    {
+                        state = new HistoryFolderState { Path = path };
+                        if (indexes != null && indexes[0].NonEmptyFolders != null && indexes[1].NonEmptyFolders != null)
+                        {
+                            state.SourceExists = indexes[0].Folders.Contains(path);
+                            state.TargetExists = indexes[1].Folders.Contains(path);
+                            state.SourceEmpty = state.SourceExists && !indexes[0].NonEmptyFolders.Contains(path);
+                            state.TargetEmpty = state.TargetExists && !indexes[1].NonEmptyFolders.Contains(path);
+                        }
+                        else if (current != null)
+                        {
+                            // Older history entries may lack folder state. Read those off the UI thread.
+                            string source = Path.Combine(current.SourceRoot, path);
+                            string target = Path.Combine(current.TargetRoot, path);
+                            state.SourceExists = Directory.Exists(source);
+                            state.TargetExists = Directory.Exists(target);
+                            state.SourceEmpty = state.SourceExists && !Directory.EnumerateFileSystemEntries(source).Any();
+                            state.TargetEmpty = state.TargetExists && !Directory.EnumerateFileSystemEntries(target).Any();
+                        }
+                        states[path] = state;
+                    }
+                    if ((i + 1) % 128 == 0 || i + 1 == paths.Length)
+                    {
+                        int done = i + 1;
+                        dispatcher.Invoke(() =>
+                        {
+                            if (!closed && !token.IsCancellationRequested) SetTreeProgress("Reading folder state…", done, paths.Length);
+                        }, DispatcherPriority.Background);
+                    }
+                }
+                return states;
+            }, token).WaitAsync(token);
+        }
+
         internal async Task BuildTreeAsync(IEnumerable<string> paths, IEnumerable<string> expanded, string selected, CancellationToken token)
         {
+            bool progressWasVisible = IsProgressVisible;
+            try
+            {
+            SetTreeProgress("Preparing folders…", 0, 0);
+            await Dispatcher.Yield(DispatcherPriority.Background);
             folders.Clear();
             var all = new HashSet<string>(paths, StringComparer.OrdinalIgnoreCase) { "" };
             foreach (string path in all.Where(p => p.Length > 0).ToArray())
@@ -883,30 +1019,26 @@ namespace DesktopIniManager.ViewModels
 
             var expansion = new HashSet<string>(expanded ?? new string[0], StringComparer.OrdinalIgnoreCase);
             selectedFolder = selected != null && all.Contains(selected) ? selected : "";
+            string[] orderedPaths = all.OrderBy(p => p.Length).ThenBy(p => p, StringComparer.OrdinalIgnoreCase).ToArray();
+            var folderStates = await ReadFolderStatesAsync(orderedPaths, token);
+            SetTreeProgress("Building folders…", 0, orderedPaths.Length);
 
             int processed = 0;
-            foreach (string path in all.OrderBy(p => p.Length).ThenBy(p => p, StringComparer.OrdinalIgnoreCase))
+            foreach (string path in orderedPaths)
             {
                 token.ThrowIfCancellationRequested();
 
-                string sourceFolderPath = snapshot == null ? null : System.IO.Path.Combine(snapshot.SourceRoot, path);
-                string targetFolderPath = snapshot == null ? null : System.IO.Path.Combine(snapshot.TargetRoot, path);
-                HistoryFolderState savedFolder = null;
-                restoringFolders?.TryGetValue(path, out savedFolder);
-                bool sourceExists = savedFolder != null ? savedFolder.SourceExists : sourceFolderPath != null && Directory.Exists(sourceFolderPath);
-                bool targetExists = savedFolder != null ? savedFolder.TargetExists : targetFolderPath != null && Directory.Exists(targetFolderPath);
-                bool sourceEmpty = savedFolder != null ? savedFolder.SourceEmpty : sourceExists && !Directory.EnumerateFileSystemEntries(sourceFolderPath).Any();
-                bool targetEmpty = savedFolder != null ? savedFolder.TargetEmpty : targetExists && !Directory.EnumerateFileSystemEntries(targetFolderPath).Any();
+                HistoryFolderState state = folderStates[path];
 
                 var node = new DiffFolder
                 {
                     Path = path,
                     Expanded = expansion.Contains(path) || path == "",
                     Active = path == selectedFolder,
-                    SourceExists = sourceExists,
-                    TargetExists = targetExists,
-                    SourceEmpty = sourceEmpty,
-                    TargetEmpty = targetEmpty
+                    SourceExists = state.SourceExists,
+                    TargetExists = state.TargetExists,
+                    SourceEmpty = state.SourceEmpty,
+                    TargetEmpty = state.TargetEmpty
                 };
                 node.IncludeFile = IncludeBuildFolderFile;
                 node.IncludeFolder = folder => IncludeBuildFolder(folder.Path);
@@ -935,12 +1067,16 @@ namespace DesktopIniManager.ViewModels
                 }
 
                 if (++processed % 64 == 0)
+                {
+                    SetTreeProgress("Building folders…", processed, orderedPaths.Length);
                     await Dispatcher.Yield(DispatcherPriority.Background);
+                }
             }
 
             if (snapshot != null)
             {
                 processed = 0;
+                SetTreeProgress("Assigning files to folders…", 0, snapshot.Files.Count);
                 foreach (DiffFile file in snapshot.Files)
                 {
                     token.ThrowIfCancellationRequested();
@@ -954,17 +1090,24 @@ namespace DesktopIniManager.ViewModels
                     }
 
                     if (++processed % 256 == 0)
+                    {
+                        SetTreeProgress("Assigning files to folders…", processed, snapshot.Files.Count);
                         await Dispatcher.Yield(DispatcherPriority.Background);
+                    }
                 }
             }
 
             processed = 0;
+            SetTreeProgress("Updating folder counts…", 0, folders.Count);
             foreach (DiffFolder folder in folders.Values)
             {
                 token.ThrowIfCancellationRequested();
                 folder.Refresh();
                 if (++processed % 128 == 0)
+                {
+                    SetTreeProgress("Updating folder counts…", processed, folders.Count);
                     await Dispatcher.Yield(DispatcherPriority.Background);
+                }
             }
 
             if (snapshot != null)
@@ -982,7 +1125,11 @@ namespace DesktopIniManager.ViewModels
                 }
             }
 
+            SetTreeProgress("Updating folder display…", 0, folders.Count);
             await ApplyKindFilterAsync(token);
+            SetTreeProgress("Updating folder display…", folders.Count, folders.Count);
+            }
+            finally { IsProgressVisible = progressWasVisible; }
         }
 
         internal async Task ApplyKindFilterAsync(CancellationToken token)
@@ -1034,11 +1181,33 @@ namespace DesktopIniManager.ViewModels
 
             MarkDirectFileRows(visible);
             visible = OrderSelectedFolderFirst(visible);
-            FileItems = visible;
+            if (streamingRows != null && ReferenceEquals(FileItems, streamingRows))
+            {
+                // Keep the streamed collection and row objects. Usually the order already
+                // matches; only reconcile when the selected folder fell back to the root.
+                var wanted = new HashSet<DiffRow>(visible);
+                for (int i = streamingRows.Count - 1; i >= 0; i--)
+                {
+                    token.ThrowIfCancellationRequested();
+                    if (!wanted.Contains(streamingRows[i])) streamingRows.RemoveAt(i);
+                }
+                for (int i = 0; i < visible.Count; i++)
+                {
+                    token.ThrowIfCancellationRequested();
+                    if (i >= streamingRows.Count || !ReferenceEquals(streamingRows[i], visible[i]))
+                    {
+                        int oldIndex = streamingRows.IndexOf(visible[i]);
+                        if (oldIndex >= 0) streamingRows.Move(oldIndex, i);
+                        else streamingRows.Insert(i, visible[i]);
+                    }
+                    if ((i + 1) % 256 == 0) await Dispatcher.Yield(DispatcherPriority.Background);
+                }
+            }
+            else FileItems = visible;
             FilePanelTitle = "Files — " + (selectedFolder.Length == 0 ? "all levels" : selectedFolder) + " (" + visible.Count + ")";
             UpdateSelectionSummary();
 
-            // Give WPF one render pass before the busy overlay is removed in Compare().
+            // Allow the current collection to render without hiding or replacing it.
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
         }
 

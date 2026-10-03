@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Globalization;
 using System.Text;
@@ -7,23 +7,50 @@ namespace DesktopIniManager.Services
 {
     internal static class SettingsService
     {
-        private static readonly string SettingsDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DesktopIniManager");
-        private static readonly string SettingsPath = Path.Combine(SettingsDirectory, "settings.txt");
-        private static readonly string SearchQueryPath = Path.Combine(SettingsDirectory, "search-query.txt");
-        private static readonly string SearchRootPath = Path.Combine(SettingsDirectory, "search-root.txt");
-        private static readonly string ThemePath = Path.Combine(SettingsDirectory, "theme.txt");
-        private static readonly string EditorPath = Path.Combine(SettingsDirectory, "editor.txt");
-        private static readonly string EditorArgumentsPath = Path.Combine(SettingsDirectory, "editor-arguments.txt");
-        private static readonly string ExternalDiffPath = Path.Combine(SettingsDirectory, "external-diff.txt");
-        private static readonly string GrepProfilePath = Path.Combine(SettingsDirectory, "grep-profile.txt");
-        private static readonly string GrepColumnWidthsPath = Path.Combine(SettingsDirectory, "grep-column-widths.txt");
-        private static readonly string GrepFreeExtensionsPath = Path.Combine(SettingsDirectory, "grep-free-extensions.txt");
-        private static readonly string TreeDensityPath = Path.Combine(SettingsDirectory, "tree-density.txt");
-        private static readonly string MainWindowPlacementPath = Path.Combine(SettingsDirectory, "main-window.txt");
+        private static string SettingsDirectory => AppSlot.Directory;
+        private static string SettingsPath => Path.Combine(SettingsDirectory, "settings.txt");
+        private static string SearchQueryPath => Path.Combine(SettingsDirectory, "search-query.txt");
+        private static string SearchRootPath => Path.Combine(SettingsDirectory, "search-root.txt");
+        private static string ThemePath => Path.Combine(SettingsDirectory, "theme.txt");
+        private static string EditorPath => Path.Combine(SettingsDirectory, "editor.txt");
+        private static string EditorArgumentsPath => Path.Combine(SettingsDirectory, "editor-arguments.txt");
+        private static string ExternalDiffPath => Path.Combine(SettingsDirectory, "external-diff.txt");
+        private static string DiffDisplayModePath => Path.Combine(SettingsDirectory, "diff-display-mode.txt");
+        private static string GrepProfilePath => Path.Combine(SettingsDirectory, "grep-profile.txt");
+        private static string GrepColumnWidthsPath => Path.Combine(SettingsDirectory, "grep-column-widths.txt");
+        private static string GrepFreeExtensionsPath => Path.Combine(SettingsDirectory, "grep-free-extensions.txt");
+        private static string TreeDensityPath => Path.Combine(SettingsDirectory, "tree-density.txt");
+        private static string MainWindowPlacementPath => Path.Combine(SettingsDirectory, "main-window.txt");
+        private static string MainListLayoutPath => Path.Combine(SettingsDirectory, "main-list-layout.txt");
+
+        public static double[] LoadMainListLayout()
+        {
+            string text = ReadSetting(MainListLayoutPath, null);
+            if (string.IsNullOrWhiteSpace(text)) return null;
+            string[] parts = text.Split(',');
+            var values = new double[parts.Length];
+            for (int i = 0; i < parts.Length; i++)
+                if (!double.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out values[i]) ||
+                    double.IsNaN(values[i]) || double.IsInfinity(values[i]) || values[i] < 0)
+                    return null;
+            return values;
+        }
+
+        public static void SaveMainListLayout(double[] values) => WriteSetting(MainListLayoutPath,
+            string.Join(",", Array.ConvertAll(values, value => value.ToString("R", CultureInfo.InvariantCulture))));
 
         public static string LoadIconLibraryPath()
         {
-            try { return File.Exists(SettingsPath) ? File.ReadAllText(SettingsPath, Encoding.UTF8).Trim() : null; }
+            try
+            {
+                string path = File.Exists(SettingsPath) ? File.ReadAllText(SettingsPath, Encoding.UTF8).Trim() : null;
+                if (string.IsNullOrWhiteSpace(path)) return null;
+                // Older settings stored the bundled library's absolute installation path.
+                string normalized = path.Replace('/', '\\');
+                if (normalized.EndsWith("\\Assets\\folder_set.icl", StringComparison.OrdinalIgnoreCase))
+                    return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "folder_set.icl");
+                return Path.IsPathRooted(path) ? path : Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, path));
+            }
             catch { return null; }
         }
 
@@ -32,8 +59,13 @@ namespace DesktopIniManager.Services
             try
             {
                 if (string.IsNullOrWhiteSpace(path)) return;
+                string baseDirectory = Path.GetFullPath(AppDomain.CurrentDomain.BaseDirectory)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+                string fullPath = Path.GetFullPath(Path.Combine(baseDirectory, path.Trim()));
+                string savedPath = fullPath.StartsWith(baseDirectory, StringComparison.OrdinalIgnoreCase)
+                    ? fullPath.Substring(baseDirectory.Length) : fullPath;
                 Directory.CreateDirectory(SettingsDirectory);
-                File.WriteAllText(SettingsPath, path.Trim(), new UTF8Encoding(false));
+                File.WriteAllText(SettingsPath, savedPath, new UTF8Encoding(false));
             }
             catch { /* Settings persistence must never prevent the app from closing. */ }
         }
@@ -83,20 +115,24 @@ namespace DesktopIniManager.Services
             catch { }
         }
 
-        public static bool LoadDarkMode()
+        public static string LoadTheme()
         {
-            try { return File.Exists(ThemePath) && string.Equals(File.ReadAllText(ThemePath).Trim(), "dark", StringComparison.OrdinalIgnoreCase); }
-            catch { return false; }
+            string saved = ReadSetting(ThemePath, "Dark");
+            return ThemeService.Normalize(saved);
         }
 
-        public static void SaveDarkMode(bool dark)
-        {
-            try { Directory.CreateDirectory(SettingsDirectory); File.WriteAllText(ThemePath, dark ? "dark" : "light", new UTF8Encoding(false)); }
-            catch { }
-        }
+        public static void SaveTheme(string theme) => WriteSetting(ThemePath, ThemeService.Normalize(theme));
+
+        // Kept for existing callers/startup state compatibility.
+        public static bool LoadDarkMode() => !string.Equals(LoadTheme(), "Light", StringComparison.OrdinalIgnoreCase);
+        public static void SaveDarkMode(bool dark) => SaveTheme(dark ? "Dark" : "Light");
 
         public static string LoadEditorPath() => ReadSetting(EditorPath, "code");
         public static string LoadExternalDiff() => ReadSetting(ExternalDiffPath, null);
+        public static bool LoadDiffDifferencesOnly() => string.Equals(
+            ReadSetting(DiffDisplayModePath, "all"), "differences", StringComparison.OrdinalIgnoreCase);
+        public static void SaveDiffDifferencesOnly(bool differencesOnly) =>
+            WriteSetting(DiffDisplayModePath, differencesOnly ? "differences" : "all");
 
         public static void SaveExternalDiff(string command) =>
             WriteSetting(ExternalDiffPath, command);

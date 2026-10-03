@@ -1,4 +1,4 @@
-<Window
+﻿<Window
     x:Class="DesktopIniManager.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -243,15 +243,28 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type GridViewColumnHeader}">
-                        <Border
-                            x:Name="HeaderBorder"
-                            Padding="{TemplateBinding Padding}"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            TextElement.Foreground="{TemplateBinding Foreground}">
-                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" />
-                        </Border>
+                        <Grid>
+                            <Border
+                                x:Name="HeaderBorder"
+                                Padding="{TemplateBinding Padding}"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                TextElement.Foreground="{TemplateBinding Foreground}">
+                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" />
+                            </Border>
+                            <Thumb
+                                x:Name="PART_HeaderGripper"
+                                Width="8"
+                                HorizontalAlignment="Right"
+                                Cursor="SizeWE">
+                                <Thumb.Template>
+                                    <ControlTemplate TargetType="Thumb">
+                                        <Border Background="Transparent" />
+                                    </ControlTemplate>
+                                </Thumb.Template>
+                            </Thumb>
+                        </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource AccentSoft}" />
@@ -455,6 +468,70 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+
+        <Style x:Key="InstanceSlotButton" TargetType="Button">
+            <Setter Property="Width" Value="132" />
+            <Setter Property="Height" Value="46" />
+            <Setter Property="Margin" Value="4,0" />
+            <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+            <Setter Property="Background" Value="{DynamicResource CardBackground}" />
+            <Setter Property="BorderThickness" Value="1.5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border
+                            x:Name="SlotBorder"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="10"
+                            SnapsToDevicePixels="True">
+                            <StackPanel Margin="8,0" Orientation="Horizontal">
+                                <Grid
+                                    Width="22"
+                                    Height="22"
+                                    Margin="0,0,8,0">
+                                    <Border
+                                        x:Name="SlotMark"
+                                        Background="{TemplateBinding BorderBrush}"
+                                        CornerRadius="4"
+                                        Opacity="0.18" />
+                                    <Path
+                                        x:Name="SlotFolder"
+                                        Width="14"
+                                        Height="12"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Data="M1,4 L6,4 L7,2 L13,2 L13,12 L1,12 Z"
+                                        Fill="{TemplateBinding BorderBrush}"
+                                        Stretch="Uniform"
+                                        Visibility="Collapsed" />
+                                </Grid>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock
+                                        FontSize="13"
+                                        FontWeight="SemiBold"
+                                        Text="{TemplateBinding Content}" />
+                                    <TextBlock
+                                        FontSize="10"
+                                        Foreground="{DynamicResource Muted}"
+                                        Text="{TemplateBinding Tag}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="SlotBorder" Property="Opacity" Value="0.82" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="SlotBorder" Property="Opacity" Value="0.7" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
     <Grid Margin="16">
         <Grid.RowDefinitions>
@@ -468,46 +545,68 @@
                     FontSize="34"
                     FontWeight="SemiBold"
                     Foreground="{DynamicResource Accent}"
-                    Text="{loc:L App_Title}" ToolTip="Ctrl + 1: Main   /   Ctrl + 2: Compare   /   Ctrl + 3: GREP" />
+                    Text="{loc:L App_Title}" />
                 <TextBlock
                     Margin="2,4,0,22"
                     Foreground="{DynamicResource Muted}"
                     Text="{loc:L Main_Subtitle}" />
             </StackPanel>
             <StackPanel
+                Margin="360,0,150,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                Orientation="Horizontal">
+                <Button
+                    x:Name="SlotButton1"
+                    BorderBrush="#4DA3FF"
+                    Content="DIM 1"
+                    Style="{StaticResource InstanceSlotButton}"
+                    Tag="Free" />
+                <Button
+                    x:Name="SlotButton2"
+                    BorderBrush="#F0C14A"
+                    Content="DIM 2"
+                    Style="{StaticResource InstanceSlotButton}"
+                    Tag="Free" />
+                <Button
+                    x:Name="SlotButton3"
+                    BorderBrush="#B07CFF"
+                    Content="DIM 3"
+                    Style="{StaticResource InstanceSlotButton}"
+                    Tag="Free" />
+                <Button
+                    x:Name="SlotButton4"
+                    BorderBrush="#FF6B6B"
+                    Content="DIM 4"
+                    Style="{StaticResource InstanceSlotButton}"
+                    Tag="Free" />
+                <Button
+                    x:Name="SlotButton5"
+                    BorderBrush="#3DDC97"
+                    Content="DIM 5"
+                    Style="{StaticResource InstanceSlotButton}"
+                    Tag="Free" />
+            </StackPanel>
+            <StackPanel
                 HorizontalAlignment="Right"
                 VerticalAlignment="Top"
                 Orientation="Horizontal">
-                <Border
+                <ComboBox
+                    x:Name="ThemeBox"
+                    Width="80"
+                    Height="32"
+                    MinWidth="64"
                     Margin="0,0,12,0"
-                    Padding="2"
-                    Background="{DynamicResource ThemeToggle}"
-                    CornerRadius="8">
-                    <StackPanel Orientation="Horizontal">
-                        <ToggleButton
-                            x:Name="LightThemeButton"
-                            Command="{Binding LightThemeCommand}"
-                            Style="{StaticResource ThemeToggleStyle}"
-                            ToolTip="{loc:L Theme_Light}">
-                            <Image
-                                x:Name="LightThemeIcon"
-                                Margin="3"
-                                RenderOptions.BitmapScalingMode="HighQuality"
-                                Stretch="Uniform" />
-                        </ToggleButton>
-                        <ToggleButton
-                            x:Name="DarkThemeButton"
-                            Command="{Binding DarkThemeCommand}"
-                            Style="{StaticResource ThemeToggleStyle}"
-                            ToolTip="{loc:L Theme_Dark}">
-                            <Image
-                                x:Name="DarkThemeIcon"
-                                Margin="3"
-                                RenderOptions.BitmapScalingMode="HighQuality"
-                                Stretch="Uniform" />
-                        </ToggleButton>
-                    </StackPanel>
-                </Border>
+                    VerticalContentAlignment="Center"
+                    Style="{StaticResource LanguageComboStyle}">
+                    <ComboBoxItem Content="Dark" />
+                    <ComboBoxItem Content="Light" />
+                    <ComboBoxItem Content="DIM1" />
+                    <ComboBoxItem Content="DIM2" />
+                    <ComboBoxItem Content="DIM3" />
+                    <ComboBoxItem Content="DIM4" />
+                    <ComboBoxItem Content="DIM5" />
+                </ComboBox>
                 <Button
                     x:Name="CloseWindowButton"
                     Background="Transparent"
@@ -897,23 +996,125 @@
                     </Border>
                     <Grid Grid.Row="2">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" MinWidth="325" />
+                            <ColumnDefinition
+                                x:Name="FolderPaneColumn"
+                                Width="*"
+                                MinWidth="325" />
                             <ColumnDefinition Width="5" />
-                            <ColumnDefinition Width="325" MinWidth="325" />
+                            <ColumnDefinition
+                                x:Name="FilePaneColumn"
+                                Width="325"
+                                MinWidth="325" />
                         </Grid.ColumnDefinitions>
                         <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <TreeView
+                                x:Name="FrozenRootTree"
+                                Background="{DynamicResource CardBackground}"
+                                BorderThickness="0"
+                                ItemTemplate="{Binding ItemTemplate, ElementName=ResultsTree}"
+                                ItemsSource="{Binding FrozenRootItems}"
+                                ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                                <TreeView.Style>
+                                    <Style TargetType="TreeView">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding FrozenRoot}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TreeView.Style>
+                                <TreeView.ItemContainerStyle>
+                                    <Style TargetType="TreeViewItem">
+                                        <Setter Property="IsSelected" Value="{Binding IsCurrent, Mode=TwoWay}" />
+                                        <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                                        <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                        <Setter Property="ContextMenu" Value="{StaticResource FolderTreeContextMenu}" />
+                                        <Setter Property="Visibility" Value="{Binding ItemVisibility}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="TreeViewItem">
+                                                    <Grid Background="{TemplateBinding Background}">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="20" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <ToggleButton
+                                                            x:Name="RootExpander"
+                                                            Content="▶"
+                                                            Focusable="False"
+                                                            Foreground="{DynamicResource Muted}"
+                                                            IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}">
+                                                            <ToggleButton.Template>
+                                                                <ControlTemplate TargetType="ToggleButton">
+                                                                    <TextBlock
+                                                                        HorizontalAlignment="Center"
+                                                                        VerticalAlignment="Center"
+                                                                        Foreground="{TemplateBinding Foreground}"
+                                                                        Text="{TemplateBinding Content}" />
+                                                                </ControlTemplate>
+                                                            </ToggleButton.Template>
+                                                        </ToggleButton>
+                                                        <ContentPresenter Grid.Column="1" ContentSource="Header" />
+                                                    </Grid>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsExpanded" Value="True">
+                                                            <Setter TargetName="RootExpander" Property="Content" Value="▼" />
+                                                        </Trigger>
+                                                        <Trigger Property="HasItems" Value="False">
+                                                            <Setter TargetName="RootExpander" Property="Visibility" Value="Hidden" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSearchMatch}" Value="True">
+                                                <Setter Property="Background" Value="{DynamicResource ThemeSelected}" />
+                                            </DataTrigger>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter Property="Background" Value="{DynamicResource ThemeSelected}" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TreeView.ItemContainerStyle>
+                            </TreeView>
                             <TreeView
                                 x:Name="ResultsTree"
+                                Grid.Row="1"
                                 HorizontalContentAlignment="Stretch"
                                 AllowDrop="True"
                                 Background="{DynamicResource CardBackground}"
                                 BorderThickness="0"
                                 Foreground="{DynamicResource Ink}"
-                                ItemsSource="{Binding TreeItems}"
+                                ItemsSource="{Binding ScrollingTreeItems}"
                                 ScrollViewer.CanContentScroll="True"
                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                VirtualizingStackPanel.IsVirtualizing="True"
                                 VirtualizingStackPanel.VirtualizationMode="Recycling">
+                                <TreeView.Style>
+                                    <Style TargetType="TreeView">
+                                        <Setter Property="VirtualizingStackPanel.IsVirtualizing" Value="True" />
+                                        <Setter Property="Margin" Value="20,0,0,0" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding FrozenRoot}" Value="{x:Null}">
+                                                <Setter Property="Margin" Value="0" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding FrozenRoot.ItemVisibility}" Value="Collapsed">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding FrozenRoot.IsExpanded}" Value="False">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TreeView.Style>
                                 <TreeView.ItemTemplate>
                                     <HierarchicalDataTemplate ItemsSource="{Binding Children}">
                                         <Grid
@@ -933,9 +1134,13 @@
                                                 Grid.Column="1"
                                                 HorizontalAlignment="Center"
                                                 VerticalAlignment="Center"
+                                                DataContextChanged="FolderIcon_DataContextChanged"
+                                                Loaded="FolderIcon_Loaded"
                                                 RenderOptions.BitmapScalingMode="HighQuality"
                                                 Source="{Binding IconPreview}"
-                                                Stretch="Uniform">
+                                                Stretch="Uniform"
+                                                Tag="{Binding Reason, NotifyOnTargetUpdated=True}"
+                                                TargetUpdated="FolderIcon_TargetUpdated">
                                                 <Image.Style>
                                                     <Style TargetType="Image">
                                                         <Setter Property="Width" Value="48" />
@@ -1086,6 +1291,9 @@
                                             </Setter.Value>
                                         </Setter>
                                         <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSearchMatch}" Value="True">
+                                                <Setter Property="Background" Value="{DynamicResource ThemeSelected}" />
+                                            </DataTrigger>
                                             <Trigger Property="IsSelected" Value="True">
                                                 <Setter Property="Background" Value="{DynamicResource ThemeSelected}" />
                                             </Trigger>
@@ -1095,6 +1303,7 @@
                             </TreeView>
                             <Border
                                 x:Name="TreePanelBusy"
+                                Grid.RowSpan="2"
                                 Background="{DynamicResource OverlayScrim}"
                                 IsHitTestVisible="True"
                                 Visibility="{Binding IsTreeBusy, Converter={StaticResource MvvmBooleanToVisibility}}">
@@ -1186,11 +1395,83 @@
                                     Foreground="{DynamicResource Ink}"
                                     ItemContainerStyle="{StaticResource FileListItemStyle}"
                                     ItemsSource="{Binding Files}"
-                                    ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                    SelectionMode="Extended">
+                                    ScrollViewer.CanContentScroll="True"
+                                    ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                    SelectionMode="Extended"
+                                    VirtualizingPanel.IsVirtualizing="True"
+                                    VirtualizingPanel.VirtualizationMode="Recycling">
+                                    <ListView.Resources>
+                                        <Style x:Key="{x:Static GridView.GridViewScrollViewerStyleKey}" TargetType="{x:Type ScrollViewer}">
+                                            <Setter Property="Focusable" Value="False" />
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="{x:Type ScrollViewer}">
+                                                        <Grid Background="{TemplateBinding Background}">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <Grid.RowDefinitions>
+                                                                <RowDefinition Height="*" />
+                                                                <RowDefinition Height="Auto" />
+                                                            </Grid.RowDefinitions>
+                                                            <DockPanel Grid.Row="0" Grid.Column="0">
+                                                                <ScrollViewer
+                                                                    DockPanel.Dock="Top"
+                                                                    Focusable="False"
+                                                                    HorizontalScrollBarVisibility="Hidden"
+                                                                    VerticalScrollBarVisibility="Hidden">
+                                                                    <GridViewHeaderRowPresenter
+                                                                        AllowsColumnReorder="{Binding TemplatedParent.View.AllowsColumnReorder, RelativeSource={RelativeSource TemplatedParent}}"
+                                                                        ColumnHeaderContainerStyle="{Binding TemplatedParent.View.ColumnHeaderContainerStyle, RelativeSource={RelativeSource TemplatedParent}}"
+                                                                        ColumnHeaderContextMenu="{Binding TemplatedParent.View.ColumnHeaderContextMenu, RelativeSource={RelativeSource TemplatedParent}}"
+                                                                        ColumnHeaderStringFormat="{Binding TemplatedParent.View.ColumnHeaderStringFormat, RelativeSource={RelativeSource TemplatedParent}}"
+                                                                        ColumnHeaderTemplate="{Binding TemplatedParent.View.ColumnHeaderTemplate, RelativeSource={RelativeSource TemplatedParent}}"
+                                                                        ColumnHeaderTemplateSelector="{Binding TemplatedParent.View.ColumnHeaderTemplateSelector, RelativeSource={RelativeSource TemplatedParent}}"
+                                                                        ColumnHeaderToolTip="{Binding TemplatedParent.View.ColumnHeaderToolTip, RelativeSource={RelativeSource TemplatedParent}}"
+                                                                        Columns="{Binding TemplatedParent.View.Columns, RelativeSource={RelativeSource TemplatedParent}}" />
+                                                                </ScrollViewer>
+                                                                <ScrollContentPresenter
+                                                                    x:Name="PART_ScrollContentPresenter"
+                                                                    CanContentScroll="{TemplateBinding CanContentScroll}"
+                                                                    Content="{TemplateBinding Content}"
+                                                                    ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                                    KeyboardNavigation.DirectionalNavigation="Local" />
+                                                            </DockPanel>
+                                                            <ScrollBar
+                                                                x:Name="PART_VerticalScrollBar"
+                                                                Grid.Row="0"
+                                                                Grid.Column="1"
+                                                                Maximum="{TemplateBinding ScrollableHeight}"
+                                                                Orientation="Vertical"
+                                                                ViewportSize="{TemplateBinding ViewportHeight}"
+                                                                Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"
+                                                                Value="{Binding VerticalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" />
+                                                            <ScrollBar
+                                                                x:Name="PART_HorizontalScrollBar"
+                                                                Grid.Row="1"
+                                                                Grid.Column="0"
+                                                                Maximum="{TemplateBinding ScrollableWidth}"
+                                                                Orientation="Horizontal"
+                                                                ViewportSize="{TemplateBinding ViewportWidth}"
+                                                                Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}"
+                                                                Value="{Binding HorizontalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" />
+                                                            <Border
+                                                                Grid.Row="1"
+                                                                Grid.Column="1"
+                                                                Background="{DynamicResource CardBackground}" />
+                                                        </Grid>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ListView.Resources>
                                     <ListView.View>
                                         <GridView>
-                                            <GridViewColumn Width="36" Header="">
+                                            <GridViewColumn
+                                                x:Name="FileIconColumn"
+                                                Width="36"
+                                                Header="">
                                                 <GridViewColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Image
@@ -1202,7 +1483,10 @@
                                                     </DataTemplate>
                                                 </GridViewColumn.CellTemplate>
                                             </GridViewColumn>
-                                            <GridViewColumn Width="205" Header="{loc:L Common_Name}">
+                                            <GridViewColumn
+                                                x:Name="FileNameColumn"
+                                                Width="205"
+                                                Header="{loc:L Common_Name}">
                                                 <GridViewColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <TextBlock
@@ -1213,7 +1497,10 @@
                                                     </DataTemplate>
                                                 </GridViewColumn.CellTemplate>
                                             </GridViewColumn>
-                                            <GridViewColumn Width="62" Header="{loc:L Common_Type}">
+                                            <GridViewColumn
+                                                x:Name="FileTypeColumn"
+                                                Width="62"
+                                                Header="{loc:L Common_Type}">
                                                 <GridViewColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <TextBlock

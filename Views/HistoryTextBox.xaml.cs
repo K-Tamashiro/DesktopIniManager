@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Windows;
@@ -14,8 +14,7 @@ namespace DesktopIniManager.Views
     // Retain TextBox behavior (TextChanged, caret, scrolling and IME) while adding history.
     public class HistoryTextBox : TextBox
     {
-        private static readonly InputHistoryStore DefaultStore = new InputHistoryStore(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DesktopIniManager", "input-history"));
+        private static InputHistoryStore DefaultStore => new InputHistoryStore(Path.Combine(AppSlot.Directory, "input-history"));
         private readonly InputHistoryStore store;
         public static readonly DependencyProperty HistoryKeyProperty = DependencyProperty.Register(
             nameof(HistoryKey), typeof(string), typeof(HistoryTextBox), new PropertyMetadata(null));

@@ -133,8 +133,7 @@ namespace DesktopIniManager.Views
             if (box == null) return fallback;
             try
             {
-                var store = new InputHistoryStore(Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DesktopIniManager", "input-history"));
+                var store = new InputHistoryStore(Path.Combine(AppSlot.Directory, "input-history"));
                 var entries = store.Load(box.HistoryKey);
                 if (entries != null && entries.Count > 0 && !string.IsNullOrWhiteSpace(entries[0]))
                     return entries[0];

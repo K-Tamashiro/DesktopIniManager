@@ -3,7 +3,7 @@ param([string]$PrebuiltDirectory)
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$version = '3.6.0'
+$version = '4.0.0'
 $releaseVersion = $version
 $packageName = "DesktopIniManager-v$releaseVersion-win-x64"
 $releaseRoot = Join-Path $repoRoot 'release'
@@ -26,6 +26,9 @@ try {
     $expected = @(
         'DesktopIniManager.exe', 'DesktopIniManager.dll', 'DesktopIniManager.deps.json',
         'DesktopIniManager.runtimeconfig.json', 'FastVolumeIndex.Core.dll', 'README.md',
+        'ExcelDataReader.dll', 'UglyToad.PdfPig.dll', 'UglyToad.PdfPig.Core.dll',
+        'UglyToad.PdfPig.DocumentLayoutAnalysis.dll', 'UglyToad.PdfPig.Fonts.dll',
+        'UglyToad.PdfPig.Package.dll', 'UglyToad.PdfPig.Tokenization.dll', 'UglyToad.PdfPig.Tokens.dll',
         'Assets/DeveloperDifferencer_iconset.icl', 'Assets/Flag.icl', 'Assets/folder_set.icl',
         'Languages/culture.txt', 'Languages/ja.txt', 'Languages/ko.txt', 'Languages/zh-Hans.txt'
     )
@@ -46,6 +49,8 @@ try {
         }
     }
 
+    Copy-Item -LiteralPath (Join-Path $repoRoot 'docs/README.txt') -Destination (Join-Path $stage 'Readme.txt')
+    $expected += 'Readme.txt'
     Copy-Item -LiteralPath (Join-Path $repoRoot "docs/releases/v$releaseVersion.md") -Destination (Join-Path $stage 'RELEASE_NOTES.md')
     $expected += 'RELEASE_NOTES.md'
 
@@ -67,6 +72,16 @@ try {
     }
     if (!($runtime.runtimeOptions.frameworks | Where-Object { $_.name -eq 'Microsoft.WindowsDesktop.App' -and $_.version.StartsWith('10.') })) {
         throw 'Expected .NET 10 Desktop Runtime.'
+    }
+    $deps = Get-Content -LiteralPath (Join-Path $stage 'DesktopIniManager.deps.json') -Raw | ConvertFrom-Json
+    foreach ($target in $deps.targets.PSObject.Properties.Value) {
+        foreach ($library in $target.PSObject.Properties.Value) {
+            foreach ($asset in $library.runtime.PSObject.Properties.Name) {
+                if (!$asset) { continue }
+                $runtimeFile = Join-Path $stage ([IO.Path]::GetFileName($asset))
+                if (!(Test-Path -LiteralPath $runtimeFile -PathType Leaf)) { throw "Missing runtime dependency: $asset" }
+            }
+        }
     }
 
     Add-Type -AssemblyName System.IO.Compression.FileSystem

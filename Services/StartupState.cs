@@ -9,8 +9,8 @@ namespace DesktopIniManager.Services
 {
     internal sealed class StartupState
     {
-        internal bool DarkMode, TreeCompact;
-        internal string Root, Query, IconLibrary, TreeError;
+        internal bool TreeCompact;
+        internal string Theme, Root, Query, IconLibrary, TreeError;
         internal FolderTreeState Tree;
         internal List<FolderMatch> Physical, Solution;
         internal IconGroupResource SelectedIcon;
@@ -20,7 +20,7 @@ namespace DesktopIniManager.Services
             report(Strings.Splash_LoadingSettings, 0);
             var state = new StartupState
             {
-                DarkMode = SettingsService.LoadDarkMode(),
+                Theme = SettingsService.LoadTheme(),
                 TreeCompact = SettingsService.LoadTreeCompact(),
                 Root = SettingsService.LoadSearchRoot(),
                 Query = SettingsService.LoadSearchQuery(),

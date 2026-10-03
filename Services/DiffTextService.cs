@@ -14,6 +14,7 @@ namespace DesktopIniManager.Services
         public DiffLineKind Kind { get; set; }
         public int LeftNumber { get; set; }
         public int RightNumber { get; set; }
+        public int FilteredLineCount { get; set; }
     }
     internal static class DiffTextService
     {

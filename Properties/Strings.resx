@@ -1241,4 +1241,7 @@ Cancel: select a different tab without searching</value>
   </data>
   <data name="Differencer_RescanSource" xml:space="preserve"><value>Rescan Source folder</value></data>
   <data name="Differencer_RescanTarget" xml:space="preserve"><value>Rescan Target folder</value></data>
+  <data name="Diff_ShowAllLines" xml:space="preserve"><value>Show all lines</value></data>
+  <data name="Diff_ShowDifferences" xml:space="preserve"><value>Show differences only</value></data>
+  <data name="Diff_FilteredLines" xml:space="preserve"><value>── {0} filtered lines ──</value></data>
 </root>

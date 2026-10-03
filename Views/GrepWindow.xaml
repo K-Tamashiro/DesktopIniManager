@@ -1,4 +1,4 @@
-<Window
+﻿<Window
   x:Class="DesktopIniManager.Views.GrepWindow"
   xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -344,8 +344,7 @@
           FontSize="27"
           FontWeight="SemiBold"
           Foreground="{DynamicResource Accent}"
-          Text="{loc:L Grep_Title}"
-          ToolTip="Ctrl + 1: Main   /   Ctrl + 2: Compare   /   Ctrl + 3: GREP" />
+          Text="{loc:L Grep_Title}" />
         <Button
           x:Name="CloseButton"
           Grid.Column="2"
@@ -652,17 +651,6 @@
               RenderOptions.BitmapScalingMode="HighQuality"
               Stretch="Uniform" />
           </Button>
-          <Button
-            Background="Transparent"
-            Command="{Binding SaveHistoryTabCommand}"
-            DockPanel.Dock="Right"
-            Style="{StaticResource IconButton}"
-            ToolTip="{loc:L History_SaveTabs}">
-            <Image
-              x:Name="SaveHistoryTabIcon"
-              RenderOptions.BitmapScalingMode="HighQuality"
-              Stretch="Uniform" />
-          </Button>
           <ListBox
             ItemsSource="{Binding HistoryTabs}"
             MouseDoubleClick="HistoryTabStrip_MouseDoubleClick"
@@ -881,8 +869,8 @@
               ElementStyle="{StaticResource NumericCellStyle}"
               Header="{loc:L Grep_Column}" />
             <DataGridTemplateColumn
-              Width="550"
-              MinWidth="200"
+              Width="SizeToCells"
+              MinWidth="550"
               Header="{loc:L Grep_Match}">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>

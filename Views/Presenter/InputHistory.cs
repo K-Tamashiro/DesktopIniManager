@@ -10,8 +10,7 @@ namespace DesktopIniManager.Views
     // Adds persisted history without replacing the native TextBox template or input handling.
     public static class InputHistory
     {
-        private static readonly InputHistoryStore Store = new InputHistoryStore(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DesktopIniManager", "input-history"));
+        private static readonly InputHistoryStore Store = new InputHistoryStore(Path.Combine(AppSlot.Directory, "input-history"));
 
         public static readonly DependencyProperty KeyProperty = DependencyProperty.RegisterAttached(
             "Key", typeof(string), typeof(InputHistory), new PropertyMetadata(null, KeyChanged));

@@ -15,6 +15,12 @@ namespace DesktopIniManager
     {
         protected override async void OnStartup(StartupEventArgs e)
         {
+            if (!AppSlot.TryAcquire(e.Args, out string slotFailure))
+            {
+                MessageBox.Show(slotFailure, "desktop.ini Manager", MessageBoxButton.OK, MessageBoxImage.Information);
+                Shutdown();
+                return;
+            }
             DispatcherUnhandledException += OnDispatcherUnhandledException;
             WindowActivationService.Install();
             CultureInfo ui = StringOverlay.ResolveCulture();

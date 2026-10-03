@@ -1,4 +1,4 @@
-using DesktopIniManager.Models;
+﻿using DesktopIniManager.Models;
 using DesktopIniManager.Services;
 using System;
 using System.Collections.Generic;
@@ -325,7 +325,7 @@ namespace DesktopIniManager.ViewModels
             catch { }
             try
             {
-                string path = Path.Combine(Path.GetTempPath(), "DesktopIniManager-grep-results.txt");
+                string path = Path.Combine(Path.GetTempPath(), "DesktopIniManager-" + AppSlot.Name + "-grep-results.txt");
                 File.WriteAllText(path, text);
                 string arguments = (EditorArguments ?? string.Empty)
                     .Replace("{file}", path).Replace("{line}", "1").Replace("{column}", "1");
@@ -378,6 +378,9 @@ namespace DesktopIniManager.ViewModels
             ClearResultsCommand?.NotifyCanExecuteChanged();
             OpenResultsInEditorCommand?.NotifyCanExecuteChanged();
             SaveResultsCommand?.NotifyCanExecuteChanged();
+            SaveHistoryTabCommand?.NotifyCanExecuteChanged();
+            DeleteAllHistoryTabsCommand?.NotifyCanExecuteChanged();
+            DeleteOtherHistoryTabsCommand?.NotifyCanExecuteChanged();
         }
 
         private static IEnumerable<string> NormalizeScopes(IEnumerable<string> paths)
@@ -419,8 +422,16 @@ namespace DesktopIniManager.ViewModels
             SetSearching(true);
             try
             {
-                GrepSearchResult result = await Task.Run(() => new CodeGrepService().Search(scopes, profile, query,
-                    useRegex, matchCase, wholeWord,
+                bool document = profile.IsDocument;
+                GrepSearchResult result = await Task.Run(() => document
+                    ? new DocumentGrepService().Search(scopes, extensions, query, useRegex, matchCase, wholeWord,
+                    (done, total) => Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+                    {
+                        if (ReferenceEquals(_searchCts, cts) && !cts.IsCancellationRequested)
+                            Status = string.Format(Strings.Grep_SearchingFiles, done.ToString("N0"), total.ToString("N0"));
+                    })), cts.Token,
+                    match => { if (!cts.IsCancellationRequested) pending.Enqueue(match); })
+                    : new CodeGrepService().Search(scopes, profile, query, useRegex, matchCase, wholeWord,
                     (done, total) => Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                     {
                         if (ReferenceEquals(_searchCts, cts) && !cts.IsCancellationRequested)
@@ -510,6 +521,11 @@ namespace DesktopIniManager.ViewModels
             if (match == null) return;
             try
             {
+                if (DocumentGrepService.IsDocumentPath(match.FilePath))
+                {
+                    Process.Start(new ProcessStartInfo(match.FilePath) { UseShellExecute = true });
+                    return;
+                }
                 SettingsService.SaveEditor(EditorPath.Trim(), EditorArguments);
                 string arguments = (EditorArguments ?? string.Empty)
                     .Replace("{file}", match.FilePath).Replace("{line}", match.LineNumber.ToString()).Replace("{column}", match.ColumnNumber.ToString());
@@ -536,9 +552,7 @@ namespace DesktopIniManager.ViewModels
 
         public bool SeedEditorPresets()
         {
-            string settingsDirectory = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "DesktopIniManager");
+            string settingsDirectory = AppSlot.Directory;
             string markerPath = Path.Combine(settingsDirectory, "editor-presets-miw.txt");
             var store = new InputHistoryStore(Path.Combine(settingsDirectory, "input-history"));
             if (File.Exists(markerPath)) return false;

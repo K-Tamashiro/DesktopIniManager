@@ -1,0 +1,36 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <SolidColorBrush x:Key="WindowBackground" Color="#101923" />
+  <SolidColorBrush x:Key="CardBackground" Color="#192838" />
+  <SolidColorBrush x:Key="HeaderBackground" Color="#101923" />
+  <SolidColorBrush x:Key="Accent" Color="#2F80ED" />
+  <SolidColorBrush x:Key="ButtonHover" Color="#2467BE" />
+  <SolidColorBrush x:Key="AccentSoft" Color="#172B42" />
+  <SolidColorBrush x:Key="Ink" Color="#EAF2FC" />
+  <SolidColorBrush x:Key="Muted" Color="#A9BCD1" />
+  <SolidColorBrush x:Key="Line" Color="#304A64" />
+  <SolidColorBrush x:Key="InputLine" Color="#46647F" />
+  <SolidColorBrush x:Key="Secondary" Color="#536A80" />
+  <SolidColorBrush x:Key="Danger" Color="#E53935" />
+  <SolidColorBrush x:Key="DangerHover" Color="#C62828" />
+  <SolidColorBrush x:Key="OverlayScrim" Color="#CC101923" />
+  <SolidColorBrush x:Key="ThemeToggle" Color="#182535" />
+  <SolidColorBrush x:Key="ThemeSelected" Color="#204B78" />
+  <SolidColorBrush x:Key="HistoryTabBackground" Color="#192838" />
+  <SolidColorBrush x:Key="HistoryTabForeground" Color="#FFFFFF" />
+  <SolidColorBrush x:Key="HistoryTabSelectedBackground" Color="#101923" />
+  <SolidColorBrush x:Key="HistoryTabSelectedForeground" Color="#69A9FF" />
+  <SolidColorBrush x:Key="ZoomToggle" Color="Transparent" />
+  <SolidColorBrush x:Key="ZoomSelected" Color="Transparent" />
+  <SolidColorBrush x:Key="SunGlyph" Color="#E27A2B" />
+  <SolidColorBrush x:Key="MoonGlyph" Color="#D9BC45" />
+  <SolidColorBrush x:Key="DiffRemoved" Color="#5A2430" />
+  <SolidColorBrush x:Key="DiffAdded" Color="#1A3F32" />
+  <SolidColorBrush x:Key="DiffRemovedEmpty" Color="#2C1820" />
+  <SolidColorBrush x:Key="DiffAddedEmpty" Color="#13241C" />
+  <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#192838" />
+  <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#192838" />
+  <SolidColorBrush x:Key="{x:Static SystemColors.WindowColorKey}" Color="#192838" />
+  <SolidColorBrush x:Key="ExternalDiffButton" Color="#245A86" />
+  <SolidColorBrush x:Key="ExternalDiffButtonHover" Color="#2F6E9F" />
+  <SolidColorBrush x:Key="ExternalDiffButtonForeground" Color="#FFFFFF" />
+</ResourceDictionary>

@@ -1,9 +1,11 @@
-using DesktopIniManager.ViewModels;
+﻿using DesktopIniManager.ViewModels;
 using DesktopIniManager.Services;
 using DesktopIniManager.Properties;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.Text.RegularExpressions;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
@@ -35,6 +37,7 @@ namespace DesktopIniManager.Views
         private double viewportDragTop;
         private double sharedTextWidth;
         private const double DiffLineHeight = 22;
+        private readonly string syntaxExtension;
         private HwndSource inputSource;
         private int current { get => ViewModel.CurrentHunk; set => ViewModel.CurrentHunk = value; }
         private bool scrolling;
@@ -48,11 +51,12 @@ namespace DesktopIniManager.Views
         internal DiffViewWindow(DiffSnapshot snapshot, DiffFile file)
         {
             ViewModel = new DiffViewModel(snapshot, file, new UserDialogService(this));
+            syntaxExtension = System.IO.Path.GetExtension(file?.RelativePath ?? string.Empty).ToLowerInvariant();
             InitializeComponent();
             DataContext = ViewModel;
             PreviewKeyDown += DiffViewKeyDown;
             ViewModel.JumpRequested += Jump;
-            ViewModel.ReloadRequested = LoadContent;
+            ViewModel.ReloadRequested = () => LoadContent();
             ViewModel.CloseRequested += Close;
             if (CloseButtonIcon != null)
                 CloseButtonIcon.Source = DifferencerStatusIcons.GetCustomIcon(26);
@@ -92,6 +96,28 @@ namespace DesktopIniManager.Views
             };
         }
 
+        internal void MatchOwnerSize()
+        {
+            Window owner = Owner;
+            if (owner == null) return;
+            if (owner.WindowState == WindowState.Maximized)
+            {
+                WindowState = WindowState.Maximized;
+                return;
+            }
+
+            double width = owner.ActualWidth > 0 ? owner.ActualWidth : owner.Width;
+            double height = owner.ActualHeight > 0 ? owner.ActualHeight : owner.Height;
+            if (owner.WindowState == WindowState.Minimized)
+            {
+                width = owner.RestoreBounds.Width;
+                height = owner.RestoreBounds.Height;
+            }
+            if (width > 0) Width = Math.Max(MinWidth, width);
+            if (height > 0) Height = Math.Max(MinHeight, height);
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        }
+
         private void Body_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
             if (ViewModel.IsImage && imageZoom != null)
@@ -108,7 +134,7 @@ namespace DesktopIniManager.Views
         private void DiffViewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Handled || Keyboard.FocusedElement is TextBox) return;
-            if (Keyboard.Modifiers == ModifierKeys.Shift)
+            if (Keyboard.Modifiers == ModifierKeys.Control)
             {
                 ICommand command;
                 switch (e.Key)
@@ -117,6 +143,11 @@ namespace DesktopIniManager.Views
                     case Key.Down: command = ViewModel.NextHunkCommand; break;
                     case Key.Left: command = ViewModel.PreviousFileCommand; break;
                     case Key.Right: command = ViewModel.NextFileCommand; break;
+                    case Key.D0:
+                    case Key.NumPad0:
+                        if (ViewModel.IsImage) return;
+                        command = ToggleDisplayCommand;
+                        break;
                     default: return;
                 }
                 e.Handled = true;
@@ -164,6 +195,13 @@ namespace DesktopIniManager.Views
             return true;
         }
 
+        private ICommand toggleDisplayCommand;
+        private ICommand ToggleDisplayCommand => toggleDisplayCommand ?? (toggleDisplayCommand =
+            new AsyncRelayCommand(async () =>
+            {
+                if (ViewModel.ToggleDifferencesOnly()) await LoadContent(false);
+            }, ViewModel.ReportError));
+
         private void BuildToolbar()
         {
             actionsPanel.Children.Clear();
@@ -177,6 +215,10 @@ namespace DesktopIniManager.Views
             AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(54), StringOverlay.Get("Diff_OpenTarget"), ViewModel.OpenTargetCommand);
             var openExtDiffButton = AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(52), "Open Ext Diff", ViewModel.OpenExternalDiffCommand);
             openExtDiffButton.Background = Brushes.Transparent;
+            if (!ViewModel.IsImage)
+                AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(ViewModel.DifferencesOnly ? 109 : 110),
+                    StringOverlay.Get(ViewModel.DifferencesOnly ? "Diff_ShowAllLines" : "Diff_ShowDifferences"),
+                    ToggleDisplayCommand);
             AddButton(fileNavigationPanel, DifferencerStatusIcons.GetCustomIcon(40), StringOverlay.Get("Diff_PreviousFile"), ViewModel.PreviousFileCommand);
             AddButton(fileNavigationPanel, DifferencerStatusIcons.GetCustomIcon(41), StringOverlay.Get("Diff_NextFile"), ViewModel.NextFileCommand);
         }
@@ -224,7 +266,82 @@ namespace DesktopIniManager.Views
             imageFitHandler = null;
         }
 
-        private async Task LoadContent()
+        private const double StatusIconHeight = 36;
+
+        private void UpdateSideStatusIcons()
+        {
+            FillStatusIcons(sourceStatusIcons, true);
+            FillStatusIcons(targetStatusIcons, false);
+        }
+
+        private void FillStatusIcons(Panel panel, bool sourceSide)
+        {
+            if (panel == null) return;
+            panel.Children.Clear();
+            DiffFile file = ViewModel.File;
+            if (file == null) return;
+            foreach (int index in StatusIconIndexes(file, sourceSide))
+                panel.Children.Add(StatusIcon(index));
+            panel.Children.Add(StatusIcon(sourceSide ? 111 : 112));
+        }
+
+        private static IEnumerable<int> StatusIconIndexes(DiffFile file, bool sourceSide)
+        {
+            DiffStamp own = sourceSide ? file.Source : file.Target;
+            DiffStamp other = sourceSide ? file.Target : file.Source;
+            if (own == null)
+            {
+                yield return 12;
+                yield break;
+            }
+            if (other == null)
+            {
+                yield return 15;
+                yield break;
+            }
+            if (file.Kind == DiffKind.Same)
+            {
+                yield return 11;
+                yield break;
+            }
+            if (own.ModifiedUtcSeconds != other.ModifiedUtcSeconds)
+                yield return own.ModifiedUtcSeconds < other.ModifiedUtcSeconds ? 14 : 13;
+            if (own.Size != other.Size)
+                yield return 16;
+        }
+
+        private static Image StatusIcon(int index)
+        {
+            var image = new Image
+            {
+                Source = DifferencerStatusIcons.GetCustomIcon(index),
+                Height = StatusIconHeight,
+                Stretch = Stretch.Uniform,
+                Margin = new Thickness(4, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                ToolTip = StatusIconTip(index)
+            };
+            RenderOptions.SetBitmapScalingMode(image, BitmapScalingMode.HighQuality);
+            return image;
+        }
+
+        private static string StatusIconTip(int index)
+        {
+            switch (index)
+            {
+                case 11: return "SAME";
+                case 12: return "MISS";
+                case 13: return "NEW";
+                case 14: return "OLD";
+                case 15: return "ONLY";
+                case 16: return "SIZE";
+                case 111: return "Source";
+                case 112: return "Target";
+                default: return string.Empty;
+            }
+        }
+
+        private async Task LoadContent(bool reload = true)
         {
             DetachImageFitHandler();
             if (imageToolbar is Panel p)
@@ -235,6 +352,7 @@ namespace DesktopIniManager.Views
             body.Children.Clear();
             mapColumn.Width = new GridLength(34);
             BuildToolbar();
+            UpdateSideStatusIcons();
             leftList = rightList = null;
             leftScroll = rightScroll = null;
             imageZoom = null;
@@ -245,7 +363,8 @@ namespace DesktopIniManager.Views
             mapSelection = null;
             try
             {
-                if (!await ViewModel.LoadContentAsync() || !IsLoaded) return;
+                if (reload && !await ViewModel.LoadContentAsync()) return;
+                if (!IsLoaded) return;
                 if (ViewModel.IsImage) { await RenderImages(); return; }
                 sharedTextWidth = MeasureSharedTextWidth();
                 FrameworkElement leftHost = MakeHost(true, out leftList);
@@ -364,7 +483,7 @@ namespace DesktopIniManager.Views
             grid.Children.Add(box);
 
             var host = new Border { Child = grid, BorderThickness = new Thickness(1) };
-            host.SetResourceReference(Border.BorderBrushProperty, "Line");
+            host.SetResourceReference(Border.BorderBrushProperty, sourceSide ? "SourceColor" : "TargetColor");
             host.SetResourceReference(Border.BackgroundProperty, "CardBackground");
             return host;
         }
@@ -400,11 +519,12 @@ namespace DesktopIniManager.Views
             document.SetResourceReference(FlowDocument.BackgroundProperty, "CardBackground");
             document.SetResourceReference(FlowDocument.ForegroundProperty, "Ink");
 
+            bool blockComment = false;
             foreach (DiffLine line in lines)
             {
                 string text = sourceSide ? line.Left : line.Right;
                 text = (text ?? string.Empty).Replace("\t", "    ");
-                var paragraph = new Paragraph(new Run(string.IsNullOrEmpty(text) ? " " : text))
+                var paragraph = new Paragraph
                 {
                     Margin = new Thickness(0),
                     Padding = new Thickness(0),
@@ -412,6 +532,18 @@ namespace DesktopIniManager.Views
                     LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
                     TextAlignment = TextAlignment.Left
                 };
+                if (line.FilteredLineCount > 0)
+                {
+                    paragraph.Inlines.Add(new Run(text));
+                    paragraph.FontSize = 10;
+                    paragraph.SetResourceReference(TextElement.ForegroundProperty, "Muted");
+                    paragraph.SetResourceReference(TextElement.BackgroundProperty,
+                                    TryFindResource("DiffFilteredBackground") != null
+                                        ? "DiffFilteredBackground"
+                                        : "HeaderBackground");
+                }
+                else
+                    AddSyntaxRuns(paragraph, string.IsNullOrEmpty(text) ? " " : text, ref blockComment);
                 string resource = LineBrushKey(line.Kind, sourceSide);
                 if (resource != null)
                     paragraph.SetResourceReference(TextElement.BackgroundProperty, resource);
@@ -420,6 +552,125 @@ namespace DesktopIniManager.Views
 
             box.Document = document;
             return box;
+        }
+
+        private static readonly HashSet<string> CSharpKeywords = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "abstract","as","base","bool","break","byte","case","catch","char","checked","class","const","continue",
+            "decimal","default","delegate","do","double","else","enum","event","explicit","extern","false","finally",
+            "fixed","float","for","foreach","goto","if","implicit","in","int","interface","internal","is","lock","long",
+            "namespace","new","null","object","operator","out","override","params","private","protected","public","readonly",
+            "ref","return","sbyte","sealed","short","sizeof","stackalloc","static","string","struct","switch","this",
+            "throw","true","try","typeof","uint","ulong","unchecked","unsafe","ushort","using","virtual","void","volatile",
+            "while","async","await","record","init","required","var","dynamic","get","set","value","yield"
+        };
+
+        private void AddSyntaxRuns(Paragraph paragraph, string text, ref bool blockComment)
+        {
+            if (syntaxExtension == ".cs") { AddCSharpRuns(paragraph, text, ref blockComment); return; }
+            if (syntaxExtension == ".xaml" || syntaxExtension == ".xml" || syntaxExtension == ".csproj" ||
+                syntaxExtension == ".props" || syntaxExtension == ".targets")
+            { AddXmlRuns(paragraph, text); return; }
+            if (syntaxExtension == ".json") { AddJsonRuns(paragraph, text); return; }
+            paragraph.Inlines.Add(new Run(text));
+        }
+
+        private void AddCSharpRuns(Paragraph paragraph, string text, ref bool blockComment)
+        {
+            int i = 0, plain = 0;
+            while (i < text.Length)
+            {
+                if (blockComment)
+                {
+                    int end = text.IndexOf("*/", i, StringComparison.Ordinal);
+                    AddColoredRun(paragraph, text.Substring(i, end < 0 ? text.Length - i : end + 2 - i), "comment");
+                    if (end < 0) return;
+                    i = plain = end + 2; blockComment = false; continue;
+                }
+                if (i + 1 < text.Length && text[i] == '/' && text[i + 1] == '/')
+                {
+                    AddPlainRun(paragraph, text, plain, i - plain); AddColoredRun(paragraph, text.Substring(i), "comment"); return;
+                }
+                if (i + 1 < text.Length && text[i] == '/' && text[i + 1] == '*')
+                {
+                    AddPlainRun(paragraph, text, plain, i - plain);
+                    int end = text.IndexOf("*/", i + 2, StringComparison.Ordinal);
+                    if (end < 0) { AddColoredRun(paragraph, text.Substring(i), "comment"); blockComment = true; return; }
+                    AddColoredRun(paragraph, text.Substring(i, end + 2 - i), "comment"); i = plain = end + 2; continue;
+                }
+                if (text[i] == '"' || text[i] == '\'')
+                {
+                    AddPlainRun(paragraph, text, plain, i - plain); char quote = text[i]; int start = i++;
+                    while (i < text.Length) { if (text[i] == '\\') { i += Math.Min(2, text.Length - i); continue; } if (text[i++] == quote) break; }
+                    AddColoredRun(paragraph, text.Substring(start, i - start), "string"); plain = i; continue;
+                }
+                if (char.IsLetter(text[i]) || text[i] == '_')
+                {
+                    int start = i++; while (i < text.Length && (char.IsLetterOrDigit(text[i]) || text[i] == '_')) i++;
+                    string word = text.Substring(start, i - start);
+                    if (CSharpKeywords.Contains(word)) { AddPlainRun(paragraph, text, plain, start - plain); AddColoredRun(paragraph, word, "keyword"); plain = i; }
+                    continue;
+                }
+                if (char.IsDigit(text[i]))
+                {
+                    AddPlainRun(paragraph, text, plain, i - plain); int start = i++;
+                    while (i < text.Length && (char.IsLetterOrDigit(text[i]) || text[i] == '.' || text[i] == '_')) i++;
+                    AddColoredRun(paragraph, text.Substring(start, i - start), "number"); plain = i; continue;
+                }
+                i++;
+            }
+            AddPlainRun(paragraph, text, plain, text.Length - plain);
+        }
+
+        private void AddXmlRuns(Paragraph paragraph, string text)
+        {
+            int pos = 0;
+            foreach (Match match in Regex.Matches(text, "<!--.*?-->|</?[^>]+>|&[A-Za-z0-9#]+;"))
+            {
+                AddPlainRun(paragraph, text, pos, match.Index - pos);
+                AddColoredRun(paragraph, match.Value, match.Value.StartsWith("<!--", StringComparison.Ordinal) ? "comment" : "keyword");
+                pos = match.Index + match.Length;
+            }
+            AddPlainRun(paragraph, text, pos, text.Length - pos);
+        }
+
+        private void AddJsonRuns(Paragraph paragraph, string text)
+        {
+            int pos = 0;
+            foreach (Match match in Regex.Matches(text, @"""(?:\.|[^""\])*""|\b(?:true|false|null)\b|-?\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b"))
+            {
+                AddPlainRun(paragraph, text, pos, match.Index - pos);
+                string kind = match.Value.StartsWith("\"", StringComparison.Ordinal) ? "string" :
+                    (match.Value == "true" || match.Value == "false" || match.Value == "null" ? "keyword" : "number");
+                AddColoredRun(paragraph, match.Value, kind);
+                pos = match.Index + match.Length;
+            }
+            AddPlainRun(paragraph, text, pos, text.Length - pos);
+        }
+
+        private static void AddPlainRun(Paragraph paragraph, string text, int start, int length)
+        {
+            if (length > 0) paragraph.Inlines.Add(new Run(text.Substring(start, length)));
+        }
+
+        private void AddColoredRun(Paragraph paragraph, string text, string kind)
+        {
+            var run = new Run(text);
+            bool dark = IsDarkBackground();
+            Color color = kind == "comment" ? (dark ? Color.FromRgb(106, 153, 85) : Color.FromRgb(0, 128, 0)) :
+                          kind == "string"  ? (dark ? Color.FromRgb(206, 145, 120) : Color.FromRgb(163, 21, 21)) :
+                          kind == "number"  ? (dark ? Color.FromRgb(181, 206, 168) : Color.FromRgb(9, 134, 88)) :
+                                              (dark ? Color.FromRgb(86, 156, 214) : Color.FromRgb(0, 0, 255));
+            run.Foreground = new SolidColorBrush(color);
+            paragraph.Inlines.Add(run);
+        }
+
+        private bool IsDarkBackground()
+        {
+            var brush = TryFindResource("CardBackground") as SolidColorBrush;
+            if (brush == null) return true;
+            Color c = brush.Color;
+            return (c.R * 299 + c.G * 587 + c.B * 114) / 1000 < 128;
         }
 
         private static string LineBrushKey(DiffLineKind kind, bool sourceSide)
@@ -696,7 +947,7 @@ namespace DesktopIniManager.Views
             }
             if (viewportThumb == null)
             {
-                viewportThumb = new Thumb { Cursor = System.Windows.Input.Cursors.SizeNS, ToolTip = StringOverlay.Get("Diff_VisibleRange"), Focusable = false };
+                viewportThumb = new Thumb { Cursor = System.Windows.Input.Cursors.Hand, ToolTip = StringOverlay.Get("Diff_VisibleRange"), Focusable = false };
                 var border = new FrameworkElementFactory(typeof(Border));
                 border.SetValue(Border.BorderThicknessProperty, new Thickness(0));
                 border.SetValue(Border.BackgroundProperty, new DynamicResourceExtension("Ink"));
@@ -731,8 +982,8 @@ namespace DesktopIniManager.Views
             double width = Math.Max(left == null ? 0 : left.PixelWidth, right == null ? 0 : right.PixelWidth);
             double height = Math.Max(left == null ? 0 : left.PixelHeight, right == null ? 0 : right.PixelHeight);
             var leftCanvas = ImageCanvas(left, width, height); var rightCanvas = ImageCanvas(right, width, height);
-            leftScroll = ThemedViewer(leftCanvas);
-            rightScroll = ThemedViewer(rightCanvas);
+            leftScroll = ThemedViewer(leftCanvas, true);
+            rightScroll = ThemedViewer(rightCanvas, false);
             EnableImagePan(leftScroll);
             EnableImagePan(rightScroll);
             body.Children.Add(leftScroll);
@@ -828,7 +1079,7 @@ namespace DesktopIniManager.Views
             await Dispatcher.InvokeAsync(fit, System.Windows.Threading.DispatcherPriority.Loaded);
         }
 
-        private static ScrollViewer ThemedViewer(object content)
+        private static ScrollViewer ThemedViewer(object content, bool sourceSide)
         {
             var viewer = new ScrollViewer
             {
@@ -841,7 +1092,7 @@ namespace DesktopIniManager.Views
             };
             viewer.SetResourceReference(Control.BackgroundProperty, "CardBackground");
             viewer.SetResourceReference(Control.ForegroundProperty, "Ink");
-            viewer.SetResourceReference(Control.BorderBrushProperty, "Line");
+            viewer.SetResourceReference(Control.BorderBrushProperty, sourceSide ? "SourceColor" : "TargetColor");
             return viewer;
         }
 

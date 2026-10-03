@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
@@ -10,7 +10,7 @@ namespace DesktopIniManager.ViewModels
     internal static class ResultHistoryStore
     {
         internal const int Limit = 20;
-        internal static string DirectoryPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DesktopIniManager", "result-history");
+        internal static string DirectoryPath { get; set; } = Path.Combine(AppSlot.Directory, "result-history");
         private static readonly JsonSerializerOptions Options = new JsonSerializerOptions { IncludeFields = true, IgnoreReadOnlyProperties = true };
         internal static T Load<T>(string name) where T : new()
         {

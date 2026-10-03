@@ -37,11 +37,11 @@ namespace DesktopIniManager.Views
         private Point _fileDragStart;
         private FileListItem _fileDragItem;
         private bool _internalDragOut;
+        private bool _treeDragPreparing;
         private Dispatcher Dispatcher => _window.Dispatcher;
         private string Title { get => _window.Title; set => _window.Title = value; }
         private object FindResource(object key) => _window.FindResource(key);
-        private ToggleButton LightThemeButton => _window.LightThemeButton;
-        private ToggleButton DarkThemeButton => _window.DarkThemeButton;
+        private ComboBox ThemeBox => _window.ThemeBox;
         private HistoryTextBox RootBox => _window.RootBox;
         private HistoryTextBox QueryBox => _window.QueryBox;
         private HistoryTextBox IconPathBox => _window.IconPathBox;
@@ -73,6 +73,12 @@ namespace DesktopIniManager.Views
             _window.ResultsTree.PreviewMouseRightButtonDown += ResultsTree_PreviewMouseRightButtonDown;
             _window.ResultsTree.PreviewMouseLeftButtonDown += ResultsTree_PreviewMouseLeftButtonDown;
             _window.ResultsTree.PreviewMouseMove += ResultsTree_PreviewMouseMove;
+            _window.FrozenRootTree.SelectedItemChanged += ResultsTree_SelectedItemChanged;
+            _window.FrozenRootTree.AddHandler(TreeViewItem.ExpandedEvent, new RoutedEventHandler(ResultsTree_ItemExpanded), true);
+            _window.FrozenRootTree.PreviewMouseRightButtonDown += ResultsTree_PreviewMouseRightButtonDown;
+            _window.FrozenRootTree.PreviewMouseLeftButtonDown += ResultsTree_PreviewMouseLeftButtonDown;
+            _window.FrozenRootTree.PreviewMouseMove += ResultsTree_PreviewMouseMove;
+            _window.FrozenRootTree.AddHandler(FrameworkElement.ContextMenuOpeningEvent, new ContextMenuEventHandler(ResultsTree_ContextMenuOpening), true);
             FolderMatch.CheckedFolderIcon = DifferencerStatusIcons.GetCustomIcon(101);
             _window.ResultsTree.AddHandler(FrameworkElement.ContextMenuOpeningEvent, new ContextMenuEventHandler(ResultsTree_ContextMenuOpening), true);
             ContextMenu treeMenu = _window.Resources["FolderTreeContextMenu"] as ContextMenu;
@@ -100,6 +106,7 @@ namespace DesktopIniManager.Views
             _window.QueryBox.TextChanged += QueryBox_TextChanged;
             _window.TreeTabs.SelectionChanged += TreeTabs_SelectionChanged;
             _window.LanguageBox.SelectionChanged += LanguageBox_SelectionChanged;
+            _window.ThemeBox.SelectionChanged += ThemeBox_SelectionChanged;
             _window.RunScriptButton.Click += (sender, args) => RunScriptCommand();
             _window.BrowseScriptButton.Click += (sender, args) => BrowseScriptCommand();
             _window.ScriptBox.PreviewKeyDown += ScriptBox_PreviewKeyDown;
@@ -220,12 +227,13 @@ namespace DesktopIniManager.Views
             string[] commandLine = Environment.GetCommandLineArgs();
             bool runGitSearch = commandLine.Any(argument => string.Equals(argument, "--run-git-search", StringComparison.OrdinalIgnoreCase));
             bool runSearch = commandLine.Any(argument => string.Equals(argument, "--run-search", StringComparison.OrdinalIgnoreCase));
-            bool darkMode = startup != null ? startup.DarkMode : SettingsService.LoadDarkMode();
+            string currentTheme = startup?.Theme ?? SettingsService.LoadTheme();
             _window.DataContext = ViewModel;
             ConnectView();
             ViewModel.SearchHistoryRequested += () => { RootBox.CommitHistory(); QueryBox.CommitHistory(); IconPathBox.CommitHistory(); ScriptBox.CommitHistory(); };
             ViewModel.SearchRootSelectionRequested += SelectSearchRootForFileList;
             ViewModel.SearchModeRequested += EnterSearchMode;
+            ViewModel.FolderSearchHitRequested += folder => RevealFolderInCurrentTree(folder.Path);
             ViewModel.FileScrollRequested += (item, revealOwningFolder) =>
             {
                 if (item == null) return;
@@ -255,8 +263,7 @@ namespace DesktopIniManager.Views
             };
             ViewModel.OpenGrepRequested += OpenGrep;
             ViewModel.PropertyChanged += (sender, args) => { if (args.PropertyName == nameof(ViewModel.IsSearching)) SetSearching(ViewModel.IsSearching); };
-            LightThemeButton.IsChecked = !darkMode;
-            DarkThemeButton.IsChecked = darkMode;
+            SelectThemeBox(currentTheme);
             InitLanguageBox();
             _filterTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
             _filterTimer.Tick += (sender, args) => { _filterTimer.Stop(); _ = ViewModel.ApplyFolderFilterAsync(); };
@@ -332,7 +339,8 @@ namespace DesktopIniManager.Views
             }
             if (ViewModel.IsSearching || (e.Key != Key.Up && e.Key != Key.Down)) return;
             if (!QueryBox.IsKeyboardFocusWithin && !FileList.IsKeyboardFocusWithin
-                && !FileIconList.IsKeyboardFocusWithin && !ResultsTree.IsKeyboardFocusWithin) return;
+                && !FileIconList.IsKeyboardFocusWithin && !ResultsTree.IsKeyboardFocusWithin
+                && !_window.FrozenRootTree.IsKeyboardFocusWithin) return;
             ICommand command = e.Key == Key.Up ? ViewModel.PrevSearchMatchCommand : ViewModel.NextSearchMatchCommand;
             if (!command.CanExecute(null)) return;
             command.Execute(null);
@@ -470,7 +478,7 @@ namespace DesktopIniManager.Views
                 foreach (FileListItem file in list.Items)
                     text.AppendLine(file.Name);
 
-                string outputPath = Path.Combine(Path.GetTempPath(), "DesktopIniManager-file-list.txt");
+                string outputPath = Path.Combine(Path.GetTempPath(), "DesktopIniManager-" + AppSlot.Name + "-file-list.txt");
                 File.WriteAllText(outputPath, text.ToString(), new UTF8Encoding(true));
                 OpenTextInEditor(outputPath);
                 ViewModel.Status = string.Format(StringOverlay.Get("Main_TreeOpened"), "File List", ViewModel.FilePanelPath);
@@ -488,7 +496,7 @@ namespace DesktopIniManager.Views
             string label = includeFiles ? "Tree /F" : "Tree";
             string outputPath = Path.Combine(
                 Path.GetTempPath(),
-                includeFiles ? "DesktopIniManager-tree-f.txt" : "DesktopIniManager-tree.txt");
+                "DesktopIniManager-" + AppSlot.Name + (includeFiles ? "-tree-f.txt" : "-tree.txt"));
 
             try
             {
@@ -714,7 +722,7 @@ namespace DesktopIniManager.Views
 
             string dir = ViewModel.FilePanelPath;
             if (string.IsNullOrWhiteSpace(dir))
-                dir = (ResultsTree.SelectedItem as FolderMatch)?.Path;
+                dir = ((ResultsTree.SelectedItem ?? _window.FrozenRootTree.SelectedItem) as FolderMatch)?.Path;
             FileListItem selectedFile = (FileList.SelectedItem as FileListItem)
                 ?? (FileIconList.SelectedItem as FileListItem);
             string file = selectedFile?.Path;
@@ -973,9 +981,9 @@ namespace DesktopIniManager.Views
             SettingsService.SaveIconLibraryPath(ViewModel.IconLibraryPath);
             if (AddToGitIgnoreBox != null) ViewModel.AddToGitIgnore = false;
             ApplyTreeDensity(false, false);
-            ThemeService.Apply(false);
-            LightThemeButton.IsChecked = true;
-            DarkThemeButton.IsChecked = false;
+            ThemeService.Apply("Light");
+            SelectThemeBox("Light");
+            SettingsService.SaveTheme("Light");
             ViewModel.ShowTreeView(0);
             ViewModel.CountLabel = string.Format(Strings.Main_NFolders, 0);
             ViewModel.SearchHitLabel = "0/0";
@@ -1054,7 +1062,7 @@ namespace DesktopIniManager.Views
             SetToolbarIcon(_window.ChooseIconLibraryIcon, 61);
             SetToolbarIcon(_window.ChooseIconButtonIcon, 87);
             SetToolbarIcon(_window.CloseWindowIcon, 26);
-            UpdateThemeIcons();
+            // Theme selection is displayed by ThemeBox.
         }
 
         private static void SetToolbarIcon(System.Windows.Controls.Image image, int index)
@@ -1063,15 +1071,31 @@ namespace DesktopIniManager.Views
                 image.Source = DifferencerStatusIcons.GetCustomIcon(index);
         }
 
-        private void NodeExpandToggle_Changed(object sender, RoutedEventArgs e)
-        {
-            if (_updatingToggles) return;
-            bool expanded = NodeExpandToggle.IsChecked == true;
-            if (expanded) ViewModel.ExpandAllCommand.Execute(null);
-            else ViewModel.CollapseAllCommand.Execute(null);
-            NodeExpandToggle.ToolTip = expanded ? Strings.Common_Collapse : Strings.Common_Expand;
-            UpdateNodeExpandIcon();
-        }
+		private void NodeExpandToggle_Changed(object sender, RoutedEventArgs e)
+		{
+		    if (_updatingToggles) return;
+
+		    bool expanded = NodeExpandToggle.IsChecked == true;
+
+		    foreach (FolderMatch folder in ViewModel.ScrollingTreeItems)
+		        SetTreeExpanded(folder, expanded);
+
+		    NodeExpandToggle.ToolTip =
+		        expanded ? Strings.Common_Collapse : Strings.Common_Expand;
+
+		    UpdateNodeExpandIcon();
+		}
+
+		private static void SetTreeExpanded(FolderMatch folder, bool expanded)
+		{
+		    if (folder == null)
+		        return;
+
+		    folder.IsExpanded = expanded;
+
+		    foreach (FolderMatch child in folder.Children)
+		        SetTreeExpanded(child, expanded);
+		}
 
         private void TreeDensityToggle_Changed(object sender, RoutedEventArgs e)
         {
@@ -1188,24 +1212,40 @@ namespace DesktopIniManager.Views
                 ViewModel.IsTreeBusy = busy;
         }
 
-        private void UpdateThemeIcons()
+        private bool _themeBoxReady;
+
+        private void SelectThemeBox(string theme)
         {
-            bool dark = DarkThemeButton != null && DarkThemeButton.IsChecked == true;
-            SetToolbarIcon(_window.LightThemeIcon, dark ? 43 : 42);
-            SetToolbarIcon(_window.DarkThemeIcon, dark ? 44 : 45);
+            string normalized = ThemeService.Normalize(theme);
+            _themeBoxReady = false;
+            foreach (ComboBoxItem item in ThemeBox.Items)
+            {
+                if (string.Equals(item.Content as string, normalized, StringComparison.OrdinalIgnoreCase))
+                {
+                    ThemeBox.SelectedItem = item;
+                    break;
+                }
+            }
+            _themeBoxReady = true;
         }
 
-        private void LightTheme() => SetTheme(false);
-
-        private void DarkTheme() => SetTheme(true);
-
-        private void SetTheme(bool dark)
+        private void ThemeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            ThemeService.Apply(dark);
-            LightThemeButton.IsChecked = !dark;
-            DarkThemeButton.IsChecked = dark;
-            UpdateThemeIcons();
-            SettingsService.SaveDarkMode(dark);
+            if (!_themeBoxReady) return;
+            var item = ThemeBox.SelectedItem as ComboBoxItem;
+            if (item == null) return;
+            SetTheme(item.Content as string);
+        }
+
+        private void LightTheme() => SetTheme("Light");
+        private void DarkTheme() => SetTheme("Dark");
+
+        private void SetTheme(string theme)
+        {
+            string normalized = ThemeService.Normalize(theme);
+            ThemeService.Apply(normalized);
+            SelectThemeBox(normalized);
+            SettingsService.SaveTheme(normalized);
             HighlightTreeDensityButtons();
             HighlightFileViewButtons(FileList.Visibility == Visibility.Visible, _largeFileIcons);
         }
@@ -1268,15 +1308,23 @@ namespace DesktopIniManager.Views
                 _treeDragFolder = null;
         }
 
-        private void ResultsTree_PreviewMouseMove(object sender, MouseEventArgs e)
+        private async void ResultsTree_PreviewMouseMove(object sender, MouseEventArgs e)
         {
-            if (e.LeftButton != MouseButtonState.Pressed || _treeDragFolder == null) return;
+            if (_treeDragPreparing || e.LeftButton != MouseButtonState.Pressed || _treeDragFolder == null) return;
             if (!DropOutService.MovedEnough(_treeDragStart, e.GetPosition(null))) return;
+
             FolderMatch folder = _treeDragFolder;
             _treeDragFolder = null;
-            string staged = DropOutService.StageFolderWithImmediateFiles(folder.Path);
-            if (!string.IsNullOrEmpty(staged))
+            _treeDragPreparing = true;
+
+            try
             {
+                // Folder drag-out is a flat temporary package: the selected folder and
+                // its immediate files only. Enumerating/copying a cold or remote folder
+                // must never run on the WPF UI thread.
+                string staged = await DropOutService.StageFolderWithImmediateFilesAsync(folder.Path);
+                if (string.IsNullOrEmpty(staged)) return;
+
                 _internalDragOut = true;
                 try
                 {
@@ -1286,6 +1334,14 @@ namespace DesktopIniManager.Views
                 {
                     _internalDragOut = false;
                 }
+            }
+            catch (Exception ex)
+            {
+                ViewModel.ShowError(Strings.App_Unhandled, ex);
+            }
+            finally
+            {
+                _treeDragPreparing = false;
             }
         }
 
@@ -1703,8 +1759,11 @@ namespace DesktopIniManager.Views
 
         private async void ResultsTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
-            if (_syncingTreeFromFile) return;
-            try { await ViewModel.LoadFilesAsync(e.NewValue as FolderMatch); }
+            if (_syncingTreeFromFile || !(e.NewValue is FolderMatch selected)) return;
+            TreeView other = ReferenceEquals(sender, ResultsTree) ? _window.FrozenRootTree : ResultsTree;
+            if (other.SelectedItem is FolderMatch previous && !ReferenceEquals(previous, selected))
+                previous.IsCurrent = false;
+            try { await ViewModel.LoadFilesAsync(selected); }
             catch (Exception ex) { ViewModel.ShowError(Strings.App_Unhandled, ex); }
         }
 
@@ -1755,6 +1814,19 @@ namespace DesktopIniManager.Views
                 path.Add(node);
             }
             path.Reverse();
+
+            if (path.Count > 0 && ReferenceEquals(path[0], ViewModel.FrozenRoot))
+            {
+                path.RemoveAt(0);
+                if (path.Count == 0)
+                {
+                    _window.FrozenRootTree.UpdateLayout();
+                    var rootItem = _window.FrozenRootTree.ItemContainerGenerator.ContainerFromItem(target) as TreeViewItem;
+                    if (rootItem != null) rootItem.IsSelected = true;
+                    _syncingTreeFromFile = false;
+                    return;
+                }
+            }
 
             Dispatcher.BeginInvoke(
                 new Action(() => ExpandPathStep(ResultsTree, path, 0, 0)),
@@ -1880,7 +1952,7 @@ namespace DesktopIniManager.Views
 
         private static ScrollViewer FindScrollViewer(DependencyObject root)
         {
-            if (root is ScrollViewer viewer) return viewer;
+            if (root is ScrollViewer viewer && viewer.VerticalScrollBarVisibility != ScrollBarVisibility.Disabled) return viewer;
             for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
             {
                 ScrollViewer found = FindScrollViewer(VisualTreeHelper.GetChild(root, i));

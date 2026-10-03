@@ -1,410 +1,103 @@
-# DesktopIniManager v3.6.0
+# DesktopIniManager v4.0.0
 
-![DesktopIniManager DIR edition](docs/images/app-overview-dark.png)
+DesktopIniManager (DIM) is a Windows workspace for exploring development folders and Visual Studio solutions, finding files, running scoped searches, comparing folders, viewing differences, and managing folder icons through desktop.ini.
 
-DesktopIniManager is a Windows workspace for exploring development
-folders, browsing Visual Studio solutions, searching source code,
-comparing working trees, and applying custom folder icons through
-`desktop.ini`.
+[Website](http://dim.zebrasoft.co.jp/) · [GitHub downloads](https://github.com/K-Tamashiro/DesktopIniManager/releases) · [v4.0.0 release notes](docs/releases/v4.0.0.md) · [Japanese readme](docs/README.txt)
 
-**v3.6.0 fixes folder acquisition, file launching, comparison rescans and tab deletion, and adds one retry pass for failed synchronization operations.**
+![DesktopIniManager v4](docs/images/2026-10-04_06h30_51.png)
 
-**v3.4.0 introduced high-speed workspace acquisition using native Windows
-directory enumeration (`FindFirstFileExW` / `FindNextFileW`, FFFE).** The
-Physical tree, Solution analysis, search-related acquisition, and Developer
-Differencer share the optimized enumeration path where appropriate. Network
-locations use lazy Physical-tree expansion to avoid an unnecessary full recursive
-scan at startup. This edition does not read the NTFS MFT and does not require
-elevation just to enumerate folders.
+## Download and setup
 
-## Download and requirements
+Download **DesktopIniManager-v4.0.0-win-x64.zip** from the v4.0.0 GitHub release assets, rather than GitHub's source-code archive. A matching .zip.sha256 file provides its SHA-256 checksum.
 
-Release package: **DesktopIniManager-v3.6.0-win-x64.zip**
+- Windows 10 or Windows 11, x64.
+- .NET 10 Desktop Runtime (x64), installed separately.
+- Visual Studio Build Tools / MSBuild or the .NET SDK for the corresponding solution build commands.
+- An external editor or diff/merge tool is optional.
 
-Download the asset from [GitHub
-Releases](https://github.com/K-Tamashiro/DesktopIniManager/releases)
-for the **v3.6.0 release**. A locally generated package is placed in
-`release/`. See the [release notes](docs/releases/v3.6.0.md).
+Extract into a fresh folder and run **DesktopIniManager.exe**. Keep all DLLs, JSON files, Assets, and Languages together. ExcelDataReader and the bundled PdfPig libraries are required for Document Grep. The default folder icon library is resolved from the application's Assets directory.
 
--   Windows 10 or Windows 11, x64.
--   .NET 10 Desktop Runtime (x64) must be installed separately.
--   Read access to the folders being inspected; write access for icon
-    changes and synchronization.
--   MSBuild is required for **Build**, **Rebuild**, and **Clean
-    solution**.
--   Configure a text editor for the tree and file-list exports. External
-    diff tools are optional.
+## What's new in v4
 
-Extract the ZIP into a new folder and run `DesktopIniManager.exe`. Keep
-the accompanying application DLLs, JSON files, `Assets`, and `Languages`
-together. When upgrading from v2.x, use a fresh extraction directory to
-avoid mixing .NET Framework and .NET 10 files.
+- Five independent DIM process slots, each with its own settings and history.
+- Dark, Light, and DIM1–DIM5 themes, restored on startup.
+- Separate Code Grep and Document Grep profiles, with Excel/PDF content searching.
+- Fixed single-root folder row, folder-name hit highlighting/counting, resizable columns, and saved pane/column widths.
+- Source-yellow and Target-blue DIFF VIEW frames, a draggable difference map, and an all-lines / differences-only toggle whose state is saved on close.
+- Incremental comparison results, folder-building progress, and one-way Source-to-Target selection of an existing same-name folder.
 
-Network and cloud-backed locations depend on their provider,
-connectivity, permissions, and availability of file contents. They are
-not covered by a blanket compatibility guarantee. Make cloud files
-available locally before reading or synchronizing them.
+## Main window
 
-## What's new in v3.6.0
+Set a Target root and inspect its Physical tree or Visual Studio Solution structure. File search also matches folder names. Checked folders restrict File Search and Scoped Grep to their subtrees.
 
-- Selecting a search location from the folder context menu starts acquisition immediately and clears stale workspace scopes.
-- Selecting the same Source / Target path again keeps the current comparison. Click its title folder icon to rescan explicitly.
-- Switch windows with **Ctrl + 1** (Main), **Ctrl + 2** (Compare), **Ctrl + 3** (GREP). **Ctrl + Space** cycles between them.
-- Double-click, ×, Delete all and Delete other tabs delete comparison / GREP history immediately, without confirmation.
-- Failed synchronization operations are queued while normal work continues, then retried exactly once before completion. Final counts reflect the retry outcome.
-- Double-clicking a file opens the clicked file with its Windows association, including search results and icon views.
+Selecting a physical folder lists files below it: immediate files appear first in white; descendant files use muted text. Solution view follows the useful parts of Solution Explorer, omitting management folders such as .git and .vs. Switch between the file list and two- or three-column icon views.
 
-### History tabs introduced in v3.5.0
+The tree supports check/uncheck all, inversion, expand/collapse, checked-folder filtering, name filtering, and compact/large display. Hits are marked, and selecting a search result reveals its containing folder. The Target root row stays visible in a single-root tree.
 
+Context menus can set the Target, open Explorer, export tree / tree /f / file-list output to an editor, and pass a folder to Scoped Grep. Solution menus provide Visual Studio/MSBuild and .NET SDK builds using project configurations.
 
-- Retain up to **20 comparison tabs** and **20 Grep tabs**, independently, across sessions.
-- Comparisons create dated tabs, newest on the left. Switching restores roots, results, folder selection/expansion, and filters.
-- The comparison header shows shortened Source / Target names with full paths in a tooltip.
-- Tabs follow the active theme, with bold text on the selected tab. The × button deletes tabs and remains usable after comparison finishes.
-- Grep tabs show search text and retain results and search settings. **Yes** appends, **No** searches in a new tab, and **Cancel** stops.
-- At the Grep limit, select an existing tab: **Yes** appends; **No** clears it before searching. Comparison instead asks to delete the oldest tab; declining stops comparison until there are 19 or fewer tabs.
-- Save Grep tabs with icon 95 and add them with icon 94, both on transparent buttons. Auto-save runs after search and on closing. A save error keeps the Grep window open.
-- New messages and tooltips support English, Japanese, Simplified Chinese, and Korean.
+Choose icons from ICO, ICL, DLL, or EXE resources, apply them to checked folders through desktop.ini, or reset existing customizations. Optionally add desktop.ini to .gitignore. Empty/content icons and network/cloud presentation help distinguish folder states.
 
-History is stored in `%LOCALAPPDATA%\DesktopIniManager\result-history`.
-Comparison history stores result metadata, not file-content backups; Diff View reads current files.
-See the [history guide](docs/result-history.md) for details.
-
-**Validation:** Build and runtime verification are performed by the maintainer. This change has not been built or executed by the coding agent. Complete the [release checklist](docs/releases/v3.6.0-validation.md) before creating the final ZIP and publishing the GitHub release.
-
-### Changes introduced in v3.4.2
-
--   Correct the release binary version to v3.4.2.
--   Separate Search mode from the normal Physical / Solution workflow.
--   While a search is active, keep Search authoritative and disable Physical / Solution tabs.
--   Clearing the search keyword clears the Search tree and file list, re-enables all three tabs, and keeps the current Search view until the user chooses another tab.
--   Selecting Physical or Solution with an empty search keyword returns to normal mode and disables the empty Search tab.
--   Improve search-hit navigation so the owning folder is selected and off-screen file hits are scrolled into view.
--   When operating in the Physical tree, selecting a file selects and reveals its owning folder.
--   Retain the v3.4.1 Developer Differencer Same-selection regression fix.
-
-### Changes introduced in v3.4.1
-
--   Fix a Developer Differencer regression where Same selections made in
-    previously selected folders could be cleared when operating on another folder.
--   Preserve accumulated Same selections across folders while Same is visible.
--   Keep Same ON/OFF limited to the currently selected folder without disturbing
-    Same selections already made in other folders.
-
-### Changes introduced in v3.4.0
-
--   Optimize folder acquisition around native Windows FFFE enumeration
-    (`FindFirstFileExW` / `FindNextFileW`) and reuse the acquired path data.
--   Greatly reduce Physical-tree startup time for large development trees.
--   Improve Solution analysis so project reconstruction can reuse the acquired
-    folder information instead of repeating unnecessary filesystem work.
--   Improve Developer Differencer scanning by using the native enumeration
-    metadata directly and scanning Source and Target once each.
--   On network locations, build the initial Physical tree lazily and enumerate
-    child folders when they are expanded, avoiding a full recursive NAS scan at
-    startup.
--   Keep feature-specific exclusions local to each feature; `obj` and `bin`
-    remain available to comparison when enabled.
--   Retain the v3.3.2 path-preserving ZIP export and Same ON/OFF selection
-    workflow.
--   NAS Developer Differencer performance remains dependent on network and SMB
-    traversal cost because a complete comparison still requires walking both
-    trees.
-
-### Retained improvements from v3.3.2
-
--   Export selected Developer Differencer files to ZIP from Source or Target
-    while preserving relative paths.
--   Create ZIP files directly without constructing a temporary directory tree.
--   Include explicitly selected Same files in ZIP export and synchronization.
--   Accumulate Same selections by folder without disturbing ordinary difference
-    selection.
-
-### Retained improvements from v3.3.0
-
--   Improve txt/log detection for BOM-less UTF-16 and terminal control
-    characters.
--   Skip binary contents silently during previous/next navigation;
-    retain the message when opening unsupported files directly from the
-    difference list.
--   Select the last viewed file on close without the single-selection
-    exception.
--   Synchronize line numbers with text scrolling and keep short files
-    top-aligned.
--   Align overview markers and the visible range to document height;
-    show the selected difference in yellow inside the pink viewport
-    frame.
--   Open images and icons fitted to the viewport, with manual 100% zoom
-    available.
--   Reduce comparison work for common prefixes/suffixes and avoid
-    redundant reads and sorting; prevent overlapping file navigation.
-
-### Retained improvements from v3.2.1
-
--   Refresh the bundled icon library and the compact/comfortable tree
-    icons.
--   Show directional icons beside Source and Target during
-    synchronization confirmation; restore the normal folder icons when
-    the dialog closes.
--   Refine icon-button sizing, spacing, and transparent backgrounds in
-    both themes.
-
-### Retained improvements from v3.2.0
-
--   Synchronize folder differences as well as files. Source-only and
-    Target-only folders can be selected and synchronized in either
-    direction, including empty folders that contain no files.
--   Show folder synchronization operations in the confirmation dialog
-    with **Create folder** and **Delete folder** counts before
-    execution.
--   Propagate folder selection through the tree so checking a parent
-    applies to eligible descendant differences.
--   Keep Developer Differencer folder icons, counts, check states, and
-    selectable items consistent with the active **Same / Diff / Source
-    only / Target only** filters.
--   Apply `obj` and `bin` exclusions consistently to both files and
-    folders. Differences that exist only inside excluded build folders
-    no longer make the visible parent appear different.
--   Re-evaluate folder status icons when `obj` / `bin` filters change,
-    so the tree reflects the effective comparison set immediately.
--   Reduce the cost of bulk check/uncheck operations in large
-    comparisons by refreshing selection counts without rebuilding
-    unchanged difference counts and folder status information.
--   Retain the v3.1.0 search navigation, Solution browsing,
-    Build/Rebuild commands, context-menu exports, script execution, and
-    Diff View refinements.
-
-## Workspace views
-
-### Physical and repository acquisition
-
-Choose a search location and use the repository-acquisition button to
-build the **Physical** and **Solution** trees. The Physical view shows
-the on-disk folder structure, repository markers, and summaries of files
-in each folder. A saved, valid search root is acquired while the splash
-screen is displayed at the next startup.
-
-![Repository workspace](docs/images/repository-tree-dark.png)
-
-### Solution
-
-The Solution view presents the projects reconstructed from Visual Studio
-solution files. Switch between Physical and Solution while retaining the
-workspace. Solution parsing reports progress and the current solution.
-
-![Solution view](docs/images/solution-tree-dark.png)
-
-### Search
-
-Search has its own results tree. Temporary searches and filters do not
-replace the acquired Physical and Solution trees. Use keywords or
-extensions to find folders and files, then narrow the displayed results
-with the filter field.
-
-![Search view](docs/images/search-tree-dark.png)
-
-Tree controls support selection/inversion, expansion/collapse,
-hiding/restoring folders, and compact display. The file pane offers
-list, large-icon, and small-icon layouts. Paths and search terms have
-independent input histories; long history paths prioritize the end of
-the path.
-
-## Scoped Code Search
-
-Select the projects or folders you need and open Grep. Scopes from
-different tree branches are retained; a selected ancestor covers its
-selected descendants. Folders can also be dropped into the Grep window.
-
-![Scoped Code Search](docs/images/scoped-code-search.png)
-
--   Multiple scopes and language profiles, with editable extension
-    filters.
--   Plain-text or regular-expression search, match case, and whole word.
--   File, line, column, and matching text in grouped, filterable
-    results.
--   Progress and cancellation, result export, and input history.
--   External editor presets including MIFES, Hidemaru, Mery, and VS
-    Code.
+Drag folders out with their immediate files, or drag multiple files from the file list. The Batch File Launcher supports %d% (directory path), %f% (selected file path), and %n% (file name).
 
 ## Developer Differencer
 
-Open **Developer Differencer** using the comparison button at the bottom
-of the main window. Choose Source and Target roots, compare them, and
-select the differences to synchronize in either direction.
+Compare a yellow Source tree with a blue Target tree. Paths are indexed when selected; folder-label buttons provide explicit rescans. Source-to-Target folder matching selects an existing same-name folder under the current Target. It does not create folders or run in reverse.
 
-![Developer Differencer](docs/images/mft-differencer.png)
+Comparison uses **file size and modification time**, or size alone when date comparison is disabled. It is not a content-hash comparison. One-sided files/folders are included. Environment/build artifacts are normally excluded, with separate obj and bin visibility controls.
 
-Files are matched by relative path and compared by size and, when
-**Compare dates** is enabled, last-write time at whole-second precision.
-This does not compare file contents or hashes. With dates disabled,
-equal-sized files are classified as identical.
+Filter Same, Different, Source-only, Target-only, obj, bin, and checked items. Same files are hidden by default. The Same-check action can include identical files in synchronization or ZIP selections.
 
-Combine **Same / Diff / Left / Right** filters and optionally include
-`obj` and `bin`. Folder selection follows the visible difference
-categories. The root shows files from all levels. **Update** refreshes
-already-listed direct files in the selected folder; use Compare to
-discover new files.
+Keep up to 20 dated comparison tabs, newest on the left. Delete tabs to make room at the limit. Refresh the whole comparison or the selected folder, and run Solution Clean where appropriate.
 
-Difference files continue to use the normal tree/folder check workflow.
-The dedicated **Same ON/OFF** control is separate and affects only
-identical files. This makes it possible to select the required
-differences first, then show Same files and add selected identical files
-without disturbing the difference selection. Same selections can be
-accumulated by moving through folders; each newly selected folder starts
-with the Same control ready for an ON operation.
+Create a ZIP from checked Source or Target files while preserving relative paths. Drag the ZIP icon to export the selected folder structure without creating an archive. Synchronization is available in either direction; review its direction and operations in the confirmation window.
 
-Synchronization presents file copy, overwrite, and delete counts
-together with folder creation and deletion counts before execution.
-Source-only and Target-only folders participate in directional
-synchronization, including empty folders. Checking a parent folder
-applies the current visible difference categories to eligible
-descendants.
+## DIFF VIEW
 
-**A checked file or folder present only on the receiving side is deleted
-from that side.** Review the Source/Target direction and selection
-before confirming. Identical files are not ordinary tree-selection
-candidates, but can be explicitly selected with **Same ON/OFF**. A
-selected Same file is a valid synchronization and ZIP target. The **Same
-/ Diff / Source only / Target only** and `obj` / `bin` filters also
-control the effective folder state shown by the tree. Metadata
-directories `.git`, `.vs`, and `.vscode` are excluded.
+Double-click a supported comparison file to open the read-only viewer. Text differences have syntax highlighting, original line numbers, colored Source/Target frames, and a central difference map. Supported images use a separate image view; unsupported binary formats are excluded.
 
-### ZIP export
+- Icon **110** switches from all lines to differences only; icon **109** returns to all lines.
+- Differences-only mode shows complete changed sections without unchanged context lines. Omitted sections have markers such as “52 filtered lines”.
+- **Ctrl + 0** performs the same toggle. Closing the viewer saves its last mode for the current slot.
+- Jump between sections/files, open either side in an external editor, or launch an external diff/merge tool.
 
-The Source and Target ZIP buttons package the currently selected files
-from the corresponding side while preserving their relative folder
-structure. This is useful for creating a partial working-tree backup,
-transferring only the selected paths, or retaining a selected state
-before further work.
+DIM does not edit or merge file contents in this viewer. Scanning, searching, comparing, and viewing leave source contents unchanged. Explicit icon application, synchronization, Clean/build commands, ZIP/export, and external tools can write files.
 
-The ZIP confirmation allows the output location and file name to be
-changed. The default file name uses `xxxxx_yyyyMMdd_HHmmss.zip`. Same
-files explicitly selected with **Same ON/OFF** are included together
-with selected difference files.
+## Scoped Grep
 
-### Diff View
+Keep multiple search folders, drag folders into the scope list, select active scopes by checkbox, or refresh scopes from the main window. Search with regular expressions, case sensitivity, and whole-word matching.
 
-![Side-by-side Diff View](docs/images/mft-diff-view.png)
+Language profiles manage editable extension sets. **Code Grep and Document Grep are separate.** Document searches Excel (.xls, .xlsx, .xlsm) and PDF contents; use Plain for ordinary text files. Document and code searches are not mixed into a universal all-file search.
 
-Text comparison includes line numbers, colored changes, linked
-scrolling, a central difference map, and navigation between changes.
-Text can be selected across lines without copying the displayed line
-numbers. Image comparison provides shared zoom, Fit, and 100% views.
+Excel results show **[Sheet name][Cell address] matched content**. PDF results identify the page. Image-only scanned PDFs require OCR outside DIM.
 
-Diff View is read only. Open either file in its associated application,
-or send both files to an external diff tool. External diff presets
-include VS Code, MIFES, WinMerge, and Visual Studio; changed files are
-refreshed when returning to the viewer.
+Results are grouped by file, with red keyword highlighting, collapsible groups, filters, horizontal scrolling, editor export, file saving, and group-header drag-out. Append searches add hits to existing file groups. Up to 20 search tabs retain results and settings. External editor presets support file, line, and column arguments.
 
-### Clean solution
+## Slots, themes, and languages
 
-Choose solutions and configurations to run MSBuild Clean before
-comparing again. Solutions containing the running application are
-excluded from Clean. To clean DesktopIniManager itself, run the
-extracted release from a separate directory outside that solution.
+DIM1–DIM5 run as independent processes. **In Use** identifies the current slot, **Free** starts a new process, and **Open** activates an existing process. Settings and histories are stored under %LOCALAPPDATA%\DesktopIniManager\dim-N.
 
-See the [comparison and synchronization guide](docs/mft-differencer.md)
-for details and limitations.
+Choose Dark, Light, or a DIM1–DIM5 theme. English, Japanese, Simplified Chinese, and Korean UI resources are included. A history reset command is also available.
 
-## Folder icons
+## Keyboard controls
 
-Choose an ICO, ICL, DLL, or EXE resource, select folders, and apply the
-icon. The bundled `Assets/folder_set.icl` contains development-oriented
-folder icons.
+| Keys | Action |
+| --- | --- |
+| Ctrl + 1 / 2 / 3 | Main / Developer Differencer / Scoped Grep |
+| Ctrl + Space | Cycle through the three main windows |
+| Arrow keys | Scroll DIFF VIEW vertically/horizontally |
+| Page Up / Page Down | Page scroll in text DIFF VIEW |
+| Shift + mouse wheel / thumb wheel | Horizontal scrolling |
+| Ctrl + Up / Down | Previous / next difference section |
+| Ctrl + Left / Right | Previous / next comparison file |
+| Ctrl + 0 | Toggle all lines / differences only |
 
-![Icon picker](docs/images/icon-picker-dark.png)
+## Distribution and support
 
-DesktopIniManager writes `IconResource` in `desktop.ini`, sets the
-necessary file/folder attributes, and refreshes Explorer. It can also
-add `desktop.ini` to `.gitignore`. Remove clears the customization.
+DIM is freeware by Tamayan / ZEBRASOFT. Copyright remains with the author. See the Japanese readme for the disclaimer.
 
-![Folder icon management](docs/images/folder-icon-apply-dark.png)
+- Website: http://dim.zebrasoft.co.jp/
+- Repository / issue reports: https://github.com/K-Tamashiro/DesktopIniManager
+- Contact: tamayan@zebrasoft.co.jp
 
-## Themes and languages
-
-Switch between light and dark themes. English, Japanese, Simplified
-Chinese, and Korean can be selected without restarting; the choice is
-retained.
-
-![Light theme](docs/images/physical-tree-light.png)
-
-  -----------------------------------------------------------------------------------------------
-  English                                        Japanese
-  ---------------------------------------------- ------------------------------------------------
-  ![English](docs/images/language-english.png)   ![Japanese](docs/images/language-japanese.png)
-
-  -----------------------------------------------------------------------------------------------
-
-  -----------------------------------------------------------------------------------------
-  Simplified Chinese                           Korean
-  -------------------------------------------- --------------------------------------------
-  ![Simplified                                 ![Korean](docs/images/language-korean.png)
-  Chinese](docs/images/language-chinese.png)   
-
-  -----------------------------------------------------------------------------------------
-
-## Build and package
-
-Use the .NET 10 SDK on Windows, or Visual Studio with .NET 10/WPF
-support.
-
-``` powershell
-dotnet build DesktopIniManager.sln -c Release
-pwsh -File scripts/Build-Release.ps1
-```
-
-To package an already-built Release directory without rebuilding:
-
-``` powershell
-pwsh -File scripts/Build-Release.ps1 -PrebuiltDirectory bin/Release/net10.0-windows/win-x64
-```
-
-The prebuilt directory must contain the v3.6.0 binaries.
-README, documentation, assets, and language files are taken from the current
-source tree. Debug symbols are omitted from the ZIP.
-
-The packaging script publishes a framework-dependent Windows x64
-application to a fresh staging directory, validates its version and
-exact file layout, and writes:
-
-``` text
-release/
-  DesktopIniManager-v3.6.0-win-x64.zip
-  DesktopIniManager-v3.6.0-win-x64.zip.sha256
-```
-
-The ZIP contains the application at its root:
-
-``` text
-DesktopIniManager.exe
-DesktopIniManager.dll
-DesktopIniManager.deps.json
-DesktopIniManager.runtimeconfig.json
-FastVolumeIndex.Core.dll
-Assets/
-  folder_set.icl
-  DeveloperDifferencer_iconset.icl
-  Flag.icl
-Languages/
-README.md
-RELEASE_NOTES.md
-docs/
-```
-
-The application and `FastVolumeIndex.Core` are the two solution
-projects. The library retains its historical name; this edition's
-workspace acquisition uses native Windows directory enumeration. The deleted `FastVolumeIndex.Cli` /
-`mftree.exe` is not included.
-
-The standalone regression harness is separate from the application
-solution:
-
-``` powershell
-dotnet build Tests/DesktopIniManager.DifferencerTests.csproj -c Release
-dotnet run --project Tests/DesktopIniManager.DifferencerTests.csproj -c Release --no-build -- --result-history
-```
-
-The older [SMVVM progress memo](docs/smvvm-progress.md) is historical.
-The screenshots illustrate earlier editions and may not show every v3.6.0
-control. See the release notes for this version's changes and validation
-status.
+For maintainers, scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> packages existing v4.0.0 binaries without building. Omitting that option runs dotnet publish. Archives/checksums go to release/ for upload as GitHub assets; they are not stored in Git.

@@ -64,9 +64,7 @@ namespace DesktopIniManager.Properties
 
         private static IEnumerable<string> PersistDirs()
         {
-            yield return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DesktopIniManager");
-            if (!string.IsNullOrEmpty(AppDomain.CurrentDomain.BaseDirectory))
-                yield return AppDomain.CurrentDomain.BaseDirectory;
+            yield return DesktopIniManager.Services.AppSlot.Directory;
         }
 
         internal static string Get(string key)
@@ -149,6 +147,7 @@ namespace DesktopIniManager.Properties
 
         private static IEnumerable<string> SearchDirs()
         {
+            yield return DesktopIniManager.Services.AppSlot.Directory;
             yield return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DesktopIniManager");
             if (!string.IsNullOrEmpty(AppDomain.CurrentDomain.BaseDirectory))
                 yield return AppDomain.CurrentDomain.BaseDirectory;

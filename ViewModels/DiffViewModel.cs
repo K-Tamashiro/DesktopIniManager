@@ -40,6 +40,7 @@ namespace DesktopIniManager.ViewModels
         private string[][] preparedText;
         public List<DiffLine> Lines { get; private set; }
         private List<DiffLine> allLines;
+        internal IReadOnlyList<DiffLine> AllLines => allLines;
         internal bool DifferencesOnly { get; private set; }
 
         internal bool ToggleDifferencesOnly()

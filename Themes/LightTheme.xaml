@@ -2,8 +2,8 @@
   <SolidColorBrush x:Key="WindowBackground" Color="#E5E5E5" />
   <SolidColorBrush x:Key="CardBackground" Color="#E2E2E2" />
   <SolidColorBrush x:Key="HeaderBackground" Color="#DDA0AD" />
-  <SolidColorBrush x:Key="FolderCaptionOutline" Color="#B22222" />
-  <SolidColorBrush x:Key="DiffFilteredBackground" Color="#9400D3" />
+  <SolidColorBrush x:Key="FolderCaptionOutline" Color="#585858" />
+  <SolidColorBrush x:Key="DiffFilteredBackground" Color="#E6E6FA" />
   <SolidColorBrush x:Key="Accent" Color="#8C0048" />
   <SolidColorBrush x:Key="ButtonHover" Color="#B62570" />
   <SolidColorBrush x:Key="AccentSoft" Color="#F4D7E6" />

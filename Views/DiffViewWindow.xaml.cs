@@ -37,7 +37,7 @@ namespace DesktopIniManager.Views
         private double viewportDragTop;
         private double sharedTextWidth;
         private const double DiffLineHeight = 22;
-        private readonly string syntaxExtension;
+        private string syntaxExtension => System.IO.Path.GetExtension(ViewModel.File?.RelativePath ?? string.Empty).ToLowerInvariant();
         private HwndSource inputSource;
         private int current { get => ViewModel.CurrentHunk; set => ViewModel.CurrentHunk = value; }
         private bool scrolling;
@@ -51,7 +51,6 @@ namespace DesktopIniManager.Views
         internal DiffViewWindow(DiffSnapshot snapshot, DiffFile file)
         {
             ViewModel = new DiffViewModel(snapshot, file, new UserDialogService(this));
-            syntaxExtension = System.IO.Path.GetExtension(file?.RelativePath ?? string.Empty).ToLowerInvariant();
             InitializeComponent();
             DataContext = ViewModel;
             PreviewKeyDown += DiffViewKeyDown;
@@ -520,6 +519,7 @@ namespace DesktopIniManager.Views
             document.SetResourceReference(FlowDocument.ForegroundProperty, "Ink");
 
             bool blockComment = false;
+            int originalRow = 0;
             foreach (DiffLine line in lines)
             {
                 string text = sourceSide ? line.Left : line.Right;
@@ -534,6 +534,14 @@ namespace DesktopIniManager.Views
                 };
                 if (line.FilteredLineCount > 0)
                 {
+                    // Hidden text still determines the syntax state of the next visible line.
+                    if (syntaxExtension == ".cs")
+                        for (int i = 0; i < line.FilteredLineCount; i++)
+                        {
+                            DiffLine hidden = ViewModel.AllLines[originalRow + i];
+                            AddCSharpRuns(null, (sourceSide ? hidden.Left : hidden.Right) ?? string.Empty, ref blockComment);
+                        }
+                    originalRow += line.FilteredLineCount;
                     paragraph.Inlines.Add(new Run(text));
                     paragraph.FontSize = 10;
                     paragraph.SetResourceReference(TextElement.ForegroundProperty, "Muted");
@@ -543,7 +551,10 @@ namespace DesktopIniManager.Views
                                         : "HeaderBackground");
                 }
                 else
+                {
                     AddSyntaxRuns(paragraph, string.IsNullOrEmpty(text) ? " " : text, ref blockComment);
+                    originalRow++;
+                }
                 string resource = LineBrushKey(line.Kind, sourceSide);
                 if (resource != null)
                     paragraph.SetResourceReference(TextElement.BackgroundProperty, resource);
@@ -637,7 +648,7 @@ namespace DesktopIniManager.Views
         private void AddJsonRuns(Paragraph paragraph, string text)
         {
             int pos = 0;
-            foreach (Match match in Regex.Matches(text, @"""(?:\.|[^""\])*""|\b(?:true|false|null)\b|-?\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b"))
+            foreach (Match match in Regex.Matches(text, @"""(?:\\.|[^""\\])*""|\b(?:true|false|null)\b|-?\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b"))
             {
                 AddPlainRun(paragraph, text, pos, match.Index - pos);
                 string kind = match.Value.StartsWith("\"", StringComparison.Ordinal) ? "string" :
@@ -650,11 +661,12 @@ namespace DesktopIniManager.Views
 
         private static void AddPlainRun(Paragraph paragraph, string text, int start, int length)
         {
-            if (length > 0) paragraph.Inlines.Add(new Run(text.Substring(start, length)));
+            if (paragraph != null && length > 0) paragraph.Inlines.Add(new Run(text.Substring(start, length)));
         }
 
         private void AddColoredRun(Paragraph paragraph, string text, string kind)
         {
+            if (paragraph == null) return;
             var run = new Run(text);
             bool dark = IsDarkBackground();
             Color color = kind == "comment" ? (dark ? Color.FromRgb(106, 153, 85) : Color.FromRgb(0, 128, 0)) :

@@ -114,6 +114,8 @@ internal static class DifferencerTests
     {
         try
         {
+            if (args.Contains("--diff-regression")) return DiffRegressionTests.Run();
+            if (args.Contains("--diff-viewer")) return DiffRegressionTests.RunViewer();
             if (args.Contains("--sync-retry")) return TestSyncRetry();
             if (args.Contains("--result-history")) return ResultHistoryTests.Execute();
             if (args.Contains("--input-history")) return InputHistoryTests.Run();
@@ -127,6 +129,41 @@ internal static class DifferencerTests
             ResultHistoryStore.DirectoryPath = Path.Combine(artifacts, "result-history");
             string source = Path.Combine(artifacts, "source"), target = Path.Combine(artifacts, "target");
             Directory.CreateDirectory(source); Directory.CreateDirectory(target);
+            if (args.Contains("--file-compare"))
+            {
+                string comparisonLeft = Path.Combine(source, "c.txt"), comparisonRight = Path.Combine(source, "a.txt");
+                File.WriteAllText(comparisonLeft, "common\nleft content");
+                File.WriteAllText(comparisonRight, "common\nright content");
+                var snapshot = Snapshot(source, source, "c.txt");
+                var launch = ExternalDiffLaunch.Parse(new[] { "-diff", comparisonLeft, comparisonRight });
+                Check(launch.SourcePath == comparisonLeft && launch.TargetPath == comparisonRight
+                    && launch.CreateSnapshot().Files.Count == 1, "external launch prepares exactly the requested pair");
+                Check(ExternalDiffLaunch.IsRequested(new[] { "-diff", comparisonLeft, comparisonRight })
+                    && !ExternalDiffLaunch.IsRequested(new[] { "-d1" }), "external diff switch is distinct from slot switches");
+                foreach (var invalid in new[] {
+                    new[] { "-diff" }, new[] { "-diff", comparisonLeft },
+                    new[] { "-d1", "-diff", comparisonLeft, comparisonRight } })
+                {
+                    bool rejected = false;
+                    try { ExternalDiffLaunch.Parse(invalid); } catch (ArgumentException) { rejected = true; }
+                    Check(rejected, "invalid external diff arguments are rejected without slot fallback");
+                }
+                Reject(() => ExternalDiffLaunch.Parse(new[] { "-diff", comparisonLeft, Path.Combine(source, "missing.txt") }),
+                    "missing external comparison file is reported");
+                var model = new DiffViewModel(snapshot, snapshot.Files[0], null, comparisonLeft, comparisonRight);
+                Check(model.GetPath(true) == comparisonLeft && model.GetPath(false) == comparisonRight,
+                    "standalone comparison resolves different filenames in the same folder");
+                model.LoadTextAsync().GetAwaiter().GetResult();
+                Check(model.AllLines.Any(line => line.Kind != DiffLineKind.Unchanged),
+                    "standalone comparison reads both chosen files instead of comparing the source to itself");
+                Check(!model.SourceHeader.Contains(comparisonLeft) && !model.TargetHeader.Contains(comparisonRight),
+                    "standalone comparison headers omit redundant filenames");
+                var folderModel = new DiffViewModel(snapshot, snapshot.Files[0], null);
+                Check(folderModel.GetPath(true) == comparisonLeft && folderModel.GetPath(false) == comparisonLeft,
+                    "existing folder comparison keeps relative path resolution");
+                Console.WriteLine("PASS " + checks + " file comparison checks. Artifacts: " + artifacts);
+                return 0;
+            }
             if (args.Contains("--solution-clean"))
             {
                 Check(SolutionCleanService.ContainsRunningApplication(Path.Combine(source, "App.sln"), Path.Combine(source, "bin", "Release")), "running application under solution is protected");

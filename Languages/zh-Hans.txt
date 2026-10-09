@@ -224,7 +224,7 @@ Diff_NextFile=下一个差异文件
 Diff_OpenSource=打开源
 Diff_OpenTarget=打开目标
 Diff_Loading=正在加载…
-Diff_HunkStatus={0} 个块 | 左侧红色 = 删除  右侧绿色 = 新增 | UTF-8 / BOM / Shift-JIS | 大文件使用简化匹配
+Diff_HunkStatus={0} 个块 | 左侧红色 = 删除  右侧绿色 = 新增 | UTF-8 / BOM / Shift-JIS
 Diff_Unable=无法显示：{0}
 Diff_TooLargeBytes=超过 8 MB 的文件请用外部编辑器打开。
 Diff_TooManyLines=超过 100,000 行的文件请用外部编辑器打开。

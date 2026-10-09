@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.Windows;
 using DesktopIniManager.Services;
+using DesktopIniManager.ViewModels;
 
 namespace DesktopIniManager.Views
 {
@@ -9,12 +10,14 @@ namespace DesktopIniManager.Views
         public SynchronizationLogWindow()
         {
             InitializeComponent();
+            CloseButtonIcon.Source = DifferencerStatusIcons.GetCustomIcon(34);
         }
 
         internal SynchronizationLogWindow(Window owner, string direction, DiffSnapshot snapshot) : this()
         {
             Owner = owner;
-            Title = "Synchronizing — " + direction;
+            Title = "Synchronization / ZIP";
+            SummaryText.Text = direction + " — processing…";
             Show();
             AppendLine(direction);
             AppendLine("Source: " + snapshot.SourceRoot);
@@ -26,6 +29,8 @@ namespace DesktopIniManager.Views
         public void AppendLine(string line)
         {
             if (!IsVisible) return;
+            if (line != null && line.StartsWith("Log: ", StringComparison.Ordinal))
+                LogPathText.Text = line;
             log.AppendText(line + Environment.NewLine);
             log.ScrollToEnd();
         }
@@ -34,12 +39,18 @@ namespace DesktopIniManager.Views
         {
             AppendLine(new string('-', 80));
             AppendLine("Complete  OK " + succeeded + " / FAIL " + failed + " / LOCKED " + locked);
-            Title = "Sync result — OK " + succeeded + " / FAIL " + failed + " / LOCKED " + locked;
+            SummaryText.Text = "Complete: " + succeeded + " succeeded / " + failed + " failed / " + locked + " locked";
+            Title = "Synchronization / ZIP result";
         }
 
         void ISynchronizationLog.Activate()
         {
             if (IsVisible) Activate();
+        }
+
+        private void Close_Click(object sender, RoutedEventArgs e)
+        {
+            Close();
         }
     }
 }

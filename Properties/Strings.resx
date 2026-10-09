@@ -1046,7 +1046,7 @@
     <value>Loading…</value>
   </data>
   <data name="Diff_HunkStatus" xml:space="preserve">
-    <value>{0} hunks | left red = removed  right green = added | UTF-8 / BOM / Shift-JIS | large files use a simplified match</value>
+    <value>{0} hunks | left red = removed  right green = added | UTF-8 / BOM / Shift-JIS</value>
   </data>
   <data name="Diff_Unable" xml:space="preserve">
     <value>Unable to display: {0}</value>
@@ -1239,9 +1239,19 @@ Cancel: select a different tab without searching</value>
   <data name="History_SaveTabs" xml:space="preserve">
     <value>Save tabs</value>
   </data>
-  <data name="Differencer_RescanSource" xml:space="preserve"><value>Rescan Source folder</value></data>
-  <data name="Differencer_RescanTarget" xml:space="preserve"><value>Rescan Target folder</value></data>
-  <data name="Diff_ShowAllLines" xml:space="preserve"><value>Show all lines</value></data>
-  <data name="Diff_ShowDifferences" xml:space="preserve"><value>Show differences only</value></data>
-  <data name="Diff_FilteredLines" xml:space="preserve"><value>── {0} filtered lines ──</value></data>
+  <data name="Differencer_RescanSource" xml:space="preserve">
+    <value>Rescan Source folder</value>
+  </data>
+  <data name="Differencer_RescanTarget" xml:space="preserve">
+    <value>Rescan Target folder</value>
+  </data>
+  <data name="Diff_ShowAllLines" xml:space="preserve">
+    <value>Show all lines</value>
+  </data>
+  <data name="Diff_ShowDifferences" xml:space="preserve">
+    <value>Show differences only</value>
+  </data>
+  <data name="Diff_FilteredLines" xml:space="preserve">
+    <value>── {0} filtered lines ──</value>
+  </data>
 </root>

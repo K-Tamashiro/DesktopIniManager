@@ -1,4 +1,4 @@
-﻿using DesktopIniManager.Models;
+using DesktopIniManager.Models;
 using DesktopIniManager.ViewModels;
 using FastVolumeIndex;
 using System;
@@ -250,7 +250,7 @@ namespace DesktopIniManager.Services
                 Path = solutionDirectory,
                 SolutionFile = solutionPath,
                 BuildConfigurations = configurations.ToList(),
-                Reason = "Solution · " + entries.Values.Count(item => !IsSolutionFolder(item)) + " projects",
+                Reason = "Solution  " + entries.Values.Count(item => !IsSolutionFolder(item)) + " projects",
                 IsActionable = false,
                 IconPreview = DifferencerStatusIcons.GetSolutionIcon() ?? FolderIconService.GetFolderIcon(solutionDirectory)
             };
@@ -300,7 +300,7 @@ namespace DesktopIniManager.Services
             {
                 DisplayName = entry.Name,
                 Path = physicalPath,
-                Reason = folder ? "Solution folder" : "Project · " + Path.GetFileName(entry.RelativePath),
+                Reason = folder ? "Solution folder" : "Project  " + Path.GetFileName(entry.RelativePath),
                 IsActionable = physicalDirectoryExists,
                 IconPreview = FolderIconService.GetFolderIcon(physicalPath)
             };
@@ -789,7 +789,7 @@ namespace DesktopIniManager.Services
                 .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
                 .ToArray();
 
-            // Rebuild the collection to avoid repeated O(n²) IndexOf and Move operations.
+            // Rebuild the collection to avoid repeated O(n) IndexOf and Move operations.
             items.Clear();
             foreach (FolderMatch item in ordered)
                 items.Add(item);

@@ -4,7 +4,7 @@
     <!-- Keep the existing explicit source/resource lists; exclude nested projects. -->
     <EnableDefaultItems>false</EnableDefaultItems>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <Version>4.0.0</Version>
+    <Version>4.2.0</Version>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <PlatformTarget>x64</PlatformTarget>
@@ -29,8 +29,8 @@
   </PropertyGroup>
   <PropertyGroup>
     <ApplicationIcon>DesktopIniManager.ico</ApplicationIcon>
-    <AssemblyVersion>4.0.0.0</AssemblyVersion>
-    <FileVersion>4.0.0.0</FileVersion>
+    <AssemblyVersion>4.2.0.0</AssemblyVersion>
+    <FileVersion>4.2.0.0</FileVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>x64</PlatformTarget>
@@ -79,6 +79,7 @@
     <Compile Include="ViewModels\*.cs" />
     <Compile Include="Models\MainWindowAction.cs" />
     <Compile Include="Models\LanguageChoice.cs" />
+    <Compile Include="Services\Diff.cs" />
     <Compile Include="Services\DropOutService.cs" />
     <Compile Include="Services\LanguageIconService.cs" />
     <Compile Include="Views\Presenter\MainWindowPresentationService.cs" />
@@ -141,6 +142,7 @@
     <Compile Include="Views\DiffViewWindow.xaml.cs">
       <DependentUpon>DiffViewWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Views\DiffViewWindow.ImageNavigation.cs" />
     <Compile Include="Views\DeveloperDifferencerWindow.xaml.cs">
       <DependentUpon>DeveloperDifferencerWindow.xaml</DependentUpon>
     </Compile>
@@ -209,6 +211,7 @@
     <Compile Include="Services\IconResourceReader.cs" />
     <Compile Include="Services\NativeFolderPicker.cs" />
     <Compile Include="Services\AppSlot.cs" />
+    <Compile Include="Services\ExternalDiffLaunch.cs" />
     <Compile Include="Services\SettingsService.cs" />
     <Compile Include="Services\InputHistoryStore.cs" />
     <Compile Include="Views\Presenter\InputHistory.cs" />
@@ -269,6 +272,7 @@
     </Content>
     <Content Include="docs\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
   </ItemGroup>
 </Project>

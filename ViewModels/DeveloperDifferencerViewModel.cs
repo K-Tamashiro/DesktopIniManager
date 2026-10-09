@@ -513,10 +513,13 @@ namespace DesktopIniManager.ViewModels
                 catch (Exception ex) { liveLog.AppendLine("Failed to save log: " + ErrorMessages.English(ex)); }
                 liveLog.Complete(log.Count(l => l.StartsWith("OK ")), log.Count(l => l.StartsWith("FAIL ")), log.Count(l => l.StartsWith("LOCKED ")));
                 liveLog.Activate();
-                await CompareAsync();
-                liveLog.Activate();
             }
             finally { SetBusy(false); }
+
+            // Synchronization changes files on disk. Rebuild the comparison only
+            // after the busy state has been released; ZIP creation does not do this.
+            await CompareAsync();
+            liveLog.Activate();
         }
 
         internal async Task ZipAsync(bool fromSource)
@@ -578,6 +581,8 @@ namespace DesktopIniManager.ViewModels
         {
             if (IsBusy) return;
             SetBusy(true); CanCancel = false;
+            bool runComparison = false;
+            string cleanSummary = null, cleanLogPath = null, cleanReport = null;
             try
             {
                 string source = SourcePath, target = TargetPath;
@@ -591,33 +596,69 @@ namespace DesktopIniManager.ViewModels
                 string msbuild = await Task.Run(() => SolutionCleanService.FindMSBuild());
                 ClearComparisonView();
                 IsProgressVisible = true; ProgressIndeterminate = true;
-                var log = new StringBuilder(); int failures = 0, completed = 0;
+
+                var details = new StringBuilder();
+                int failures = 0, completed = 0;
+                int total = selection.Solutions.Count() * configurations.Length;
                 foreach (string solution in selection.Solutions)
                     foreach (string config in configurations)
                     {
-                        string label = solution + " [" + config + "]";
-                        Status = string.Format(Strings.Differencer_Cleaning, label);
-                        SetFilePanelBusy(true, string.Format(Strings.Differencer_Cleaning, Path.GetFileName(solution) + " [" + config + "]…"));
-                        log.AppendLine(label);
+                        string label = Path.GetFileName(solution) + " [" + config + "]";
+                        Status = string.Format(Strings.Differencer_Cleaning, solution + " [" + config + "]");
+                        SetFilePanelBusy(true, string.Format(Strings.Differencer_Cleaning, label + "…"));
+                        completed++;
+                        details.AppendLine("────────────────────────────────────────────────────────");
+                        details.AppendLine("[" + completed + "/" + total + "] " + label);
+                        details.AppendLine("Path: " + solution);
+                        details.AppendLine();
                         try
                         {
-                            int exit = await Task.Run(() => { string output; int code = SolutionCleanService.Clean(msbuild, solution, config, out output); log.AppendLine(output); return code; });
-                            if (exit != 0) failures++;
-                            log.AppendLine(exit == 0 ? Strings.Common_OK : string.Format(Strings.Differencer_FailExit, exit));
+                            var result = await Task.Run(() =>
+                            {
+                                string output;
+                                int code = SolutionCleanService.Clean(msbuild, solution, config, out output);
+                                return (Code: code, Output: output);
+                            });
+                            if (result.Code != 0) failures++;
+                            if (!string.IsNullOrWhiteSpace(result.Output))
+                                details.AppendLine(result.Output.TrimEnd());
+                            details.AppendLine();
+                            details.AppendLine(result.Code == 0 ? "Result: OK" : "Result: FAIL (exit " + result.Code + ")");
                         }
-                        catch (Exception ex) { failures++; log.AppendLine(Strings.Common_Fail + " " + ErrorMessages.English(ex)); }
-                        completed++;
+                        catch (Exception ex)
+                        {
+                            failures++;
+                            details.AppendLine("Result: FAIL");
+                            details.AppendLine(ErrorMessages.English(ex));
+                        }
+                        details.AppendLine();
                     }
+
                 string summary = string.Format(Strings.Differencer_CleanComplete, completed - failures, failures);
+                var report = new StringBuilder();
+                report.AppendLine("Solution Clean");
+                report.AppendLine("Date: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                report.AppendLine("Total: " + completed + "    OK: " + (completed - failures) + "    FAIL: " + failures);
+                report.AppendLine();
+                report.Append(details);
                 Directory.CreateDirectory(StateDirectory);
                 string logPath = Path.Combine(StateDirectory, "solution-clean-" + DateTime.Now.ToString("yyyyMMdd-HHmmss-fff") + ".log");
-                File.WriteAllText(logPath, log.ToString());
-                await CompareAsync();
-                Status = summary + " " + Status;
-                CleanReportRequested?.Invoke(summary, logPath, log.ToString());
+                File.WriteAllText(logPath, report.ToString(), new UTF8Encoding(false));
+                cleanSummary = summary;
+                cleanLogPath = logPath;
+                cleanReport = report.ToString();
+                runComparison = true;
+                Status = summary;
             }
             catch (Exception ex) { Status = string.Format(Strings.Differencer_CleanFailed, ErrorMessages.English(ex)); ShowError(ex); }
-            finally { IsProgressVisible = false; ProgressIndeterminate = false; SetBusy(false); }
+            finally { IsProgressVisible = false; ProgressIndeterminate = false; SetFilePanelBusy(false); SetBusy(false); }
+            if (runComparison)
+            {
+                // CompareAsync refuses to start while IsBusy is true.
+                // Run after releasing the Clean busy state, including when individual configurations failed.
+                await CompareAsync();
+                CleanReportRequested?.Invoke(cleanSummary, cleanLogPath, cleanReport);
+            }
         }
         internal bool IncludeBuildFolderFile(DiffFile file)
         {
@@ -822,6 +863,19 @@ namespace DesktopIniManager.ViewModels
             CanCancel = false;
         }
 
+        internal void ResetAfterComparison()
+        {
+            selectedFolder = "";
+            foreach (var folder in folders.Values)
+            {
+                folder.Expanded = false;
+                folder.Active = folder.Path.Length == 0;
+            }
+            syncingTreeFromFile = true;
+            try { SelectedRow = FileItems?.FirstOrDefault(); }
+            finally { syncingTreeFromFile = false; }
+        }
+        internal event Action ComparisonCompleted;
         internal async Task CompareAsync()
         {
             if (IsBusy) return;
@@ -898,8 +952,9 @@ namespace DesktopIniManager.ViewModels
                 Status = "Updating the difference tree…";
                 BusyMessage = "Updating the difference tree and file list…";
                 snapshot = fresh; treeSource = source; treeTarget = target;
-                await BuildTreeAsync(snapshot.Folders, expanded, selectedFolder, token);
-                FileProgressRequested?.Invoke(FileItems?.LastOrDefault());
+                await BuildTreeAsync(snapshot.Folders, Array.Empty<string>(), "", token);
+                ResetAfterComparison();
+                ComparisonCompleted?.Invoke();
                 Status = folders[""].CountFor(DiffKind.Differences) + " differences / " + folders[""].CountFor(DiffKind.Same) + " identical. Check items to synchronize.";
                 AddComparisonTab();
                 SaveState();
@@ -1003,131 +1058,131 @@ namespace DesktopIniManager.ViewModels
             bool progressWasVisible = IsProgressVisible;
             try
             {
-            SetTreeProgress("Preparing folders…", 0, 0);
-            await Dispatcher.Yield(DispatcherPriority.Background);
-            folders.Clear();
-            var all = new HashSet<string>(paths, StringComparer.OrdinalIgnoreCase) { "" };
-            foreach (string path in all.Where(p => p.Length > 0).ToArray())
-            {
-                string p = Path.GetDirectoryName(path);
-                while (!string.IsNullOrEmpty(p))
+                SetTreeProgress("Preparing folders…", 0, 0);
+                await Dispatcher.Yield(DispatcherPriority.Background);
+                folders.Clear();
+                var all = new HashSet<string>(paths, StringComparer.OrdinalIgnoreCase) { "" };
+                foreach (string path in all.Where(p => p.Length > 0).ToArray())
                 {
-                    all.Add(p);
-                    p = Path.GetDirectoryName(p);
-                }
-            }
-
-            var expansion = new HashSet<string>(expanded ?? new string[0], StringComparer.OrdinalIgnoreCase);
-            selectedFolder = selected != null && all.Contains(selected) ? selected : "";
-            string[] orderedPaths = all.OrderBy(p => p.Length).ThenBy(p => p, StringComparer.OrdinalIgnoreCase).ToArray();
-            var folderStates = await ReadFolderStatesAsync(orderedPaths, token);
-            SetTreeProgress("Building folders…", 0, orderedPaths.Length);
-
-            int processed = 0;
-            foreach (string path in orderedPaths)
-            {
-                token.ThrowIfCancellationRequested();
-
-                HistoryFolderState state = folderStates[path];
-
-                var node = new DiffFolder
-                {
-                    Path = path,
-                    Expanded = expansion.Contains(path) || path == "",
-                    Active = path == selectedFolder,
-                    SourceExists = state.SourceExists,
-                    TargetExists = state.TargetExists,
-                    SourceEmpty = state.SourceEmpty,
-                    TargetEmpty = state.TargetEmpty
-                };
-                node.IncludeFile = IncludeBuildFolderFile;
-                node.IncludeFolder = folder => IncludeBuildFolder(folder.Path);
-                node.Toggle = (folder, value) =>
-                {
-                    bulk = true;
-                    try
+                    string p = Path.GetDirectoryName(path);
+                    while (!string.IsNullOrEmpty(p))
                     {
-                        foreach (DiffFile file in folder.Files)
-                            if (file.CanSync && IncludeBuildFolderFile(file) && (file.Kind & kindMask) != 0)
-                                file.Selected = value;
-                        SetFolderSelectionRecursive(folder, value);
+                        all.Add(p);
+                        p = Path.GetDirectoryName(p);
                     }
-                    finally
-                    {
-                        bulk = false;
-                        RefreshSelectionChecks(folder);
-                    }
-                };
-                folders.Add(path, node);
-                if (path.Length > 0)
-                {
-                    DiffFolder parent = folders[Path.GetDirectoryName(path) ?? ""];
-                    node.Parent = parent;
-                    parent.Children.Add(node);
                 }
 
-                if (++processed % 64 == 0)
-                {
-                    SetTreeProgress("Building folders…", processed, orderedPaths.Length);
-                    await Dispatcher.Yield(DispatcherPriority.Background);
-                }
-            }
+                var expansion = new HashSet<string>(expanded ?? new string[0], StringComparer.OrdinalIgnoreCase);
+                selectedFolder = selected != null && all.Contains(selected) ? selected : "";
+                string[] orderedPaths = all.OrderBy(p => p.Length).ThenBy(p => p, StringComparer.OrdinalIgnoreCase).ToArray();
+                var folderStates = await ReadFolderStatesAsync(orderedPaths, token);
+                SetTreeProgress("Building folders…", 0, orderedPaths.Length);
 
-            if (snapshot != null)
-            {
-                processed = 0;
-                SetTreeProgress("Assigning files to folders…", 0, snapshot.Files.Count);
-                foreach (DiffFile file in snapshot.Files)
+                int processed = 0;
+                foreach (string path in orderedPaths)
                 {
                     token.ThrowIfCancellationRequested();
-                    string path = Path.GetDirectoryName(file.RelativePath) ?? "";
-                    while (true)
+
+                    HistoryFolderState state = folderStates[path];
+
+                    var node = new DiffFolder
                     {
-                        DiffFolder folder;
-                        if (folders.TryGetValue(path, out folder)) folder.Files.Add(file);
-                        if (path.Length == 0) break;
-                        path = Path.GetDirectoryName(path) ?? "";
+                        Path = path,
+                        Expanded = expansion.Contains(path) || path == "",
+                        Active = path == selectedFolder,
+                        SourceExists = state.SourceExists,
+                        TargetExists = state.TargetExists,
+                        SourceEmpty = state.SourceEmpty,
+                        TargetEmpty = state.TargetEmpty
+                    };
+                    node.IncludeFile = IncludeBuildFolderFile;
+                    node.IncludeFolder = folder => IncludeBuildFolder(folder.Path);
+                    node.Toggle = (folder, value) =>
+                    {
+                        bulk = true;
+                        try
+                        {
+                            foreach (DiffFile file in folder.Files)
+                                if (file.CanSync && IncludeBuildFolderFile(file) && (file.Kind & kindMask) != 0)
+                                    file.Selected = value;
+                            SetFolderSelectionRecursive(folder, value);
+                        }
+                        finally
+                        {
+                            bulk = false;
+                            RefreshSelectionChecks(folder);
+                        }
+                    };
+                    folders.Add(path, node);
+                    if (path.Length > 0)
+                    {
+                        DiffFolder parent = folders[Path.GetDirectoryName(path) ?? ""];
+                        node.Parent = parent;
+                        parent.Children.Add(node);
                     }
 
-                    if (++processed % 256 == 0)
+                    if (++processed % 64 == 0)
                     {
-                        SetTreeProgress("Assigning files to folders…", processed, snapshot.Files.Count);
+                        SetTreeProgress("Building folders…", processed, orderedPaths.Length);
                         await Dispatcher.Yield(DispatcherPriority.Background);
                     }
                 }
-            }
 
-            processed = 0;
-            SetTreeProgress("Updating folder counts…", 0, folders.Count);
-            foreach (DiffFolder folder in folders.Values)
-            {
-                token.ThrowIfCancellationRequested();
-                folder.Refresh();
-                if (++processed % 128 == 0)
+                if (snapshot != null)
                 {
-                    SetTreeProgress("Updating folder counts…", processed, folders.Count);
-                    await Dispatcher.Yield(DispatcherPriority.Background);
+                    processed = 0;
+                    SetTreeProgress("Assigning files to folders…", 0, snapshot.Files.Count);
+                    foreach (DiffFile file in snapshot.Files)
+                    {
+                        token.ThrowIfCancellationRequested();
+                        string path = Path.GetDirectoryName(file.RelativePath) ?? "";
+                        while (true)
+                        {
+                            DiffFolder folder;
+                            if (folders.TryGetValue(path, out folder)) folder.Files.Add(file);
+                            if (path.Length == 0) break;
+                            path = Path.GetDirectoryName(path) ?? "";
+                        }
+
+                        if (++processed % 256 == 0)
+                        {
+                            SetTreeProgress("Assigning files to folders…", processed, snapshot.Files.Count);
+                            await Dispatcher.Yield(DispatcherPriority.Background);
+                        }
+                    }
                 }
-            }
 
-            if (snapshot != null)
-                cachedVisibleFolders = new HashSet<string>(folders.Values.Where(f => f.Path.Length == 0 || f.CountFor(DiffKind.Differences) > 0 || f.FolderCanSync).Select(f => f.Path), StringComparer.OrdinalIgnoreCase);
-
-            DetachSelectionHandlers();
-            if (snapshot != null)
-            {
                 processed = 0;
-                foreach (DiffFile file in snapshot.Files)
+                SetTreeProgress("Updating folder counts…", 0, folders.Count);
+                foreach (DiffFolder folder in folders.Values)
                 {
-                    file.PropertyChanged += FileSelectionChanged;
-                    if (++processed % 512 == 0)
+                    token.ThrowIfCancellationRequested();
+                    folder.Refresh();
+                    if (++processed % 128 == 0)
+                    {
+                        SetTreeProgress("Updating folder counts…", processed, folders.Count);
                         await Dispatcher.Yield(DispatcherPriority.Background);
+                    }
                 }
-            }
 
-            SetTreeProgress("Updating folder display…", 0, folders.Count);
-            await ApplyKindFilterAsync(token);
-            SetTreeProgress("Updating folder display…", folders.Count, folders.Count);
+                if (snapshot != null)
+                    cachedVisibleFolders = new HashSet<string>(folders.Values.Where(f => f.Path.Length == 0 || f.CountFor(DiffKind.Differences) > 0 || f.FolderCanSync).Select(f => f.Path), StringComparer.OrdinalIgnoreCase);
+
+                DetachSelectionHandlers();
+                if (snapshot != null)
+                {
+                    processed = 0;
+                    foreach (DiffFile file in snapshot.Files)
+                    {
+                        file.PropertyChanged += FileSelectionChanged;
+                        if (++processed % 512 == 0)
+                            await Dispatcher.Yield(DispatcherPriority.Background);
+                    }
+                }
+
+                SetTreeProgress("Updating folder display…", 0, folders.Count);
+                await ApplyKindFilterAsync(token);
+                SetTreeProgress("Updating folder display…", folders.Count, folders.Count);
             }
             finally { IsProgressVisible = progressWasVisible; }
         }

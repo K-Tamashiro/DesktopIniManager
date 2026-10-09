@@ -316,7 +316,7 @@ Diff_NextFile=次の差異ファイル
 Diff_OpenSource=ソースを開く
 Diff_OpenTarget=ターゲットを開く
 Diff_Loading=読み込み中…
-Diff_HunkStatus={0} ハンク | 左の赤 = 削除  右の緑 = 追加 | UTF-8 / BOM / Shift-JIS | 大きなファイルは簡易照合です
+Diff_HunkStatus={0} ハンク | 左の赤 = 削除  右の緑 = 追加 | UTF-8 / BOM / Shift-JIS
 Diff_Unable=表示できません: {0}
 Diff_TooLargeBytes=8 MB を超えるファイルは外部エディタで開いてください。
 Diff_TooManyLines=100,000 行を超えるファイルは外部エディタで開いてください。

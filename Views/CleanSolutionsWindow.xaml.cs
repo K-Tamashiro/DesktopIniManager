@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Media;
 using DesktopIniManager.Properties;
 using DesktopIniManager.Services;
 using DesktopIniManager.ViewModels;
@@ -25,13 +23,13 @@ namespace DesktopIniManager.Views
         public CleanSolutionsWindow()
         {
             InitializeComponent();
+            CancelButtonIcon.Source = DifferencerStatusIcons.GetCustomIcon(26);
+            RunButtonIcon.Source = DifferencerStatusIcons.GetCustomIcon(49);
         }
 
         internal static SolutionCleanSelection Choose(Window owner, IReadOnlyList<string> solutions, string source)
         {
             var dialog = new CleanSolutionsWindow { Owner = owner };
-            dialog.CancelButton.Content = ActionGlyph("\uE711", Strings.Common_Cancel);
-            dialog.RunButton.Content = ActionGlyph("\uE75C", Strings.Common_Clean);
             string sourceRoot = DeveloperDifferencerService.Root(source);
             dialog.SolutionList.ItemsSource = solutions.Select(path =>
             {
@@ -52,20 +50,6 @@ namespace DesktopIniManager.Views
         }
 
         private SolutionCleanSelection Result { get; set; }
-
-        private static StackPanel ActionGlyph(string glyph, string label)
-        {
-            var content = new StackPanel { Orientation = Orientation.Horizontal };
-            content.Children.Add(new TextBlock
-            {
-                Text = glyph,
-                FontFamily = new FontFamily("Segoe MDL2 Assets"),
-                FontSize = 15,
-                VerticalAlignment = VerticalAlignment.Center
-            });
-            content.Children.Add(new TextBlock { Text = label, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center });
-            return content;
-        }
 
         private void Cancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
 

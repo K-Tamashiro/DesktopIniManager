@@ -195,7 +195,7 @@ namespace DesktopIniManager.Services
                     parts.Add(name + " ×" + extension.Value);
                 }
 
-                result[folder.Path] = parts.Count == 0 ? "Empty folder" : string.Join(" · ", parts);
+                result[folder.Path] = parts.Count == 0 ? "Empty folder" : string.Join("  ", parts);
             }
 
             return result;

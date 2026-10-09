@@ -1,14 +1,14 @@
-# DesktopIniManager v4.0.0
+# DesktopIniManager v4.2.0
 
 DesktopIniManager (DIM) is a Windows workspace for exploring development folders and Visual Studio solutions, finding files, running scoped searches, comparing folders, viewing differences, and managing folder icons through desktop.ini.
 
-[Website](http://dim.zebrasoft.co.jp/) · [GitHub downloads](https://github.com/K-Tamashiro/DesktopIniManager/releases) · [v4.0.0 release notes](docs/releases/v4.0.0.md) · [Japanese readme](docs/README.txt)
+[Website](http://dim.zebrasoft.co.jp/) · [Japanese manual](http://dim.zebrasoft.co.jp/manual.html) · [GitHub downloads](https://github.com/K-Tamashiro/DesktopIniManager/releases) · [v4.2.0 release notes](docs/releases/v4.2.0.md) · [Japanese readme](docs/README.txt)
 
 ![DesktopIniManager v4](docs/images/2026-10-04_06h30_51.png)
 
 ## Download and setup
 
-Download **DesktopIniManager-v4.0.0-win-x64.zip** from the v4.0.0 GitHub release assets, rather than GitHub's source-code archive. A matching .zip.sha256 file provides its SHA-256 checksum.
+Download **DesktopIniManager-v4.2.0-win-x64.zip** from the v4.2.0 GitHub release assets, rather than GitHub's source-code archive. A matching .zip.sha256 file provides its SHA-256 checksum.
 
 - Windows 10 or Windows 11, x64.
 - .NET 10 Desktop Runtime (x64), installed separately.
@@ -17,7 +17,7 @@ Download **DesktopIniManager-v4.0.0-win-x64.zip** from the v4.0.0 GitHub release
 
 Extract into a fresh folder and run **DesktopIniManager.exe**. Keep all DLLs, JSON files, Assets, and Languages together. ExcelDataReader and the bundled PdfPig libraries are required for Document Grep. The default folder icon library is resolved from the application's Assets directory.
 
-## What's new in v4
+## Main features and improvements in v4.x
 
 - Five independent DIM process slots, each with its own settings and history.
 - Dark, Light, and DIM1–DIM5 themes, restored on startup.
@@ -54,14 +54,43 @@ Create a ZIP from checked Source or Target files while preserving relative paths
 
 ## DIFF VIEW
 
+The text comparison engine includes a modified version of [Matthias Hertel's Diff](https://github.com/mathertel/Diff), licensed under BSD-3-Clause. See the [attribution and modification notice](docs/licenses/Mathertel-Diff-NOTICE.md) and [complete license](docs/licenses/Mathertel-Diff-LICENSE.txt).
+
+Launch just DIFF VIEW as an external two-file comparison tool:
+
+```text
+DesktopIniManager.exe -diff "C:\work\Source.txt" "C:\work\Target.txt"
+```
+
+Each invocation opens an independent process, even when all five DIM slots are occupied. It uses slot 1's theme, language and viewer settings without acquiring a slot, opening the main workspace or splash screen, or scanning folders. The process stays alive until its viewer closes. Source is on the left and Target on the right. Both arguments must be existing files; quote paths containing spaces. Relative paths resolve from the caller's working directory. Invalid arguments or missing files show an error and exit with code 1; normal closing exits with code 0 (not a content-equality result).
+
+For Git, add the following to your global `.gitconfig`, replacing the executable path with your installation path:
+
+```ini
+[diff]
+    tool = dim
+
+[difftool "dim"]
+    cmd = DesktopIniManager.exe -diff "$REMOTE" "$LOCAL"
+
+[difftool]
+    prompt = false
+```
+
+Run `git difftool` (launch confirmation disabled by `prompt = false`). In GitKraken, select **Git Config Default** as the external diff tool. This configures two-file viewing, not a merge tool or the seven-argument `GIT_EXTERNAL_DIFF` interface. See the [Git difftool documentation](https://git-scm.com/docs/git-difftool) and [GitKraken external diff instructions](https://help.gitkraken.com/gitkraken-desktop/diff/).
+
 Double-click a supported comparison file to open the read-only viewer. Text differences have syntax highlighting, original line numbers, colored Source/Target frames, and a central difference map. Supported images use a separate image view; unsupported binary formats are excluded.
 
-- Icon **110** switches from all lines to differences only; icon **109** returns to all lines.
+- The **≠** icon switches to differences only; the **※** icon returns to all lines.
 - Differences-only mode shows complete changed sections without unchanged context lines. Omitted sections have markers such as “52 filtered lines”.
 - **Ctrl + 0** performs the same toggle. Closing the viewer saves its last mode for the current slot.
 - Jump between sections/files, open either side in an external editor, or launch an external diff/merge tool.
 
 DIM does not edit or merge file contents in this viewer. Scanning, searching, comparing, and viewing leave source contents unchanged. Explicit icon application, synchronization, Clean/build commands, ZIP/export, and external tools can write files.
+
+## Image DIFF VIEW
+
+Image comparison mode shows Source and Target side by side with zoom controls. A pixel grid appears at high magnification, and ARGB values and relative coordinates are displayed at the pointer position. The map overlays both images at 50% transparency; it does not automatically detect or highlight differing pixels.
 
 ## Scoped Grep
 
@@ -96,8 +125,8 @@ Choose Dark, Light, or a DIM1–DIM5 theme. English, Japanese, Simplified Chines
 
 DIM is freeware by Tamayan / ZEBRASOFT. Copyright remains with the author. See the Japanese readme for the disclaimer.
 
-- Website: http://dim.zebrasoft.co.jp/
-- Repository / issue reports: https://github.com/K-Tamashiro/DesktopIniManager
-- Contact: tamayan@zebrasoft.co.jp
+- Website: <http://dim.zebrasoft.co.jp/>
+- Repository / issue reports: <https://github.com/K-Tamashiro/DesktopIniManager>
+- Contact: <tamayan@zebrasoft.co.jp>
 
-For maintainers, scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> packages existing v4.0.0 binaries without building. Omitting that option runs dotnet publish. Archives/checksums go to release/ for upload as GitHub assets; they are not stored in Git.
+For maintainers, scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> packages existing v4.2.0 binaries without building. Omitting that option runs dotnet publish. Archives/checksums go to release/ for upload as GitHub assets; they are not stored in Git.

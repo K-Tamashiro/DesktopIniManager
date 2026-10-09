@@ -15,7 +15,10 @@ namespace DesktopIniManager
     {
         protected override async void OnStartup(StartupEventArgs e)
         {
-            if (!AppSlot.TryAcquire(e.Args, out string slotFailure))
+            bool externalDiff = ExternalDiffLaunch.IsRequested(e.Args);
+            // Standalone viewers use the default slot-1 settings without acquiring
+            // a slot mutex or installing its front-request listener.
+            if (!externalDiff && !AppSlot.TryAcquire(e.Args, out string slotFailure))
             {
                 MessageBox.Show(slotFailure, "desktop.ini Manager", MessageBoxButton.OK, MessageBoxImage.Information);
                 Shutdown();
@@ -29,6 +32,11 @@ namespace DesktopIniManager
             Thread.CurrentThread.CurrentUICulture = ui;
             Thread.CurrentThread.CurrentCulture = ui;
             base.OnStartup(e);
+            if (externalDiff)
+            {
+                StartExternalDiff(e.Args);
+                return;
+            }
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
             SplashWindow splash = null;
             bool ready = false;
@@ -85,6 +93,32 @@ namespace DesktopIniManager
                 MessageBox.Show(string.Format(Strings.App_StartFailed, ErrorMessages.English(ex)), Strings.App_ProductName, MessageBoxButton.OK, MessageBoxImage.Error);
                 ready = true;
                 splash?.Close();
+                Shutdown(1);
+            }
+        }
+
+        private void StartExternalDiff(string[] args)
+        {
+            try
+            {
+                var launch = ExternalDiffLaunch.Parse(args);
+                ThemeService.Apply(SettingsService.LoadTheme());
+                var snapshot = launch.CreateSnapshot();
+                var viewer = new DiffViewWindow(snapshot, snapshot.Files[0], launch.SourcePath, launch.TargetPath)
+                {
+                    Width = 1200,
+                    Height = 800,
+                    WindowStartupLocation = WindowStartupLocation.CenterScreen
+                };
+                MainWindow = viewer;
+                ShutdownMode = ShutdownMode.OnMainWindowClose;
+                viewer.Show();
+                WindowActivationService.BringToFront(viewer);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ErrorMessages.English(ex) + "\n\n" + ExternalDiffLaunch.Usage,
+                    "DIM DIFF VIEW", MessageBoxButton.OK, MessageBoxImage.Error);
                 Shutdown(1);
             }
         }

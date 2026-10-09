@@ -100,25 +100,35 @@
           ToolTip="External diff command. Use {source} and {target}." />
       </Grid>
 
-      <WrapPanel
-        x:Name="actionsPanel"
-        Grid.Row="1"
-        Grid.Column="0" />
-      <StackPanel
-        x:Name="imageToolbar"
-        Grid.Row="1"
-        Grid.Column="1"
-        Margin="8,0,8,8"
-        HorizontalAlignment="Center"
-        VerticalAlignment="Center"
-        Orientation="Horizontal"
-        Visibility="Collapsed" />
-      <StackPanel
-        x:Name="fileNavigationPanel"
-        Grid.Row="1"
-        Grid.Column="2"
-        HorizontalAlignment="Right"
-        Orientation="Horizontal" />
+      <Grid Grid.Row="1" Grid.ColumnSpan="3" Height="64">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="12" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <WrapPanel x:Name="actionsPanel" VerticalAlignment="Center" />
+          <Viewbox x:Name="imageControlRow" Grid.Column="1" Stretch="Uniform" StretchDirection="DownOnly"
+                   HorizontalAlignment="Left" VerticalAlignment="Center" Visibility="Collapsed">
+            <StackPanel x:Name="imageToolbar" Orientation="Horizontal" />
+          </Viewbox>
+        </Grid>
+        <Grid Grid.Column="2">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <Viewbox Stretch="Uniform" StretchDirection="DownOnly" HorizontalAlignment="Right" VerticalAlignment="Center">
+            <StackPanel x:Name="imageDetails" Orientation="Horizontal" />
+          </Viewbox>
+          <StackPanel x:Name="fileNavigationPanel" Grid.Column="1" HorizontalAlignment="Right"
+                      VerticalAlignment="Center" Orientation="Horizontal" />
+        </Grid>
+      </Grid>
     </Grid>
 
     <TextBlock

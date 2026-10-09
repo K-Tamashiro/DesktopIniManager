@@ -1,4 +1,4 @@
-﻿using DesktopIniManager.ViewModels;
+using DesktopIniManager.ViewModels;
 using DesktopIniManager.Services;
 using DesktopIniManager.Properties;
 using System;
@@ -47,6 +47,19 @@ namespace DesktopIniManager.Views
             };
             ViewModel.FolderRevealRequested += ScheduleFolderIntoView;
             ViewModel.FileProgressRequested += ScrollToProgressFile;
+            ViewModel.ComparisonCompleted += () =>
+            {
+                pendingProgressRow = null;
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    FindScrollViewer(FolderTree)?.ScrollToTop();
+                    if (FilesGrid.Items.Count == 0) return;
+                    FilesGrid.SelectedIndex = 0;
+                    ViewModel.SelectedRow = FilesGrid.SelectedItem as DiffRow;
+                    FilesGrid.ScrollIntoView(FilesGrid.SelectedItem);
+                    FindScrollViewer(FilesGrid)?.ScrollToTop();
+                }), DispatcherPriority.ContextIdle);
+            };
             ViewModel.CommitBrowsedRootHistoryRequested += source =>
             {
                 if (source) SourceBox.CommitHistory();

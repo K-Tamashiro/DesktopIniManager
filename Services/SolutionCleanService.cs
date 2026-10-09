@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -103,10 +103,10 @@ namespace DesktopIniManager.Services
             if (string.IsNullOrWhiteSpace(configuration) || configuration.Any(c => !char.IsLetterOrDigit(c) && c != ' ' && c != '_' && c != '-'))
                 throw new ArgumentException(Strings.Clean_BadConfiguration);
             DeveloperDifferencerService.SafePath(Path.GetDirectoryName(solution) + Path.DirectorySeparatorChar, Path.GetFileName(solution));
-            return Run(msbuild, "\"" + solution + "\" /t:Clean /p:Configuration=\"" + configuration + "\" /nologo /v:minimal /nr:false", Path.GetDirectoryName(solution), out output);
+            return Run(msbuild, "\"" + solution + "\" /t:Clean /p:Configuration=\"" + configuration + "\" /nologo /v:minimal /nr:false", Path.GetDirectoryName(solution), out output, true);
         }
 
-        private static int Run(string executable, string arguments, string directory, out string output)
+        private static int Run(string executable, string arguments, string directory, out string output, bool utf8 = false)
         {
             var log = new StringBuilder();
             using (var process = new Process
@@ -117,7 +117,9 @@ namespace DesktopIniManager.Services
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     RedirectStandardOutput = true,
-                    RedirectStandardError = true
+                    RedirectStandardError = true,
+                    StandardOutputEncoding = utf8 ? Encoding.UTF8 : null,
+                    StandardErrorEncoding = utf8 ? Encoding.UTF8 : null
                 }
             })
             {

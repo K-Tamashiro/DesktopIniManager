@@ -24,7 +24,8 @@ namespace DesktopIniManager.ViewModels
                 if (SetProperty(ref file, value)) RefreshFileDetails();
             }
         }
-        public string Title => string.Format(StringOverlay.Get("Diff_TitleFile"), File.RelativePath);
+        private readonly string sourcePath, targetPath;
+        public string Title => string.Format(StringOverlay.Get("Diff_TitleFile"), sourcePath == null ? File.RelativePath : Path.GetFileName(sourcePath) + " ↔ " + Path.GetFileName(targetPath));
         public string SourceHeader => HeaderMeta(File.SourceInfo);
         public string TargetHeader => HeaderMeta(File.TargetInfo);
         public bool IsImage => DiffMedia.IsImage(File.RelativePath);
@@ -32,23 +33,66 @@ namespace DesktopIniManager.ViewModels
         public string ExternalDiff { get => externalDiff; set => SetProperty(ref externalDiff, value); }
         public BitmapSource SourceImage { get; private set; }
         public BitmapSource TargetImage { get; private set; }
+        internal string SourceImageFormat { get; private set; }
+        internal string TargetImageFormat { get; private set; }
         private readonly IUserDialogService dialogs;
         private bool externalDiffPending;
         private DiffStamp externalSourceStamp, externalTargetStamp;
         private bool checkingExternalEdit;
         private bool loadingContent, navigating, closed;
-        private string[][] preparedText;
+        private TextDocument[] preparedText;
         public List<DiffLine> Lines { get; private set; }
         private List<DiffLine> allLines;
         internal IReadOnlyList<DiffLine> AllLines => allLines;
         internal bool DifferencesOnly { get; private set; }
+        internal bool CompareNewlines { get; set; } = SettingsService.LoadDiffFlag("newlines", false);
+        internal bool CompareCase { get; set; } = SettingsService.LoadDiffFlag("case", true);
+        internal bool CompareSpaces { get; set; } = SettingsService.LoadDiffFlag("spaces", false);
+        internal bool CanChangeComparison => !loadingContent && !navigating && !closed;
+        internal TextDocument SourceText { get; private set; }
+        internal TextDocument TargetText { get; private set; }
+        internal sealed class TextDocument
+        {
+            internal string[] Lines = Array.Empty<string>();
+            internal string[] Endings = Array.Empty<string>();
+            internal string EncodingName = "—";
+            internal bool HasBom;
+            internal string Newlines => string.Join("/", Endings.Where(e => e.Length > 0).Distinct().Select(e => e == "\r\n" ? "CRLF" : e == "\r" ? "CR" : "LF"));
+        }
 
         internal bool ToggleDifferencesOnly()
         {
             if (loadingContent || navigating || closed || IsImage || allLines == null) return false;
             DifferencesOnly = !DifferencesOnly;
+            expandedEqualBlocks.Clear();
             UpdateDisplayedLines();
             return true;
+        }
+
+        private readonly HashSet<int> expandedEqualBlocks = new HashSet<int>();
+
+        internal bool ExpandFilteredLines(int index)
+        {
+            if (!CanChangeComparison || !DifferencesOnly || Lines == null || index < 0 || index >= Lines.Count || Lines[index].FilteredLineCount == 0) return false;
+            int originalStart = 0;
+            for (int i = 0; i < index; i++) originalStart += Math.Max(1, Lines[i].FilteredLineCount);
+            expandedEqualBlocks.Add(originalStart);
+            UpdateDisplayedLines();
+            return true;
+        }
+
+        internal int CollapseExpandedLines(int index)
+        {
+            if (!CanChangeComparison || !DifferencesOnly || Lines == null || index < 0 || index >= Lines.Count ||
+                Lines[index].Kind != DiffLineKind.Unchanged || Lines[index].FilteredLineCount > 0) return -1;
+            int originalIndex = 0;
+            for (int i = 0; i < index; i++) originalIndex += Math.Max(1, Lines[i].FilteredLineCount);
+            int start = originalIndex;
+            while (start > 0 && allLines[start - 1].Kind == DiffLineKind.Unchanged) start--;
+            if (!expandedEqualBlocks.Remove(start)) return -1;
+            int collapsedIndex = index - (originalIndex - start);
+            UpdateDisplayedLines();
+            return collapsedIndex;
         }
 
         private void UpdateDisplayedLines()
@@ -67,6 +111,11 @@ namespace DesktopIniManager.ViewModels
                     int start = i;
                     while (i + 1 < allLines.Count && allLines[i + 1].Kind == DiffLineKind.Unchanged) i++;
                     int count = i - start + 1;
+                    if (expandedEqualBlocks.Contains(start))
+                    {
+                        visible.AddRange(allLines.GetRange(start, count));
+                        continue;
+                    }
                     string label = string.Format(StringOverlay.Get("Diff_FilteredLines"), count);
                     visible.Add(new DiffLine { Kind = DiffLineKind.Unchanged, Left = label, Right = label, FilteredLineCount = count });
                 }
@@ -98,8 +147,10 @@ namespace DesktopIniManager.ViewModels
         internal Func<Task> ReloadRequested { get; set; }
         internal Func<IReadOnlyList<DiffFile>> VisibleFilesRequested { get; set; }
         internal Action<DiffFile> FileClosed { get; set; }
-        internal DiffViewModel(DiffSnapshot snapshot, DiffFile file, IUserDialogService dialogs)
+        internal DiffViewModel(DiffSnapshot snapshot, DiffFile file, IUserDialogService dialogs, string sourcePath = null, string targetPath = null)
         {
+            this.sourcePath = sourcePath;
+            this.targetPath = targetPath;
             this.dialogs = dialogs;
             DifferencesOnly = SettingsService.LoadDiffDifferencesOnly();
             Snapshot = snapshot; File = file;
@@ -119,6 +170,9 @@ namespace DesktopIniManager.ViewModels
         {
             closed = true;
             SettingsService.SaveDiffDifferencesOnly(DifferencesOnly);
+            SettingsService.SaveDiffFlag("newlines", CompareNewlines);
+            SettingsService.SaveDiffFlag("case", CompareCase);
+            SettingsService.SaveDiffFlag("spaces", CompareSpaces);
             externalDiffPending = false;
             FileClosed?.Invoke(File);
             if (string.IsNullOrWhiteSpace(ExternalDiff)) return;
@@ -142,6 +196,7 @@ namespace DesktopIniManager.ViewModels
             ResetContent();
             RefreshFileDetails();
             SourceImage = TargetImage = null;
+            SourceImageFormat = TargetImageFormat = null;
             Status = StringOverlay.Get("Diff_Loading");
             try
             {
@@ -150,15 +205,17 @@ namespace DesktopIniManager.ViewModels
                 {
                     string leftPath = GetPath(true), rightPath = GetPath(false);
                     var images = await Task.Run(() => new[] { LoadImage(leftPath), LoadImage(rightPath) });
-                    SourceImage = images[0];
-                    TargetImage = images[1];
-                    Status = "Source: " + ImageSize(SourceImage) + " | Target: " + ImageSize(TargetImage) + " | shared zoom, top-left aligned (GIF/ICO first frame)";
+                    SourceImage = images[0].Image;
+                    TargetImage = images[1].Image;
+                    SourceImageFormat = images[0].Format;
+                    TargetImageFormat = images[1].Format;
+                    Status = string.Empty;
                 }
                 else
                 {
                     await LoadTextAsync();
-                    Status = Hunks.Count == 0 ? "Different timestamps, identical content"
-                        : Hunks.Count + " hunks | left red = removed  right green = added | UTF-8 / BOM / Shift-JIS | large files use a simplified match";
+                    Status = Hunks.Count == 0 ? "Identical content"
+                        : string.Format(StringOverlay.Get("Diff_HunkStatus"), Hunks.Count);
                 }
                 return true;
             }
@@ -176,14 +233,19 @@ namespace DesktopIniManager.ViewModels
         }
 
         internal void ReportError(Exception ex) => Status = string.Format(StringOverlay.Get("Diff_Unable"), ErrorMessages.English(ex));
-        internal string GetPath(bool source) => DeveloperDifferencerService.SafePath(source ? Snapshot.SourceRoot : Snapshot.TargetRoot, File.RelativePath);
+        internal string GetPath(bool source) => (source ? sourcePath : targetPath)
+            ?? DeveloperDifferencerService.SafePath(source ? Snapshot.SourceRoot : Snapshot.TargetRoot, File.RelativePath);
         internal void ResetContent() { Hunks.Clear(); CurrentHunk = -1; }
         internal async Task LoadTextAsync()
         {
+            expandedEqualBlocks.Clear();
             string left = GetPath(true), right = GetPath(false);
             var prepared = preparedText;
             preparedText = null;
-            allLines = await Task.Run(() => DiffTextService.Compare(prepared == null ? ReadText(left) : prepared[0], prepared == null ? ReadText(right) : prepared[1]));
+            var documents = prepared ?? await Task.Run(() => new[] { ReadDocument(left), ReadDocument(right) });
+            SourceText = documents[0]; TargetText = documents[1];
+            allLines = await Task.Run(() => DiffTextService.Compare(SourceText.Lines, TargetText.Lines,
+                !CompareCase, !CompareSpaces, CompareNewlines ? SourceText.Endings : null, CompareNewlines ? TargetText.Endings : null));
             UpdateDisplayedLines();
         }
         private void NavigateHunk(int direction)
@@ -211,12 +273,12 @@ namespace DesktopIniManager.ViewModels
                     index = (index + direction + candidates.Count) % candidates.Count;
                     var candidate = candidates[index];
                     if (string.Equals(candidate.RelativePath, File.RelativePath, StringComparison.OrdinalIgnoreCase)) return;
-                    string[][] text = null;
+                    TextDocument[] text = null;
                     if (!DiffMedia.IsImage(candidate.RelativePath))
                     {
                         string left = DeveloperDifferencerService.SafePath(Snapshot.SourceRoot, candidate.RelativePath);
                         string right = DeveloperDifferencerService.SafePath(Snapshot.TargetRoot, candidate.RelativePath);
-                        try { text = await Task.Run(() => new[] { ReadText(left), ReadText(right) }); }
+                        try { text = await Task.Run(() => new[] { ReadDocument(left), ReadDocument(right) }); }
                         catch (InvalidDataException) { continue; }
                         catch (DecoderFallbackException) { continue; }
                         catch (IOException ex) { ReportError(ex); return; }
@@ -237,27 +299,120 @@ namespace DesktopIniManager.ViewModels
         {
             return candidate != null && !DiffMedia.IsBinary(candidate.RelativePath);
         }
-        internal static string[] ReadText(string path)
+        internal static string[] ReadText(string path) => ReadDocument(path).Lines;
+        internal static TextDocument ReadDocument(string path)
         {
-            DiffStamp stamp = DiffStamp.Read(path); if (stamp == null) return new string[0];
-            if (stamp.Size > 8 * 1024 * 1024) throw new IOException("Files over 8 MB should be opened in an external editor.");
-            byte[] bytes = System.IO.File.ReadAllBytes(path);
-            string text;
-            Encoding encoding = DetectUnicodeEncoding(bytes) ?? new UTF8Encoding(false, true);
-            try { using (var reader = new StreamReader(new MemoryStream(bytes), encoding, true)) text = reader.ReadToEnd(); }
-            catch (DecoderFallbackException) { text = CodePagesEncodingProvider.Instance.GetEncoding(932, EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback).GetString(bytes); }
-            // Terminal logs and legacy text can contain formatting/control characters.
-            if (text.Any(c => c == '\0' || (char.IsControl(c) && c != '\r' && c != '\n' && c != '\t' && c != '\f' && c != '\v' && c != '\a' && c != '\b' && c != '\u001b' && c != '\u001a')))
-                throw new InvalidDataException(DiffMedia.BinaryMessage);
-            if (text.Length == 0) return new string[0];
-            var lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
-            if (lines.Length > 100000) throw new IOException("Files over 100,000 lines should be opened in an external editor.");
-            return lines;
-        }
+            DiffStamp stamp = DiffStamp.Read(path);
 
+            if (stamp == null)
+                return new TextDocument();
+
+            if (stamp.Size > 8 * 1024 * 1024)
+                throw new IOException("Files over 8 MB should be opened in an external editor.");
+
+            byte[] bytes;
+
+            using (var stream = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete,
+                65536,
+                FileOptions.SequentialScan))
+            {
+                // Check the opened file too: it may have grown since the metadata read.
+                if (stream.Length > 8 * 1024 * 1024)
+                    throw new IOException("Files over 8 MB should be opened in an external editor.");
+                bytes = new byte[stream.Length];
+                stream.ReadExactly(bytes);
+            }
+
+            Encoding encoding = null;
+            int preamble = 0;
+            foreach (Encoding candidate in new Encoding[] { new UTF32Encoding(false, true, true), new UTF32Encoding(true, true, true), new UTF8Encoding(true, true), new UnicodeEncoding(false, true, true), new UnicodeEncoding(true, true, true) })
+            {
+                byte[] bom = candidate.GetPreamble();
+                if (bytes.AsSpan().StartsWith(bom)) { encoding = candidate; preamble = bom.Length; break; }
+            }
+            if (encoding == null)
+            {
+                // ISO-2022-JP is ASCII-compatible; recognize escape designators before UTF-8.
+                bool jis = false;
+                for (int i = 0; i + 2 < bytes.Length; i++)
+                    if (bytes[i] == 0x1b && ((bytes[i + 1] == '$' && (bytes[i + 2] == '@' || bytes[i + 2] == 'B')) ||
+                        (bytes[i + 1] == '(' && (bytes[i + 2] == 'B' || bytes[i + 2] == 'J' || bytes[i + 2] == 'I')))) jis = true;
+                encoding = jis ? CodePagesEncodingProvider.Instance.GetEncoding(50220, EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback)
+                    : DetectUnicodeEncoding(bytes) ?? new UTF8Encoding(false, true);
+            }
+            string text;
+            try { text = encoding.GetString(bytes, preamble, bytes.Length - preamble); }
+            catch (DecoderFallbackException) when (preamble == 0 && encoding.CodePage == 65001)
+            {
+                encoding = CodePagesEncodingProvider.Instance.GetEncoding(932, EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback);
+                text = encoding.GetString(bytes);
+            }
+            var document = new TextDocument { HasBom = preamble > 0, EncodingName = encoding.CodePage switch
+            {
+                65001 => "UTF-8", 932 => "S-JIS", 50220 => "ISO-2022-JP", 1200 => "UTF-16 LE",
+                1201 => "UTF-16 BE", 12000 => "UTF-32 LE", 12001 => "UTF-32 BE", _ => encoding.WebName
+            }};
+            if (text.Length == 0) return document;
+            var endings = new List<string>();
+            var lines = new List<string>(
+                Math.Min(4096, Math.Max(1, text.Length / 32)));
+
+            int start = 0;
+
+            for (int i = 0; i < text.Length; i++)
+            {
+                char c = text[i];
+
+                if (c == '\r' || c == '\n')
+                {
+                    lines.Add(text[start..i]);
+                    endings.Add(c == '\r' && i + 1 < text.Length && text[i + 1] == '\n' ? "\r\n" : c.ToString());
+
+                    if (lines.Count > 100000)
+                        throw new IOException(
+                            "Files over 100,000 lines should be opened in an external editor.");
+
+                    if (c == '\r' &&
+                        i + 1 < text.Length &&
+                        text[i + 1] == '\n')
+                    {
+                        i++;
+                    }
+
+                    start = i + 1;
+                    continue;
+                }
+
+                if (char.IsControl(c) &&
+                    c != '\t' &&
+                    c != '\f' &&
+                    c != '\v' &&
+                    c != '\a' &&
+                    c != '\b' &&
+                    c != '\u001b' &&
+                    c != '\u001a')
+                {
+                    throw new InvalidDataException(DiffMedia.BinaryMessage);
+                }
+            }
+
+            lines.Add(text[start..]);
+
+            if (lines.Count > 100000)
+                throw new IOException(
+                    "Files over 100,000 lines should be opened in an external editor.");
+
+            endings.Add(string.Empty);
+            document.Lines = lines.ToArray(); document.Endings = endings.ToArray();
+            return document;
+        }
         private static Encoding DetectUnicodeEncoding(byte[] bytes)
         {
-            // BOMs are handled by StreamReader. Infer BOM-less UTF-16 only from
+            // BOMs are detected before this fallback. Infer BOM-less UTF-16 only from
             // a strong alternating-NUL pattern, never from the file extension.
             if (bytes.Length < 4 || bytes.Length % 2 != 0) return null;
             int pairs = Math.Min(bytes.Length / 2, 2048), evenZeros = 0, oddZeros = 0;
@@ -284,11 +439,37 @@ namespace DesktopIniManager.ViewModels
             return string.Join("\n", kept);
         }
 
-        private static BitmapSource LoadImage(string path)
+        private static (BitmapSource Image, string Format) LoadImage(string path)
         {
-            if (DiffStamp.Read(path) == null) return null;
-            using (var stream = System.IO.File.OpenRead(path))
-            { var frame = BitmapDecoder.Create(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad).Frames[0]; frame.Freeze(); return frame; }
+            if (DiffStamp.Read(path) == null) return (null, null);
+            using var stream = System.IO.File.OpenRead(path);
+            var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+            string format = decoder switch
+            {
+                PngBitmapDecoder => "PNG", JpegBitmapDecoder => "JPG", TiffBitmapDecoder => "TIF",
+                BmpBitmapDecoder => "BMP", GifBitmapDecoder => "GIF", IconBitmapDecoder => "ICO",
+                WmpBitmapDecoder => "WDP", _ => Path.GetExtension(path).TrimStart('.').ToUpperInvariant()
+            };
+            var frame = decoder.Frames[0];
+            frame.Freeze();
+            return (frame, format);
+        }
+
+        internal async Task ReloadFromDiskAsync()
+        {
+            if (!CanChangeComparison || checkingExternalEdit) return;
+            navigating = true;
+            try
+            {
+                if (RefreshFileRequested != null) await RefreshFileRequested(File);
+                File.Source = DiffStamp.Read(GetPath(true));
+                File.Target = DiffStamp.Read(GetPath(false));
+                preparedText = null;
+                RefreshFileDetails();
+                if (ReloadRequested != null) await ReloadRequested();
+                else await LoadContentAsync();
+            }
+            finally { navigating = false; }
         }
 
         private static string ImageSize(BitmapSource image) { return image == null ? "none" : image.PixelWidth + " × " + image.PixelHeight + " px"; }

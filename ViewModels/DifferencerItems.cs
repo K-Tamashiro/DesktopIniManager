@@ -91,7 +91,7 @@ namespace DesktopIniManager.ViewModels
         public bool TargetEmpty { get; set; }
         private bool folderSelected;
         public DiffKind FolderKind => SourceExists == TargetExists ? DiffKind.Same : SourceExists ? DiffKind.SourceOnly : DiffKind.TargetOnly;
-        public bool FolderCanSync => Path.Length > 0 && SourceExists != TargetExists;
+        public bool FolderCanSync => !string.IsNullOrEmpty(Path) && SourceExists != TargetExists;
         public bool FolderSelected
         {
             get => folderSelected;

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Globalization;
 using System.Text;
@@ -218,6 +218,37 @@ namespace DesktopIniManager.Services
                 state.ToString(CultureInfo.InvariantCulture)));
         }
 
+        public static bool TryLoadDiffWindowPlacement(out double left, out double top, out double width, out double height, out int state)
+        {
+            left = top = width = height = 0;
+            state = 0;
+            string text = ReadSetting(Path.Combine(SettingsDirectory, "diff-window.txt"), null);
+            if (string.IsNullOrWhiteSpace(text)) return false;
+            string[] parts = text.Split(',');
+            if (parts.Length < 4) return false;
+            if (!double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out left)) return false;
+            if (!double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out top)) return false;
+            if (!double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out width)) return false;
+            if (!double.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out height)) return false;
+            if (parts.Length >= 5)
+                int.TryParse(parts[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out state);
+            return width > 0 && height > 0;
+        }
+
+        public static void SaveDiffWindowPlacement(double left, double top, double width, double height, int state)
+        {
+            WriteSetting(Path.Combine(SettingsDirectory, "diff-window.txt"), string.Join(",",
+                left.ToString("R", CultureInfo.InvariantCulture),
+                top.ToString("R", CultureInfo.InvariantCulture),
+                width.ToString("R", CultureInfo.InvariantCulture),
+                height.ToString("R", CultureInfo.InvariantCulture),
+                state.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        internal static bool LoadDiffFlag(string name, bool fallback) =>
+            bool.TryParse(ReadSetting(Path.Combine(SettingsDirectory, "diff-" + name + ".txt"), null), out bool value) ? value : fallback;
+        internal static void SaveDiffFlag(string name, bool value) =>
+            WriteSetting(Path.Combine(SettingsDirectory, "diff-" + name + ".txt"), value.ToString());
         private static string ReadSetting(string path, string fallback)
         {
             try { return File.Exists(path) ? File.ReadAllText(path, Encoding.UTF8).Trim() : fallback; }

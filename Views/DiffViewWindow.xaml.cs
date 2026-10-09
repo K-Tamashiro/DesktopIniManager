@@ -1,12 +1,10 @@
-﻿using DesktopIniManager.ViewModels;
+using DesktopIniManager.ViewModels;
 using DesktopIniManager.Services;
 using DesktopIniManager.Properties;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
 using System.Text.RegularExpressions;
-using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -29,7 +27,7 @@ namespace DesktopIniManager.Views
         private RichTextBox leftList, rightList;
         private ScrollViewer leftScroll, rightScroll;
         private Canvas map;
-        private Border hunkOverlay;
+        private System.Windows.Shapes.Path hunkOverlay;
         private int hunkStart = -1;
         private int hunkEnd = -1;
         private Thumb viewportThumb;
@@ -48,11 +46,12 @@ namespace DesktopIniManager.Views
 
         internal DiffSnapshot Snapshot => ViewModel.Snapshot;
 
-        internal DiffViewWindow(DiffSnapshot snapshot, DiffFile file)
+        internal DiffViewWindow(DiffSnapshot snapshot, DiffFile file, string sourcePath = null, string targetPath = null)
         {
-            ViewModel = new DiffViewModel(snapshot, file, new UserDialogService(this));
+            ViewModel = new DiffViewModel(snapshot, file, new UserDialogService(this), sourcePath, targetPath);
             InitializeComponent();
             DataContext = ViewModel;
+            if (sourcePath != null) selectedFileText.Visibility = Visibility.Collapsed;
             PreviewKeyDown += DiffViewKeyDown;
             ViewModel.JumpRequested += Jump;
             ViewModel.ReloadRequested = () => LoadContent();
@@ -72,6 +71,12 @@ namespace DesktopIniManager.Views
                     : Array.Empty<DiffFile>();
             Closing += (s, e) =>
             {
+                if (Owner == null)
+                {
+                    Rect bounds = WindowState == WindowState.Normal ? new Rect(Left, Top, ActualWidth, ActualHeight) : RestoreBounds;
+                    if (!bounds.IsEmpty && bounds.Width > 0 && bounds.Height > 0)
+                        SettingsService.SaveDiffWindowPlacement(bounds.Left, bounds.Top, bounds.Width, bounds.Height, (int)WindowState);
+                }
                 // WPF can clear Owner before Closed is raised.
                 if (Owner is DeveloperDifferencerWindow owner) owner.SelectLastViewedFile(ViewModel.File);
             };
@@ -83,6 +88,20 @@ namespace DesktopIniManager.Views
             };
             SourceInitialized += (s, e) =>
             {
+                if (Owner == null && SettingsService.TryLoadDiffWindowPlacement(out double x, out double y, out double w, out double h, out int state)
+                    && double.IsFinite(x) && double.IsFinite(y) && double.IsFinite(w) && double.IsFinite(h))
+                {
+                    var desktop = new Rect(SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenTop, SystemParameters.VirtualScreenWidth, SystemParameters.VirtualScreenHeight);
+                    if (desktop.IntersectsWith(new Rect(x, y, w, h)))
+                    {
+                        WindowStartupLocation = WindowStartupLocation.Manual;
+                        Left = Math.Clamp(x, desktop.Left, Math.Max(desktop.Left, desktop.Right - MinWidth));
+                        Top = Math.Clamp(y, desktop.Top, Math.Max(desktop.Top, desktop.Bottom - 40));
+                        Width = Math.Max(MinWidth, Math.Min(w, desktop.Width));
+                        Height = Math.Max(MinHeight, Math.Min(h, desktop.Height));
+                        if (state == (int)WindowState.Maximized) WindowState = WindowState.Maximized;
+                    }
+                }
                 inputSource = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
                 inputSource?.AddHook(HorizontalWheelMessage);
             };
@@ -195,11 +214,14 @@ namespace DesktopIniManager.Views
         }
 
         private ICommand toggleDisplayCommand;
-        private ICommand ToggleDisplayCommand => toggleDisplayCommand ?? (toggleDisplayCommand =
+        private ICommand ToggleDisplayCommand => toggleDisplayCommand ??=
             new AsyncRelayCommand(async () =>
             {
                 if (ViewModel.ToggleDifferencesOnly()) await LoadContent(false);
-            }, ViewModel.ReportError));
+            }, ViewModel.ReportError);
+
+        private ICommand reloadCommand;
+        private ICommand ReloadCommand => reloadCommand ??= new AsyncRelayCommand(ViewModel.ReloadFromDiskAsync, ViewModel.ReportError);
 
         private void BuildToolbar()
         {
@@ -218,8 +240,26 @@ namespace DesktopIniManager.Views
                 AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(ViewModel.DifferencesOnly ? 109 : 110),
                     StringOverlay.Get(ViewModel.DifferencesOnly ? "Diff_ShowAllLines" : "Diff_ShowDifferences"),
                     ToggleDisplayCommand);
+            if (!ViewModel.IsImage)
+            {
+                AddComparisonButton(ViewModel.CompareCase ? 116 : 119, "Compare case", () => ViewModel.CompareCase = !ViewModel.CompareCase);
+                AddComparisonButton(ViewModel.CompareSpaces ? 117 : 120, "Compare spaces / tabs", () => ViewModel.CompareSpaces = !ViewModel.CompareSpaces);
+                AddComparisonButton(ViewModel.CompareNewlines ? 118 : 121, "Compare line endings", () => ViewModel.CompareNewlines = !ViewModel.CompareNewlines);
+            }
+            AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(69), "Reload", ReloadCommand);
             AddButton(fileNavigationPanel, DifferencerStatusIcons.GetCustomIcon(40), StringOverlay.Get("Diff_PreviousFile"), ViewModel.PreviousFileCommand);
             AddButton(fileNavigationPanel, DifferencerStatusIcons.GetCustomIcon(41), StringOverlay.Get("Diff_NextFile"), ViewModel.NextFileCommand);
+        }
+
+        private void AddComparisonButton(int icon, string label, Action toggle)
+        {
+            AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(icon), label,
+                new AsyncRelayCommand(async () =>
+                {
+                    if (!ViewModel.CanChangeComparison) return;
+                    toggle();
+                    await LoadContent();
+                }, ViewModel.ReportError));
         }
 
         private bool ScrollHorizontally(int delta)
@@ -281,7 +321,58 @@ namespace DesktopIniManager.Views
             if (file == null) return;
             foreach (int index in StatusIconIndexes(file, sourceSide))
                 panel.Children.Add(StatusIcon(index));
+            var document = sourceSide ? ViewModel.SourceText : ViewModel.TargetText;
+            if (!ViewModel.IsImage && document != null)
+            {
+                var bom = StatusIcon(115);
+                bom.Opacity = document.HasBom ? 1 : 0.25;
+                bom.ToolTip = document.HasBom ? "BOM" : "No BOM";
+                panel.Children.Add(bom);
+                string endings = document.Newlines;
+                if (endings == "LF" || endings == "CRLF" || endings.Contains('/'))
+                {
+                    var marker = StatusIcon(endings.Contains('/') ? 122 : endings == "LF" ? 113 : 114);
+                    marker.ToolTip = endings;
+                    panel.Children.Add(marker);
+                }
+                else if (endings.Length == 0)
+                {
+                    var marker = StatusIcon(123);
+                    marker.ToolTip = "No line endings / missing file";
+                    panel.Children.Add(marker);
+                }
+                else panel.Children.Add(new TextBlock { Text = endings, VerticalAlignment = VerticalAlignment.Center, ToolTip = "Line endings", Margin = new Thickness(4, 0, 0, 0) });
+            }
             panel.Children.Add(StatusIcon(sourceSide ? 111 : 112));
+        }
+
+        private void UpdateEncodingHeaders()
+        {
+            void Update(TextBlock header, bool source)
+            {
+                header.ToolTip = ViewModel.GetPath(source);
+                header.Inlines.Clear();
+                header.Inlines.Add(new Run(source ? ViewModel.SourceHeader : ViewModel.TargetHeader));
+                var document = source ? ViewModel.SourceText : ViewModel.TargetText;
+                string label = ViewModel.IsImage ? (source ? ViewModel.SourceImageFormat : ViewModel.TargetImageFormat) : document?.EncodingName;
+                if (label == null) return;
+                var color = source ? Color.FromRgb(255, 210, 64) : Color.FromRgb(64, 190, 255);
+                bool differs = ViewModel.IsImage
+                    ? ViewModel.SourceImageFormat != null && ViewModel.TargetImageFormat != null && ViewModel.SourceImageFormat != ViewModel.TargetImageFormat
+                    : ViewModel.SourceText?.EncodingName != ViewModel.TargetText?.EncodingName;
+                var brush = new SolidColorBrush(color);
+                header.Inlines.Add(new InlineUIContainer(new Border
+                {
+                    CornerRadius = new CornerRadius(10), BorderThickness = new Thickness(1.5),
+                    BorderBrush = brush, Background = differs ? brush : (Brush)FindResource("CardBackground"),
+                    Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(8, 0, 0, 0),
+                    Effect = new System.Windows.Media.Effects.DropShadowEffect { Color = color, BlurRadius = 7, ShadowDepth = 0, Opacity = 0.65 },
+                    Child = new TextBlock { Text = label, FontWeight = FontWeights.SemiBold,
+                        Foreground = differs ? Brushes.Black : brush }
+                }) { BaselineAlignment = BaselineAlignment.Center });
+            }
+            Update(sourceHeader, true);
+            Update(targetHeader, false);
         }
 
         private static IEnumerable<int> StatusIconIndexes(DiffFile file, bool sourceSide)
@@ -306,7 +397,7 @@ namespace DesktopIniManager.Views
             if (own.ModifiedUtcSeconds != other.ModifiedUtcSeconds)
                 yield return own.ModifiedUtcSeconds < other.ModifiedUtcSeconds ? 14 : 13;
             if (own.Size != other.Size)
-                yield return 16;
+                yield return own.Size < other.Size ? 124 : 125;
         }
 
         private static Image StatusIcon(int index)
@@ -334,15 +425,18 @@ namespace DesktopIniManager.Views
                 case 14: return "OLD";
                 case 15: return "ONLY";
                 case 16: return "SIZE";
+                case 124: return "SMALL";
+                case 125: return "LARGE";
                 case 111: return "Source";
                 case 112: return "Target";
                 default: return string.Empty;
             }
         }
 
-        private async Task LoadContent(bool reload = true)
+        private async Task LoadContent(bool reload = true, bool jumpToFirst = true)
         {
             DetachImageFitHandler();
+            ResetImageNavigation();
             if (imageToolbar is Panel p)
             {
                 p.Children.Clear();
@@ -364,6 +458,8 @@ namespace DesktopIniManager.Views
             {
                 if (reload && !await ViewModel.LoadContentAsync()) return;
                 if (!IsLoaded) return;
+                UpdateSideStatusIcons();
+                UpdateEncodingHeaders();
                 if (ViewModel.IsImage) { await RenderImages(); return; }
                 sharedTextWidth = MeasureSharedTextWidth();
                 FrameworkElement leftHost = MakeHost(true, out leftList);
@@ -377,15 +473,15 @@ namespace DesktopIniManager.Views
                 body.Children.Add(map);
                 map.SizeChanged += (s, e) => DrawMap();
                 DrawMap();
-                hunkOverlay = new Border
+                hunkOverlay = new System.Windows.Shapes.Path
                 {
-                    BorderThickness = new Thickness(2),
-                    Background = Brushes.Transparent,
+                    StrokeThickness = 2,
+                    StrokeDashArray = new DoubleCollection { 2, 2 },
                     IsHitTestVisible = false,
                     Visibility = Visibility.Collapsed,
                     SnapsToDevicePixels = true
                 };
-                hunkOverlay.BorderBrush = new SolidColorBrush(Color.FromRgb(255, 210, 0));
+                hunkOverlay.Stroke = new SolidColorBrush(Color.FromRgb(255, 210, 0));
                 Grid.SetColumnSpan(hunkOverlay, 3);
                 Panel.SetZIndex(hunkOverlay, 2);
                 body.Children.Add(hunkOverlay);
@@ -393,7 +489,7 @@ namespace DesktopIniManager.Views
                 rightList.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(ScrollChanged));
                 leftList.PreviewMouseLeftButtonDown += DiffPane_PreviewMouseLeftButtonDown;
                 rightList.PreviewMouseLeftButtonDown += DiffPane_PreviewMouseLeftButtonDown;
-                if (hunks.Count > 0)
+                if (jumpToFirst && hunks.Count > 0)
                 {
                     _ = Dispatcher.BeginInvoke(new Action(() =>
                     {
@@ -466,6 +562,7 @@ namespace DesktopIniManager.Views
             Canvas.SetLeft(gutter, 0);
             Canvas.SetTop(gutter, 0);
             gutterViewport.Children.Add(gutter);
+            box.Tag = gutterViewport;
             // Each gutter follows its own pane, including synchronized scrolling
             // and jumps to a hunk. Match the viewport above the horizontal bar.
             box.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler((s, e) =>
@@ -481,7 +578,7 @@ namespace DesktopIniManager.Views
             Grid.SetColumn(box, 1);
             grid.Children.Add(box);
 
-            var host = new Border { Child = grid, BorderThickness = new Thickness(1) };
+            var host = new Border { Child = grid, BorderThickness = new Thickness(5) };
             host.SetResourceReference(Border.BorderBrushProperty, sourceSide ? "SourceColor" : "TargetColor");
             host.SetResourceReference(Border.BackgroundProperty, "CardBackground");
             return host;
@@ -495,7 +592,7 @@ namespace DesktopIniManager.Views
                 IsUndoEnabled = false,
                 AcceptsReturn = true,
                 BorderThickness = new Thickness(0),
-                Padding = new Thickness(6, 0, 6, 0),
+                Padding = new Thickness(0),
                 FontFamily = font,
                 FontSize = 13,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
@@ -506,18 +603,28 @@ namespace DesktopIniManager.Views
             box.SetResourceReference(Control.ForegroundProperty, "Ink");
             box.SetResourceReference(TextBoxBase.SelectionBrushProperty, "ThemeSelected");
 
+            box.SizeChanged += (_, _) =>
+            {
+                box.Document.PageWidth = Math.Max(sharedTextWidth + 24, Math.Max(200, box.ActualWidth));
+                UpdateHunkOverlay();
+            };
+            PopulatePane(box, sourceSide);
+            return box;
+        }
+
+        private void PopulatePane(RichTextBox box, bool sourceSide)
+        {
             var document = new FlowDocument
             {
                 PagePadding = new Thickness(0),
                 TextAlignment = TextAlignment.Left,
                 LineHeight = DiffLineHeight,
                 LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
-                PageWidth = Math.Max(sharedTextWidth + 24, 200),
+                PageWidth = Math.Max(sharedTextWidth + 24, Math.Max(200, box.ActualWidth)),
                 PageHeight = Math.Max(DiffLineHeight * Math.Max(1, lines == null ? 1 : lines.Count) + 24, 200)
             };
             document.SetResourceReference(FlowDocument.BackgroundProperty, "CardBackground");
             document.SetResourceReference(FlowDocument.ForegroundProperty, "Ink");
-
             bool blockComment = false;
             int originalRow = 0;
             foreach (DiffLine line in lines)
@@ -527,13 +634,15 @@ namespace DesktopIniManager.Views
                 var paragraph = new Paragraph
                 {
                     Margin = new Thickness(0),
-                    Padding = new Thickness(0),
+                    Padding = new Thickness(6, 0, 6, 0),
                     LineHeight = DiffLineHeight,
                     LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
                     TextAlignment = TextAlignment.Left
                 };
                 if (line.FilteredLineCount > 0)
                 {
+                    paragraph.Cursor = Cursors.Hand;
+                    paragraph.ToolTip = "Click to expand unchanged lines";
                     // Hidden text still determines the syntax state of the next visible line.
                     if (syntaxExtension == ".cs")
                         for (int i = 0; i < line.FilteredLineCount; i++)
@@ -552,6 +661,11 @@ namespace DesktopIniManager.Views
                 }
                 else
                 {
+                    if (ViewModel.DifferencesOnly && line.Kind == DiffLineKind.Unchanged)
+                    {
+                        paragraph.Cursor = Cursors.Hand;
+                        paragraph.ToolTip = "Click to collapse unchanged lines";
+                    }
                     AddSyntaxRuns(paragraph, string.IsNullOrEmpty(text) ? " " : text, ref blockComment);
                     originalRow++;
                 }
@@ -562,7 +676,6 @@ namespace DesktopIniManager.Views
             }
 
             box.Document = document;
-            return box;
         }
 
         private static readonly HashSet<string> CSharpKeywords = new HashSet<string>(StringComparer.Ordinal)
@@ -670,8 +783,8 @@ namespace DesktopIniManager.Views
             var run = new Run(text);
             bool dark = IsDarkBackground();
             Color color = kind == "comment" ? (dark ? Color.FromRgb(106, 153, 85) : Color.FromRgb(0, 128, 0)) :
-                          kind == "string"  ? (dark ? Color.FromRgb(206, 145, 120) : Color.FromRgb(163, 21, 21)) :
-                          kind == "number"  ? (dark ? Color.FromRgb(181, 206, 168) : Color.FromRgb(9, 134, 88)) :
+                          kind == "string" ? (dark ? Color.FromRgb(206, 145, 120) : Color.FromRgb(163, 21, 21)) :
+                          kind == "number" ? (dark ? Color.FromRgb(181, 206, 168) : Color.FromRgb(9, 134, 88)) :
                                               (dark ? Color.FromRgb(86, 156, 214) : Color.FromRgb(0, 0, 255));
             run.Foreground = new SolidColorBrush(color);
             paragraph.Inlines.Add(run);
@@ -695,6 +808,7 @@ namespace DesktopIniManager.Views
 
         private void DiffPane_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
+            if (e.OriginalSource is Visual visual && FindAncestor<ScrollBar>(visual) != null) return;
             var box = sender as RichTextBox;
             if (box == null || lines == null || lines.Count == 0) return;
 
@@ -707,10 +821,75 @@ namespace DesktopIniManager.Views
             double y = e.GetPosition(box).Y + scroll.VerticalOffset;
             int index = (int)Math.Floor(y / DiffLineHeight);
             if (index < 0 || index >= lines.Count) return;
+            if (ViewModel.DifferencesOnly && lines[index].Kind == DiffLineKind.Unchanged)
+            {
+                e.Handled = true;
+                double vertical = scroll.VerticalOffset, horizontal = scroll.HorizontalOffset;
+                int selectedHunk = current;
+                if (lines[index].FilteredLineCount > 0)
+                {
+                    if (!ViewModel.ExpandFilteredLines(index)) return;
+                }
+                else
+                {
+                    int collapsedIndex = ViewModel.CollapseExpandedLines(index);
+                    if (collapsedIndex < 0) return;
+                    vertical = Math.Min(vertical, collapsedIndex * DiffLineHeight);
+                }
+                RefreshFoldedPanes(vertical, horizontal, selectedHunk);
+                return;
+            }
             if (lines[index].Kind == DiffLineKind.Unchanged) return;
             SelectHunk(index, scrollToStart: false);
         }
 
+        // Keep the pane controls, toolbar and overlay alive. Complete both document
+        // updates and scroll restoration in one dispatcher turn, before rendering.
+        internal void RefreshFoldedPanes(double vertical, double horizontal, int selectedHunk)
+        {
+            using (Dispatcher.DisableProcessing())
+            {
+                scrolling = true;
+                try
+                {
+                    sharedTextWidth = Math.Max(sharedTextWidth, MeasureSharedTextWidth());
+                    PopulatePane(leftList, true);
+                    PopulatePane(rightList, false);
+                    UpdateFoldedGutter(leftList, true);
+                    UpdateFoldedGutter(rightList, false);
+                    body.UpdateLayout();
+                    leftScroll = FindScroll(leftList);
+                    rightScroll = FindScroll(rightList);
+                    leftScroll?.ScrollToVerticalOffset(vertical);
+                    rightScroll?.ScrollToVerticalOffset(vertical);
+                    leftScroll?.ScrollToHorizontalOffset(horizontal);
+                    rightScroll?.ScrollToHorizontalOffset(horizontal);
+                    body.UpdateLayout();
+                    if (selectedHunk >= 0 && selectedHunk < hunks.Count)
+                        SelectHunk(hunks[selectedHunk], false);
+                    else hunkStart = hunkEnd = -1;
+                    DrawMap();
+                    UpdateHunkOverlay();
+                }
+                finally { scrolling = false; }
+            }
+        }
+
+        private void UpdateFoldedGutter(RichTextBox pane, bool source)
+        {
+            var viewport = (Canvas)pane.Tag;
+            var gutter = (TextBlock)viewport.Children[0];
+            var numbers = new System.Text.StringBuilder();
+            for (int i = 0; i < lines.Count; i++)
+            {
+                if (i > 0) numbers.Append('\n');
+                int number = source ? lines[i].LeftNumber : lines[i].RightNumber;
+                if (number > 0) numbers.Append(number);
+            }
+            gutter.Text = numbers.ToString();
+            gutter.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            viewport.Width = Math.Max(viewport.Width, gutter.DesiredSize.Width);
+        }
         private void Jump(int index) => SelectHunk(index, scrollToStart: true);
 
         private void SelectHunk(int index, bool scrollToStart)
@@ -770,18 +949,15 @@ namespace DesktopIniManager.Views
             double clipTop = viewTop.Y;
             double clipBottom = viewTop.Y + viewHeight;
 
-            Rect startRect;
-            Rect endRect;
-            if (!TryGetLineRect(leftList, hunkStart, out startRect)
-                || !TryGetLineRect(leftList, Math.Max(hunkStart, hunkEnd - 1), out endRect))
-            {
-                hunkOverlay.Visibility = Visibility.Collapsed;
-                return;
-            }
-
-            double hunkTop = leftList.TranslatePoint(new Point(0, startRect.Top), body).Y;
-            double hunkBottom = leftList.TranslatePoint(new Point(0, endRect.Bottom), body).Y;
-
+            // Paragraph backgrounds use fixed row boundaries, not glyph bounds.
+            // Glyph ascenders/descenders shift the outline below the painted top.
+            double hunkTop = viewTop.Y + hunkStart * DiffLineHeight - leftScroll.VerticalOffset;
+            double hunkBottom = viewTop.Y + hunkEnd * DiffLineHeight - leftScroll.VerticalOffset;
+            var sourceHost = FindAncestor<Border>(leftList);
+            var targetHost = FindAncestor<Border>(rightList);
+            if (sourceHost == null || targetHost == null) return;
+            double innerLeft = sourceHost.TranslatePoint(new Point(sourceHost.BorderThickness.Left, 0), body).X;
+            double innerRight = targetHost.TranslatePoint(new Point(targetHost.ActualWidth - targetHost.BorderThickness.Right, 0), body).X;
             if (hunkBottom <= clipTop || hunkTop >= clipBottom)
             {
                 hunkOverlay.Visibility = Visibility.Collapsed;
@@ -799,36 +975,29 @@ namespace DesktopIniManager.Views
                 return;
             }
 
-            hunkOverlay.BorderThickness = new Thickness(2, showTopEdge ? 2 : 0, 2, showBottomEdge ? 2 : 0);
+            // Keep the entire stroke inside the arranged Path; a stroke centered
+            // on its bottom boundary was clipped to half thickness.
+            var dpi = VisualTreeHelper.GetDpi(body);
+            y = Math.Round(y * dpi.DpiScaleY) / dpi.DpiScaleY;
+            bottom = Math.Round(bottom * dpi.DpiScaleY) / dpi.DpiScaleY;
+            height = bottom - y;
+            double inset = hunkOverlay.StrokeThickness / 2;
+            double topEdge = inset, bottomEdge = Math.Max(inset, height - inset);
+            var geometry = new StreamGeometry();
+            using (var drawing = geometry.Open())
+            {
+                double left = innerLeft + inset;
+                double right = Math.Max(left, innerRight - inset);
+                drawing.BeginFigure(new Point(left, topEdge), false, false);
+                drawing.LineTo(new Point(left, bottomEdge), true, false);
+                if (showBottomEdge) drawing.LineTo(new Point(right, bottomEdge), true, false);
+                else drawing.BeginFigure(new Point(right, bottomEdge), false, false);
+                drawing.LineTo(new Point(right, topEdge), true, false);
+                if (showTopEdge) drawing.LineTo(new Point(left, topEdge), true, false);
+            }
+            hunkOverlay.Data = geometry;
             hunkOverlay.Margin = new Thickness(0, y, 0, Math.Max(0, body.ActualHeight - y - height));
             hunkOverlay.Visibility = Visibility.Visible;
-        }
-
-        private static bool TryGetLineRect(RichTextBox box, int index, out Rect rect)
-        {
-            rect = Rect.Empty;
-            if (box?.Document == null || index < 0) return false;
-            int i = 0;
-            foreach (Block block in box.Document.Blocks)
-            {
-                if (i == index)
-                {
-                    Rect start = block.ContentStart.GetCharacterRect(LogicalDirection.Forward);
-                    Rect end = block.ContentEnd.GetCharacterRect(LogicalDirection.Backward);
-                    if (start.IsEmpty && end.IsEmpty) return false;
-                    if (start.IsEmpty) start = end;
-                    if (end.IsEmpty) end = start;
-                    double glyphTop = Math.Min(start.Top, end.Top);
-                    double glyphBottom = Math.Max(start.Bottom, end.Bottom);
-                    if (glyphBottom <= glyphTop) glyphBottom = glyphTop + DiffLineHeight;
-                    double mid = (glyphTop + glyphBottom) / 2;
-                    double top = mid - DiffLineHeight / 2;
-                    rect = new Rect(0, top, 1, DiffLineHeight);
-                    return true;
-                }
-                i++;
-            }
-            return false;
         }
 
         private static void ScrollPaneToLine(RichTextBox box, int index)
@@ -862,6 +1031,7 @@ namespace DesktopIniManager.Views
             if (rightScroll == null) rightScroll = FindScroll(rightList);
             if (from != leftScroll && from != rightScroll) return;
             if (e.ExtentHeightChange != 0 || e.ViewportHeightChange != 0) DrawMap();
+            UpdateImageNavigation();
             UpdateViewport(from);
             UpdateHunkOverlay();
             if (e.VerticalChange == 0 && e.HorizontalChange == 0) return;
@@ -993,22 +1163,25 @@ namespace DesktopIniManager.Views
             body.ColumnDefinitions[1].Width = new GridLength(12);
             double width = Math.Max(left == null ? 0 : left.PixelWidth, right == null ? 0 : right.PixelWidth);
             double height = Math.Max(left == null ? 0 : left.PixelHeight, right == null ? 0 : right.PixelHeight);
-            var leftCanvas = ImageCanvas(left, width, height); var rightCanvas = ImageCanvas(right, width, height);
-            leftScroll = ThemedViewer(leftCanvas, true);
-            rightScroll = ThemedViewer(rightCanvas, false);
+            var leftCanvas = ImageCanvas(left, width, height, out var leftPixelGrid);
+            var rightCanvas = ImageCanvas(right, width, height, out var rightPixelGrid);
+            leftScroll = ThemedViewer(leftCanvas, true, left == null);
+            rightScroll = ThemedViewer(rightCanvas, false, right == null);
             EnableImagePan(leftScroll);
             EnableImagePan(rightScroll);
-            body.Children.Add(leftScroll);
-            Grid.SetColumn(rightScroll, 2);
-            body.Children.Add(rightScroll);
+            body.Children.Add(ImagePaneHost(leftScroll, true, left == null));
+            var rightHost = ImagePaneHost(rightScroll, false, right == null);
+            Grid.SetColumn(rightHost, 2);
+            body.Children.Add(rightHost);
             leftScroll.ScrollChanged += ScrollChanged;
             rightScroll.ScrollChanged += ScrollChanged;
+            BuildImageNavigation(width, height);
             var zoom = imageZoom = new Slider
             {
                 Minimum = 0.05,
                 Maximum = 16,
                 Value = 1,
-                Width = 180,
+                Width = 120,
                 ToolTip = "Shared zoom for Source and Target",
                 VerticalAlignment = VerticalAlignment.Center,
                 Style = TryFindResource("ZoomSlider") as Style
@@ -1078,34 +1251,59 @@ namespace DesktopIniManager.Views
                 AddIconActionButton(wrapper, DifferencerStatusIcons.GetCustomIcon(72), StringOverlay.Get("Diff_Fit"), () => { fitToWindow = true; fit(); });
                 AddIconActionButton(wrapper, DifferencerStatusIcons.GetCustomIcon(73), "100%", () => { fitToWindow = false; zoom.Value = 1; });
                 wrapper.Visibility = Visibility.Visible;
+                imageControlRow.Visibility = Visibility.Visible;
             }
             zoom.ValueChanged += (s, e) =>
             {
                 leftCanvas.LayoutTransform = new ScaleTransform(e.NewValue, e.NewValue);
                 rightCanvas.LayoutTransform = new ScaleTransform(e.NewValue, e.NewValue);
                 zoomLabel.Text = string.Format("{0:0}%", e.NewValue * 100);
+                var gridVisibility = e.NewValue >= zoom.Maximum - 0.0001
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+                if (leftPixelGrid != null) leftPixelGrid.Visibility = gridVisibility;
+                if (rightPixelGrid != null) rightPixelGrid.Visibility = gridVisibility;
                 if (!fitting) fitToWindow = false;
+                Dispatcher.BeginInvoke(new Action(UpdateImageNavigation), DispatcherPriority.Loaded);
             };
-            imageFitHandler = (s, e) => fit();
+            imageFitHandler = (s, e) => { fit(); UpdateImageNavigation(); };
             body.SizeChanged += imageFitHandler;
             await Dispatcher.InvokeAsync(fit, System.Windows.Threading.DispatcherPriority.Loaded);
         }
 
-        private static ScrollViewer ThemedViewer(object content, bool sourceSide)
+        private static ScrollViewer ThemedViewer(object content, bool sourceSide, bool missing)
         {
             var viewer = new ScrollViewer
             {
                 Content = content,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
-                BorderThickness = new Thickness(1),
+                BorderThickness = new Thickness(0),
                 Cursor = Cursors.SizeAll,
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                VerticalContentAlignment = VerticalAlignment.Top,
                 PanningMode = PanningMode.Both
             };
             viewer.SetResourceReference(Control.BackgroundProperty, "CardBackground");
             viewer.SetResourceReference(Control.ForegroundProperty, "Ink");
             viewer.SetResourceReference(Control.BorderBrushProperty, sourceSide ? "SourceColor" : "TargetColor");
+            if (missing)
+            {
+                viewer.Background = MissingImageBrush;
+                viewer.BorderBrush = MissingImageBrush;
+            }
             return viewer;
+        }
+
+        private static Border ImagePaneHost(ScrollViewer viewer, bool source, bool missing)
+        {
+            // The system ScrollViewer template may ignore BorderThickness.
+            // Use the same explicit outer Border as the text panes.
+            var host = new Border { Child = viewer, BorderThickness = new Thickness(5) };
+            host.SetResourceReference(Border.BorderBrushProperty, source ? "SourceColor" : "TargetColor");
+            host.SetResourceReference(Border.BackgroundProperty, "CardBackground");
+            if (missing) host.Background = host.BorderBrush = MissingImageBrush;
+            return host;
         }
 
         private void EnableImagePan(ScrollViewer viewer)
@@ -1123,6 +1321,7 @@ namespace DesktopIniManager.Views
                 return;
             var viewer = sender as ScrollViewer;
             if (viewer == null) return;
+            SetImagePointDetails(e.GetPosition((Canvas)viewer.Content), true);
             imagePanning = true;
             imagePanLast = e.GetPosition(viewer);
             viewer.CaptureMouse();
@@ -1132,9 +1331,10 @@ namespace DesktopIniManager.Views
 
         private void ImageViewer_PreviewMouseMove(object sender, MouseEventArgs e)
         {
-            if (!imagePanning || e.LeftButton != MouseButtonState.Pressed) return;
             var viewer = sender as ScrollViewer;
             if (viewer == null) return;
+            SetImagePointDetails(e.GetPosition((Canvas)viewer.Content), false);
+            if (!imagePanning || e.LeftButton != MouseButtonState.Pressed) return;
             Point now = e.GetPosition(viewer);
             Vector delta = now - imagePanLast;
             imagePanLast = now;
@@ -1152,6 +1352,8 @@ namespace DesktopIniManager.Views
         {
             if (!imagePanning) return;
             StopImagePan();
+            if (sender is ScrollViewer viewer && viewer.Content is Canvas canvas)
+                SetImagePointDetails(e.GetPosition(canvas), false);
             e.Handled = true;
         }
 
@@ -1196,12 +1398,67 @@ namespace DesktopIniManager.Views
             return button;
         }
 
-        private static Canvas ImageCanvas(BitmapSource image, double width, double height)
+        private static readonly Brush MissingImageBrush = new SolidColorBrush(Color.FromRgb(10, 15, 21));
+        private static readonly Brush PixelLineGridBrush = CreatePixelLineGridBrush();
+
+        private static Brush CreatePixelLineGridBrush()
         {
+            // One source pixel per tile. The line is 1/16px so it becomes 1 DIP at 1600%.
+            // Right and bottom edges only, so the pixel interior stays visible.
+            const double line = 1.0 / 16.0;
+            var edges = new GeometryGroup();
+            edges.Children.Add(new RectangleGeometry(new Rect(1 - line, 0, line, 1)));
+            edges.Children.Add(new RectangleGeometry(new Rect(0, 1 - line, 1, line)));
+            var drawing = new GeometryDrawing
+            {
+                Brush = new SolidColorBrush(Color.FromArgb(150, 186, 214, 232)),
+                Geometry = edges
+            };
+            drawing.Freeze();
+            var brush = new DrawingBrush
+            {
+                Drawing = drawing,
+                TileMode = TileMode.Tile,
+                Viewport = new Rect(0, 0, 1, 1),
+                ViewportUnits = BrushMappingMode.Absolute,
+                Viewbox = new Rect(0, 0, 1, 1),
+                ViewboxUnits = BrushMappingMode.Absolute,
+                Stretch = Stretch.None,
+                AlignmentX = AlignmentX.Left,
+                AlignmentY = AlignmentY.Top
+            };
+            brush.Freeze();
+            return brush;
+        }
+
+        private static Canvas ImageCanvas(BitmapSource image, double width, double height, out Canvas pixelGrid)
+        {
+            pixelGrid = null;
             var canvas = new Canvas { Width = width, Height = height, Cursor = Cursors.SizeAll };
             canvas.SetResourceReference(Panel.BackgroundProperty, "CardBackground");
-            if (image != null) canvas.Children.Add(new Image { Source = image, Width = image.PixelWidth, Height = image.PixelHeight, Stretch = Stretch.Fill });
-            else canvas.Children.Add(new TextBlock { Text = "Missing", Margin = new Thickness(12) });
+            if (image != null)
+            {
+                var picture = new Image
+                {
+                    Source = image,
+                    Width = image.PixelWidth,
+                    Height = image.PixelHeight,
+                    Stretch = Stretch.Fill
+                };
+                RenderOptions.SetBitmapScalingMode(picture, BitmapScalingMode.NearestNeighbor);
+                canvas.Children.Add(picture);
+                pixelGrid = new Canvas
+                {
+                    Width = image.PixelWidth,
+                    Height = image.PixelHeight,
+                    IsHitTestVisible = false,
+                    Visibility = Visibility.Collapsed,
+                    Background = PixelLineGridBrush
+                };
+                Panel.SetZIndex(pixelGrid, 2);
+                canvas.Children.Add(pixelGrid);
+            }
+            else canvas.Background = MissingImageBrush;
             return canvas;
         }
 

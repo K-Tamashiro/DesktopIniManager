@@ -14,40 +14,6 @@
   <Window.Resources>
     <SolidColorBrush x:Key="SourceColor" Color="#E8B949" />
     <SolidColorBrush x:Key="TargetColor" Color="#2878BF" />
-    <SolidColorBrush x:Key="CleanColor" Color="#28784B" />
-    <Style
-      x:Key="DifferencerActionButton"
-      BasedOn="{StaticResource IconTextButton}"
-      TargetType="Button">
-      <Setter Property="Template">
-        <Setter.Value>
-          <ControlTemplate TargetType="Button">
-            <Grid x:Name="Frame">
-              <Border Background="{TemplateBinding Background}" CornerRadius="10" />
-              <Border
-                x:Name="Highlight"
-                Background="White"
-                CornerRadius="10"
-                Opacity="0" />
-              <Border Padding="{TemplateBinding Padding}">
-                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-              </Border>
-            </Grid>
-            <ControlTemplate.Triggers>
-              <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Highlight" Property="Opacity" Value="0.12" />
-              </Trigger>
-              <Trigger Property="IsPressed" Value="True">
-                <Setter TargetName="Highlight" Property="Opacity" Value="0.22" />
-              </Trigger>
-              <Trigger Property="IsEnabled" Value="False">
-                <Setter TargetName="Frame" Property="Opacity" Value="0.48" />
-              </Trigger>
-            </ControlTemplate.Triggers>
-          </ControlTemplate>
-        </Setter.Value>
-      </Setter>
-    </Style>
   </Window.Resources>
   <DockPanel Margin="16">
     <TextBlock
@@ -66,16 +32,28 @@
         <Button
           x:Name="CancelButton"
           Margin="0,0,8,0"
-          Background="{DynamicResource Secondary}"
+          Background="Transparent"
           Click="Cancel_Click"
           IsCancel="True"
-          Style="{DynamicResource DifferencerActionButton}" />
+          Style="{StaticResource IconButton}"
+          ToolTip="{loc:L Common_Cancel}">
+          <Image
+            x:Name="CancelButtonIcon"
+            RenderOptions.BitmapScalingMode="HighQuality"
+            Stretch="Uniform" />
+        </Button>
         <Button
           x:Name="RunButton"
-          Background="{DynamicResource CleanColor}"
+          Background="Transparent"
           Click="Run_Click"
           IsDefault="True"
-          Style="{DynamicResource DifferencerActionButton}" />
+          Style="{StaticResource IconButton}"
+          ToolTip="{loc:L Common_Clean}">
+          <Image
+            x:Name="RunButtonIcon"
+            RenderOptions.BitmapScalingMode="HighQuality"
+            Stretch="Uniform" />
+        </Button>
       </StackPanel>
     </StackPanel>
     <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">

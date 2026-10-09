@@ -611,7 +611,7 @@ namespace DesktopIniManager.ViewModels
                         token.ThrowIfCancellationRequested();
                         if (Directory.Exists(file)) continue;
                         paths.Add(file);
-                        }
+                    }
                     if (!recursive) continue;
                     foreach (string child in Directory.EnumerateDirectories(directory))
                     {

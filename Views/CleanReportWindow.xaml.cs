@@ -1,6 +1,6 @@
-using System;
 using System.Windows;
 using DesktopIniManager.Properties;
+using DesktopIniManager.ViewModels;
 
 namespace DesktopIniManager.Views
 {
@@ -9,6 +9,7 @@ namespace DesktopIniManager.Views
         public CleanReportWindow()
         {
             InitializeComponent();
+            CloseButtonIcon.Source = DifferencerStatusIcons.GetCustomIcon(34);
         }
 
         internal static void Show(Window owner, string summary, string logPath, string log)
@@ -16,10 +17,18 @@ namespace DesktopIniManager.Views
             var report = new CleanReportWindow
             {
                 Owner = owner,
-                Title = summary
+                Title = "Solution Clean"
             };
-            report.LogBox.Text = string.Format(Strings.Differencer_LogLabel, logPath) + Environment.NewLine + log;
+            report.SummaryText.Text = summary;
+            report.LogPathText.Text = string.Format(Strings.Differencer_LogLabel, logPath);
+            report.LogBox.Text = log;
+            report.LogBox.ScrollToHome();
             report.Show();
+        }
+
+        private void Close_Click(object sender, RoutedEventArgs e)
+        {
+            Close();
         }
     }
 }

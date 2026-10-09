@@ -964,6 +964,88 @@
                             VirtualizingPanel.ScrollUnit="Item"
                             VirtualizingStackPanel.IsVirtualizing="True"
                             VirtualizingStackPanel.VirtualizationMode="Recycling">
+                                    <ListView.Resources>
+                                        <Style x:Key="{x:Static GridView.GridViewScrollViewerStyleKey}" TargetType="{x:Type ScrollViewer}">
+                                            <Setter Property="Focusable" Value="False" />
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="{x:Type ScrollViewer}">
+                                                        <Grid Background="{TemplateBinding Background}">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <Grid.RowDefinitions>
+                                                                <RowDefinition Height="*" />
+                                                                <RowDefinition Height="Auto" />
+                                                            </Grid.RowDefinitions>
+                                                            <DockPanel Grid.Row="0" Grid.Column="0">
+                                                                <ScrollViewer
+                                                                    DockPanel.Dock="Top"
+                                                                    Focusable="False"
+                                                                    HorizontalScrollBarVisibility="Hidden"
+                                                                    VerticalScrollBarVisibility="Hidden">
+                                                                    <GridViewHeaderRowPresenter
+                                                                        AllowsColumnReorder="{Binding TemplatedParent.View.AllowsColumnReorder, RelativeSource={RelativeSource TemplatedParent}}"
+                                                                        ColumnHeaderContainerStyle="{Binding TemplatedParent.View.ColumnHeaderContainerStyle, RelativeSource={RelativeSource TemplatedParent}}"
+                                                                        ColumnHeaderContextMenu="{Binding TemplatedParent.View.ColumnHeaderContextMenu, RelativeSource={RelativeSource TemplatedParent}}"
+                                                                        ColumnHeaderStringFormat="{Binding TemplatedParent.View.ColumnHeaderStringFormat, RelativeSource={RelativeSource TemplatedParent}}"
+                                                                        ColumnHeaderTemplate="{Binding TemplatedParent.View.ColumnHeaderTemplate, RelativeSource={RelativeSource TemplatedParent}}"
+                                                                        ColumnHeaderTemplateSelector="{Binding TemplatedParent.View.ColumnHeaderTemplateSelector, RelativeSource={RelativeSource TemplatedParent}}"
+                                                                        ColumnHeaderToolTip="{Binding TemplatedParent.View.ColumnHeaderToolTip, RelativeSource={RelativeSource TemplatedParent}}"
+                                                                        Columns="{Binding TemplatedParent.View.Columns, RelativeSource={RelativeSource TemplatedParent}}" />
+                                                                </ScrollViewer>
+                                                                <ScrollContentPresenter
+                                                                    x:Name="PART_ScrollContentPresenter"
+                                                                    CanContentScroll="{TemplateBinding CanContentScroll}"
+                                                                    Content="{TemplateBinding Content}"
+                                                                    ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                                    KeyboardNavigation.DirectionalNavigation="Local" />
+                                                            </DockPanel>
+                                                            <ScrollBar
+                                                                x:Name="PART_VerticalScrollBar"
+                                                                Grid.Row="0"
+                                                                Grid.Column="1"
+                                                                Maximum="{TemplateBinding ScrollableHeight}"
+                                                                Orientation="Vertical"
+                                                                ViewportSize="{TemplateBinding ViewportHeight}"
+                                                                Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"
+                                                                Value="{Binding VerticalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" />
+                                                            <ScrollBar
+                                                                x:Name="PART_HorizontalScrollBar"
+                                                                Grid.Row="1"
+                                                                Grid.Column="0"
+                                                                Maximum="{TemplateBinding ScrollableWidth}"
+                                                                Orientation="Horizontal"
+                                                                ViewportSize="{TemplateBinding ViewportWidth}"
+                                                                Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}"
+                                                                Value="{Binding HorizontalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" />
+                                                            <Border x:Name="ScrollBarCorner"
+                                                                Grid.Row="1"
+                                                                Grid.Column="1"
+                                                                Background="{DynamicResource CardBackground}" />
+                                                        </Grid>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ListView.Resources>
+                                    <ListView.Template>
+                                        <ControlTemplate TargetType="ListView">
+                                            <Border Background="{TemplateBinding Background}"
+                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                    BorderThickness="{TemplateBinding BorderThickness}">
+                                                <ScrollViewer x:Name="PART_ScrollViewer"
+                                                              Style="{StaticResource {x:Static GridView.GridViewScrollViewerStyleKey}}"
+                                                              CanContentScroll="{TemplateBinding ScrollViewer.CanContentScroll}"
+                                                              HorizontalScrollBarVisibility="{TemplateBinding ScrollViewer.HorizontalScrollBarVisibility}"
+                                                              VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}"
+                                                              Background="{TemplateBinding Background}">
+                                                    <ItemsPresenter />
+                                                </ScrollViewer>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </ListView.Template>
                             <ListView.View>
                                 <GridView AllowsColumnReorder="False">
                                     <GridViewColumn Width="45" Header="{loc:L Common_Sync}">

@@ -1,4 +1,4 @@
-﻿using DesktopIniManager.Models;
+using DesktopIniManager.Models;
 using DesktopIniManager.ViewModels;
 using DesktopIniManager.Services;
 using Microsoft.Win32;
@@ -34,6 +34,8 @@ namespace DesktopIniManager.Views
         {
             ViewModel = new GrepWindowViewModel(scopeProvider, Dispatcher, new UserDialogService(this));
             InitializeComponent();
+            ClearQueryButton.Click += (_, _) => Dispatcher.BeginInvoke(new Action(() => QueryBox.Focus()), DispatcherPriority.Input);
+            ClearListFilterButton.Click += (_, _) => Dispatcher.BeginInvoke(new Action(() => FilterBox.Focus()), DispatcherPriority.Input);
             DataContext = ViewModel;
             QueryBox.PreviewKeyDown += (sender, args) =>
             {

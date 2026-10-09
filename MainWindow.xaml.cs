@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Windows;
 using System.Windows.Threading;
 using System.Windows.Media;
@@ -25,6 +25,8 @@ namespace DesktopIniManager
         {
             ThemeService.Apply(startup?.Theme ?? SettingsService.LoadTheme());
             InitializeComponent();
+            ClearQueryButton.Click += (_, _) => Dispatcher.BeginInvoke(new Action(() => QueryBox.Focus()), DispatcherPriority.Input);
+            ClearFolderFilterButton.Click += (_, _) => Dispatcher.BeginInvoke(new Action(() => FolderFilterBox.Focus()), DispatcherPriority.Input);
             presentation = new MainWindowPresentationService(this, startup);
             RestoreListLayout();
             AppSlot.FrontRequested += () => Dispatcher.BeginInvoke(new Action(() => WindowActivationService.BringToFront(this, true)));

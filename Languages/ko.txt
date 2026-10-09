@@ -224,7 +224,7 @@ Diff_NextFile=다음 차이 파일
 Diff_OpenSource=소스 열기
 Diff_OpenTarget=대상 열기
 Diff_Loading=불러오는 중…
-Diff_HunkStatus=헝크 {0}개 | 왼쪽 빨강 = 삭제  오른쪽 초록 = 추가 | UTF-8 / BOM / Shift-JIS | 큰 파일은 단순 비교입니다
+Diff_HunkStatus=헝크 {0}개 | 왼쪽 빨강 = 삭제  오른쪽 초록 = 추가 | UTF-8 / BOM / Shift-JIS
 Diff_Unable=표시할 수 없음: {0}
 Diff_TooLargeBytes=8MB를 넘는 파일은 외부 편집기에서 여세요.
 Diff_TooManyLines=100,000줄을 넘는 파일은 외부 편집기에서 여세요.

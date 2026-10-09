@@ -36,6 +36,7 @@ namespace DesktopIniManager.Views
         private FolderMatch _treeDragFolder;
         private Point _fileDragStart;
         private FileListItem _fileDragItem;
+        private FileListItem _fileContextItem;
         private bool _internalDragOut;
         private bool _treeDragPreparing;
         private Dispatcher Dispatcher => _window.Dispatcher;
@@ -588,6 +589,13 @@ namespace DesktopIniManager.Views
 
         private void InitializeFileContextMenu(Selector list)
         {
+            list.PreviewMouseRightButtonDown += (sender, args) =>
+            {
+                _fileContextItem = FileFromElement(args.OriginalSource as DependencyObject);
+                // Preserve all selected rows, including when modifiers are held.
+                if (_fileContextItem != null && IsFileSelected(list, _fileContextItem))
+                    args.Handled = true;
+            };
             if (list.ContextMenu == null)
             {
                 var runIcon = new TextBlock
@@ -610,6 +618,7 @@ namespace DesktopIniManager.Views
                         : list.SelectedItem as FileListItem);
                 var menu = new ContextMenu();
                 menu.Items.Add(run);
+                menu.Items.Add(new MenuItem { Header = "SELECT Compare" });
                 list.ContextMenu = menu;
             }
         }
@@ -626,6 +635,60 @@ namespace DesktopIniManager.Views
                 item.Header = StringOverlay.Get("Main_RunScript");
                 item.IsEnabled = canRun;
             }
+
+            var compare = (MenuItem)list.ContextMenu.Items[1];
+            compare.Items.Clear();
+            var source = e.CursorLeft < 0 ? file : _fileContextItem;
+            if (source != null && list.Items.Contains(source))
+            {
+                var visibleFiles = list.Items.Cast<FileListItem>().ToList();
+                var selected = visibleFiles
+                    .Where(candidate => IsFileSelected(list, candidate)).ToList();
+                // A search hit compares with all other hits, regardless of selection.
+                // Files merely shown alongside the hits are not search results.
+                var candidates = source.IsSearchMatch
+                    ? visibleFiles.Where(candidate => candidate.IsSearchMatch).ToList()
+                    : selected.Count > 1 && selected.Contains(source) ? selected : new List<FileListItem>();
+                foreach (var target in candidates.Where(candidate =>
+                    !string.Equals(candidate.Path, source.Path, StringComparison.OrdinalIgnoreCase)))
+                {
+                    bool duplicateName = candidates.Count(candidate =>
+                        string.Equals(candidate.Name, target.Name, StringComparison.OrdinalIgnoreCase)) > 1;
+                    var choice = new MenuItem
+                    {
+                        Header = new TextBlock { Text = duplicateName ? target.Path : target.Name },
+                        ToolTip = target.Path
+                    };
+                    choice.Click += (s, args) => OpenFileComparison(source, target);
+                    compare.Items.Add(choice);
+                }
+            }
+            compare.Visibility = compare.Items.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private void OpenFileComparison(FileListItem source, FileListItem target)
+        {
+            try
+            {
+                foreach (string path in new[] { source.Path, target.Path })
+                    if (!File.Exists(path)) throw new FileNotFoundException(null, path);
+                var file = new DiffFile
+                {
+                    RelativePath = source.Name,
+                    Source = DiffStamp.Read(source.Path),
+                    Target = DiffStamp.Read(target.Path)
+                };
+                var snapshot = new DiffSnapshot
+                {
+                    SourceRoot = Path.GetDirectoryName(source.Path),
+                    TargetRoot = Path.GetDirectoryName(target.Path),
+                    Files = new List<DiffFile> { file }
+                };
+                var diff = new DiffViewWindow(snapshot, file, source.Path, target.Path) { Owner = _window };
+                diff.MatchOwnerSize();
+                diff.Show();
+            }
+            catch (Exception ex) { ViewModel.ShowError(Strings.Main_OpenFileFailed, ex); }
         }
 
         private void RunSelectedScript(FileListItem file)
@@ -1071,31 +1134,31 @@ namespace DesktopIniManager.Views
                 image.Source = DifferencerStatusIcons.GetCustomIcon(index);
         }
 
-		private void NodeExpandToggle_Changed(object sender, RoutedEventArgs e)
-		{
-		    if (_updatingToggles) return;
+        private void NodeExpandToggle_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_updatingToggles) return;
 
-		    bool expanded = NodeExpandToggle.IsChecked == true;
+            bool expanded = NodeExpandToggle.IsChecked == true;
 
-		    foreach (FolderMatch folder in ViewModel.ScrollingTreeItems)
-		        SetTreeExpanded(folder, expanded);
+            foreach (FolderMatch folder in ViewModel.ScrollingTreeItems)
+                SetTreeExpanded(folder, expanded);
 
-		    NodeExpandToggle.ToolTip =
-		        expanded ? Strings.Common_Collapse : Strings.Common_Expand;
+            NodeExpandToggle.ToolTip =
+                expanded ? Strings.Common_Collapse : Strings.Common_Expand;
 
-		    UpdateNodeExpandIcon();
-		}
+            UpdateNodeExpandIcon();
+        }
 
-		private static void SetTreeExpanded(FolderMatch folder, bool expanded)
-		{
-		    if (folder == null)
-		        return;
+        private static void SetTreeExpanded(FolderMatch folder, bool expanded)
+        {
+            if (folder == null)
+                return;
 
-		    folder.IsExpanded = expanded;
+            folder.IsExpanded = expanded;
 
-		    foreach (FolderMatch child in folder.Children)
-		        SetTreeExpanded(child, expanded);
-		}
+            foreach (FolderMatch child in folder.Children)
+                SetTreeExpanded(child, expanded);
+        }
 
         private void TreeDensityToggle_Changed(object sender, RoutedEventArgs e)
         {

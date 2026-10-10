@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 namespace DesktopIniManager.Services;
 
 internal static class DiffMedia

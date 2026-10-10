@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-3-Clause
+﻿// SPDX-License-Identifier: BSD-3-Clause
 // Copyright (c) by Matthias Hertel, http://www.mathertel.de
 // Copyright (c) 2023, Matthias Hertel
 // Derived from https://github.com/mathertel/Diff/blob/main/Diff.cs.

@@ -1,4 +1,4 @@
-namespace DesktopIniManager.Models;
+﻿namespace DesktopIniManager.Models;
 
 internal sealed class GrepMatch
 {

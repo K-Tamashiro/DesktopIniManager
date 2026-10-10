@@ -1,4 +1,4 @@
-using DesktopIniManager.Models;
+﻿using DesktopIniManager.Models;
 using FastVolumeIndex;
 using System;
 using System.Collections.Concurrent;

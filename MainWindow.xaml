@@ -1,4 +1,4 @@
-<Window
+﻿<Window
     x:Class="DesktopIniManager.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -551,11 +551,9 @@
                     Foreground="{DynamicResource Muted}"
                     Text="{loc:L Main_Subtitle}" />
             </StackPanel>
-            <StackPanel
-                Margin="360,0,150,0"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Top"
-                Orientation="Horizontal">
+            <Viewbox Margin="360,0,150,0" HorizontalAlignment="Center" VerticalAlignment="Top"
+                     Stretch="Uniform" StretchDirection="DownOnly" MaxHeight="46">
+                <StackPanel Orientation="Horizontal">
                 <Button
                     x:Name="SlotButton1"
                     BorderBrush="#4DA3FF"
@@ -586,7 +584,8 @@
                     Content="DIM 5"
                     Style="{StaticResource InstanceSlotButton}"
                     Tag="Free" />
-            </StackPanel>
+                </StackPanel>
+            </Viewbox>
             <StackPanel
                 HorizontalAlignment="Right"
                 VerticalAlignment="Top"

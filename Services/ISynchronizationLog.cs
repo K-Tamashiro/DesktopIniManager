@@ -1,4 +1,4 @@
-namespace DesktopIniManager.Services;
+﻿namespace DesktopIniManager.Services;
 
 internal interface ISynchronizationLog
 {

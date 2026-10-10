@@ -1,4 +1,4 @@
-using DesktopIniManager.ViewModels;
+﻿using DesktopIniManager.ViewModels;
 using DesktopIniManager;
 using DesktopIniManager.Models;
 using DesktopIniManager.Services;

@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using DesktopIniManager.Properties;
 using DesktopIniManager.Services;
 using System;
@@ -247,6 +247,8 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
     public double ProgressValue { get => _progressValue; set => SetProperty(ref _progressValue, value); }
     private bool _compareTimestamp = true;
     public bool CompareTimestamp { get => _compareTimestamp; set => SetProperty(ref _compareTimestamp, value); }
+    private bool _preciseCompare;
+    public bool PreciseCompare { get => _preciseCompare; set => SetProperty(ref _preciseCompare, value); }
     private bool _showObj = false;
     public bool ShowObj { get => _showObj; set => SetProperty(ref _showObj, value); }
     private bool _showBin = false;
@@ -818,30 +820,50 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
     internal async Task RefreshSelectedFolderAsync()
     {
         if (IsBusy || snapshot == null) return;
-        if (!SelectedFolderHasDirectFiles()) return;
 
-        string folder = selectedFolder ?? string.Empty;
-        bool compareTimestamp = CompareTimestamp == true;
-        DiffFile[] targets = snapshot.Files
-            .Where(f => IsDirectChildFile(folder, f.RelativePath))
+        // FileItems already contains the selected folder and all its descendants,
+        // with the current category/selection filters applied.
+        DiffFile[] targets = (FileItems ?? Enumerable.Empty<DiffRow>())
+            .Select(row => row.File)
+            .Distinct()
             .ToArray();
+        if (targets.Length == 0) return;
 
+        bool compareTimestamp = CompareTimestamp == true;
+        bool preciseCompare = PreciseCompare;
+        int skipped = 0;
+        int refreshed = 0;
         SetBusy(true);
         CanCancel = false;
-        SetFilePanelBusy(true, "Refreshing files in selected folder…");
-        Status = "Refreshing " + targets.Length + " file(s)…";
+        SetFilePanelBusy(true, "Refreshing visible files…");
+        Status = "Refreshing " + targets.Length + " visible file(s)…";
 
         try
         {
             foreach (DiffFile file in targets)
             {
+                // A previously completed XXH128 comparison need not be repeated.
+                // A mode change (timestamp or precise) requires reclassification.
+                if (preciseCompare && file.PreciseCompare &&
+                    file.CompareTimestamp == compareTimestamp &&
+                    (file.Source == null || file.SourceHash != null) &&
+                    (file.Target == null || file.TargetHash != null))
+                {
+                    skipped++;
+                    continue;
+                }
+
+                bool modeChanged = file.CompareTimestamp != compareTimestamp || file.PreciseCompare != preciseCompare;
                 file.CompareTimestamp = compareTimestamp;
-                await RefreshFileAsync(file);
+                file.PreciseCompare = preciseCompare;
+                if (await RefreshFileAsync(file, applyFilter: false, forceReclassify: modeChanged)) refreshed++;
             }
+
+            // Rebuild the visible list only once; individual rows may have changed kind.
             ApplyKindFilter();
-            Status = "Selected folder files refreshed. " +
-                folders[""].CountFor(DiffKind.Differences) + " differences / " +
-                folders[""].CountFor(DiffKind.Same) + " identical.";
+            Status = "Visible files refreshed: " + refreshed + " updated, " + skipped +
+                " already checked. " + folders[""].CountFor(DiffKind.Differences) +
+                " differences / " + folders[""].CountFor(DiffKind.Same) + " identical.";
         }
         catch (Exception ex)
         {
@@ -863,9 +885,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
 
     internal bool SelectedFolderHasDirectFiles()
     {
-        if (snapshot == null) return false;
-        string folder = selectedFolder ?? string.Empty;
-        return snapshot.Files.Any(f => IsDirectChildFile(folder, f.RelativePath));
+        return FileItems != null && FileItems.Any();
     }
 
     internal void UpdateRefreshButtonState() { CanRefresh = !IsBusy && !comparing && snapshot != null && SelectedFolderHasDirectFiles(); RefreshCommand.NotifyCanExecuteChanged(); }
@@ -909,7 +929,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         var token = compareCts.Token;
         IsProgressVisible = true;
         ProgressIndeterminate = true;
-        Status = "Scanning files and comparing timestamps and sizes…";
+        Status = PreciseCompare ? "Scanning files and calculating XXH128 hashes…" : "Scanning files and comparing timestamps and sizes…";
         string source = SourcePath, target = TargetPath;
         if (sourceIndex != null && !string.Equals(sourceIndex.Path, source, StringComparison.OrdinalIgnoreCase))
         { sourceIndex.Cancel(); sourceIndex = null; }
@@ -961,7 +981,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
                     if (direct != 0) return direct;
                     int name = pathComparer.Compare(Path.GetFileName(left), Path.GetFileName(right));
                     return name != 0 ? name : pathComparer.Compare(left, right);
-                }), token);
+                }, PreciseCompare), token);
             classifying = false;
             token.ThrowIfCancellationRequested();
             Status = "Updating the difference tree…";
@@ -1089,7 +1109,10 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
 
             var expansion = new HashSet<string>(expanded ?? new string[0], StringComparer.OrdinalIgnoreCase);
             selectedFolder = selected != null && all.Contains(selected) ? selected : "";
-            string[] orderedPaths = all.OrderBy(p => p.Length).ThenBy(p => p, StringComparer.OrdinalIgnoreCase).ToArray();
+            string[] orderedPaths = all
+			    .OrderBy(p => p.Count(c => c == '\\' || c == '/'))
+			    .ThenBy(p => p, StringComparer.CurrentCultureIgnoreCase)
+			    .ToArray();
             var folderStates = await ReadFolderStatesAsync(orderedPaths, token);
             SetTreeProgress("Building folders…", 0, orderedPaths.Length);
 
@@ -1514,7 +1537,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         DeleteOtherHistoryTabsCommand?.NotifyCanExecuteChanged();
     }
 
-    internal async Task<bool> RefreshFileAsync(DiffFile file)
+    internal async Task<bool> RefreshFileAsync(DiffFile file, bool applyFilter = true, bool forceReclassify = false)
     {
         if (snapshot == null || file == null || comparing) return false;
 
@@ -1522,13 +1545,18 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         {
             string sourcePath = DeveloperDifferencerService.SafePath(snapshot.SourceRoot, file.RelativePath);
             string targetPath = DeveloperDifferencerService.SafePath(snapshot.TargetRoot, file.RelativePath);
-            return Tuple.Create(DiffStamp.Read(sourcePath), DiffStamp.Read(targetPath));
+            var sourceStamp = DiffStamp.Read(sourcePath);
+            var targetStamp = DiffStamp.Read(targetPath);
+            string sourceHash = file.PreciseCompare && sourceStamp != null ? DeveloperDifferencerService.HashFile(sourcePath) : null;
+            string targetHash = file.PreciseCompare && targetStamp != null ? DeveloperDifferencerService.HashFile(targetPath) : null;
+            return (sourceStamp, targetStamp, sourceHash, targetHash);
         });
 
         DiffStamp source = stamps.Item1;
         DiffStamp target = stamps.Item2;
-        bool changed = !DiffStamp.Same(file.Source, source, file.CompareTimestamp) ||
-                       !DiffStamp.Same(file.Target, target, file.CompareTimestamp);
+        bool changed = forceReclassify || !DiffStamp.Same(file.Source, source, file.CompareTimestamp) ||
+                       !DiffStamp.Same(file.Target, target, file.CompareTimestamp) ||
+                       file.SourceHash != stamps.Item3 || file.TargetHash != stamps.Item4;
         if (!changed) return false;
         InvalidateIndexes();
 
@@ -1537,7 +1565,9 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
             RelativePath = file.RelativePath,
             Source = source,
             Target = target,
-            CompareTimestamp = file.CompareTimestamp
+            CompareTimestamp = file.CompareTimestamp,
+            PreciseCompare = file.PreciseCompare,
+            SourceHash = stamps.Item3, TargetHash = stamps.Item4
         };
         refreshedFile.Selected = file.Selected;
 
@@ -1573,10 +1603,13 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
             folder.Refresh();
         }
 
-        ApplyKindFilter();
-        Status = folders[""].CountFor(DiffKind.Differences) + " differences / " +
-                          folders[""].CountFor(DiffKind.Same) + " identical. External edit refreshed: " +
-                          refreshedFile.RelativePath;
+        if (applyFilter)
+        {
+            ApplyKindFilter();
+            Status = folders[""].CountFor(DiffKind.Differences) + " differences / " +
+                              folders[""].CountFor(DiffKind.Same) + " identical. External edit refreshed: " +
+                              refreshedFile.RelativePath;
+        }
         return true;
     }
 

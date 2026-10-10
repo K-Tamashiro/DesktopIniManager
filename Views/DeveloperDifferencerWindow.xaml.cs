@@ -1,4 +1,4 @@
-using DesktopIniManager.ViewModels;
+﻿using DesktopIniManager.ViewModels;
 using DesktopIniManager.Services;
 using DesktopIniManager.Properties;
 using System;
@@ -250,7 +250,11 @@ public partial class DeveloperDifferencerWindow : Window
 
     private void FolderChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
-        var folder = e.NewValue as DiffFolder; if (folder == null) return; ViewModel.SelectFolder(folder.Path);
+        var folder = e.NewValue as DiffFolder;
+        if (folder == null) return;
+        // The pinned root and scrolling descendants have separate TreeViews.
+        foreach (var node in ViewModel.Folders.Values) node.Active = ReferenceEquals(node, folder);
+        ViewModel.SelectFolder(folder.Path);
     }
     private void ScheduleFolderIntoView(IReadOnlyList<DiffFolder> path)
     {
@@ -270,6 +274,7 @@ public partial class DeveloperDifferencerWindow : Window
         ItemsControl host = parent;
         foreach (DiffFolder node in path)
         {
+            if (node.Path.Length == 0) continue; // Root is displayed in the fixed tree.
             if (host == null) return current;
             host.ApplyTemplate();
             host.UpdateLayout();
@@ -435,6 +440,7 @@ public partial class DeveloperDifferencerWindow : Window
         SetIcon(CancelCompareIcon, 24);
         SetIcon(CleanSolutionIcon, 83);
         SetIcon(SelectAllFilesIcon, 48);
+        UpdateCompareModeIcons();
         SetIcon(ZipSourceButtonIcon, 93);
         SetIcon(ZipTargetButtonIcon, 92);
         SetIcon(CheckedOnlyIcon, 100);
@@ -442,6 +448,14 @@ public partial class DeveloperDifferencerWindow : Window
         SetIcon(ReverseButtonIcon, 86);
         UpdateNodeExpandIcon();
         UpdateDensityIcon();
+    }
+
+    private void CompareModeToggle_Changed(object sender, RoutedEventArgs e) => UpdateCompareModeIcons();
+
+    private void UpdateCompareModeIcons()
+    {
+        if (CompareTimestampBox != null) SetIcon(CompareTimestampIcon, CompareTimestampBox.IsChecked == true ? 130 : 131);
+        if (PreciseCompareBox != null) SetIcon(PreciseCompareIcon, PreciseCompareBox.IsChecked == true ? 128 : 129);
     }
 
     private static void SetIcon(Image image, int index)

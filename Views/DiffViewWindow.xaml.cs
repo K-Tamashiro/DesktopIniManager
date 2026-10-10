@@ -1,4 +1,4 @@
-using DesktopIniManager.ViewModels;
+﻿using DesktopIniManager.ViewModels;
 using DesktopIniManager.Services;
 using DesktopIniManager.Properties;
 using System;
@@ -1208,7 +1208,11 @@ internal sealed partial class DiffViewWindow : Window
         Action fit = () =>
         {
             if (!fitToWindow || width <= 0 || height <= 0) return;
-            double scale = Math.Min((body.ActualWidth - 20) / 2 / width, (body.ActualHeight - 20) / height);
+            double viewportWidth = Math.Min(leftScroll.ViewportWidth, rightScroll.ViewportWidth);
+			double viewportHeight = Math.Min(leftScroll.ViewportHeight, rightScroll.ViewportHeight);
+			if (viewportWidth <= 0 || viewportHeight <= 0) return;
+			double scale = Math.Min(viewportWidth / width, viewportHeight / height);
+			scale = Math.Min(1.0, scale);
             if (scale <= 0) return;
             fitting = true;
             zoom.Value = Math.Max(zoom.Minimum, Math.Min(zoom.Maximum, scale));

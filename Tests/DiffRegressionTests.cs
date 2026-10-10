@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -311,7 +311,7 @@ internal static class DiffRegressionTests
         model.ReloadFromDiskAsync().GetAwaiter().GetResult();
         Require(model.TargetImage != null && model.SourceImageFormat == model.TargetImageFormat, "reload restores re-created image");
         var canvas = (Canvas)typeof(DiffViewWindow).GetMethod("ImageCanvas", BindingFlags.Static | BindingFlags.NonPublic)
-            .Invoke(null, new object[] { null, 100.0, 100.0 });
+            .Invoke(null, new object[] { null, 100.0, 100.0, null });
         Require(canvas.Children.Count == 0, "missing image has no text");
         var viewer = (ScrollViewer)typeof(DiffViewWindow).GetMethod("ThemedViewer", BindingFlags.Static | BindingFlags.NonPublic)
             .Invoke(null, new object[] { canvas, false, true });

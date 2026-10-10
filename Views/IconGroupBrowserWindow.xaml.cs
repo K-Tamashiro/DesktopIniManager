@@ -1,4 +1,4 @@
-using DesktopIniManager.Models;
+﻿using DesktopIniManager.Models;
 using DesktopIniManager.ViewModels;
 using System.Collections.Generic;
 using System.Windows;

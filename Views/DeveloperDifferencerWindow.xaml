@@ -658,7 +658,7 @@
                         IsEnabled="{Binding CanEdit}"
                         Checked="CompareModeToggle_Changed"
                         Unchecked="CompareModeToggle_Changed"
-                        ToolTip="SHA-256 content comparison (precise check)">
+                        ToolTip="XXH128 content comparison (precise check)">
                         <Image x:Name="PreciseCompareIcon" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" />
                     </ToggleButton>
                     <Button

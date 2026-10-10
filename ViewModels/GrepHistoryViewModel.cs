@@ -88,7 +88,12 @@ internal sealed partial class GrepWindowViewModel
             if (answer == MessageBoxResult.No)
             {
                 if (full) ResetMatches();
-                else AddHistoryTab();
+                else
+                {
+                    // Preserve the original tab's search query before creating a new tab.
+                    Query = selectedHistoryTab.Query ?? string.Empty;
+                    AddHistoryTab();
+                }
             }
         }
         Query = query; UseRegex = regex; MatchCase = matchCase; WholeWord = wholeWord;
@@ -134,7 +139,6 @@ internal sealed partial class GrepWindowViewModel
     private void CaptureHistoryTab()
     {
         if (selectedHistoryTab == null) return;
-        selectedHistoryTab.Title = string.IsNullOrWhiteSpace(Query) ? selectedHistoryTab.Title : Query;
         selectedHistoryTab.Query = Query ?? string.Empty;
         selectedHistoryTab.Profile = SelectedProfile?.Name;
         selectedHistoryTab.Extensions = Extensions ?? string.Empty;

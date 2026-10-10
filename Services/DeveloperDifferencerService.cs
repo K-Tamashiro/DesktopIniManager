@@ -63,11 +63,18 @@ internal sealed class DiffFile : INotifyPropertyChanged
     public DiffKind Kind { get { return Source == null ? DiffKind.TargetOnly : Target == null ? DiffKind.SourceOnly : (DiffStamp.Same(Source, Target, CompareTimestamp) && !ContentDifferent) ? DiffKind.Same : DiffKind.Different; } }
     public bool CanSync { get { return Kind != DiffKind.Same; } }
     public bool CanToggleSelection { get { return CanSync || Selected; } }
-    public string State { get { return Kind == DiffKind.Same ? "Same" : Source == null ? "Target only" : Target == null ? "Source only" : ContentDifferent ? "Content differs" : Source.ModifiedUtcSeconds == Target.ModifiedUtcSeconds ? "Size differs" : "Time / size differs"; } }
+    public string State { get { return Kind == DiffKind.Same ? "Same" : Source == null ? "Target only" : Target == null ? "Source only" : ContentDifferent ? "Content differs" : !CompareTimestamp || Source.ModifiedUtcSeconds == Target.ModifiedUtcSeconds ? "Size differs" : "Time / size differs"; } }
     public string SourceInfo { get { return Describe(Source, Target); } }
     public string TargetInfo { get { return Describe(Target, Source); } }
-    private static string Describe(DiffStamp own, DiffStamp other)
-    { return own == null ? "missing" : (other == null ? "" : DiffStamp.Same(own, other, true) ? "Same\n" : own.ModifiedUtcSeconds == other.ModifiedUtcSeconds ? "Size differs\n" : own.ModifiedUtcSeconds > other.ModifiedUtcSeconds ? "NEW\n" : "OLD\n") + own.Describe(); }
+    private string Describe(DiffStamp own, DiffStamp other)
+    {
+        if (own == null) return "missing";
+        string state = other == null ? "" : Kind == DiffKind.Same ? "Same\n" :
+            CompareTimestamp && own.ModifiedUtcSeconds != other.ModifiedUtcSeconds
+                ? (own.ModifiedUtcSeconds > other.ModifiedUtcSeconds ? "NEW\n" : "OLD\n")
+                : ContentDifferent ? "Content differs\n" : "Size differs\n";
+        return state + own.Describe();
+    }
     private bool selected;
     public bool Selected
     {

@@ -106,6 +106,7 @@ internal sealed partial class DeveloperDifferencerViewModel
             OnPropertyChanged(nameof(SourcePath)); OnPropertyChanged(nameof(TargetPath));
             snapshot = tab.Snapshot; treeSource = SourcePath; treeTarget = TargetPath;
             CompareTimestamp = snapshot.CompareTimestamp;
+            PreciseCompare = snapshot.PreciseCompare;
             kindMask = tab.KindMask; showObj = tab.ShowObj; showBin = tab.ShowBin;
             ShowObj = showObj; ShowBin = showBin;
             ShowSame = (kindMask & Services.DiffKind.Same) != 0;

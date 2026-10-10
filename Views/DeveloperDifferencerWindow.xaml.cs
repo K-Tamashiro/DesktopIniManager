@@ -248,13 +248,19 @@ public partial class DeveloperDifferencerWindow : Window
         await ViewModel.LoadPreviewAsync(row);
     }
 
+    private bool changingFolderSelection;
     private void FolderChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
         var folder = e.NewValue as DiffFolder;
-        if (folder == null) return;
+        if (folder == null || changingFolderSelection) return;
         // The pinned root and scrolling descendants have separate TreeViews.
-        foreach (var node in ViewModel.Folders.Values) node.Active = ReferenceEquals(node, folder);
-        ViewModel.SelectFolder(folder.Path);
+        changingFolderSelection = true;
+        try
+        {
+            foreach (var node in ViewModel.Folders.Values) node.Active = ReferenceEquals(node, folder);
+            ViewModel.SelectFolder(folder.Path);
+        }
+        finally { changingFolderSelection = false; }
     }
     private void ScheduleFolderIntoView(IReadOnlyList<DiffFolder> path)
     {

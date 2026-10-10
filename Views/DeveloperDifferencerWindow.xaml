@@ -148,7 +148,7 @@
                             BorderBrush="Transparent"
                             BorderThickness="2,0,0,0"
                             TextElement.Foreground="{TemplateBinding Foreground}">
-                            <GridViewRowPresenter Columns="{Binding View.Columns, RelativeSource={RelativeSource AncestorType=ListView}}" Content="{TemplateBinding Content}" />
+                            <GridViewRowPresenter Columns="{TemplateBinding GridView.ColumnCollection}" Content="{TemplateBinding Content}" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">

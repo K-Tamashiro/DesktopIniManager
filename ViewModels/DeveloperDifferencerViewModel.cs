@@ -831,7 +831,6 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
 
         bool compareTimestamp = CompareTimestamp == true;
         bool preciseCompare = PreciseCompare;
-        int skipped = 0;
         int refreshed = 0;
         SetBusy(true);
         CanCancel = false;
@@ -842,27 +841,14 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         {
             foreach (DiffFile file in targets)
             {
-                // A previously completed XXH128 comparison need not be repeated.
-                // A mode change (timestamp or precise) requires reclassification.
-                if (preciseCompare && file.PreciseCompare &&
-                    file.CompareTimestamp == compareTimestamp &&
-                    (file.Source == null || file.SourceHash != null) &&
-                    (file.Target == null || file.TargetHash != null))
-                {
-                    skipped++;
-                    continue;
-                }
-
-                bool modeChanged = file.CompareTimestamp != compareTimestamp || file.PreciseCompare != preciseCompare;
-                file.CompareTimestamp = compareTimestamp;
-                file.PreciseCompare = preciseCompare;
-                if (await RefreshFileAsync(file, applyFilter: false, forceReclassify: modeChanged)) refreshed++;
+                if (await RefreshFileAsync(file, applyFilter: false,
+                    compareTimestamp: compareTimestamp, preciseCompare: preciseCompare)) refreshed++;
             }
 
             // Rebuild the visible list only once; individual rows may have changed kind.
-            ApplyKindFilter();
-            Status = "Visible files refreshed: " + refreshed + " updated, " + skipped +
-                " already checked. " + folders[""].CountFor(DiffKind.Differences) +
+            ApplyKindFilter(preserveSelectedFolder: true);
+            Status = "Visible files refreshed: " + targets.Length + " checked, " + refreshed +
+                " updated. " + folders[""].CountFor(DiffKind.Differences) +
                 " differences / " + folders[""].CountFor(DiffKind.Same) + " identical.";
         }
         catch (Exception ex)
@@ -1304,7 +1290,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
     }
 
-    internal void ApplyKindFilter()
+    internal void ApplyKindFilter(bool preserveSelectedFolder = false)
     {
         // Counts were built once with the snapshot. Switching categories does not rescan files or rebuild the base tree.
         FolderItems = null;
@@ -1318,6 +1304,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
                      : cachedVisibleFolders == null || cachedVisibleFolders.Contains(folder.Path)));
             folder.Label = (folder.Path.Length == 0 ? RootLabel() : Path.GetFileName(folder.Path)) + (snapshot == null ? " (not compared)" : " (" + folder.CountFor(kindMask) + ")");
         }
+        if (preserveSelectedFolder) folders[selectedFolder].Visible = true;
         PromoteVisibleFolderAncestors();
 
         if (!folders[selectedFolder].Visible)
@@ -1518,7 +1505,10 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         var visible = rows.Where(r => IncludeBuildFolderFile(r.File) && (r.File.Kind & kindMask) != 0 && (selectedFolder.Length == 0 || r.File.RelativePath.StartsWith(selectedFolder + "\\", StringComparison.OrdinalIgnoreCase)) && (!_checkedOnlyFilter || r.File.Selected)).ToList();
         MarkDirectFileRows(visible);
         visible = OrderSelectedFolderFirst(visible);
-        FileItems = visible;
+        bool wasSyncing = syncingTreeFromFile;
+        syncingTreeFromFile = true;
+        try { FileItems = visible; }
+        finally { syncingTreeFromFile = wasSyncing; }
         FilePanelTitle = "Files — " + (selectedFolder.Length == 0 ? "all levels" : selectedFolder) + " (" + visible.Count + ")";
         UpdateRefreshButtonState();
     }
@@ -1537,9 +1527,12 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         DeleteOtherHistoryTabsCommand?.NotifyCanExecuteChanged();
     }
 
-    internal async Task<bool> RefreshFileAsync(DiffFile file, bool applyFilter = true, bool forceReclassify = false)
+    internal async Task<bool> RefreshFileAsync(DiffFile file, bool applyFilter = true,
+        bool? compareTimestamp = null, bool? preciseCompare = null)
     {
         if (snapshot == null || file == null || comparing) return false;
+        bool useTimestamp = compareTimestamp ?? file.CompareTimestamp;
+        bool useHash = preciseCompare ?? file.PreciseCompare;
 
         var stamps = await Task.Run(() =>
         {
@@ -1547,15 +1540,16 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
             string targetPath = DeveloperDifferencerService.SafePath(snapshot.TargetRoot, file.RelativePath);
             var sourceStamp = DiffStamp.Read(sourcePath);
             var targetStamp = DiffStamp.Read(targetPath);
-            string sourceHash = file.PreciseCompare && sourceStamp != null ? DeveloperDifferencerService.HashFile(sourcePath) : null;
-            string targetHash = file.PreciseCompare && targetStamp != null ? DeveloperDifferencerService.HashFile(targetPath) : null;
+            string sourceHash = useHash && sourceStamp != null ? DeveloperDifferencerService.HashFile(sourcePath) : null;
+            string targetHash = useHash && targetStamp != null ? DeveloperDifferencerService.HashFile(targetPath) : null;
             return (sourceStamp, targetStamp, sourceHash, targetHash);
         });
 
         DiffStamp source = stamps.Item1;
         DiffStamp target = stamps.Item2;
-        bool changed = forceReclassify || !DiffStamp.Same(file.Source, source, file.CompareTimestamp) ||
-                       !DiffStamp.Same(file.Target, target, file.CompareTimestamp) ||
+        bool changed = file.CompareTimestamp != useTimestamp || file.PreciseCompare != useHash ||
+                       !DiffStamp.Same(file.Source, source, true) ||
+                       !DiffStamp.Same(file.Target, target, true) ||
                        file.SourceHash != stamps.Item3 || file.TargetHash != stamps.Item4;
         if (!changed) return false;
         InvalidateIndexes();
@@ -1565,8 +1559,8 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
             RelativePath = file.RelativePath,
             Source = source,
             Target = target,
-            CompareTimestamp = file.CompareTimestamp,
-            PreciseCompare = file.PreciseCompare,
+            CompareTimestamp = useTimestamp,
+            PreciseCompare = useHash,
             SourceHash = stamps.Item3, TargetHash = stamps.Item4
         };
         refreshedFile.Selected = file.Selected;

@@ -1,9 +1,8 @@
-namespace DesktopIniManager.Services
+namespace DesktopIniManager.Services;
+
+internal interface ISynchronizationLog
 {
-    internal interface ISynchronizationLog
-    {
-        void AppendLine(string line);
-        void Complete(int succeeded, int failed, int locked);
-        void Activate();
-    }
+    void AppendLine(string line);
+    void Complete(int succeeded, int failed, int locked);
+    void Activate();
 }

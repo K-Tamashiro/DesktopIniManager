@@ -11,171 +11,170 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace DesktopIniManager.Services
+namespace DesktopIniManager.Services;
+
+internal sealed class CodeGrepService
 {
-    internal sealed class CodeGrepService
-    {
-        private static readonly HashSet<string> IgnoredDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> IgnoredDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         { ".git", ".vs", ".idea", "bin", "obj", "node_modules", "packages", "vendor", "dist", "build", "target", "coverage" };
 
-        public GrepSearchResult Search(IReadOnlyList<string> scopes, LanguageProfile profile, string query,
-            bool regex, bool matchCase, bool wholeWord, Action<int, int> progress, CancellationToken token,
-            Action<GrepMatch> matchFound = null)
-        {
-            token.ThrowIfCancellationRequested();
-            var files = CollectFiles(scopes, profile.Extensions, token);
-            var orderedScopes = scopes
-                .Where(root => !string.IsNullOrWhiteSpace(root))
-                .OrderByDescending(root => root.Length)
-                .ToArray();
-            var matches = new ConcurrentBag<GrepMatch>();
-            int processed = 0;
-            int skipped = 0;
-            Regex matcher = BuildMatcher(query, regex, matchCase, wholeWord);
-            var options = new ParallelOptions { CancellationToken = token, MaxDegreeOfParallelism = 4 };
-
-            Parallel.ForEach(files, options, file =>
-            {
-                try
-                {
-                    if (new FileInfo(file).Length > 64L * 1024 * 1024) { Interlocked.Increment(ref skipped); return; }
-                    string scope = FindScope(file, orderedScopes);
-                    int lineNumber = 0;
-                    foreach (string line in ReadLines(file))
-                    {
-                        options.CancellationToken.ThrowIfCancellationRequested();
-                        lineNumber++;
-                        Match match = matcher.Match(line);
-                        if (!match.Success) continue;
-                        var found = new GrepMatch
-                        {
-                            ScopeName = Path.GetFileName((scope ?? string.Empty).TrimEnd(Path.DirectorySeparatorChar)) ?? scope,
-                            FilePath = file,
-                            RelativePath = scope == null ? file : MakeRelativePath(scope, file),
-                            LineNumber = lineNumber,
-                            ColumnNumber = match.Index + 1,
-                            LineText = line.Trim(),
-                            Highlight = match.Value
-                        };
-                        matches.Add(found);
-                        matchFound?.Invoke(found);
-                    }
-                }
-                catch (IOException) { Interlocked.Increment(ref skipped); }
-                catch (UnauthorizedAccessException) { Interlocked.Increment(ref skipped); }
-                finally
-                {
-                    int done = Interlocked.Increment(ref processed);
-                    if (((done & 31) == 0 || done == files.Count) && progress != null) progress(done, files.Count);
-                }
-            });
-
-            token.ThrowIfCancellationRequested();
-            return new GrepSearchResult(matches.OrderBy(item => item.ScopeName, StringComparer.CurrentCultureIgnoreCase)
-                .ThenBy(item => item.RelativePath, StringComparer.CurrentCultureIgnoreCase)
-                .ThenBy(item => item.LineNumber).ToList(), files.Count, skipped);
-        }
-
-        private static Regex BuildMatcher(string query, bool regex, bool matchCase, bool wholeWord)
-        {
-            string pattern = regex ? query : Regex.Escape(query);
-            if (wholeWord) pattern = @"\b(?:" + pattern + @")\b";
-            RegexOptions options = RegexOptions.Compiled;
-            if (!matchCase) options |= RegexOptions.IgnoreCase;
-            return new Regex(pattern, options, TimeSpan.FromSeconds(2));
-        }
-
-        private static List<string> CollectFiles(IReadOnlyList<string> scopes, string[] extensions, CancellationToken token)
-        {
-            var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var extensionSet = new HashSet<string>(extensions ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
-            foreach (string scope in scopes)
-            {
-                token.ThrowIfCancellationRequested();
-                if (string.IsNullOrWhiteSpace(scope) || !Directory.Exists(scope)) continue;
-                CollectFilesNative(scope, extensionSet, files, token);
-            }
-            return files.ToList();
-        }
-        private static void CollectFilesNative(string root, HashSet<string> extensions, HashSet<string> files, CancellationToken token)
-        {
-            var pending = new Stack<string>(); pending.Push(root);
-            while (pending.Count > 0)
-            {
-                token.ThrowIfCancellationRequested();
-                string folder = pending.Pop();
-                try
-                {
-                    foreach (var entry in VolumePathIndex.EnumerateNativeDirectory(folder, token))
-                    {
-                        token.ThrowIfCancellationRequested();
-                        string path = Path.Combine(folder, entry.Name);
-                        if ((entry.Attributes & FileAttributes.Directory) != 0)
-                        {
-                            if (IgnoredDirectories.Contains(entry.Name)) continue;
-                            if ((entry.Attributes & FileAttributes.Hidden) != 0) continue;
-                            pending.Push(path);
-                        }
-                        else if (extensions.Contains(Path.GetExtension(entry.Name)))
-                            files.Add(path);
-                    }
-                }
-                // Native enumeration reports directory access/I/O failures as Win32Exception.
-                // Preserve Grep's existing behavior: skip the unreadable part and keep searching.
-                catch (Win32Exception) { }
-                catch (IOException) { }
-                catch (UnauthorizedAccessException) { }
-            }
-        }
-
-        private static IEnumerable<string> ReadLines(string path)
-        {
-            Encoding encoding = DetectEncoding(path);
-            using (var reader = new StreamReader(path, encoding, true))
-            {
-                string line;
-                while ((line = reader.ReadLine()) != null) yield return line;
-            }
-        }
-
-        private static Encoding DetectEncoding(string path)
-        {
-            byte[] sample = new byte[4096];
-            int count;
-            using (var stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
-                count = stream.Read(sample, 0, sample.Length);
-            if (count >= 2 && sample[0] == 0xFF && sample[1] == 0xFE) return Encoding.Unicode;
-            if (count >= 2 && sample[0] == 0xFE && sample[1] == 0xFF) return Encoding.BigEndianUnicode;
-            if (count >= 3 && sample[0] == 0xEF && sample[1] == 0xBB && sample[2] == 0xBF) return Encoding.UTF8;
-            try { new UTF8Encoding(false, true).GetString(sample, 0, count); return new UTF8Encoding(false); }
-            catch (DecoderFallbackException) { return CodePagesEncodingProvider.Instance.GetEncoding(932); }
-        }
-
-        private static string FindScope(string path, IReadOnlyList<string> orderedScopes)
-        {
-            for (int i = 0; i < orderedScopes.Count; i++)
-                if (IsUnderPath(path, orderedScopes[i])) return orderedScopes[i];
-            return null;
-        }
-
-        private static bool IsUnderPath(string path, string root)
-        {
-            string normalizedRoot = root.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-            return path.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static string MakeRelativePath(string root, string path)
-        {
-            string normalizedRoot = root.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-            return path.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase) ? path.Substring(normalizedRoot.Length) : path;
-        }
-    }
-
-    internal sealed class GrepSearchResult
+    public GrepSearchResult Search(IReadOnlyList<string> scopes, LanguageProfile profile, string query,
+        bool regex, bool matchCase, bool wholeWord, Action<int, int> progress, CancellationToken token,
+        Action<GrepMatch> matchFound = null)
     {
-        public GrepSearchResult(List<GrepMatch> matches, int files, int skipped) { Matches = matches; FileCount = files; SkippedCount = skipped; }
-        public List<GrepMatch> Matches { get; }
-        public int FileCount { get; }
-        public int SkippedCount { get; }
+        token.ThrowIfCancellationRequested();
+        var files = CollectFiles(scopes, profile.Extensions, token);
+        var orderedScopes = scopes
+            .Where(root => !string.IsNullOrWhiteSpace(root))
+            .OrderByDescending(root => root.Length)
+            .ToArray();
+        var matches = new ConcurrentBag<GrepMatch>();
+        int processed = 0;
+        int skipped = 0;
+        Regex matcher = BuildMatcher(query, regex, matchCase, wholeWord);
+        var options = new ParallelOptions { CancellationToken = token, MaxDegreeOfParallelism = 4 };
+
+        Parallel.ForEach(files, options, file =>
+        {
+            try
+            {
+                if (new FileInfo(file).Length > 64L * 1024 * 1024) { Interlocked.Increment(ref skipped); return; }
+                string scope = FindScope(file, orderedScopes);
+                int lineNumber = 0;
+                foreach (string line in ReadLines(file))
+                {
+                    options.CancellationToken.ThrowIfCancellationRequested();
+                    lineNumber++;
+                    Match match = matcher.Match(line);
+                    if (!match.Success) continue;
+                    var found = new GrepMatch
+                    {
+                        ScopeName = Path.GetFileName((scope ?? string.Empty).TrimEnd(Path.DirectorySeparatorChar)) ?? scope,
+                        FilePath = file,
+                        RelativePath = scope == null ? file : MakeRelativePath(scope, file),
+                        LineNumber = lineNumber,
+                        ColumnNumber = match.Index + 1,
+                        LineText = line.Trim(),
+                        Highlight = match.Value
+                    };
+                    matches.Add(found);
+                    matchFound?.Invoke(found);
+                }
+            }
+            catch (IOException) { Interlocked.Increment(ref skipped); }
+            catch (UnauthorizedAccessException) { Interlocked.Increment(ref skipped); }
+            finally
+            {
+                int done = Interlocked.Increment(ref processed);
+                if (((done & 31) == 0 || done == files.Count) && progress != null) progress(done, files.Count);
+            }
+        });
+
+        token.ThrowIfCancellationRequested();
+        return new GrepSearchResult(matches.OrderBy(item => item.ScopeName, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(item => item.RelativePath, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(item => item.LineNumber).ToList(), files.Count, skipped);
     }
+
+    private static Regex BuildMatcher(string query, bool regex, bool matchCase, bool wholeWord)
+    {
+        string pattern = regex ? query : Regex.Escape(query);
+        if (wholeWord) pattern = @"\b(?:" + pattern + @")\b";
+        RegexOptions options = RegexOptions.Compiled;
+        if (!matchCase) options |= RegexOptions.IgnoreCase;
+        return new Regex(pattern, options, TimeSpan.FromSeconds(2));
+    }
+
+    private static List<string> CollectFiles(IReadOnlyList<string> scopes, string[] extensions, CancellationToken token)
+    {
+        var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var extensionSet = new HashSet<string>(extensions ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+        foreach (string scope in scopes)
+        {
+            token.ThrowIfCancellationRequested();
+            if (string.IsNullOrWhiteSpace(scope) || !Directory.Exists(scope)) continue;
+            CollectFilesNative(scope, extensionSet, files, token);
+        }
+        return files.ToList();
+    }
+    private static void CollectFilesNative(string root, HashSet<string> extensions, HashSet<string> files, CancellationToken token)
+    {
+        var pending = new Stack<string>(); pending.Push(root);
+        while (pending.Count > 0)
+        {
+            token.ThrowIfCancellationRequested();
+            string folder = pending.Pop();
+            try
+            {
+                foreach (var entry in VolumePathIndex.EnumerateNativeDirectory(folder, token))
+                {
+                    token.ThrowIfCancellationRequested();
+                    string path = Path.Combine(folder, entry.Name);
+                    if ((entry.Attributes & FileAttributes.Directory) != 0)
+                    {
+                        if (IgnoredDirectories.Contains(entry.Name)) continue;
+                        if ((entry.Attributes & FileAttributes.Hidden) != 0) continue;
+                        pending.Push(path);
+                    }
+                    else if (extensions.Contains(Path.GetExtension(entry.Name)))
+                        files.Add(path);
+                }
+            }
+            // Native enumeration reports directory access/I/O failures as Win32Exception.
+            // Preserve Grep's existing behavior: skip the unreadable part and keep searching.
+            catch (Win32Exception) { }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    private static IEnumerable<string> ReadLines(string path)
+    {
+        Encoding encoding = DetectEncoding(path);
+        using (var reader = new StreamReader(path, encoding, true))
+        {
+            string line;
+            while ((line = reader.ReadLine()) != null) yield return line;
+        }
+    }
+
+    private static Encoding DetectEncoding(string path)
+    {
+        byte[] sample = new byte[4096];
+        int count;
+        using (var stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+            count = stream.Read(sample, 0, sample.Length);
+        if (count >= 2 && sample[0] == 0xFF && sample[1] == 0xFE) return Encoding.Unicode;
+        if (count >= 2 && sample[0] == 0xFE && sample[1] == 0xFF) return Encoding.BigEndianUnicode;
+        if (count >= 3 && sample[0] == 0xEF && sample[1] == 0xBB && sample[2] == 0xBF) return Encoding.UTF8;
+        try { new UTF8Encoding(false, true).GetString(sample, 0, count); return new UTF8Encoding(false); }
+        catch (DecoderFallbackException) { return CodePagesEncodingProvider.Instance.GetEncoding(932); }
+    }
+
+    private static string FindScope(string path, IReadOnlyList<string> orderedScopes)
+    {
+        for (int i = 0; i < orderedScopes.Count; i++)
+            if (IsUnderPath(path, orderedScopes[i])) return orderedScopes[i];
+        return null;
+    }
+
+    private static bool IsUnderPath(string path, string root)
+    {
+        string normalizedRoot = root.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        return path.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string MakeRelativePath(string root, string path)
+    {
+        string normalizedRoot = root.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        return path.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase) ? path.Substring(normalizedRoot.Length) : path;
+    }
+}
+
+internal sealed class GrepSearchResult
+{
+    public GrepSearchResult(List<GrepMatch> matches, int files, int skipped) { Matches = matches; FileCount = files; SkippedCount = skipped; }
+    public List<GrepMatch> Matches { get; }
+    public int FileCount { get; }
+    public int SkippedCount { get; }
 }

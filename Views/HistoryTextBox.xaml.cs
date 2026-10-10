@@ -9,319 +9,317 @@ using System.Windows.Documents;
 using System.Windows.Media;
 using DesktopIniManager.Services;
 
-namespace DesktopIniManager.Views
+namespace DesktopIniManager.Views;
+// Retain TextBox behavior (TextChanged, caret, scrolling and IME) while adding history.
+public class HistoryTextBox : TextBox
 {
-    // Retain TextBox behavior (TextChanged, caret, scrolling and IME) while adding history.
-    public class HistoryTextBox : TextBox
+    private static InputHistoryStore DefaultStore => new InputHistoryStore(Path.Combine(AppSlot.Directory, "input-history"));
+    private readonly InputHistoryStore store;
+    public static readonly DependencyProperty HistoryKeyProperty = DependencyProperty.Register(
+        nameof(HistoryKey), typeof(string), typeof(HistoryTextBox), new PropertyMetadata(null));
+    public static readonly DependencyProperty PreserveOrderProperty = DependencyProperty.Register(
+        nameof(PreserveOrder), typeof(bool), typeof(HistoryTextBox), new PropertyMetadata(false));
+    public string HistoryKey { get { return (string)GetValue(HistoryKeyProperty); } set { SetValue(HistoryKeyProperty, value); } }
+    public bool PreserveOrder { get { return (bool)GetValue(PreserveOrderProperty); } set { SetValue(PreserveOrderProperty, value); } }
+    public event EventHandler HistoryItemApplied;
+    public bool IsHistoryOpen => popup?.IsOpen == true;
+    private Popup popup;
+    private ListBox list;
+    private Button button;
+    private Window owner;
+
+    public HistoryTextBox() : this(DefaultStore) { }
+
+    internal HistoryTextBox(InputHistoryStore store)
     {
-        private static InputHistoryStore DefaultStore => new InputHistoryStore(Path.Combine(AppSlot.Directory, "input-history"));
-        private readonly InputHistoryStore store;
-        public static readonly DependencyProperty HistoryKeyProperty = DependencyProperty.Register(
-            nameof(HistoryKey), typeof(string), typeof(HistoryTextBox), new PropertyMetadata(null));
-        public static readonly DependencyProperty PreserveOrderProperty = DependencyProperty.Register(
-            nameof(PreserveOrder), typeof(bool), typeof(HistoryTextBox), new PropertyMetadata(false));
-        public string HistoryKey { get { return (string)GetValue(HistoryKeyProperty); } set { SetValue(HistoryKeyProperty, value); } }
-        public bool PreserveOrder { get { return (bool)GetValue(PreserveOrderProperty); } set { SetValue(PreserveOrderProperty, value); } }
-        public event EventHandler HistoryItemApplied;
-        public bool IsHistoryOpen => popup?.IsOpen == true;
-        private Popup popup;
-        private ListBox list;
-        private Button button;
-        private Window owner;
-
-        public HistoryTextBox() : this(DefaultStore) { }
-
-        internal HistoryTextBox(InputHistoryStore store)
+        this.store = store;
+        SetResourceReference(StyleProperty, typeof(HistoryTextBox));
+        SnapsToDevicePixels = true;
+        UseLayoutRounding = true;
+        Loaded += (s, e) =>
         {
-            this.store = store;
-            SetResourceReference(StyleProperty, typeof(HistoryTextBox));
-            SnapsToDevicePixels = true;
-            UseLayoutRounding = true;
-            Loaded += (s, e) =>
-            {
-                owner = Window.GetWindow(this);
-                if (owner != null) owner.Closed += OwnerClosed;
-                ApplyThinCaret();
-            };
-            Unloaded += (s, e) =>
-            {
-                CommitHistory();
-                if (popup != null) popup.IsOpen = false;
-                if (owner != null) owner.Closed -= OwnerClosed;
-                owner = null;
-            };
-            SelectionChanged += (s, e) => ApplyThinCaret();
-        }
-
-        private void OwnerClosed(object sender, EventArgs e) { CommitHistory(); }
-
-        public override void OnApplyTemplate()
-        {
-            if (button != null) button.Click -= OpenHistory;
-            if (list != null)
-            {
-                list.PreviewMouseLeftButtonUp -= SelectHistory;
-                list.PreviewMouseRightButtonUp -= DeleteHistory;
-                list.PreviewKeyDown -= HistoryKeyDown;
-            }
-            if (popup != null) { popup.IsOpen = false; popup.Closed -= PopupClosed; }
-            base.OnApplyTemplate();
-            popup = GetTemplateChild("PART_HistoryPopup") as Popup;
-            list = GetTemplateChild("PART_HistoryList") as ListBox;
-            button = GetTemplateChild("PART_HistoryButton") as Button;
-            if (button != null) button.Click += OpenHistory;
-            if (list != null)
-            {
-                list.PreviewMouseLeftButtonUp += SelectHistory;
-                list.PreviewMouseRightButtonUp += DeleteHistory;
-                list.PreviewKeyDown += HistoryKeyDown;
-            }
-            if (popup != null) popup.Closed += PopupClosed;
+            owner = Window.GetWindow(this);
+            if (owner != null) owner.Closed += OwnerClosed;
             ApplyThinCaret();
-        }
-
-        protected override void OnGotKeyboardFocus(KeyboardFocusChangedEventArgs e)
+        };
+        Unloaded += (s, e) =>
         {
-            base.OnGotKeyboardFocus(e);
-            ApplyThinCaret();
-        }
-
-        private void ApplyThinCaret()
-        {
-            Dispatcher.BeginInvoke(new Action(() =>
-            {
-                NarrowCaretElements(this);
-                AdornerLayer layer = AdornerLayer.GetAdornerLayer(this);
-                if (layer != null) NarrowCaretElements(layer);
-            }), System.Windows.Threading.DispatcherPriority.Loaded);
-        }
-
-        private static void NarrowCaretElements(DependencyObject root)
-        {
-            if (root == null) return;
-            int count = VisualTreeHelper.GetChildrenCount(root);
-            for (int index = 0; index < count; index++)
-            {
-                DependencyObject child = VisualTreeHelper.GetChild(root, index);
-                string typeName = child.GetType().Name;
-                if (typeName.IndexOf("Caret", StringComparison.OrdinalIgnoreCase) >= 0 && child is FrameworkElement element)
-                {
-                    element.Width = 1;
-                    element.MinWidth = 1;
-                    element.MaxWidth = 1;
-                    element.SnapsToDevicePixels = true;
-                    element.UseLayoutRounding = true;
-                    element.HorizontalAlignment = HorizontalAlignment.Left;
-                }
-                NarrowCaretElements(child);
-            }
-        }
-
-        public void CommitHistory()
-        {
-            if (!IsReadOnly && !string.IsNullOrEmpty(HistoryKey))
-                store.Remember(HistoryKey, HistoryValue(HistoryKey, Text), !PreserveOrder);
-        }
-
-        private static string HistoryValue(string key, string value)
-        {
-            if (string.IsNullOrEmpty(key) || string.IsNullOrWhiteSpace(value)) return value;
-            if (!key.StartsWith("Differencer-", StringComparison.OrdinalIgnoreCase)) return value;
-            string trimmed = value.TrimEnd('\\', '/');
-            if (trimmed.Length == 2 && trimmed[1] == ':') return trimmed + "\\";
-            return trimmed;
-        }
-
-        public void ResetField(string text)
-        {
-            SetCurrentValue(TextProperty, text ?? string.Empty);
-            CaretIndex = Text.Length;
-            if (!string.IsNullOrEmpty(HistoryKey)) store.Clear(HistoryKey);
-            if (list != null) list.ItemsSource = null;
-            if (popup != null) popup.IsOpen = false;
-        }
-
-        protected override void OnLostKeyboardFocus(KeyboardFocusChangedEventArgs e)
-        {
-            base.OnLostKeyboardFocus(e);
-            if (popup == null || !popup.IsOpen) CommitHistory();
-        }
-
-        protected override void OnPreviewKeyDown(KeyEventArgs e)
-        {
-            if (e.Key == Key.F4 || (e.Key == Key.System && e.SystemKey == Key.Down))
-            { OpenHistory(this, e); e.Handled = true; }
-            else if (e.Key == Key.Enter) CommitHistory();
-            base.OnPreviewKeyDown(e);
-        }
-
-        private void OpenHistory(object sender, RoutedEventArgs e)
-        {
-            if (IsReadOnly || popup == null || list == null || string.IsNullOrEmpty(HistoryKey)) return;
-            if (popup.IsOpen) { popup.IsOpen = false; return; }
             CommitHistory();
-            list.ItemsSource = store.Load(HistoryKey);
-            if (list.Items.Count == 0) return;
-            list.SelectedIndex = -1;
-            popup.IsOpen = true;
-            list.Focus();
-        }
+            if (popup != null) popup.IsOpen = false;
+            if (owner != null) owner.Closed -= OwnerClosed;
+            owner = null;
+        };
+        SelectionChanged += (s, e) => ApplyThinCaret();
+    }
 
-        private void SelectHistory(object sender, MouseButtonEventArgs e)
-        {
-            if (ItemsControl.ContainerFromElement(list, e.OriginalSource as DependencyObject) is ListBoxItem)
-            { ApplySelection(); e.Handled = true; }
-        }
+    private void OwnerClosed(object sender, EventArgs e) { CommitHistory(); }
 
-        private void HistoryKeyDown(object sender, KeyEventArgs e)
+    public override void OnApplyTemplate()
+    {
+        if (button != null) button.Click -= OpenHistory;
+        if (list != null)
         {
-            if (e.Key == Key.Enter) { ApplySelection(); e.Handled = true; }
-            else if (e.Key == Key.Delete)
+            list.PreviewMouseLeftButtonUp -= SelectHistory;
+            list.PreviewMouseRightButtonUp -= DeleteHistory;
+            list.PreviewKeyDown -= HistoryKeyDown;
+        }
+        if (popup != null) { popup.IsOpen = false; popup.Closed -= PopupClosed; }
+        base.OnApplyTemplate();
+        popup = GetTemplateChild("PART_HistoryPopup") as Popup;
+        list = GetTemplateChild("PART_HistoryList") as ListBox;
+        button = GetTemplateChild("PART_HistoryButton") as Button;
+        if (button != null) button.Click += OpenHistory;
+        if (list != null)
+        {
+            list.PreviewMouseLeftButtonUp += SelectHistory;
+            list.PreviewMouseRightButtonUp += DeleteHistory;
+            list.PreviewKeyDown += HistoryKeyDown;
+        }
+        if (popup != null) popup.Closed += PopupClosed;
+        ApplyThinCaret();
+    }
+
+    protected override void OnGotKeyboardFocus(KeyboardFocusChangedEventArgs e)
+    {
+        base.OnGotKeyboardFocus(e);
+        ApplyThinCaret();
+    }
+
+    private void ApplyThinCaret()
+    {
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            NarrowCaretElements(this);
+            AdornerLayer layer = AdornerLayer.GetAdornerLayer(this);
+            if (layer != null) NarrowCaretElements(layer);
+        }), System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
+    private static void NarrowCaretElements(DependencyObject root)
+    {
+        if (root == null) return;
+        int count = VisualTreeHelper.GetChildrenCount(root);
+        for (int index = 0; index < count; index++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(root, index);
+            string typeName = child.GetType().Name;
+            if (typeName.IndexOf("Caret", StringComparison.OrdinalIgnoreCase) >= 0 && child is FrameworkElement element)
             {
-                if (list.SelectedItem is string value) RemoveHistory(value);
-                e.Handled = true;
+                element.Width = 1;
+                element.MinWidth = 1;
+                element.MaxWidth = 1;
+                element.SnapsToDevicePixels = true;
+                element.UseLayoutRounding = true;
+                element.HorizontalAlignment = HorizontalAlignment.Left;
             }
-            else if (e.Key == Key.Escape || e.Key == Key.F4)
-            { popup.IsOpen = false; Focus(); e.Handled = true; }
-        }
-
-        private void DeleteHistory(object sender, MouseButtonEventArgs e)
-        {
-            var item = ItemsControl.ContainerFromElement(list, e.OriginalSource as DependencyObject) as ListBoxItem;
-            if (item == null) return;
-            e.Handled = true;
-            list.SelectedItem = item.Content;
-            var menu = new ContextMenu();
-            var deleteIcon = new TextBlock
-            {
-                Text = "\uE711",
-                FontFamily = new FontFamily("Segoe MDL2 Assets"),
-                FontSize = 15,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            deleteIcon.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
-            var delete = new MenuItem { Header = "Delete", Icon = deleteIcon };
-            string value = item.Content as string;
-            delete.Click += (s, args) => RemoveHistory(value);
-            menu.Items.Add(delete);
-            item.ContextMenu = menu;
-            if (popup != null) popup.StaysOpen = true;
-            menu.Closed += (s, args) =>
-            {
-                if (popup != null) popup.StaysOpen = false;
-                if (popup != null && popup.IsOpen && list != null) list.Focus();
-            };
-            menu.IsOpen = true;
-        }
-
-        private void RemoveHistory(string value)
-        {
-            if (string.IsNullOrEmpty(HistoryKey) || string.IsNullOrWhiteSpace(value)) return;
-            List<string> remaining = store.Remove(HistoryKey, value);
-            if (list != null) list.ItemsSource = remaining;
-            if (remaining.Count == 0 && popup != null) popup.IsOpen = false;
-        }
-
-        private void PopupClosed(object sender, EventArgs e)
-        {
-            if (list != null && list.IsKeyboardFocusWithin) Focus();
-        }
-
-        private void ApplySelection()
-        {
-            if (!(list.SelectedItem is string value)) return;
-            SetCurrentValue(TextProperty, value);
-            if (!PreserveOrder) CommitHistory();
-            popup.IsOpen = false;
-            Focus();
-            CaretIndex = Text.Length;
-            HistoryItemApplied?.Invoke(this, EventArgs.Empty);
+            NarrowCaretElements(child);
         }
     }
 
-    public sealed class PathEndTextBlock : TextBlock
+    public void CommitHistory()
     {
-        public static readonly DependencyProperty FullTextProperty = DependencyProperty.Register(
-            nameof(FullText), typeof(string), typeof(PathEndTextBlock),
-            new PropertyMetadata(null, (sender, args) => ((PathEndTextBlock)sender).UpdateText(double.NaN)));
+        if (!IsReadOnly && !string.IsNullOrEmpty(HistoryKey))
+            store.Remember(HistoryKey, HistoryValue(HistoryKey, Text), !PreserveOrder);
+    }
 
-        public string FullText
+    private static string HistoryValue(string key, string value)
+    {
+        if (string.IsNullOrEmpty(key) || string.IsNullOrWhiteSpace(value)) return value;
+        if (!key.StartsWith("Differencer-", StringComparison.OrdinalIgnoreCase)) return value;
+        string trimmed = value.TrimEnd('\\', '/');
+        if (trimmed.Length == 2 && trimmed[1] == ':') return trimmed + "\\";
+        return trimmed;
+    }
+
+    public void ResetField(string text)
+    {
+        SetCurrentValue(TextProperty, text ?? string.Empty);
+        CaretIndex = Text.Length;
+        if (!string.IsNullOrEmpty(HistoryKey)) store.Clear(HistoryKey);
+        if (list != null) list.ItemsSource = null;
+        if (popup != null) popup.IsOpen = false;
+    }
+
+    protected override void OnLostKeyboardFocus(KeyboardFocusChangedEventArgs e)
+    {
+        base.OnLostKeyboardFocus(e);
+        if (popup == null || !popup.IsOpen) CommitHistory();
+    }
+
+    protected override void OnPreviewKeyDown(KeyEventArgs e)
+    {
+        if (e.Key == Key.F4 || (e.Key == Key.System && e.SystemKey == Key.Down))
+        { OpenHistory(this, e); e.Handled = true; }
+        else if (e.Key == Key.Enter) CommitHistory();
+        base.OnPreviewKeyDown(e);
+    }
+
+    private void OpenHistory(object sender, RoutedEventArgs e)
+    {
+        if (IsReadOnly || popup == null || list == null || string.IsNullOrEmpty(HistoryKey)) return;
+        if (popup.IsOpen) { popup.IsOpen = false; return; }
+        CommitHistory();
+        list.ItemsSource = store.Load(HistoryKey);
+        if (list.Items.Count == 0) return;
+        list.SelectedIndex = -1;
+        popup.IsOpen = true;
+        list.Focus();
+    }
+
+    private void SelectHistory(object sender, MouseButtonEventArgs e)
+    {
+        if (ItemsControl.ContainerFromElement(list, e.OriginalSource as DependencyObject) is ListBoxItem)
+        { ApplySelection(); e.Handled = true; }
+    }
+
+    private void HistoryKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter) { ApplySelection(); e.Handled = true; }
+        else if (e.Key == Key.Delete)
         {
-            get { return (string)GetValue(FullTextProperty); }
-            set { SetValue(FullTextProperty, value); }
+            if (list.SelectedItem is string value) RemoveHistory(value);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape || e.Key == Key.F4)
+        { popup.IsOpen = false; Focus(); e.Handled = true; }
+    }
+
+    private void DeleteHistory(object sender, MouseButtonEventArgs e)
+    {
+        var item = ItemsControl.ContainerFromElement(list, e.OriginalSource as DependencyObject) as ListBoxItem;
+        if (item == null) return;
+        e.Handled = true;
+        list.SelectedItem = item.Content;
+        var menu = new ContextMenu();
+        var deleteIcon = new TextBlock
+        {
+            Text = "\uE711",
+            FontFamily = new FontFamily("Segoe MDL2 Assets"),
+            FontSize = 15,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        deleteIcon.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
+        var delete = new MenuItem { Header = "Delete", Icon = deleteIcon };
+        string value = item.Content as string;
+        delete.Click += (s, args) => RemoveHistory(value);
+        menu.Items.Add(delete);
+        item.ContextMenu = menu;
+        if (popup != null) popup.StaysOpen = true;
+        menu.Closed += (s, args) =>
+        {
+            if (popup != null) popup.StaysOpen = false;
+            if (popup != null && popup.IsOpen && list != null) list.Focus();
+        };
+        menu.IsOpen = true;
+    }
+
+    private void RemoveHistory(string value)
+    {
+        if (string.IsNullOrEmpty(HistoryKey) || string.IsNullOrWhiteSpace(value)) return;
+        List<string> remaining = store.Remove(HistoryKey, value);
+        if (list != null) list.ItemsSource = remaining;
+        if (remaining.Count == 0 && popup != null) popup.IsOpen = false;
+    }
+
+    private void PopupClosed(object sender, EventArgs e)
+    {
+        if (list != null && list.IsKeyboardFocusWithin) Focus();
+    }
+
+    private void ApplySelection()
+    {
+        if (!(list.SelectedItem is string value)) return;
+        SetCurrentValue(TextProperty, value);
+        if (!PreserveOrder) CommitHistory();
+        popup.IsOpen = false;
+        Focus();
+        CaretIndex = Text.Length;
+        HistoryItemApplied?.Invoke(this, EventArgs.Empty);
+    }
+}
+
+public sealed class PathEndTextBlock : TextBlock
+{
+    public static readonly DependencyProperty FullTextProperty = DependencyProperty.Register(
+        nameof(FullText), typeof(string), typeof(PathEndTextBlock),
+        new PropertyMetadata(null, (sender, args) => ((PathEndTextBlock)sender).UpdateText(double.NaN)));
+
+    public string FullText
+    {
+        get { return (string)GetValue(FullTextProperty); }
+        set { SetValue(FullTextProperty, value); }
+    }
+
+    private bool _updating;
+
+    public PathEndTextBlock()
+    {
+        TextTrimming = TextTrimming.None;
+        TextWrapping = TextWrapping.NoWrap;
+        HorizontalAlignment = HorizontalAlignment.Stretch;
+        Loaded += (sender, args) => UpdateText(AvailableWidth());
+        SizeChanged += (sender, args) => UpdateText(AvailableWidth());
+    }
+
+    private double AvailableWidth()
+    {
+        DependencyObject current = this;
+        while (current != null)
+        {
+            if (current is ListBoxItem item && item.ActualWidth > 0)
+                return Math.Max(0, item.ActualWidth - item.Padding.Left - item.Padding.Right);
+            current = VisualTreeHelper.GetParent(current);
         }
 
-        private bool _updating;
+        return ActualWidth;
+    }
 
-        public PathEndTextBlock()
-        {
-            TextTrimming = TextTrimming.None;
-            TextWrapping = TextWrapping.NoWrap;
-            HorizontalAlignment = HorizontalAlignment.Stretch;
-            Loaded += (sender, args) => UpdateText(AvailableWidth());
-            SizeChanged += (sender, args) => UpdateText(AvailableWidth());
-        }
+    private void UpdateText(double width)
+    {
+        if (_updating) return;
 
-        private double AvailableWidth()
+        string value = FullText ?? string.Empty;
+        if (double.IsNaN(width) || double.IsInfinity(width) || width <= 0)
+            width = ActualWidth;
+
+        string next = value;
+        if (width > 0 && MeasureWidth(value) > width)
         {
-            DependencyObject current = this;
-            while (current != null)
+            const string ellipsis = "...";
+            if (MeasureWidth(ellipsis) >= width)
+                next = ellipsis;
+            else
             {
-                if (current is ListBoxItem item && item.ActualWidth > 0)
-                    return Math.Max(0, item.ActualWidth - item.Padding.Left - item.Padding.Right);
-                current = VisualTreeHelper.GetParent(current);
-            }
-
-            return ActualWidth;
-        }
-
-        private void UpdateText(double width)
-        {
-            if (_updating) return;
-
-            string value = FullText ?? string.Empty;
-            if (double.IsNaN(width) || double.IsInfinity(width) || width <= 0)
-                width = ActualWidth;
-
-            string next = value;
-            if (width > 0 && MeasureWidth(value) > width)
-            {
-                const string ellipsis = "...";
-                if (MeasureWidth(ellipsis) >= width)
-                    next = ellipsis;
-                else
+                int low = 0;
+                int high = value.Length;
+                while (low < high)
                 {
-                    int low = 0;
-                    int high = value.Length;
-                    while (low < high)
-                    {
-                        int mid = (low + high + 1) / 2;
-                        string candidate = ellipsis + value.Substring(value.Length - mid);
-                        if (MeasureWidth(candidate) <= width) low = mid;
-                        else high = mid - 1;
-                    }
-                    next = low == 0 ? ellipsis : ellipsis + value.Substring(value.Length - low);
+                    int mid = (low + high + 1) / 2;
+                    string candidate = ellipsis + value.Substring(value.Length - mid);
+                    if (MeasureWidth(candidate) <= width) low = mid;
+                    else high = mid - 1;
                 }
+                next = low == 0 ? ellipsis : ellipsis + value.Substring(value.Length - low);
             }
-
-            if (Text == next) return;
-            _updating = true;
-            try { Text = next; }
-            finally { _updating = false; }
         }
 
-        private double MeasureWidth(string value)
-        {
-            var text = new FormattedText(
-                value ?? string.Empty,
-                System.Globalization.CultureInfo.CurrentCulture,
-                FlowDirection.LeftToRight,
-                new Typeface(FontFamily, FontStyle, FontWeight, FontStretch),
-                FontSize,
-                Foreground ?? Brushes.Black,
-                VisualTreeHelper.GetDpi(this).PixelsPerDip);
-            return text.Width;
-        }
+        if (Text == next) return;
+        _updating = true;
+        try { Text = next; }
+        finally { _updating = false; }
+    }
+
+    private double MeasureWidth(string value)
+    {
+        var text = new FormattedText(
+            value ?? string.Empty,
+            System.Globalization.CultureInfo.CurrentCulture,
+            FlowDirection.LeftToRight,
+            new Typeface(FontFamily, FontStyle, FontWeight, FontStretch),
+            FontSize,
+            Foreground ?? Brushes.Black,
+            VisualTreeHelper.GetDpi(this).PixelsPerDip);
+        return text.Width;
     }
 }

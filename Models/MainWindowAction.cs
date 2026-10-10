@@ -1,11 +1,10 @@
-namespace DesktopIniManager.Models
+namespace DesktopIniManager.Models;
+
+internal enum MainWindowAction
 {
-    internal enum MainWindowAction
-    {
-        ChooseRoot, ChooseIconLibrary, ChooseIcon, UseAsSearchLocation, OpenExplorer,
-        TreeToEditor, TreeFilesToEditor, FileListToEditor,
-        GrepFolder, CompactTree, ComfortableTree, FileListView, FileIconSmall,
-        FileIconLarge, ClearFolderFilter, DeveloperDifferencer, LightTheme, DarkTheme,
-        Reset, Close
-    }
+    ChooseRoot, ChooseIconLibrary, ChooseIcon, UseAsSearchLocation, OpenExplorer,
+    TreeToEditor, TreeFilesToEditor, FileListToEditor,
+    GrepFolder, CompactTree, ComfortableTree, FileListView, FileIconSmall,
+    FileIconLarge, ClearFolderFilter, DeveloperDifferencer, LightTheme, DarkTheme,
+    Reset, Close
 }

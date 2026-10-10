@@ -185,6 +185,12 @@ internal static class DiffRegressionTests
         try { DiffViewModel.ReadText(path); } catch (InvalidDataException) { rejected = true; }
         Require(rejected, "binary input is rejected");
         Console.WriteLine("PASS text reading: UTF-8, UTF-16 LE/BE, UTF-32 LE/BE, Shift-JIS, empty and binary inputs");
+        Require(DeveloperDifferencerViewModel.FindTargetHistoryMatch(@"C:\source\Project\", new[] { @"D:\other", @"E:\first\project\", @"F:\second\Project" }) == @"E:\first\project\",
+            "source matches first target history by folder name, ignoring case and trailing separator");
+        Require(DeveloperDifferencerViewModel.FindTargetHistoryMatch(@"C:\source\Missing", new[] { @"D:\Project" }) == null, "no history match keeps target");
+        Require(DeveloperDifferencerViewModel.FindTargetHistoryMatch(@"C:\", new[] { @"D:\" }) == null, "drive roots do not match");
+        Require(DeveloperDifferencerViewModel.FindTargetHistoryMatch(@"C:\source\Project", new[] { "", "relative", @"D:\Project" }) == @"D:\Project", "invalid history entries are skipped");
+        Console.WriteLine("PASS Source-to-Target history matching");
         VerifyFilteredExpansion(fixture);
         VerifyImageReload(fixture);
         return 0;

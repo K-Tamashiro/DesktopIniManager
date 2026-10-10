@@ -39,6 +39,22 @@ namespace DesktopIniManager.Services
         public static void SaveMainListLayout(double[] values) => WriteSetting(MainListLayoutPath,
             string.Join(",", Array.ConvertAll(values, value => value.ToString("R", CultureInfo.InvariantCulture))));
 
+        internal static double[] LoadDifferencerLayout()
+        {
+            string text = ReadSetting(Path.Combine(SettingsDirectory, "differencer-layout.txt"), null);
+            if (string.IsNullOrWhiteSpace(text)) return null;
+            string[] parts = text.Split(',');
+            var values = new double[parts.Length];
+            for (int i = 0; i < parts.Length; i++)
+                if (!double.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out values[i]) ||
+                    !double.IsFinite(values[i]) || values[i] < 0) return null;
+            return values;
+        }
+
+        internal static void SaveDifferencerLayout(double[] values) => WriteSetting(
+            Path.Combine(SettingsDirectory, "differencer-layout.txt"),
+            string.Join(",", Array.ConvertAll(values, value => value.ToString("R", CultureInfo.InvariantCulture))));
+
         public static string LoadIconLibraryPath()
         {
             try

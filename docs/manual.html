@@ -1,77 +1,230 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DesktopIniManager v4.2.0 操作マニュアル</title><link rel="icon" type="image/x-icon" href="./favicon.ico"><style>*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#070c12;color:#e8edf3;font:15px/1.85 "Segoe UI","Noto Sans JP",sans-serif}a{color:#80bfff}.layout{max-width:1220px;margin:auto;display:grid;grid-template-columns:245px minmax(0,1fr);gap:38px;padding:24px}aside{position:sticky;top:20px;align-self:start;max-height:95vh;overflow:auto;background:#0d141d;border:1px solid #243444;border-radius:8px;padding:20px}aside a{display:block;padding:4px 0;text-decoration:none;color:#b9cad9}main{min-width:0}h1{font-size:34px;line-height:1.3}h2{margin-top:50px;padding-bottom:8px;border-bottom:1px solid #243444}p{color:#c5d0db}.capture{border:2px dashed #49627b;background:#0b1723;padding:0;text-align:center;border-radius:8px;margin:20px 0 30px;overflow:hidden}.capture img{display:block;width:100%;height:auto}.capture figcaption{padding:11px 14px;color:#9aabbc;font-size:13px;border-top:1px solid #243444}.capture code{color:#f0cf79;margin:8px}.keys{width:100%;border-collapse:collapse;margin:20px 0 28px;background:#0d141d;border:1px solid #243444}.keys th,.keys td{padding:12px 16px;border-bottom:1px solid #243444;text-align:left;vertical-align:top}.keys th{background:#14202c;color:#e8edf3}.keys td:first-child{width:40%;white-space:nowrap}.keys code{display:inline-block;background:#101c29;border:1px solid #30465a;border-radius:4px;padding:1px 7px;color:#d5eaff}pre{padding:18px;background:#101c29;color:#d5eaff;overflow:auto;line-height:1.7}code{color:#d5eaff}footer{padding:40px 0;color:#9aabbc}@media(max-width:850px){.layout{display:block}aside{position:static;max-height:none}}</style></head><body><div class="layout"><aside><strong>DIM v4.2.0</strong><p><a href="index.html">← トップページ</a></p>
-
-<a href="#setup">導入・更新</a>
-<a href="#main">メイン画面・フォルダー解析</a>
-<a href="#search">ファイル検索</a>
-<a href="#icons">desktop.ini・アイコン管理</a>
-<a href="#launcher">右クリック・Batch File Launcher</a>
-<a href="#compare">Developer Differencer</a>
-<a href="#sync">同期・ZIP保存</a>
-<a href="#diff">テキストDIFF VIEW</a>
-<a href="#image">画像DIFF VIEW</a>
-<a href="#git">Git difftool連携</a>
-<a href="#grep">Scoped Grep</a>
-<a href="#slots">スロット・テーマ・言語</a>
-<a href="#keys">キーボード操作</a>
-<a href="#remove">アンインストール・注意事項</a>
-</aside><main><header><h1>DesktopIniManager v4.2.0<br>操作マニュアル</h1><p><a href="index.html">トップページ</a> · <a href="https://github.com/K-Tamashiro/DesktopIniManager/releases">GitHub Releases</a></p></header>
-<section id="setup"><h2>導入・更新</h2><p>Windows 10 / 11（x64）、.NET 10 Desktop Runtime（x64）が必要です。GitHubの配布ZIPはDesktopIniManager-v4.2.0-win-x64.zip、Vector向けは32byte制限のためDIM-v4.2.0-win-x64.zipです。ZIPを新しいフォルダーに展開し、DLL、JSON、Assets、Languagesを維持してDesktopIniManager.exeを起動します。</p>
-<figure class="capture"><img src="images/setup-main.png" alt="初回起動後のメイン画面とヘッダー" loading="lazy"><figcaption>初回起動後のメイン画面とヘッダー</figcaption></figure>
-</section>
-<section id="main"><h2>メイン画面・フォルダー解析</h2><p>Targetに物理フォルダーまたはSolutionを指定します。選択フォルダー直下のファイルを白文字で先に表示し、配下のファイルを灰色で表示します。ルートが1つのツリーではルート行を固定表示します。全チェック／解除、反転、展開／折りたたみ、フィルター、表示サイズ変更に対応します。</p>
-<figure class="capture"><img src="images/main-target.png" alt="フォルダーツリー・固定ルート行・ファイルリスト" loading="lazy"><figcaption>フォルダーツリー・固定ルート行・ファイルリスト</figcaption></figure>
-</section>
-<section id="search"><h2>ファイル検索</h2><p>ファイル名とフォルダー名を検索対象とし、ヒットの強調と件数表示に対応します。チェックしたフォルダー配下をScoped File Search／Scoped Grepの対象にできます。複数ファイル選択とDIFF VIEWでの比較に対応します。</p>
-<figure class="capture"><img src="images/main-search.png" alt="検索結果とフォルダー名ヒットの強調" loading="lazy"><figcaption>検索結果とフォルダー名ヒットの強調</figcaption></figure>
-</section>
-<section id="icons"><h2>desktop.ini・アイコン管理</h2><p>ICO／ICL／DLL／EXEからアイコンを選び、チェックしたフォルダーへ適用します。既存設定のリセット、.gitignoreへの追加、空／中身あり・ネットワーク・クラウドの状態表示に対応します。</p>
-<figure class="capture"><img src="images/icon-select.png" alt="アイコン選択画面と適用先フォルダー" loading="lazy"><figcaption>アイコン選択画面と適用先フォルダー</figcaption></figure>
-</section>
-<section id="launcher"><h2>右クリック・Batch File Launcher</h2><p>右クリックからTarget設定、Explorer表示、tree／tree /f／ファイルリストのエディター出力、Scoped Grepへの引き渡しができます。Batch File Launcherの置換文字は%d%（ディレクトリのフルパス）、%f%（選択ファイルのフルパス）、%n%（ファイル名）です。</p>
-<figure class="capture"><img src="images/batch-launcher.png" alt="Batch File Launcherの設定画面" loading="lazy"><figcaption>Batch File Launcherの設定画面</figcaption></figure>
-</section>
-<section id="compare"><h2>Developer Differencer</h2><p>Source（黄色）とTarget（青色）のフォルダーを比較します。基準は更新日時とサイズ、日時比較OFFではサイズのみで、ハッシュ比較ではありません。同一・差異あり・片側のみ・obj・bin・チェック済みをフィルター表示します。比較結果は最大20タブです。Source選択時はTarget側に同名の末尾フォルダーがあれば選択します。</p>
-<figure class="capture"><img src="images/compare-overview.png" alt="比較画面全体、色分け、フィルター、進捗表示" loading="lazy"><figcaption>比較画面全体、色分け、フィルター、進捗表示</figcaption></figure>
-</section>
-<section id="sync"><h2>同期・ZIP保存</h2><p>選択したSource／Targetのファイルを相対構造を維持してZIP保存できます。ZIPアイコンをドラッグするとZIPを作らず構造ごと取り出せます。同期は双方向で、確認画面で方向と内容を確認して実行します。受信側ファイルが削除される場合があります。</p>
-<figure class="capture"><img src="images/sync-confirm.png" alt="同期確認ダイアログと方向" loading="lazy"><figcaption>同期確認ダイアログと方向</figcaption></figure>
-</section>
-<section id="diff"><h2>テキストDIFF VIEW</h2><p>比較結果の対応ファイルをダブルクリックして開きます。Sourceは黄色枠、Targetは青枠。行番号、シンタックスハイライト、中央の差分マップに対応します。「≠」で差分のみ表示、「※」で全行表示に戻します。省略部分は「52 filtered lines」などと表示し、クリックで展開／折りたたみできます。Ctrl+0でも切り替え、最終状態をスロットごとに保存します。編集・マージは外部ツールで行います。</p>
-<figure class="capture"><img src="images/diff-text.png" alt="差分のみ表示、≠／※ボタン、Source／Target枠" loading="lazy"><figcaption>差分のみ表示、≠／※ボタン、Source／Target枠</figcaption></figure>
-</section>
-<section id="image"><h2>画像DIFF VIEW</h2><p>画像の場合は画像DIFFモードへ切り替わります。左右の画像をズームスライダー／ホイールで拡大縮小でき、最大160%でピクセルグリッドを表示します。ポインター位置のARGB値と相対座標を表示します。マップは両画像の50%透過重ね合わせであり、差異を自動検出・強調する機能ではありません。</p>
-<figure class="capture"><img src="images/diff-image.png" alt="画像2枚、重ね合わせマップ、ARGB値と座標" loading="lazy"><figcaption>画像2枚、重ね合わせマップ、ARGB値と座標</figcaption></figure>
-</section>
-<section id="git"><h2>Git difftool連携</h2><p>DIMは -diff に2ファイルを渡して単体起動できます。以下はGitの .gitconfig 設定例です。DesktopIniManager.exeがPATHにない場合はフルパスに置き換えます。</p>
-<pre>DesktopIniManager.exe -diff "C:\work\Source.txt" "C:\work\Target.txt"</pre><pre>[diff]
+<!doctype html>
+<html lang="ja">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1">
+        <title>DesktopIniManager v4.2.0 操作マニュアル</title>
+        <link rel="icon" type="image/x-icon" href="./favicon.ico">
+        <style>*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#070c12;color:#e8edf3;font:15px/1.85 "Segoe UI","Noto Sans JP",sans-serif}a{color:#80bfff}.layout{max-width:1220px;margin:auto;display:grid;grid-template-columns:245px minmax(0,1fr);gap:38px;padding:24px}aside{position:sticky;top:20px;align-self:start;max-height:95vh;overflow:auto;background:#0d141d;border:1px solid #243444;border-radius:8px;padding:20px}aside a{display:block;padding:4px 0;text-decoration:none;color:#b9cad9}main{min-width:0}h1{font-size:34px;line-height:1.3}h2{margin-top:50px;padding-bottom:8px;border-bottom:1px solid #243444}p{color:#c5d0db}.capture{border:2px dashed #49627b;background:#0b1723;padding:0;text-align:center;border-radius:8px;margin:20px 0 30px;overflow:hidden}.capture img{display:block;width:100%;height:auto}.capture figcaption{padding:11px 14px;color:#9aabbc;font-size:13px;border-top:1px solid #243444}.capture code{color:#f0cf79;margin:8px}.keys{width:100%;border-collapse:collapse;margin:20px 0 28px;background:#0d141d;border:1px solid #243444}.keys th,.keys td{padding:12px 16px;border-bottom:1px solid #243444;text-align:left;vertical-align:top}.keys th{background:#14202c;color:#e8edf3}.keys td:first-child{width:40%;white-space:nowrap}.keys code{display:inline-block;background:#101c29;border:1px solid #30465a;border-radius:4px;padding:1px 7px;color:#d5eaff}pre{padding:18px;background:#101c29;color:#d5eaff;overflow:auto;line-height:1.7}code{color:#d5eaff}footer{padding:40px 0;color:#9aabbc}@media(max-width:850px){.layout{display:block}aside{position:static;max-height:none}}</style>
+    </head>
+    <body>
+        <div class="layout">
+            <aside>
+                <strong>DIM v4.2.0</strong>
+                <p>
+                    <a href="index.html">← トップページ</a>
+                </p>
+                <a href="#setup">導入・更新</a>
+                <a href="#main">メイン画面・フォルダー解析</a>
+                <a href="#search">ファイル検索</a>
+                <a href="#icons">desktop.ini・アイコン管理</a>
+                <a href="#launcher">右クリック・Batch File Launcher</a>
+                <a href="#compare">Developer Differencer</a>
+                <a href="#sync">同期・ZIP保存</a>
+                <a href="#diff">テキストDIFF VIEW</a>
+                <a href="#image">画像DIFF VIEW</a>
+                <a href="#git">Git difftool連携</a>
+                <a href="#grep">Scoped Grep</a>
+                <a href="#slots">スロット・テーマ・言語</a>
+                <a href="#keys">キーボード操作</a>
+                <a href="#remove">アンインストール・注意事項</a>
+            </aside>
+            <main>
+                <header>
+                    <h1>DesktopIniManager v4.2.0
+                        <br>操作マニュアル
+                    </h1>
+                    <p>
+                        <a href="index.html">トップページ</a> ·
+                        <a href="https://github.com/K-Tamashiro/DesktopIniManager/releases">GitHub Releases</a>
+                    </p>
+                </header>
+                <section id="setup">
+                    <h2>導入・更新</h2>
+                    <p>Windows 10 / 11（x64）、.NET 10 Desktop Runtime（x64）が必要です。GitHubの配布ZIPはDesktopIniManager-v4.2.0-win-x64.zip、Vector向けは32byte制限のためDIM-v4.2.0-win-x64.zipです。ZIPを新しいフォルダーに展開し、DLL、JSON、Assets、Languagesを維持してDesktopIniManager.exeを起動します。</p>
+                    <figure class="capture">
+                        <img src="images/setup-main.png" alt="初回起動後のメイン画面とヘッダー" loading="lazy">
+                        <figcaption>初回起動後のメイン画面とヘッダー</figcaption>
+                    </figure>
+                </section>
+                <section id="main">
+                    <h2>メイン画面・フォルダー解析</h2>
+                    <p>Targetに物理フォルダーまたはSolutionを指定します。選択フォルダー直下のファイルを白文字で先に表示し、配下のファイルを灰色で表示します。ルートが1つのツリーではルート行を固定表示します。全チェック／解除、反転、展開／折りたたみ、フィルター、表示サイズ変更に対応します。</p>
+                    <figure class="capture">
+                        <img src="images/main-target.png" alt="フォルダーツリー・固定ルート行・ファイルリスト" loading="lazy">
+                        <figcaption>フォルダーツリー・固定ルート行・ファイルリスト</figcaption>
+                    </figure>
+                </section>
+                <section id="search">
+                    <h2>ファイル検索</h2>
+                    <p>ファイル名とフォルダー名を検索対象とし、ヒットの強調と件数表示に対応します。チェックしたフォルダー配下をScoped File Search／Scoped Grepの対象にできます。複数ファイル選択とDIFF VIEWでの比較に対応します。</p>
+                    <figure class="capture">
+                        <img src="images/main-search.png" alt="検索結果とフォルダー名ヒットの強調" loading="lazy">
+                        <figcaption>検索結果とフォルダー名ヒットの強調</figcaption>
+                    </figure>
+                </section>
+                <section id="icons">
+                    <h2>desktop.ini・アイコン管理</h2>
+                    <p>ICO／ICL／DLL／EXEからアイコンを選び、チェックしたフォルダーへ適用します。既存設定のリセット、.gitignoreへの追加、空／中身あり・ネットワーク・クラウドの状態表示に対応します。</p>
+                    <figure class="capture">
+                        <img src="images/icon-select.png" alt="アイコン選択画面と適用先フォルダー" loading="lazy">
+                        <figcaption>アイコン選択画面と適用先フォルダー</figcaption>
+                    </figure>
+                </section>
+                <section id="launcher">
+                    <h2>右クリック・Batch File Launcher</h2>
+                    <p>右クリックからTarget設定、Explorer表示、tree／tree /f／ファイルリストのエディター出力、Scoped Grepへの引き渡しができます。Batch File Launcherの置換文字は%d%（ディレクトリのフルパス）、%f%（選択ファイルのフルパス）、%n%（ファイル名）です。</p>
+                    <figure class="capture">
+                        <img src="images/batch-launcher.png" alt="Batch File Launcherの設定画面" loading="lazy">
+                        <figcaption>Batch File Launcherの設定画面</figcaption>
+                    </figure>
+                </section>
+                <section id="compare">
+                    <h2>Developer Differencer</h2>
+                    <p>Source（黄色）とTarget（青色）のフォルダーを比較します。基準は更新日時とサイズ、日時比較OFFではサイズのみで、ハッシュ比較ではありません。同一・差異あり・片側のみ・obj・bin・チェック済みをフィルター表示します。比較結果は最大20タブです。Source選択時はTarget側に同名の末尾フォルダーがあれば選択します。</p>
+                    <figure class="capture">
+                        <img src="images/compare-overview.png" alt="比較画面全体、色分け、フィルター、進捗表示" loading="lazy">
+                        <figcaption>比較画面全体、色分け、フィルター、進捗表示</figcaption>
+                    </figure>
+                </section>
+                <section id="sync">
+                    <h2>同期・ZIP保存</h2>
+                    <p>選択したSource／Targetのファイルを相対構造を維持してZIP保存できます。ZIPアイコンをドラッグするとZIPを作らず構造ごと取り出せます。同期は双方向で、確認画面で方向と内容を確認して実行します。受信側ファイルが削除される場合があります。</p>
+                    <figure class="capture">
+                        <img src="images/sync-confirm.png" alt="同期確認ダイアログと方向" loading="lazy">
+                        <figcaption>同期確認ダイアログと方向</figcaption>
+                    </figure>
+                </section>
+                <section id="diff">
+                    <h2>テキストDIFF VIEW</h2>
+                    <p>比較結果の対応ファイルをダブルクリックして開きます。Sourceは黄色枠、Targetは青枠。行番号、シンタックスハイライト、中央の差分マップに対応します。「≠」で差分のみ表示、「※」で全行表示に戻します。省略部分は「52 filtered lines」などと表示し、クリックで展開／折りたたみできます。Ctrl+0でも切り替え、最終状態をスロットごとに保存します。編集・マージは外部ツールで行います。</p>
+                    <figure class="capture">
+                        <img src="images/diff-text.png" alt="差分のみ表示、≠／※ボタン、Source／Target枠" loading="lazy">
+                        <figcaption>差分のみ表示、≠／※ボタン、Source／Target枠</figcaption>
+                    </figure>
+                </section>
+                <section id="image">
+                    <h2>画像DIFF VIEW</h2>
+                    <p>画像の場合は画像DIFFモードへ切り替わります。左右の画像をズームスライダー／ホイールで拡大縮小でき、最大160%でピクセルグリッドを表示します。ポインター位置のARGB値と相対座標を表示します。マップは両画像の50%透過重ね合わせであり、差異を自動検出・強調する機能ではありません。</p>
+                    <figure class="capture">
+                        <img src="images/diff-image.png" alt="画像2枚、重ね合わせマップ、ARGB値と座標" loading="lazy">
+                        <figcaption>画像2枚、重ね合わせマップ、ARGB値と座標</figcaption>
+                    </figure>
+                </section>
+                <section id="git">
+                    <h2>Git difftool連携</h2>
+                    <p>DIMは -diff に2ファイルを渡して単体起動できます。以下はGitの .gitconfig 設定例です。DesktopIniManager.exeがPATHにない場合はフルパスに置き換えます。</p>
+                    <pre>DesktopIniManager.exe -diff "C:\work\Source.txt" "C:\work\Target.txt"</pre>
+                    <pre>
+                        [diff]
     tool = dim
 
 [difftool "dim"]
     cmd = DesktopIniManager.exe -diff "$REMOTE" "$LOCAL"
 
 [difftool]
-    prompt = false</pre>
-<figure class="capture"><img src="images/git-difftool.png" alt="Gitから起動した単体DIFF VIEW" loading="lazy"><figcaption>Gitから起動した単体DIFF VIEW</figcaption></figure>
-</section>
-<section id="grep"><h2>Scoped Grep</h2><p>複数の検索フォルダーを登録し、チェックで対象を選択します。正規表現、大文字小文字、単語一致に対応します。Code GrepとDocument Grepを分離し、DocumentではExcel（xls／xlsx／xlsm）とPDF内部を検索します。Excelはシート名とセル番地、PDFはページ番号を表示します。スキャンPDFのOCRは行いません。結果はファイル単位でグループ化し、最大20タブ保持します。</p>
-<figure class="capture"><img src="images/grep-results.png" alt="検索スコープ、Code／Document、グループ化結果" loading="lazy"><figcaption>検索スコープ、Code／Document、グループ化結果</figcaption></figure>
-</section>
-<section id="slots"><h2>スロット・テーマ・言語</h2><p>DIM1～DIM5は独立プロセスで、In Useは現在使用中、Freeは新規起動可能、Openは別プロセスを前面表示します。設定と履歴は%LOCALAPPDATA%\DesktopIniManager\dim-Nに保存します。Dark／Light／DIM1～DIM5テーマ、英語・日本語・簡体字中国語・韓国語に対応します。</p>
-<figure class="capture"><img src="images/slots-themes.png" alt="DIM1～DIM5スロットとテーマコンボ" loading="lazy"><figcaption>DIM1～DIM5スロットとテーマコンボ</figcaption></figure>
-</section>
-<section id="keys"><h2>キーボード操作</h2><table class="keys"><thead><tr><th>操作</th><th>動作</th></tr></thead><tbody>
-<tr><td><code>Ctrl + 1</code></td><td>メイン画面へ切り替え</td></tr>
-<tr><td><code>Ctrl + 2</code></td><td>Developer Differencerへ切り替え</td></tr>
-<tr><td><code>Ctrl + 3</code></td><td>Scoped Grepへ切り替え</td></tr>
-<tr><td><code>Ctrl + Space</code></td><td>メイン → Developer Differencer → Scoped Grepを順番に切り替え</td></tr>
-<tr><td><code>Ctrl + 0</code></td><td>DIFF VIEWの全行表示／差分のみ表示を切り替え</td></tr>
-<tr><td><code>↑ ↓ ← →</code></td><td>DIFF VIEWを上下左右へスクロール</td></tr>
-<tr><td><code>Ctrl + ↑ / ↓</code></td><td>前後の差分セクションへ移動</td></tr>
-<tr><td><code>Ctrl + ← / →</code></td><td>前後の差分ファイルへ移動</td></tr>
-<tr><td><code>Page Up / Page Down</code></td><td>ページスクロール</td></tr>
-<tr><td><code>Shift + ホイール / サムホイール</code></td><td>横スクロール</td></tr>
-</tbody></table>
-</section>
-<section id="remove"><h2>アンインストール・注意事項</h2><p>DIMをすべて終了し、展開先フォルダーを削除します。設定も削除する場合は%LOCALAPPDATA%\DesktopIniManagerを削除します。フォルダーアイコンは事前にDIMでリセットしてください。走査・検索・比較・閲覧はファイル内容を変更しませんが、同期、アイコン設定、ビルド／Cleanなどは書き込みを伴います。</p>
-</section>
-<footer>DesktopIniManager v4.2.0 — Copyright (C) ZEBRASOFT Tamayan</footer></main></div></body></html>
+    prompt = false
+                    </pre>
+                    <figure class="capture">
+                        <img src="images/git-difftool.png" alt="Gitから起動した単体DIFF VIEW" loading="lazy">
+                        <figcaption>Gitから起動した単体DIFF VIEW</figcaption>
+                    </figure>
+                </section>
+                <section id="grep">
+                    <h2>Scoped Grep</h2>
+                    <p>複数の検索フォルダーを登録し、チェックで対象を選択します。正規表現、大文字小文字、単語一致に対応します。Code GrepとDocument Grepを分離し、DocumentではExcel（xls／xlsx／xlsm）とPDF内部を検索します。Excelはシート名とセル番地、PDFはページ番号を表示します。スキャンPDFのOCRは行いません。結果はファイル単位でグループ化し、最大20タブ保持します。</p>
+                    <figure class="capture">
+                        <img src="images/grep-results.png" alt="検索スコープ、Code／Document、グループ化結果" loading="lazy">
+                        <figcaption>検索スコープ、Code／Document、グループ化結果</figcaption>
+                    </figure>
+                </section>
+                <section id="slots">
+                    <h2>スロット・テーマ・言語</h2>
+                    <p>DIM1～DIM5は独立プロセスで、In Useは現在使用中、Freeは新規起動可能、Openは別プロセスを前面表示します。設定と履歴は%LOCALAPPDATA%\DesktopIniManager\dim-Nに保存します。Dark／Light／DIM1～DIM5テーマ、英語・日本語・簡体字中国語・韓国語に対応します。</p>
+                    <figure class="capture">
+                        <img src="images/slots-themes.png" alt="DIM1～DIM5スロットとテーマコンボ" loading="lazy">
+                        <figcaption>DIM1～DIM5スロットとテーマコンボ</figcaption>
+                    </figure>
+                </section>
+                <section id="keys">
+                    <h2>キーボード操作</h2>
+                    <table class="keys">
+                        <thead>
+                            <tr>
+                                <th>操作</th>
+                                <th>動作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <code>Ctrl + 1</code>
+                                </td>
+                                <td>メイン画面へ切り替え</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <code>Ctrl + 2</code>
+                                </td>
+                                <td>Developer Differencerへ切り替え</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <code>Ctrl + 3</code>
+                                </td>
+                                <td>Scoped Grepへ切り替え</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <code>Ctrl + Space</code>
+                                </td>
+                                <td>メイン → Developer Differencer → Scoped Grepを順番に切り替え</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <code>Ctrl + 0</code>
+                                </td>
+                                <td>DIFF VIEWの全行表示／差分のみ表示を切り替え</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <code>↑ ↓ ← →</code>
+                                </td>
+                                <td>DIFF VIEWを上下左右へスクロール</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <code>Ctrl + ↑ / ↓</code>
+                                </td>
+                                <td>前後の差分セクションへ移動</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <code>Ctrl + ← / →</code>
+                                </td>
+                                <td>前後の差分ファイルへ移動</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <code>Page Up / Page Down</code>
+                                </td>
+                                <td>ページスクロール</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <code>Shift + ホイール / サムホイール</code>
+                                </td>
+                                <td>横スクロール</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                <section id="remove">
+                    <h2>アンインストール・注意事項</h2>
+                    <p>DIMをすべて終了し、展開先フォルダーを削除します。設定も削除する場合は%LOCALAPPDATA%\DesktopIniManagerを削除します。フォルダーアイコンは事前にDIMでリセットしてください。走査・検索・比較・閲覧はファイル内容を変更しませんが、同期、アイコン設定、ビルド／Cleanなどは書き込みを伴います。</p>
+                </section>
+                <footer>DesktopIniManager v4.2.0 — Copyright (C) ZEBRASOFT Tamayan</footer>
+            </main>
+        </div>
+    </body>
+</html>

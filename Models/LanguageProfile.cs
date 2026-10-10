@@ -1,20 +1,20 @@
 using System;
 using System.Collections.Generic;
 
-namespace DesktopIniManager.Models
-{
-    internal sealed class LanguageProfile
-    {
-        public LanguageProfile(string name, params string[] extensions) { Name = name; Extensions = extensions; }
-        public string Name { get; }
-        public string[] Extensions { get; }
-        public bool IsFree => Extensions.Length == 0;
-        public bool IsDocument => string.Equals(Name, "Document", StringComparison.OrdinalIgnoreCase);
-        public string ExtensionText => string.Join(" ", Extensions);
-        public override string ToString() => Name;
+namespace DesktopIniManager.Models;
 
-        public static IReadOnlyList<LanguageProfile> All { get; } = new[]
-        {
+internal sealed class LanguageProfile
+{
+    public LanguageProfile(string name, params string[] extensions) { Name = name; Extensions = extensions; }
+    public string Name { get; }
+    public string[] Extensions { get; }
+    public bool IsFree => Extensions.Length == 0;
+    public bool IsDocument => string.Equals(Name, "Document", StringComparison.OrdinalIgnoreCase);
+    public string ExtensionText => string.Join(" ", Extensions);
+    public override string ToString() => Name;
+
+    public static IReadOnlyList<LanguageProfile> All { get; } = new[]
+    {
             new LanguageProfile("Free / Plain text"),
             new LanguageProfile("C# / WPF", ".cs", ".xaml", ".cshtml", ".razor", ".json", ".config", ".xml", ".log"),
             new LanguageProfile("VB.NET", ".vb", ".xaml", ".json", ".config", ".xml", ".log"),
@@ -28,5 +28,4 @@ namespace DesktopIniManager.Models
             new LanguageProfile("SQL", ".sql", ".ddl", ".ini", ".json", ".xml", ".log"),
             new LanguageProfile("Document", ".xls", ".xlsx", ".xlsm", ".pdf")
         };
-    }
 }

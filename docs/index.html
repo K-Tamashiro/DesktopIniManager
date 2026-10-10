@@ -1,32 +1,396 @@
 <!DOCTYPE html>
-
 <html lang="ja">
-<head>
-<meta charset="utf-8"/><meta content="width=device-width,initial-scale=1" name="viewport"/>
-<link rel="icon" type="image/x-icon" href="./favicon.ico">
-<title>DesktopIniManager v4.2.0 — Project / Folder Analysis Utility</title>
-<style>
+    <head>
+        <meta charset="utf-8">
+        <meta content="width=device-width,initial-scale=1" name="viewport">
+        <link rel="icon" type="image/x-icon" href="./favicon.ico">
+        <title>DesktopIniManager v4.2.0 — Project / Folder Analysis Utility</title>
+        <style>
 :root{--bg:#070c12;--surface:#0d141d;--surface2:#101a25;--line:#1c2a38;--text:#e8edf3;--muted:#8797a8;--blue:#2b86f6;--yellow:#e5b938;--cyan:#61b8ef}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.75 "Segoe UI","Noto Sans JP",sans-serif}a{color:inherit}.wrap{width:min(1120px,calc(100% - 48px));margin:auto}.hero{background:#02070d;border-bottom:1px solid var(--line)}.hero img{width:100%;height:auto;display:block}.hero-copy{display:none}.nav{position:sticky;top:0;z-index:10;background:rgba(7,12,18,.92);border-bottom:1px solid var(--line);backdrop-filter:blur(14px)}.nav .wrap{display:flex;gap:30px;overflow:auto;padding:13px 0;white-space:nowrap}.nav a{text-decoration:none;color:#8fa1b2;font-size:13px;letter-spacing:.02em}.nav a:hover{color:#fff}.intro{padding:76px 0 36px}.intro h2,.section h2{font-size:clamp(28px,3vw,42px);font-weight:600;letter-spacing:-.025em;margin:4px 0 18px;color:#f5f7fa}.lead{font-size:17px;color:#a9b5c1;max-width:880px}.eyebrow{color:#4d98ef;font-size:12px;font-weight:600;letter-spacing:.16em;text-transform:uppercase}.philosophy{border:1px solid var(--line);background:#0b121a;padding:20px 22px;margin:30px 0;border-radius:8px;color:#aebbc7}.philosophy strong{color:#f0f4f8}.section{padding:76px 0;border-top:1px solid #111c27}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:28px}.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:20px 22px}.card h3{margin:0 0 7px;color:#eaf0f6;font-size:17px;font-weight:600}.card p{margin:0;color:#8fa0b1}.shot{margin:30px 0;background:#05090e;border:1px solid #1b2936;border-radius:7px;overflow:hidden}.shot img{display:block;width:100%;height:auto}.shot figcaption{padding:11px 14px;color:#738496;font-size:12px;border-top:1px solid #14202b}.shots2{display:grid;grid-template-columns:1fr 1fr;gap:16px}.accent-yellow{color:var(--yellow)}.accent-blue{color:var(--cyan)}.keys{width:100%;border-collapse:collapse;margin-top:26px;background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden}.keys th,.keys td{padding:13px 16px;border-bottom:1px solid var(--line);text-align:left}.keys th{color:#dce5ed;background:#111b25;font-weight:600}.keys code{color:#c9e2ff;background:#09111a;border:1px solid #24384a;padding:3px 8px;border-radius:4px}.footer{padding:44px 0 70px;color:#536474;text-align:center;font-size:13px}.badge{display:inline-block;border:1px solid #213548;background:#0b141e;color:#79aee6;border-radius:5px;padding:4px 9px;margin:3px 4px 3px 0;font-size:12px}@media(max-width:800px){.grid,.shots2{grid-template-columns:1fr}.wrap{width:min(100% - 24px,1120px)}.intro,.section{padding:52px 0}.nav .wrap{gap:20px}}
 .download-links{display:flex;flex-wrap:wrap;align-items:center;gap:20px}.download-button{display:inline-block;background:#2878bf;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600}.download-button:hover{background:#338bd4}
-</style></head><body>
-<header class="hero"><img alt="DesktopIniManager v4.2.0" src="images/app-overview-dark(2).png"/><div class="hero-copy"><h1>DesktopIni<span>Manager</span> v4</h1><p>Project / Folder Analysis Utility — フォルダー解析、検索、Scoped Grep、比較、DIFF、desktop.ini 管理を一つの操作系へ。</p></div></header>
-<nav class="nav"><div class="wrap"><a href="#download">ダウンロード</a><a href="#overview">概要</a><a href="#main">メイン画面</a><a href="#diff">Developer Differencer</a><a href="#viewer">DIFF VIEW</a><a href="#grep">Scoped Grep</a><a href="#keys">ショートカット</a><a href="manual.html">マニュアル</a></div></nav>
-<main>
-<section class="section" id="download"><div class="wrap"><div class="eyebrow">Download / v4.2.0</div><h2>DesktopIniManager v4.2.0</h2><p class="lead">Windows 10 / 11（x64）用フリーソフト。GitHub Releasesのv4.2.0から <strong>DesktopIniManager-v4.2.0-win-x64.zip</strong> をダウンロードしてください。</p><p class="download-links"><a class="download-button" href="https://github.com/K-Tamashiro/DesktopIniManager/releases">GitHubからダウンロード</a><a href="https://github.com/K-Tamashiro/DesktopIniManager">GitHub / ソース・不具合報告</a><a href="https://github.com/K-Tamashiro/DesktopIniManager/releases">Release Notes (English)</a><a class="download-button" href="manual.html">日本語マニュアル</a></p><div class="grid"><div class="card"><h3>動作環境・導入</h3><p>.NET 10 Desktop Runtime（x64）が別途必要です。ZIPを新しいフォルダーへ展開し、DesktopIniManager.exeを実行してください。DLL、JSON、Assets、Languagesは同梱のまま使用します。GitHubの「Source code」は実行用ZIPではありません。</p></div><div class="card"><h3>配布ファイル・マニュアル</h3><p>同名の.zip.sha256でチェックサムを確認できます。日本語Readme.txt、英語README.md、英語リリースノートを同梱。<a href="manual.html">日本語オンラインマニュアル</a> / <a href="https://dotnet.microsoft.com/en-us/download/dotnet/10.0">.NET 10 Desktop Runtime</a></p></div></div></div></section>
-<section class="intro" id="overview"><div class="wrap"><div class="eyebrow">DesktopIniManager v4</div><h2>読み取り中心の開発支援ツール</h2><p class="lead">DesktopIniManager（DIM）は、フォルダー／ソリューションの解析、ファイル検索、Scoped Grep、フォルダー比較、DIFF表示、desktop.iniによるフォルダーアイコン管理を統合します。</p><div class="philosophy"><strong>Read-only by design.</strong> DIM自身はファイル内容を編集・保存しません。検索・解析・比較・確認・外部ツールへの受け渡しに徹し、意図しない文字コード、BOM、改行コードなどの変更責務から切り離します。</div><span class="badge">Folder Analysis</span><span class="badge">Solution Analysis</span><span class="badge">Scoped File Search</span><span class="badge">Scoped Grep</span><span class="badge">Folder Diff</span><span class="badge">Read-only DIFF</span></div></section>
-<section class="section" id="main"><div class="wrap"><div class="eyebrow">01 / Main</div><h2>メイン画面</h2><p class="lead">Targetを起点に物理フォルダー、Visual Studio Solution、検索結果を切り替えます。フォルダーチェックはScoped File Search／Scoped Code Grepの対象指定として共通利用します。</p>
-<figure class="shot"><img alt="物理フォルダー解析" src="images/2026-10-04_06h30_51.png"/><figcaption>物理フォルダー解析。親フォルダーから配下のファイルをまとめて扱います。</figcaption></figure>
-<div class="shots2"><figure class="shot"><img alt="Solution解析" src="images/2026-10-04_06h30_58.png"/><figcaption>Solution表示。Visual StudioのSolution Explorerに近い構造で表示。</figcaption></figure><figure class="shot"><img alt="Target File Search" src="images/2026-10-04_06h31_14.png"/><figcaption>Target File Search。フォルダー名も検索対象に含み、ヒットをマーキング。</figcaption></figure></div>
-<div class="grid"><div class="card"><h3>Folder Tree</h3><p>全チェックON/OFF、反転、折りたたみ／展開、チェック済み表示、表示サイズ変更、フィルターに対応。Targetルート行は固定表示します。</p></div><div class="card"><h3>Scoped Operation</h3><p>チェックしたフォルダー配下だけを検索対象にするScoped File SearchとScoped Code Grepを同じ選択状態から利用できます。</p></div><div class="card"><h3>desktop.ini</h3><p>選択アイコンをチェック済みフォルダーへ設定し、desktop.iniを生成／リセット。.gitignoreへの追加にも対応します。</p></div><div class="card"><h3>Drag-out</h3><p>フォルダーと所属ファイル、または複数選択したファイルをDIMから外部へ直接ドラッグアウトできます。</p></div></div>
-<div class="shots2"><figure class="shot"><img alt="展開ツリー" src="images/2026-10-04_06h31_32.png"/><figcaption>ツリー展開。</figcaption></figure><figure class="shot"><img alt="チェック済みフォルダー" src="images/2026-10-04_06h31_39.png"/><figcaption>チェックしたフォルダーはTargetフォルダーアイコンへ切り替わります。</figcaption></figure></div>
-<div class="shots2"><figure class="shot"><img alt="Compact folder list" src="images/2026-10-04_06h31_58.png"/><figcaption>フォルダーツリーのコンパクト表示。</figcaption></figure><figure class="shot"><img alt="Choose Icon" src="images/2026-10-04_06h32_08.png"/><figcaption>ICO / ICL / DLL / EXEからアイコンを一覧表示して選択。</figcaption></figure></div>
-<div class="shots2"><figure class="shot"><img alt="ファイル一覧" src="images/2026-10-04_06h32_23.png"/><figcaption>ファイル一覧表示。</figcaption></figure><figure class="shot"><img alt="2列アイコン" src="images/2026-10-04_06h32_29.png"/><figcaption>2列アイコンブロック表示。</figcaption></figure></div><figure class="shot"><img alt="3列アイコン" src="images/2026-10-04_06h32_39.png"/><figcaption>3列アイコンブロック表示。</figcaption></figure>
-<div class="grid"><div class="card"><h3>5 Process Slots</h3><p>DIM1～DIM5を独立スロットとして管理。In Useは現在、Freeは空き、Openは別プロセスで使用中のスロットを示します。</p></div><div class="card"><h3>Batch File Launcher</h3><p><code>%d%</code> Directoryフルパス、<code>%f%</code> 選択ファイルのフルパス、<code>%n%</code> ファイル名を引数として渡せます。</p></div><div class="card"><h3>Languages</h3><p>English / 日本語 / 中文（简体）/ 한국어 の4言語に対応。</p></div><div class="card"><h3>Themes</h3><p>Dark / Light / DIM1～DIM5を切り替え、用途ごとに視覚的に識別できます。</p></div></div></div></section>
-<section class="section" id="diff"><div class="wrap"><div class="eyebrow">02 / Compare</div><h2>Developer Differencer</h2><p class="lead"><span class="accent-yellow">Source</span>と<span class="accent-blue">Target</span>のフォルダー構造を比較。パス選択時にインデックスを構築し、日時／サイズによる高速な差異判定を行います。</p><figure class="shot"><img alt="Developer Differencer" src="images/2026-10-04_06h33_45.png"/><figcaption>差異、片側のみ、Same、obj、bin、チェック済みのみ等をフィルター表示。比較結果は日時タブで最大20件保持。</figcaption></figure>
-<div class="shots2"><figure class="shot"><img alt="Source to Target sync" src="images/2026-10-04_06h33_52.png"/><figcaption>Source → Target 同期前の確認。</figcaption></figure><figure class="shot"><img alt="Target to Source sync" src="images/2026-10-04_06h33_59.png"/><figcaption>Target → Source 同期前の確認。</figcaption></figure></div>
-<div class="shots2"><figure class="shot"><img alt="Source ZIP" src="images/2026-10-04_06h34_05.png"/><figcaption>Source側の選択構成を相対パスを維持してZIP化。</figcaption></figure><figure class="shot"><img alt="Target ZIP" src="images/2026-10-04_06h34_12.png"/><figcaption>Target側の選択構成をZIP化。ZIPアイコン自体のドラッグアウトでは構造を維持したまま外部へ取り出せます。</figcaption></figure></div>
-<div class="grid"><div class="card"><h3>Simple Comparison</h3><p>通常は更新日時＋サイズで比較。日付比較を外すとサイズのみで判定し、ハッシュ比較までは行いません。</p></div><div class="card"><h3>Same Check</h3><p>通常は直接チェックできないSameファイルを一括でチェック／解除し、同期やZIPへ含められます。</p></div><div class="card"><h3>Environment Files</h3><p>ビルド生成物など環境依存ファイルは基本的に比較から除外。obj / binは個別に表示を切り替えます。</p></div><div class="card"><h3>Refresh / Clean</h3><p>全体更新、選択フォルダー内のみ更新、Solution Cleanに対応します。</p></div></div></div></section>
-<section class="section" id="viewer"><div class="wrap"><div class="eyebrow">03 / Inspect</div><h2>DIFF VIEW</h2><p class="lead">比較結果のファイルをダブルクリックすると内蔵DIFF VIEWへ。Sourceは黄色枠、Targetは青枠。シンタックスハイライトと中央の差分セクションマップで変更箇所を追跡します。</p><div class="shots2"><figure class="shot"><img alt="DIFF VIEW full" src="images/2026-10-04_06h35_32.png"/><figcaption>ファイル全体表示。中央に差分セクションマップ。</figcaption></figure><figure class="shot"><img alt="DIFF VIEW hunks" src="images/2026-10-04_06h35_41.png"/><figcaption>差分のみ表示。同一行は省略行数付きの区切りで表示し、上下の同一行は含めません。Ctrl + 0または「≠」／「※」アイコンで全行表示と切り替え、閉じる時の状態を次回復元します。</figcaption></figure></div><div class="philosophy"><strong>マージ機能は持たせません。</strong> DIMによる走査・検索・比較・閲覧ではファイル内容を変更せず、編集が必要な場合だけ設定済みの外部エディター／マージツールへ渡します。</div><div class="grid"><div class="card"><h3>画像DIFF VIEW</h3><p>左右の画像と50%透過の重ね合わせマップ、ズーム、ピクセルグリッド、ARGB値と座標表示に対応。</p></div><div class="card"><h3>Git difftool</h3><p><code>-diff</code> に2ファイルを指定して読み取り専用DIFF VIEWを単体起動。<a href="manual.html#git">設定例</a></p></div></div></div></section>
-<section class="section" id="grep"><div class="wrap"><div class="eyebrow">04 / Search</div><h2>Scoped Grep</h2><p class="lead">複数フォルダーを検索スコープとして保持し、チェック状態で対象を選択。正規表現、大文字小文字、単語単位検索に対応します。</p><figure class="shot"><img alt="Scoped Code Grep" src="images/2026-10-04_06h36_09.png"/><figcaption>結果はファイル単位でグループ化。追加Grepでは同一ファイルの既存グループへインテリジェントに追記します。</figcaption></figure><div class="shots2"><figure class="shot"><img alt="Scoped Grep Language Profile" src="images/2026-10-04_06h36_24.png"/><figcaption>Language Profileから検索対象を選択。Free / Plain text、C# / WPF、VB.NET、Visual Basic 6、C / C++、JavaScript、TypeScript、PHP、Java、Delphi、SQL、Documentなどを切り替えます。</figcaption></figure><figure class="shot"><img alt="Scoped Grep grouped results" src="images/2026-10-04_06h36_35.png"/><figcaption>検索結果をファイル単位のグループとして折りたたんだ表示。対象ファイル全体を俯瞰できます。</figcaption></figure></div><div class="grid"><div class="card"><h3>Language Profile</h3><p>対象拡張子をプロファイル化し、テンプレートの追加／削除／編集が可能です。</p></div><div class="card"><h3>Code / Document Separation</h3><p>Code GrepとDocument Grepは完全分離。DocumentはExcel / PDF内部を対象とし、通常Textを含める場合はPlainを選択します。</p></div><div class="card"><h3>Result Handling</h3><p>フィルター、エディター出力、ファイル保存、グループ伸縮、グループヘッダーのドラッグアウト、新規タブ追加に対応。</p></div><div class="card"><h3>Editor Integration</h3><p>ファイル、行番号、列番号を外部エディターへ渡せます。エディター別の起動引数とプリセットを設定できます。</p></div></div></div></section>
-<section class="section" id="keys"><div class="wrap"><div class="eyebrow">Keyboard</div><h2>キーボード／スクロール操作</h2><table class="keys"><thead><tr><th>操作</th><th>動作</th></tr></thead><tbody><tr><td><code>Ctrl + 1</code></td><td>メイン画面へ切り替え</td></tr><tr><td><code>Ctrl + 2</code></td><td>Developer Differencerへ切り替え</td></tr><tr><td><code>Ctrl + 3</code></td><td>Scoped Grepへ切り替え</td></tr><tr><td><code>Ctrl + Space</code></td><td>メイン → Developer Differencer → Scoped Grep を順番にトグル</td></tr><tr><td><code>↑ ↓ ← →</code></td><td>DIFF VIEWを上下左右へスクロール</td></tr><tr><td><code>Ctrl + ↑ ↓ ← →</code></td><td>DIFF VIEWの差分ジャンプ／前後の差分ファイル移動</td></tr><tr><td><code>Ctrl + 0</code></td><td>DIFF VIEWの全行／差分のみ表示を切り替え（終了時に保存）</td></tr><tr><td><code>Page Up / Page Down</code></td><td>ページスクロール</td></tr><tr><td><code>Shift + Wheel</code> / サムホイール</td><td>横スクロール</td></tr></tbody></table></div></section>
-</main><footer class="footer"><div class="wrap">DesktopIniManager v4.2.0 — <a href="http://dim.zebrasoft.co.jp/">DIM Website</a> / <a href="https://github.com/K-Tamashiro/DesktopIniManager/releases">GitHub Downloads</a><br/>Copyright (C) ZEBRASOFT Tamayan</div></footer></body></html>
+        </style>
+    </head>
+    <body>
+        <header class="hero">
+            <img alt="DesktopIniManager v4.2.0" src="images/app-overview-dark(2).png">
+            <div class="hero-copy">
+                <h1>
+                    DesktopIni
+                    <span>Manager</span>
+                    v4
+                </h1>
+                <p>Project / Folder Analysis Utility — フォルダー解析、検索、Scoped Grep、比較、DIFF、desktop.ini 管理を一つの操作系へ。</p>
+            </div>
+        </header>
+        <nav class="nav">
+            <div class="wrap">
+                <a href="#download">ダウンロード</a>
+                <a href="#overview">概要</a>
+                <a href="#main">メイン画面</a>
+                <a href="#diff">Developer Differencer</a>
+                <a href="#viewer">DIFF VIEW</a>
+                <a href="#grep">Scoped Grep</a>
+                <a href="#keys">ショートカット</a>
+                <a href="manual.html">マニュアル</a>
+            </div>
+        </nav>
+        <main>
+            <section class="section" id="download">
+                <div class="wrap">
+                    <div class="eyebrow">Download / v4.2.0</div>
+                    <h2>DesktopIniManager v4.2.0</h2>
+                    <p class="lead">
+                        Windows 10 / 11（x64）用フリーソフト。GitHub Releasesのv4.2.0から
+                        <strong>DesktopIniManager-v4.2.0-win-x64.zip</strong>
+                        をダウンロードしてください。
+                    </p>
+                    <p class="download-links">
+                        <a class="download-button" href="https://github.com/K-Tamashiro/DesktopIniManager/releases">GitHubからダウンロード</a>
+                        <a href="https://github.com/K-Tamashiro/DesktopIniManager">GitHub / ソース・不具合報告</a>
+                        <a href="https://github.com/K-Tamashiro/DesktopIniManager/releases">Release Notes (English)</a>
+                        <a class="download-button" href="manual.html">日本語マニュアル</a>
+                    </p>
+                    <div class="grid">
+                        <div class="card">
+                            <h3>動作環境・導入</h3>
+                            <p>.NET 10 Desktop Runtime（x64）が別途必要です。ZIPを新しいフォルダーへ展開し、DesktopIniManager.exeを実行してください。DLL、JSON、Assets、Languagesは同梱のまま使用します。GitHubの「Source code」は実行用ZIPではありません。</p>
+                        </div>
+                        <div class="card">
+                            <h3>配布ファイル・マニュアル</h3>
+                            <p>
+                                同名の.zip.sha256でチェックサムを確認できます。日本語Readme.txt、英語README.md、英語リリースノートを同梱。
+                                <a href="manual.html">日本語オンラインマニュアル</a>
+                                /
+                                <a href="https://dotnet.microsoft.com/en-us/download/dotnet/10.0">.NET 10 Desktop Runtime</a>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <section class="intro" id="overview">
+                <div class="wrap">
+                    <div class="eyebrow">DesktopIniManager v4</div>
+                    <h2>読み取り中心の開発支援ツール</h2>
+                    <p class="lead">DesktopIniManager（DIM）は、フォルダー／ソリューションの解析、ファイル検索、Scoped Grep、フォルダー比較、DIFF表示、desktop.iniによるフォルダーアイコン管理を統合します。</p>
+                    <div class="philosophy">
+                        <strong>Read-only by design.</strong>
+                        DIM自身はファイル内容を編集・保存しません。検索・解析・比較・確認・外部ツールへの受け渡しに徹し、意図しない文字コード、BOM、改行コードなどの変更責務から切り離します。
+                    </div>
+                    <span class="badge">Folder Analysis</span>
+                    <span class="badge">Solution Analysis</span>
+                    <span class="badge">Scoped File Search</span>
+                    <span class="badge">Scoped Grep</span>
+                    <span class="badge">Folder Diff</span>
+                    <span class="badge">Read-only DIFF</span>
+                </div>
+            </section>
+            <section class="section" id="main">
+                <div class="wrap">
+                    <div class="eyebrow">01 / Main</div>
+                    <h2>メイン画面</h2>
+                    <p class="lead">Targetを起点に物理フォルダー、Visual Studio Solution、検索結果を切り替えます。フォルダーチェックはScoped File Search／Scoped Code Grepの対象指定として共通利用します。</p>
+                    <figure class="shot">
+                        <img alt="物理フォルダー解析" src="images/2026-10-04_06h30_51.png">
+                        <figcaption>物理フォルダー解析。親フォルダーから配下のファイルをまとめて扱います。</figcaption>
+                    </figure>
+                    <div class="shots2">
+                        <figure class="shot">
+                            <img alt="Solution解析" src="images/2026-10-04_06h30_58.png">
+                            <figcaption>Solution表示。Visual StudioのSolution Explorerに近い構造で表示。</figcaption>
+                        </figure>
+                        <figure class="shot">
+                            <img alt="Target File Search" src="images/2026-10-04_06h31_14.png">
+                            <figcaption>Target File Search。フォルダー名も検索対象に含み、ヒットをマーキング。</figcaption>
+                        </figure>
+                    </div>
+                    <div class="grid">
+                        <div class="card">
+                            <h3>Folder Tree</h3>
+                            <p>全チェックON/OFF、反転、折りたたみ／展開、チェック済み表示、表示サイズ変更、フィルターに対応。Targetルート行は固定表示します。</p>
+                        </div>
+                        <div class="card">
+                            <h3>Scoped Operation</h3>
+                            <p>チェックしたフォルダー配下だけを検索対象にするScoped File SearchとScoped Code Grepを同じ選択状態から利用できます。</p>
+                        </div>
+                        <div class="card">
+                            <h3>desktop.ini</h3>
+                            <p>選択アイコンをチェック済みフォルダーへ設定し、desktop.iniを生成／リセット。.gitignoreへの追加にも対応します。</p>
+                        </div>
+                        <div class="card">
+                            <h3>Drag-out</h3>
+                            <p>フォルダーと所属ファイル、または複数選択したファイルをDIMから外部へ直接ドラッグアウトできます。</p>
+                        </div>
+                    </div>
+                    <div class="shots2">
+                        <figure class="shot">
+                            <img alt="展開ツリー" src="images/2026-10-04_06h31_32.png">
+                            <figcaption>ツリー展開。</figcaption>
+                        </figure>
+                        <figure class="shot">
+                            <img alt="チェック済みフォルダー" src="images/2026-10-04_06h31_39.png">
+                            <figcaption>チェックしたフォルダーはTargetフォルダーアイコンへ切り替わります。</figcaption>
+                        </figure>
+                    </div>
+                    <div class="shots2">
+                        <figure class="shot">
+                            <img alt="Compact folder list" src="images/2026-10-04_06h31_58.png">
+                            <figcaption>フォルダーツリーのコンパクト表示。</figcaption>
+                        </figure>
+                        <figure class="shot">
+                            <img alt="Choose Icon" src="images/2026-10-04_06h32_08.png">
+                            <figcaption>ICO / ICL / DLL / EXEからアイコンを一覧表示して選択。</figcaption>
+                        </figure>
+                    </div>
+                    <div class="shots2">
+                        <figure class="shot">
+                            <img alt="ファイル一覧" src="images/2026-10-04_06h32_23.png">
+                            <figcaption>ファイル一覧表示。</figcaption>
+                        </figure>
+                        <figure class="shot">
+                            <img alt="2列アイコン" src="images/2026-10-04_06h32_29.png">
+                            <figcaption>2列アイコンブロック表示。</figcaption>
+                        </figure>
+                    </div>
+                    <figure class="shot">
+                        <img alt="3列アイコン" src="images/2026-10-04_06h32_39.png">
+                        <figcaption>3列アイコンブロック表示。</figcaption>
+                    </figure>
+                    <div class="grid">
+                        <div class="card">
+                            <h3>5 Process Slots</h3>
+                            <p>DIM1～DIM5を独立スロットとして管理。In Useは現在、Freeは空き、Openは別プロセスで使用中のスロットを示します。</p>
+                        </div>
+                        <div class="card">
+                            <h3>Batch File Launcher</h3>
+                            <p>
+                                <code>%d%</code>
+                                Directoryフルパス、
+                                <code>%f%</code>
+                                選択ファイルのフルパス、
+                                <code>%n%</code>
+                                ファイル名を引数として渡せます。
+                            </p>
+                        </div>
+                        <div class="card">
+                            <h3>Languages</h3>
+                            <p>English / 日本語 / 中文（简体）/ 한국어 の4言語に対応。</p>
+                        </div>
+                        <div class="card">
+                            <h3>Themes</h3>
+                            <p>Dark / Light / DIM1～DIM5を切り替え、用途ごとに視覚的に識別できます。</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <section class="section" id="diff">
+                <div class="wrap">
+                    <div class="eyebrow">02 / Compare</div>
+                    <h2>Developer Differencer</h2>
+                    <p class="lead">
+                        <span class="accent-yellow">Source</span>
+                        と
+                        <span class="accent-blue">Target</span>
+                        のフォルダー構造を比較。パス選択時にインデックスを構築し、日時／サイズによる高速な差異判定を行います。
+                    </p>
+                    <figure class="shot">
+                        <img alt="Developer Differencer" src="images/2026-10-04_06h33_45.png">
+                        <figcaption>差異、片側のみ、Same、obj、bin、チェック済みのみ等をフィルター表示。比較結果は日時タブで最大20件保持。</figcaption>
+                    </figure>
+                    <div class="shots2">
+                        <figure class="shot">
+                            <img alt="Source to Target sync" src="images/2026-10-04_06h33_52.png">
+                            <figcaption>Source → Target 同期前の確認。</figcaption>
+                        </figure>
+                        <figure class="shot">
+                            <img alt="Target to Source sync" src="images/2026-10-04_06h33_59.png">
+                            <figcaption>Target → Source 同期前の確認。</figcaption>
+                        </figure>
+                    </div>
+                    <div class="shots2">
+                        <figure class="shot">
+                            <img alt="Source ZIP" src="images/2026-10-04_06h34_05.png">
+                            <figcaption>Source側の選択構成を相対パスを維持してZIP化。</figcaption>
+                        </figure>
+                        <figure class="shot">
+                            <img alt="Target ZIP" src="images/2026-10-04_06h34_12.png">
+                            <figcaption>Target側の選択構成をZIP化。ZIPアイコン自体のドラッグアウトでは構造を維持したまま外部へ取り出せます。</figcaption>
+                        </figure>
+                    </div>
+                    <div class="grid">
+                        <div class="card">
+                            <h3>Simple Comparison</h3>
+                            <p>通常は更新日時＋サイズで比較。日付比較を外すとサイズのみで判定し、ハッシュ比較までは行いません。</p>
+                        </div>
+                        <div class="card">
+                            <h3>Same Check</h3>
+                            <p>通常は直接チェックできないSameファイルを一括でチェック／解除し、同期やZIPへ含められます。</p>
+                        </div>
+                        <div class="card">
+                            <h3>Environment Files</h3>
+                            <p>ビルド生成物など環境依存ファイルは基本的に比較から除外。obj / binは個別に表示を切り替えます。</p>
+                        </div>
+                        <div class="card">
+                            <h3>Refresh / Clean</h3>
+                            <p>全体更新、選択フォルダー内のみ更新、Solution Cleanに対応します。</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <section class="section" id="viewer">
+                <div class="wrap">
+                    <div class="eyebrow">03 / Inspect</div>
+                    <h2>DIFF VIEW</h2>
+                    <p class="lead">比較結果のファイルをダブルクリックすると内蔵DIFF VIEWへ。Sourceは黄色枠、Targetは青枠。シンタックスハイライトと中央の差分セクションマップで変更箇所を追跡します。</p>
+                    <div class="shots2">
+                        <figure class="shot">
+                            <img alt="DIFF VIEW full" src="images/2026-10-04_06h35_32.png">
+                            <figcaption>ファイル全体表示。中央に差分セクションマップ。</figcaption>
+                        </figure>
+                        <figure class="shot">
+                            <img alt="DIFF VIEW hunks" src="images/2026-10-04_06h35_41.png">
+                            <figcaption>差分のみ表示。同一行は省略行数付きの区切りで表示し、上下の同一行は含めません。Ctrl + 0または「≠」／「※」アイコンで全行表示と切り替え、閉じる時の状態を次回復元します。</figcaption>
+                        </figure>
+                    </div>
+                    <div class="philosophy">
+                        <strong>マージ機能は持たせません。</strong>
+                        DIMによる走査・検索・比較・閲覧ではファイル内容を変更せず、編集が必要な場合だけ設定済みの外部エディター／マージツールへ渡します。
+                    </div>
+                    <div class="grid">
+                        <div class="card">
+                            <h3>画像DIFF VIEW</h3>
+                            <p>左右の画像と50%透過の重ね合わせマップ、ズーム、ピクセルグリッド、ARGB値と座標表示に対応。</p>
+                        </div>
+                        <div class="card">
+                            <h3>Git difftool</h3>
+                            <p>
+                                <code>-diff</code>
+                                に2ファイルを指定して読み取り専用DIFF VIEWを単体起動。
+                                <a href="manual.html#git">設定例</a>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <section class="section" id="grep">
+                <div class="wrap">
+                    <div class="eyebrow">04 / Search</div>
+                    <h2>Scoped Grep</h2>
+                    <p class="lead">複数フォルダーを検索スコープとして保持し、チェック状態で対象を選択。正規表現、大文字小文字、単語単位検索に対応します。</p>
+                    <figure class="shot">
+                        <img alt="Scoped Code Grep" src="images/2026-10-04_06h36_09.png">
+                        <figcaption>結果はファイル単位でグループ化。追加Grepでは同一ファイルの既存グループへインテリジェントに追記します。</figcaption>
+                    </figure>
+                    <div class="shots2">
+                        <figure class="shot">
+                            <img alt="Scoped Grep Language Profile" src="images/2026-10-04_06h36_24.png">
+                            <figcaption>Language Profileから検索対象を選択。Free / Plain text、C# / WPF、VB.NET、Visual Basic 6、C / C++、JavaScript、TypeScript、PHP、Java、Delphi、SQL、Documentなどを切り替えます。</figcaption>
+                        </figure>
+                        <figure class="shot">
+                            <img alt="Scoped Grep grouped results" src="images/2026-10-04_06h36_35.png">
+                            <figcaption>検索結果をファイル単位のグループとして折りたたんだ表示。対象ファイル全体を俯瞰できます。</figcaption>
+                        </figure>
+                    </div>
+                    <div class="grid">
+                        <div class="card">
+                            <h3>Language Profile</h3>
+                            <p>対象拡張子をプロファイル化し、テンプレートの追加／削除／編集が可能です。</p>
+                        </div>
+                        <div class="card">
+                            <h3>Code / Document Separation</h3>
+                            <p>Code GrepとDocument Grepは完全分離。DocumentはExcel / PDF内部を対象とし、通常Textを含める場合はPlainを選択します。</p>
+                        </div>
+                        <div class="card">
+                            <h3>Result Handling</h3>
+                            <p>フィルター、エディター出力、ファイル保存、グループ伸縮、グループヘッダーのドラッグアウト、新規タブ追加に対応。</p>
+                        </div>
+                        <div class="card">
+                            <h3>Editor Integration</h3>
+                            <p>ファイル、行番号、列番号を外部エディターへ渡せます。エディター別の起動引数とプリセットを設定できます。</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <section class="section" id="keys">
+                <div class="wrap">
+                    <div class="eyebrow">Keyboard</div>
+                    <h2>キーボード／スクロール操作</h2>
+                    <table class="keys">
+                        <thead>
+                            <tr>
+                                <th>操作</th>
+                                <th>動作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <code>Ctrl + 1</code>
+                                </td>
+                                <td>メイン画面へ切り替え</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <code>Ctrl + 2</code>
+                                </td>
+                                <td>Developer Differencerへ切り替え</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <code>Ctrl + 3</code>
+                                </td>
+                                <td>Scoped Grepへ切り替え</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <code>Ctrl + Space</code>
+                                </td>
+                                <td>メイン → Developer Differencer → Scoped Grep を順番にトグル</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <code>↑ ↓ ← →</code>
+                                </td>
+                                <td>DIFF VIEWを上下左右へスクロール</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <code>Ctrl + ↑ ↓ ← →</code>
+                                </td>
+                                <td>DIFF VIEWの差分ジャンプ／前後の差分ファイル移動</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <code>Ctrl + 0</code>
+                                </td>
+                                <td>DIFF VIEWの全行／差分のみ表示を切り替え（終了時に保存）</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <code>Page Up / Page Down</code>
+                                </td>
+                                <td>ページスクロール</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <code>Shift + Wheel</code>
+                                    / サムホイール
+                                </td>
+                                <td>横スクロール</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+        <footer class="footer">
+            <div class="wrap">
+                DesktopIniManager v4.2.0 —
+                <a href="http://dim.zebrasoft.co.jp/">DIM Website</a>
+                /
+                <a href="https://github.com/K-Tamashiro/DesktopIniManager/releases">GitHub Downloads</a>
+                <br>
+                Copyright (C) ZEBRASOFT Tamayan
+            </div>
+        </footer>
+    </body>
+</html>

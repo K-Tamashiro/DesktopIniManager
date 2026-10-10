@@ -7,3486 +7,3485 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace DesktopIniManager.Properties
-{
-    using System;
+namespace DesktopIniManager.Properties;
 
+using System;
+
+
+/// <summary>
+/// ローカライズされた文字列などを検索するための厳密に型指定されたリソース クラス。
+/// </summary>
+// このクラスは StronglyTypedResourceBuilder クラスが ResGen
+// または Visual Studio のようなツールを使用して自動生成されました。
+// メンバーを追加または削除するには、.ResX ファイルを編集して、/str オプションと共に
+// ResGen を実行し直すか、または VS プロジェクトをビルドし直します。
+[global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "10.0.0.0")]
+[global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+[global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
+public class Strings
+{
+
+    private static global::System.Resources.ResourceManager resourceMan;
+
+    private static global::System.Globalization.CultureInfo resourceCulture;
+
+    [global::System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
+    internal Strings()
+    {
+    }
 
     /// <summary>
-    /// ローカライズされた文字列などを検索するための厳密に型指定されたリソース クラス。
+    /// このクラスで使用された、被キャッシュ ResourceManager インスタンスを返します。
     /// </summary>
-    // このクラスは StronglyTypedResourceBuilder クラスが ResGen
-    // または Visual Studio のようなツールを使用して自動生成されました。
-    // メンバーを追加または削除するには、.ResX ファイルを編集して、/str オプションと共に
-    // ResGen を実行し直すか、または VS プロジェクトをビルドし直します。
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "10.0.0.0")]
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-    [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    public class Strings
+    [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
+    public static global::System.Resources.ResourceManager ResourceManager
     {
-
-        private static global::System.Resources.ResourceManager resourceMan;
-
-        private static global::System.Globalization.CultureInfo resourceCulture;
-
-        [global::System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
-        internal Strings()
-        {
-        }
-
-        /// <summary>
-        /// このクラスで使用された、被キャッシュ ResourceManager インスタンスを返します。
-        /// </summary>
-        [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
-        public static global::System.Resources.ResourceManager ResourceManager
+        get
         {
-            get
+            if (object.ReferenceEquals(resourceMan, null))
             {
-                if (object.ReferenceEquals(resourceMan, null))
-                {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("DesktopIniManager.Properties.Strings", typeof(Strings).Assembly);
-                    resourceMan = temp;
-                }
-                return resourceMan;
+                global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("DesktopIniManager.Properties.Strings", typeof(Strings).Assembly);
+                resourceMan = temp;
             }
+            return resourceMan;
         }
+    }
 
-        /// <summary>
-        /// /// すべてのスレッドの CurrentUICulture プロパティをオーバーライドします
-        /// この厳密に型指定されたリソース クラスを使用したリソースの検索。
-        /// </summary>
-        [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
-        public static global::System.Globalization.CultureInfo Culture
+    /// <summary>
+    /// /// すべてのスレッドの CurrentUICulture プロパティをオーバーライドします
+    /// この厳密に型指定されたリソース クラスを使用したリソースの検索。
+    /// </summary>
+    [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
+    public static global::System.Globalization.CultureInfo Culture
+    {
+        get
         {
-            get
-            {
-                return resourceCulture;
-            }
-            set
-            {
-                resourceCulture = value;
-            }
+            return resourceCulture;
         }
-
-        /// <summary>
-        /// DesktopIniManager のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string App_ProductName
+        set
         {
-            get
-            {
-                return ResourceManager.GetString("App_ProductName", resourceCulture);
-            }
+            resourceCulture = value;
         }
+    }
 
-        /// <summary>
-        /// DesktopIniManager could not start.
-        ///
-        ///{0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string App_StartFailed
+    /// <summary>
+    /// DesktopIniManager のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string App_ProductName
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("App_StartFailed", resourceCulture);
-            }
+            return ResourceManager.GetString("App_ProductName", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// desktop.ini Manager のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string App_Title
+    /// <summary>
+    /// DesktopIniManager could not start.
+    ///
+    ///{0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string App_StartFailed
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("App_Title", resourceCulture);
-            }
+            return ResourceManager.GetString("App_StartFailed", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// An error occurred. The application can continue.
-        ///
-        ///{0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string App_Unhandled
+    /// <summary>
+    /// desktop.ini Manager のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string App_Title
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("App_Unhandled", resourceCulture);
-            }
+            return ResourceManager.GetString("App_Title", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Use configuration names separated by semicolons (for example Debug;Release). のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Clean_BadConfiguration
+    /// <summary>
+    /// An error occurred. The application can continue.
+    ///
+    ///{0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string App_Unhandled
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Clean_BadConfiguration", resourceCulture);
-            }
+            return ResourceManager.GetString("App_Unhandled", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// MSBuild was not found. Install Visual Studio or Build Tools with MSBuild. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Clean_MsbuildMissing
+    /// <summary>
+    /// Use configuration names separated by semicolons (for example Debug;Release). のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Clean_BadConfiguration
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Clean_MsbuildMissing", resourceCulture);
-            }
+            return ResourceManager.GetString("Clean_BadConfiguration", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Cannot clean the solution containing the running DIM application. Start DIM from a separate release folder outside this solution, then clean again. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Clean_RunningDim
+    /// <summary>
+    /// MSBuild was not found. Install Visual Studio or Build Tools with MSBuild. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Clean_MsbuildMissing
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Clean_RunningDim", resourceCulture);
-            }
+            return ResourceManager.GetString("Clean_MsbuildMissing", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Visual Studio Installer / vswhere.exe was not found. Install Visual Studio or Build Tools with MSBuild. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Clean_VswhereMissing
+    /// <summary>
+    /// Cannot clean the solution containing the running DIM application. Start DIM from a separate release folder outside this solution, then clean again. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Clean_RunningDim
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Clean_VswhereMissing", resourceCulture);
-            }
+            return ResourceManager.GetString("Clean_RunningDim", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Browse のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_Browse
+    /// <summary>
+    /// Visual Studio Installer / vswhere.exe was not found. Install Visual Studio or Build Tools with MSBuild. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Clean_VswhereMissing
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_Browse", resourceCulture);
-            }
+            return ResourceManager.GetString("Clean_VswhereMissing", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Cancel のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_Cancel
+    /// <summary>
+    /// Browse のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_Browse
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_Cancel", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_Browse", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Clean のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_Clean
+    /// <summary>
+    /// Cancel のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_Cancel
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_Clean", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_Cancel", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Clear のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_Clear
+    /// <summary>
+    /// Clean のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_Clean
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_Clear", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_Clean", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Close のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_Close
+    /// <summary>
+    /// Clear のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_Clear
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_Close", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_Clear", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Collapse のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_Collapse
+    /// <summary>
+    /// Close のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_Close
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_Collapse", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_Close", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Compare のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_Compare
+    /// <summary>
+    /// Collapse のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_Collapse
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_Compare", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_Collapse", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Expand のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_Expand
+    /// <summary>
+    /// Compare のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_Compare
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_Expand", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_Compare", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// FAIL のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_Fail
+    /// <summary>
+    /// Expand のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_Expand
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_Fail", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_Expand", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// files のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_FilePlural
+    /// <summary>
+    /// FAIL のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_Fail
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_FilePlural", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_Fail", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Files のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_Files
+    /// <summary>
+    /// files のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_FilePlural
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_Files", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_FilePlural", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// file のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_FileSingular
+    /// <summary>
+    /// Files のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_Files
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_FileSingular", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_Files", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// folders のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_FolderPlural
+    /// <summary>
+    /// file のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_FileSingular
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_FolderPlural", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_FileSingular", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Folders のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_Folders
+    /// <summary>
+    /// folders のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_FolderPlural
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_Folders", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_FolderPlural", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// folder のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_FolderSingular
+    /// <summary>
+    /// Folders のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_Folders
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_FolderSingular", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_Folders", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Input history (Alt+Down / F4) のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_History
+    /// <summary>
+    /// folder のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_FolderSingular
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_History", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_FolderSingular", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// items のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_Items
+    /// <summary>
+    /// Input history (Alt+Down / F4) のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_History
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_Items", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_History", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Language のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_Language
+    /// <summary>
+    /// items のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_Items
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_Language", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_Items", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// System language のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_LanguageAuto
+    /// <summary>
+    /// Language のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_Language
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_LanguageAuto", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_Language", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// 简体中文 のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_LanguageChineseSimplified
+    /// <summary>
+    /// System language のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_LanguageAuto
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_LanguageChineseSimplified", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_LanguageAuto", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// English のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_LanguageEnglish
+    /// <summary>
+    /// 简体中文 のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_LanguageChineseSimplified
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_LanguageEnglish", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_LanguageChineseSimplified", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Add Languages\{culture}.txt beside the executable to supply a translation. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_LanguageHint
+    /// <summary>
+    /// English のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_LanguageEnglish
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_LanguageHint", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_LanguageEnglish", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// 日本語 のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_LanguageJapanese
+    /// <summary>
+    /// Add Languages\{culture}.txt beside the executable to supply a translation. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_LanguageHint
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_LanguageJapanese", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_LanguageHint", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// 한국어 のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_LanguageKorean
+    /// <summary>
+    /// 日本語 のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_LanguageJapanese
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_LanguageKorean", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_LanguageJapanese", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// The language will apply after DesktopIniManager restarts. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_LanguageRestart
+    /// <summary>
+    /// 한국어 のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_LanguageKorean
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_LanguageRestart", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_LanguageKorean", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// LOCKED のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_Locked
+    /// <summary>
+    /// The language will apply after DesktopIniManager restarts. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_LanguageRestart
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_Locked", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_LanguageRestart", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Name のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_Name
+    /// <summary>
+    /// LOCKED のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_Locked
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_Name", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_Locked", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// OK のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_OK
+    /// <summary>
+    /// Name のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_Name
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_OK", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_Name", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Please wait… のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_PleaseWait
+    /// <summary>
+    /// OK のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_OK
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_PleaseWait", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_OK", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Ready のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_Ready
+    /// <summary>
+    /// Please wait… のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_PleaseWait
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_Ready", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_PleaseWait", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Search のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_Search
+    /// <summary>
+    /// Ready のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_Ready
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_Search", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_Ready", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Select のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_Select
+    /// <summary>
+    /// Search のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_Search
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_Select", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_Search", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Source のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_Source
+    /// <summary>
+    /// Select のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_Select
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_Source", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_Select", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// State のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_State
+    /// <summary>
+    /// Source のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_Source
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_State", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_Source", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Sync のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_Sync
+    /// <summary>
+    /// State のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_State
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_Sync", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_State", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Target のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_Target
+    /// <summary>
+    /// Sync のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_Sync
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_Target", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_Sync", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Type のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Common_Type
+    /// <summary>
+    /// Target のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_Target
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Common_Type", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_Target", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// 100% のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Diff_ActualSize
+    /// <summary>
+    /// Type のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Common_Type
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Diff_ActualSize", resourceCulture);
-            }
+            return ResourceManager.GetString("Common_Type", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Binary and cache files are not supported in Diff View. Only text files and supported images can be displayed. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Diff_BinaryMessage
+    /// <summary>
+    /// 100% のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Diff_ActualSize
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Diff_BinaryMessage", resourceCulture);
-            }
+            return ResourceManager.GetString("Diff_ActualSize", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// This file type is not opened in Diff View. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Diff_BinaryRejected
+    /// <summary>
+    /// Binary and cache files are not supported in Diff View. Only text files and supported images can be displayed. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Diff_BinaryMessage
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Diff_BinaryRejected", resourceCulture);
-            }
+            return ResourceManager.GetString("Diff_BinaryMessage", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Fit のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Diff_Fit
+    /// <summary>
+    /// This file type is not opened in Diff View. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Diff_BinaryRejected
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Diff_Fit", resourceCulture);
-            }
+            return ResourceManager.GetString("Diff_BinaryRejected", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Diff view のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Diff_Heading
+    /// <summary>
+    /// Fit のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Diff_Fit
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Diff_Heading", resourceCulture);
-            }
+            return ResourceManager.GetString("Diff_Fit", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Hunk {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Diff_HunkN
+    /// <summary>
+    /// Diff view のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Diff_Heading
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Diff_HunkN", resourceCulture);
-            }
+            return ResourceManager.GetString("Diff_Heading", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// {0} hunks | left red = removed  right green = added | UTF-8 / BOM / Shift-JIS のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Diff_HunkStatus
+    /// <summary>
+    /// Hunk {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Diff_HunkN
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Diff_HunkStatus", resourceCulture);
-            }
+            return ResourceManager.GetString("Diff_HunkN", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Source: {0} | Target: {1} | shared zoom, top-left aligned (GIF/ICO first frame) のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Diff_ImageStatus
+    /// <summary>
+    /// {0} hunks | left red = removed  right green = added | UTF-8 / BOM / Shift-JIS のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Diff_HunkStatus
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Diff_ImageStatus", resourceCulture);
-            }
+            return ResourceManager.GetString("Diff_HunkStatus", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Loading… のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Diff_Loading
+    /// <summary>
+    /// Source: {0} | Target: {1} | shared zoom, top-left aligned (GIF/ICO first frame) のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Diff_ImageStatus
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Diff_Loading", resourceCulture);
-            }
+            return ResourceManager.GetString("Diff_ImageStatus", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Missing のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Diff_Missing
+    /// <summary>
+    /// Loading… のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Diff_Loading
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Diff_Missing", resourceCulture);
-            }
+            return ResourceManager.GetString("Diff_Loading", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Next のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Diff_Next
+    /// <summary>
+    /// Missing のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Diff_Missing
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Diff_Next", resourceCulture);
-            }
+            return ResourceManager.GetString("Diff_Missing", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// none のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Diff_None
+    /// <summary>
+    /// Next のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Diff_Next
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Diff_None", resourceCulture);
-            }
+            return ResourceManager.GetString("Diff_Next", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Open Source のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Diff_OpenSource
+    /// <summary>
+    /// none のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Diff_None
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Diff_OpenSource", resourceCulture);
-            }
+            return ResourceManager.GetString("Diff_None", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Open Target のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Diff_OpenTarget
+    /// <summary>
+    /// Open Source のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Diff_OpenSource
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Diff_OpenTarget", resourceCulture);
-            }
+            return ResourceManager.GetString("Diff_OpenSource", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// {0} × {1} px のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Diff_Pixels
+    /// <summary>
+    /// Open Target のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Diff_OpenTarget
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Diff_Pixels", resourceCulture);
-            }
+            return ResourceManager.GetString("Diff_OpenTarget", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Prev のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Diff_Prev
+    /// <summary>
+    /// {0} × {1} px のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Diff_Pixels
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Diff_Prev", resourceCulture);
-            }
+            return ResourceManager.GetString("Diff_Pixels", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Source file does not exist. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Diff_SourceMissing
+    /// <summary>
+    /// Prev のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Diff_Prev
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Diff_SourceMissing", resourceCulture);
-            }
+            return ResourceManager.GetString("Diff_Prev", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Target file does not exist. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Diff_TargetMissing
+    /// <summary>
+    /// Source file does not exist. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Diff_SourceMissing
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Diff_TargetMissing", resourceCulture);
-            }
+            return ResourceManager.GetString("Diff_SourceMissing", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Diff View のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Diff_Title
+    /// <summary>
+    /// Target file does not exist. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Diff_TargetMissing
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Diff_Title", resourceCulture);
-            }
+            return ResourceManager.GetString("Diff_TargetMissing", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Diff view — {0} — read only のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Diff_TitleFile
+    /// <summary>
+    /// Diff View のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Diff_Title
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Diff_TitleFile", resourceCulture);
-            }
+            return ResourceManager.GetString("Diff_Title", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Files over 8 MB should be opened in an external editor. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Diff_TooLargeBytes
+    /// <summary>
+    /// Diff view — {0} — read only のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Diff_TitleFile
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Diff_TooLargeBytes", resourceCulture);
-            }
+            return ResourceManager.GetString("Diff_TitleFile", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Files over 100,000 lines should be opened in an external editor. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Diff_TooManyLines
+    /// <summary>
+    /// Files over 8 MB should be opened in an external editor. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Diff_TooLargeBytes
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Diff_TooManyLines", resourceCulture);
-            }
+            return ResourceManager.GetString("Diff_TooLargeBytes", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Unable to display: {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Diff_Unable
+    /// <summary>
+    /// Files over 100,000 lines should be opened in an external editor. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Diff_TooManyLines
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Diff_Unable", resourceCulture);
-            }
+            return ResourceManager.GetString("Diff_TooManyLines", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Visible range — drag to scroll のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Diff_VisibleRange
+    /// <summary>
+    /// Unable to display: {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Diff_Unable
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Diff_VisibleRange", resourceCulture);
-            }
+            return ResourceManager.GetString("Diff_Unable", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Zoom のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Diff_Zoom
+    /// <summary>
+    /// Visible range — drag to scroll のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Diff_VisibleRange
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Diff_Zoom", resourceCulture);
-            }
+            return ResourceManager.GetString("Diff_VisibleRange", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Shared zoom for Source and Target のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Diff_ZoomShared
+    /// <summary>
+    /// Zoom のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Diff_Zoom
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Diff_ZoomShared", resourceCulture);
-            }
+            return ResourceManager.GetString("Diff_Zoom", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// All folders のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_AllFolders
+    /// <summary>
+    /// Shared zoom for Source and Target のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Diff_ZoomShared
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_AllFolders", resourceCulture);
-            }
+            return ResourceManager.GetString("Diff_ZoomShared", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// {0} bytes のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_Bytes
+    /// <summary>
+    /// All folders のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_AllFolders
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_Bytes", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_AllFolders", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Cancel comparison のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_CancelCompare
+    /// <summary>
+    /// {0} bytes のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_Bytes
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_CancelCompare", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_Bytes", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Cancelling comparison… のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_CancellingCompare
+    /// <summary>
+    /// Cancel comparison のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_CancelCompare
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_CancellingCompare", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_CancelCompare", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Changed after compare. Compare again. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_ChangedAfterCompare
+    /// <summary>
+    /// Cancelling comparison… のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_CancellingCompare
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_ChangedAfterCompare", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_CancellingCompare", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Changed during copy. Compare again. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_ChangedDuringCopy
+    /// <summary>
+    /// Changed after compare. Compare again. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_ChangedAfterCompare
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_ChangedDuringCopy", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_ChangedAfterCompare", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Choose a local root outside .git. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_ChooseLocalRoot
+    /// <summary>
+    /// Changed during copy. Compare again. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_ChangedDuringCopy
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_ChooseLocalRoot", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_ChangedDuringCopy", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Classifying differences by relative path… のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_Classifying
+    /// <summary>
+    /// Choose a local root outside .git. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_ChooseLocalRoot
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_Classifying", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_ChooseLocalRoot", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Clean cancelled. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_CleanCancelled
+    /// <summary>
+    /// Classifying differences by relative path… のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_Classifying
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_CleanCancelled", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_Classifying", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Clean complete: {0} succeeded / {1} failed. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_CleanComplete
+    /// <summary>
+    /// Clean cancelled. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_CleanCancelled
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_CleanComplete", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_CleanCancelled", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Select solutions to clean with MSBuild. The list will be compared again after cleaning.
-        ///Solutions containing this running DIM are disabled. To clean them, start DIM from a separate release folder outside the solution. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_CleanDialogHint
+    /// <summary>
+    /// Clean complete: {0} succeeded / {1} failed. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_CleanComplete
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_CleanDialogHint", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_CleanComplete", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Clean failed: {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_CleanFailed
+    /// <summary>
+    /// Select solutions to clean with MSBuild. The list will be compared again after cleaning.
+    ///Solutions containing this running DIM are disabled. To clean them, start DIM from a separate release folder outside the solution. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_CleanDialogHint
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_CleanFailed", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_CleanDialogHint", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Cleaning {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_Cleaning
+    /// <summary>
+    /// Clean failed: {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_CleanFailed
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_Cleaning", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_CleanFailed", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Clean solution のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_CleanSolution
+    /// <summary>
+    /// Cleaning {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_Cleaning
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_CleanSolution", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_Cleaning", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Clean solutions のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_CleanSolutionsTitle
+    /// <summary>
+    /// Clean solution のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_CleanSolution
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_CleanSolutionsTitle", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_CleanSolution", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Choose solutions and configurations to clean with MSBuild, then compare again のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_CleanTip
+    /// <summary>
+    /// Clean solutions のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_CleanSolutionsTitle
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_CleanTip", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_CleanSolutionsTitle", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Compare cancelled のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_CompareCancelled
+    /// <summary>
+    /// Choose solutions and configurations to clean with MSBuild, then compare again のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_CleanTip
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_CompareCancelled", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_CleanTip", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Compare dates のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_CompareDates
+    /// <summary>
+    /// Compare cancelled のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_CompareCancelled
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_CompareDates", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_CompareCancelled", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Include last-write timestamps when classifying differences のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_CompareDatesTip
+    /// <summary>
+    /// Compare dates のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_CompareDates
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_CompareDatesTip", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_CompareDates", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Compare failed (sync disabled): {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_CompareFailed
+    /// <summary>
+    /// Include last-write timestamps when classifying differences のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_CompareDatesTip
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_CompareFailed", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_CompareDatesTip", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Complete  OK {0} / FAIL {1} / LOCKED {2} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_CompleteCounts
+    /// <summary>
+    /// Compare failed (sync disabled): {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_CompareFailed
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_CompleteCounts", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_CompareFailed", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Configurations (semicolon separated; solution default platform) のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_ConfigurationsLabel
+    /// <summary>
+    /// Complete  OK {0} / FAIL {1} / LOCKED {2} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_CompleteCounts
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_ConfigurationsLabel", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_CompleteCounts", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// {0} differences / {1} identical. Check items to synchronize. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_DifferencesSummary
+    /// <summary>
+    /// Configurations (semicolon separated; solution default platform) のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_ConfigurationsLabel
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_DifferencesSummary", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_ConfigurationsLabel", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Present on both sides with different timestamp or size のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_DifferentMeta
+    /// <summary>
+    /// {0} differences / {1} identical. Check items to synchronize. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_DifferencesSummary
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_DifferentMeta", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_DifferencesSummary", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Diff View のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_DiffView
+    /// <summary>
+    /// Present on both sides with different timestamp or size のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_DifferentMeta
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_DiffView", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_DifferentMeta", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Contains the running DIM; start DIM from a separate release folder to clean this solution. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_DimLockedTip
+    /// <summary>
+    /// Diff View のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_DiffView
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_DimLockedTip", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_DiffView", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// FAIL (exit {0}) のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_FailExit
+    /// <summary>
+    /// Contains the running DIM; start DIM from a separate release folder to clean this solution. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_DimLockedTip
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_FailExit", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_DimLockedTip", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// FAIL {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_FailPrefix
+    /// <summary>
+    /// FAIL (exit {0}) のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_FailExit
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_FailPrefix", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_FailExit", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// A file disappeared during compare. Compare again: {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_FileDisappeared
+    /// <summary>
+    /// FAIL {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_FailPrefix
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_FileDisappeared", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_FailPrefix", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Files — all levels のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_FilesAllLevels
+    /// <summary>
+    /// A file disappeared during compare. Compare again: {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_FileDisappeared
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_FilesAllLevels", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_FileDisappeared", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// {0} differences / {1} identical (OBJ/BIN filters applied). Check items to synchronize. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_FilterSummary
+    /// <summary>
+    /// Files — all levels のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_FilesAllLevels
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_FilterSummary", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_FilesAllLevels", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Finding solutions… のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_FindingSolutions
+    /// <summary>
+    /// {0} differences / {1} identical (OBJ/BIN filters applied). Check items to synchronize. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_FilterSummary
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_FindingSolutions", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_FilterSummary", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Hard links are excluded: {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_HardLinkExcluded
+    /// <summary>
+    /// Finding solutions… のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_FindingSolutions
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_HardLinkExcluded", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_FindingSolutions", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Links and junctions are excluded: {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_LinkExcluded
+    /// <summary>
+    /// Hard links are excluded: {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_HardLinkExcluded
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_LinkExcluded", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_HardLinkExcluded", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// LOCKED {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_LockedPrefix
+    /// <summary>
+    /// Links and junctions are excluded: {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_LinkExcluded
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_LockedPrefix", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_LinkExcluded", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Log: {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_LogLabel
+    /// <summary>
+    /// LOCKED {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_LockedPrefix
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_LogLabel", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_LockedPrefix", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Choose Source and Target, then Compare. Local NTFS and an elevated DIM process are required. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_NeedRoots
+    /// <summary>
+    /// Log: {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_LogLabel
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_NeedRoots", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_LogLabel", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// No solutions found under Source or Target. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_NoSolutions
+    /// <summary>
+    /// Choose Source and Target, then Compare. Local NTFS and an elevated DIM process are required. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_NeedRoots
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_NoSolutions", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_NeedRoots", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// (not compared) のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_NotCompared
+    /// <summary>
+    /// No solutions found under Source or Target. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_NoSolutions
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_NotCompared", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_NoSolutions", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Not a regular file: {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_NotRegularFile
+    /// <summary>
+    /// (not compared) のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_NotCompared
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_NotRegularFile", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_NotCompared", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// OK {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_OkPrefix
+    /// <summary>
+    /// Not a regular file: {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_NotRegularFile
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_OkPrefix", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_NotRegularFile", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Existing files may be overwritten or removed. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_OverwriteWarning
+    /// <summary>
+    /// OK {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_OkPrefix
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_OverwriteWarning", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_OkPrefix", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Preview unavailable: {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_PreviewUnavailable
+    /// <summary>
+    /// Existing files may be overwritten or removed. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_OverwriteWarning
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_PreviewUnavailable", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_OverwriteWarning", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// {0} — {1} / {2} items のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_ProgressItems
+    /// <summary>
+    /// Preview unavailable: {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_PreviewUnavailable
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_ProgressItems", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_PreviewUnavailable", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Protected or invalid relative path: {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_ProtectedPath
+    /// <summary>
+    /// {0} — {1} / {2} items のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_ProgressItems
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_ProtectedPath", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_ProgressItems", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Reading timestamps and sizes… のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_ReadingMeta
+    /// <summary>
+    /// Protected or invalid relative path: {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_ProtectedPath
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_ReadingMeta", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_ProtectedPath", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Refused a path outside the root or inside .git. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_RefusedPath
+    /// <summary>
+    /// Reading timestamps and sizes… のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_ReadingMeta
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_RefusedPath", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_ReadingMeta", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Source and Target restored. Click Compare to build the difference tree. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_RestoredClickCompare
+    /// <summary>
+    /// Refused a path outside the root or inside .git. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_RefusedPath
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_RestoredClickCompare", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_RefusedPath", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Failed to restore tree: {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_RestoreTreeFailed
+    /// <summary>
+    /// Source and Target restored. Click Compare to build the difference tree. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_RestoredClickCompare
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_RestoreTreeFailed", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_RestoredClickCompare", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Roots must not be equal or nested. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_RootsNested
+    /// <summary>
+    /// Failed to restore tree: {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_RestoreTreeFailed
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_RootsNested", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_RestoreTreeFailed", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Same timestamp and size のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_SameTimeSize
+    /// <summary>
+    /// Roots must not be equal or nested. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_RootsNested
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_SameTimeSize", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_RootsNested", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Failed to save log: {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_SaveLogFailed
+    /// <summary>
+    /// Same timestamp and size のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_SameTimeSize
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_SaveLogFailed", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_SameTimeSize", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Failed to save tree: {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_SaveTreeFailed
+    /// <summary>
+    /// Failed to save log: {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_SaveLogFailed
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_SaveTreeFailed", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_SaveLogFailed", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// File-system scan complete. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_ScanComplete
+    /// <summary>
+    /// Failed to save tree: {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_SaveTreeFailed
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_ScanComplete", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_SaveTreeFailed", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Selected のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_Selected
+    /// <summary>
+    /// File-system scan complete. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_ScanComplete
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_Selected", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_ScanComplete", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Selected {0} (includes {1} hidden) のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_SelectedIncludesHidden
+    /// <summary>
+    /// Selected のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_Selected
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_SelectedIncludesHidden", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_Selected", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Select at least one solution and enter configuration names such as Debug;Release. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_SelectSolutions
+    /// <summary>
+    /// Selected {0} (includes {1} hidden) のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_SelectedIncludesHidden
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_SelectSolutions", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_SelectedIncludesHidden", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Show bin folders and their files のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_ShowBin
+    /// <summary>
+    /// Select at least one solution and enter configuration names such as Debug;Release. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_SelectSolutions
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_ShowBin", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_SelectSolutions", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Show obj folders and their files のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_ShowObj
+    /// <summary>
+    /// Show bin folders and their files のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_ShowBin
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_ShowObj", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_ShowBin", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// SKIP same {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_SkipSame
+    /// <summary>
+    /// Show obj folders and their files のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_ShowObj
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_SkipSame", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_ShowObj", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Source folder のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_SourceFolder
+    /// <summary>
+    /// SKIP same {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_SkipSame
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_SourceFolder", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_SkipSame", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Source: {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_SourceLabel
+    /// <summary>
+    /// Source folder のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_SourceFolder
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_SourceLabel", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_SourceFolder", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Source (left) のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_SourceLeft
+    /// <summary>
+    /// Source: {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_SourceLabel
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_SourceLeft", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_SourceLabel", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Present on Source only のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_SourceOnly
+    /// <summary>
+    /// Source (left) のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_SourceLeft
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_SourceOnly", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_SourceLeft", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Source to Target のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_SourceToTarget
+    /// <summary>
+    /// Present on Source only のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_SourceOnly
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_SourceToTarget", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_SourceOnly", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// NEW のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_StateNew
+    /// <summary>
+    /// Source to Target のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_SourceToTarget
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_StateNew", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_SourceToTarget", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// OLD のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_StateOld
+    /// <summary>
+    /// NEW のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_StateNew
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_StateOld", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_StateNew", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Same のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_StateSame
+    /// <summary>
+    /// OLD のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_StateOld
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_StateSame", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_StateOld", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Size differs のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_StateSizeDiffers
+    /// <summary>
+    /// Same のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_StateSame
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_StateSizeDiffers", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_StateSame", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Source only のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_StateSourceOnly
+    /// <summary>
+    /// Size differs のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_StateSizeDiffers
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_StateSourceOnly", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_StateSizeDiffers", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Target only のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_StateTargetOnly
+    /// <summary>
+    /// Source only のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_StateSourceOnly
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_StateTargetOnly", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_StateSourceOnly", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Time / size differs のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_StateTimeSizeDiffers
+    /// <summary>
+    /// Target only のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_StateTargetOnly
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_StateTimeSizeDiffers", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_StateTargetOnly", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Synchronize のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_Synchronize
+    /// <summary>
+    /// Time / size differs のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_StateTimeSizeDiffers
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_Synchronize", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_StateTimeSizeDiffers", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Synchronizing — {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_Synchronizing
+    /// <summary>
+    /// Synchronize のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_Synchronize
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_Synchronizing", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_Synchronize", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// {0} — syncing… のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_Syncing
+    /// <summary>
+    /// Synchronizing — {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_Synchronizing
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_Syncing", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_Synchronizing", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Sync result — OK {0} / FAIL {1} / LOCKED {2} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_SyncResultTitle
+    /// <summary>
+    /// {0} — syncing… のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_Syncing
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_SyncResultTitle", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_Syncing", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Synchronize selected files のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_SyncSelectedTitle
+    /// <summary>
+    /// Sync result — OK {0} / FAIL {1} / LOCKED {2} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_SyncResultTitle
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_SyncSelectedTitle", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_SyncResultTitle", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Synchronize files のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_SyncTitle
+    /// <summary>
+    /// Synchronize selected files のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_SyncSelectedTitle
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_SyncTitle", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_SyncSelectedTitle", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Target folder のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_TargetFolder
+    /// <summary>
+    /// Synchronize files のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_SyncTitle
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_TargetFolder", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_SyncTitle", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Target: {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_TargetLabel
+    /// <summary>
+    /// Target folder のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_TargetFolder
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_TargetLabel", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_TargetFolder", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Present on Target only のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_TargetOnly
+    /// <summary>
+    /// Target: {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_TargetLabel
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_TargetOnly", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_TargetLabel", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Target (right) のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_TargetRight
+    /// <summary>
+    /// Present on Target only のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_TargetOnly
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_TargetRight", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_TargetOnly", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Target to Source のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_TargetToSource
+    /// <summary>
+    /// Target (right) のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_TargetRight
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_TargetToSource", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_TargetRight", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Developer Differencer のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_Title
+    /// <summary>
+    /// Target to Source のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_TargetToSource
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_Title", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_TargetToSource", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Updating the difference tree… のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_UpdatingTree
+    /// <summary>
+    /// Developer Differencer のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_Title
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_UpdatingTree", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_Title", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Synchronization verification failed: destination timestamp, size or existence differs. Compare again. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Differencer_VerifyFailed
+    /// <summary>
+    /// Updating the difference tree… のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_UpdatingTree
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Differencer_VerifyFailed", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_UpdatingTree", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Access was denied. Check file permissions and read-only attributes. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Err_AccessDenied
+    /// <summary>
+    /// Synchronization verification failed: destination timestamp, size or existence differs. Compare again. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Differencer_VerifyFailed
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Err_AccessDenied", resourceCulture);
-            }
+            return ResourceManager.GetString("Differencer_VerifyFailed", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// The folder or part of the path could not be found. Check Source and Target, then compare again. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Err_DirectoryNotFound
+    /// <summary>
+    /// Access was denied. Check file permissions and read-only attributes. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Err_AccessDenied
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Err_DirectoryNotFound", resourceCulture);
-            }
+            return ResourceManager.GetString("Err_AccessDenied", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// The drive could not be found or is unavailable. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Err_DriveNotFound
+    /// <summary>
+    /// The folder or part of the path could not be found. Check Source and Target, then compare again. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Err_DirectoryNotFound
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Err_DriveNotFound", resourceCulture);
-            }
+            return ResourceManager.GetString("Err_DirectoryNotFound", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// File: {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Err_FileLabel
+    /// <summary>
+    /// The drive could not be found or is unavailable. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Err_DriveNotFound
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Err_FileLabel", resourceCulture);
-            }
+            return ResourceManager.GetString("Err_DriveNotFound", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// The file is locked by another process. Close the application using it and try again. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Err_FileLocked
+    /// <summary>
+    /// File: {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Err_FileLabel
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Err_FileLocked", resourceCulture);
-            }
+            return ResourceManager.GetString("Err_FileLabel", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// The file could not be found. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Err_FileNotFound
+    /// <summary>
+    /// The file is locked by another process. Close the application using it and try again. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Err_FileLocked
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Err_FileNotFound", resourceCulture);
-            }
+            return ResourceManager.GetString("Err_FileLocked", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// The operation could not be completed. Error code: 0x{0} ({1}). のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Err_Generic
+    /// <summary>
+    /// The file could not be found. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Err_FileNotFound
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Err_Generic", resourceCulture);
-            }
+            return ResourceManager.GetString("Err_FileNotFound", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// The file or folder path is too long. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Err_PathTooLong
+    /// <summary>
+    /// The operation could not be completed. Error code: 0x{0} ({1}). のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Err_Generic
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Err_PathTooLong", resourceCulture);
-            }
+            return ResourceManager.GetString("Err_Generic", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Browse editor のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_BrowseEditor
+    /// <summary>
+    /// The file or folder path is too long. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Err_PathTooLong
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_BrowseEditor", resourceCulture);
-            }
+            return ResourceManager.GetString("Err_PathTooLong", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Cancel the current search before changing scopes のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_CancelBeforeChange
+    /// <summary>
+    /// Browse editor のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_BrowseEditor
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_CancelBeforeChange", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_BrowseEditor", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Cancelling… のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_Cancelling
+    /// <summary>
+    /// Cancel the current search before changing scopes のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_CancelBeforeChange
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_Cancelling", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_CancelBeforeChange", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Column のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_Column
+    /// <summary>
+    /// Cancelling… のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_Cancelling
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_Column", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_Cancelling", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Editor のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_Editor
+    /// <summary>
+    /// Column のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_Column
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_Editor", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_Column", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Arguments ({file}, {line}, {column}) のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_EditorArguments
+    /// <summary>
+    /// Editor のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_Editor
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_EditorArguments", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_Editor", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Editor executable or command のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_EditorExecutable
+    /// <summary>
+    /// Arguments ({file}, {line}, {column}) のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_EditorArguments
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_EditorExecutable", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_EditorArguments", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Could not open the editor.
-        ///
-        ///{0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_EditorFailed
+    /// <summary>
+    /// Editor executable or command のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_EditorExecutable
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_EditorFailed", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_EditorExecutable", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Applications|*.exe|All files|*.* のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_EditorFilter
+    /// <summary>
+    /// Could not open the editor.
+    ///
+    ///{0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_EditorFailed
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_EditorFilter", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_EditorFailed", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Enter one or more file extensions for the Free profile. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_EnterExtensions
+    /// <summary>
+    /// Applications|*.exe|All files|*.* のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_EditorFilter
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_EnterExtensions", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_EditorFilter", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Enter search text. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_EnterText
+    /// <summary>
+    /// Enter one or more file extensions for the Free profile. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_EnterExtensions
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_EnterText", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_EnterExtensions", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// File name のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_FileName
+    /// <summary>
+    /// Enter search text. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_EnterText
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_FileName", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_EnterText", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// {0} folders のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_FolderPlural
+    /// <summary>
+    /// File name のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_FileName
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_FolderPlural", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_FileName", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// {0} folder のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_FolderSingular
+    /// <summary>
+    /// {0} folders のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_FolderPlural
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_FolderSingular", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_FolderPlural", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Included extensions のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_IncludedExtensions
+    /// <summary>
+    /// {0} folder のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_FolderSingular
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_IncludedExtensions", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_FolderSingular", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// The search expression is invalid.
-        ///
-        ///{0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_InvalidExpression
+    /// <summary>
+    /// Included extensions のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_IncludedExtensions
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_InvalidExpression", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_IncludedExtensions", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Invalid expression のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_InvalidExpressionStatus
+    /// <summary>
+    /// The search expression is invalid.
+    ///
+    ///{0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_InvalidExpression
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_InvalidExpressionStatus", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_InvalidExpression", resourceCulture);
+        }
+    }
+
+    /// <summary>
+    /// Invalid expression のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_InvalidExpressionStatus
+    {
+        get
+        {
+            return ResourceManager.GetString("Grep_InvalidExpressionStatus", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Language profile のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_LanguageProfile
+    /// <summary>
+    /// Language profile のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_LanguageProfile
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_LanguageProfile", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_LanguageProfile", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Line のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_Line
+    /// <summary>
+    /// Line のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_Line
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_Line", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_Line", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Match のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_Match
+    /// <summary>
+    /// Match のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_Match
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_Match", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_Match", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Match case のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_MatchCase
+    /// <summary>
+    /// Match case のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_MatchCase
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_MatchCase", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_MatchCase", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// No folders selected のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_NoFoldersSelected
+    /// <summary>
+    /// No folders selected のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_NoFoldersSelected
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_NoFoldersSelected", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_NoFoldersSelected", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Project のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_Project
+    /// <summary>
+    /// Project のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_Project
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_Project", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_Project", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Regular expression のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_Regex
+    /// <summary>
+    /// Regular expression のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_Regex
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_Regex", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_Regex", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Reload のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_Reload
+    /// <summary>
+    /// Reload のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_Reload
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_Reload", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_Reload", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Reload selection のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_ReloadSelection
+    /// <summary>
+    /// Reload selection のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_ReloadSelection
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_ReloadSelection", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_ReloadSelection", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// {0} matches in {1} files のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_Result
+    /// <summary>
+    /// {0} matches in {1} files のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_Result
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_Result", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_Result", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// {0} matches in {1} files · {2} skipped のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_ResultSkipped
+    /// <summary>
+    /// {0} matches in {1} files · {2} skipped のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_ResultSkipped
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_ResultSkipped", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_ResultSkipped", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Search only the projects selected in DesktopIniManager のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_ScopeHint
+    /// <summary>
+    /// Search only the projects selected in DesktopIniManager のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_ScopeHint
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_ScopeHint", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_ScopeHint", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Search cancelled のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_SearchCancelled
+    /// <summary>
+    /// Search cancelled のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_SearchCancelled
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_SearchCancelled", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_SearchCancelled", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Search failed のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_SearchFailed
+    /// <summary>
+    /// Search failed のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_SearchFailed
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_SearchFailed", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_SearchFailed", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Searching {0} / {1} files… のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_SearchingFiles
+    /// <summary>
+    /// Searching {0} / {1} files… のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_SearchingFiles
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_SearchingFiles", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_SearchingFiles", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Search text のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_SearchText
+    /// <summary>
+    /// Search text のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_SearchText
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_SearchText", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_SearchText", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Select one or more project folders in DesktopIniManager. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_SelectFolders
+    /// <summary>
+    /// Select one or more project folders in DesktopIniManager. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_SelectFolders
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_SelectFolders", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_SelectFolders", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Scoped Code Grep のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_Title
+    /// <summary>
+    /// Scoped Code Grep のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_Title
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_Title", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_Title", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Whole word のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_WholeWord
+    /// <summary>
+    /// Whole word のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_WholeWord
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_WholeWord", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_WholeWord", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Text|*.txt|All files|*.* のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Grep_SaveFilter
+    /// <summary>
+    /// Text|*.txt|All files|*.* のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Grep_SaveFilter
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Grep_SaveFilter", resourceCulture);
-            }
+            return ResourceManager.GetString("Grep_SaveFilter", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Double-click an icon to select it のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Icon_Hint
+    /// <summary>
+    /// Double-click an icon to select it のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Icon_Hint
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Icon_Hint", resourceCulture);
-            }
+            return ResourceManager.GetString("Icon_Hint", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// {0} icons のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Icon_NIcons
+    /// <summary>
+    /// {0} icons のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Icon_NIcons
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Icon_NIcons", resourceCulture);
-            }
+            return ResourceManager.GetString("Icon_NIcons", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Choose Icon のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Icon_Title
+    /// <summary>
+    /// Choose Icon のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Icon_Title
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Icon_Title", resourceCulture);
-            }
+            return ResourceManager.GetString("Icon_Title", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Add desktop.ini to .gitignore のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_AddGitignore
+    /// <summary>
+    /// Add desktop.ini to .gitignore のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_AddGitignore
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_AddGitignore", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_AddGitignore", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Applied to {0} folders のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_AppliedTo
+    /// <summary>
+    /// Applied to {0} folders のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_AppliedTo
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_AppliedTo", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_AppliedTo", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Icon settings applied. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_ApplyOk
+    /// <summary>
+    /// Icon settings applied. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_ApplyOk
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_ApplyOk", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_ApplyOk", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Icon settings applied.
-        ///{0} succeeded, {1} failed のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_ApplyResult
+    /// <summary>
+    /// Icon settings applied.
+    ///{0} succeeded, {1} failed のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_ApplyResult
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_ApplyResult", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_ApplyResult", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Apply to selected folders のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_ApplyTooltip
+    /// <summary>
+    /// Apply to selected folders のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_ApplyTooltip
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_ApplyTooltip", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_ApplyTooltip", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Building {0} folder rows… のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_BuildingRows
+    /// <summary>
+    /// Building {0} folder rows… のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_BuildingRows
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_BuildingRows", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_BuildingRows", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Building folder tree… のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_BuildingTree
+    /// <summary>
+    /// Building folder tree… のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_BuildingTree
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_BuildingTree", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_BuildingTree", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Change library のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_ChangeLibrary
+    /// <summary>
+    /// Change library のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_ChangeLibrary
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_ChangeLibrary", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_ChangeLibrary", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Choose icon のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_ChooseIcon
+    /// <summary>
+    /// Choose icon のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_ChooseIcon
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_ChooseIcon", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_ChooseIcon", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Choose an icon library first. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_ChooseLibraryFirst
+    /// <summary>
+    /// Choose an icon library first. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_ChooseLibraryFirst
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_ChooseLibraryFirst", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_ChooseLibraryFirst", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Cloud and network locations are not supported. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_CloudUnsupported
+    /// <summary>
+    /// Cloud and network locations are not supported. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_CloudUnsupported
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_CloudUnsupported", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_CloudUnsupported", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Apply the selected icon to {0} folders? のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_ConfirmApply
+    /// <summary>
+    /// Apply the selected icon to {0} folders? のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_ConfirmApply
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_ConfirmApply", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_ConfirmApply", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Delete desktop.ini and remove icon settings from {0} folders? のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_ConfirmRemove
+    /// <summary>
+    /// Delete desktop.ini and remove icon settings from {0} folders? のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_ConfirmRemove
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_ConfirmRemove", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_ConfirmRemove", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Developer Differencer のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_Differencer
+    /// <summary>
+    /// Developer Differencer のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_Differencer
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_Differencer", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_Differencer", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Compare and synchronize folders のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_DifferencerTooltip
+    /// <summary>
+    /// Compare and synchronize folders のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_DifferencerTooltip
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_DifferencerTooltip", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_DifferencerTooltip", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// The drive index could not be read. Using standard search… のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_DriveIndexFailed
+    /// <summary>
+    /// The drive index could not be read. Using standard search… のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_DriveIndexFailed
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_DriveIndexFailed", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_DriveIndexFailed", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Administrator permission was cancelled のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_ElevationCancelled
+    /// <summary>
+    /// Administrator permission was cancelled のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_ElevationCancelled
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_ElevationCancelled", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_ElevationCancelled", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Could not restart with administrator permission. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_ElevationFailed
+    /// <summary>
+    /// Could not restart with administrator permission. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_ElevationFailed
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_ElevationFailed", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_ElevationFailed", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Windows may ask for permission のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_ElevationHint
+    /// <summary>
+    /// Windows may ask for permission のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_ElevationHint
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_ElevationHint", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_ElevationHint", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Could not open the folder in Explorer. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_ExplorerFailed
+    /// <summary>
+    /// Could not open the folder in Explorer. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_ExplorerFailed
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_ExplorerFailed", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_ExplorerFailed", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Use fast NTFS search のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_FastNtfs
+    /// <summary>
+    /// Use fast NTFS search のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_FastNtfs
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_FastNtfs", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_FastNtfs", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Fast NTFS search permission was unavailable. Using standard search… のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_FastPermissionUnavailable
+    /// <summary>
+    /// Fast NTFS search permission was unavailable. Using standard search… のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_FastPermissionUnavailable
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_FastPermissionUnavailable", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_FastPermissionUnavailable", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Fast NTFS search is unavailable here. Using standard search… のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_FastUnavailable
+    /// <summary>
+    /// Fast NTFS search is unavailable here. Using standard search… のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_FastUnavailable
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_FastUnavailable", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_FastUnavailable", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Files — {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_FilesHeader
+    /// <summary>
+    /// Files — {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_FilesHeader
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_FilesHeader", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_FilesHeader", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Filter folders のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_FilterFolders
+    /// <summary>
+    /// Filter folders のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_FilterFolders
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_FilterFolders", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_FilterFolders", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Space-separated words; all words must match the folder path のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_FilterTooltip
+    /// <summary>
+    /// Space-separated words; all words must match the folder path のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_FilterTooltip
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_FilterTooltip", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_FilterTooltip", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Could not open the folder picker. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_FolderPickerFailed
+    /// <summary>
+    /// Could not open the folder picker. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_FolderPickerFailed
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_FolderPickerFailed", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_FolderPickerFailed", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// {0} folders found · analyzing projects… のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_FoldersAnalyzing
+    /// <summary>
+    /// {0} folders found · analyzing projects… のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_FoldersAnalyzing
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_FoldersAnalyzing", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_FoldersAnalyzing", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// {0} folders found のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_FoldersFound
+    /// <summary>
+    /// {0} folders found のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_FoldersFound
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_FoldersFound", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_FoldersFound", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// GIT のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_Git
+    /// <summary>
+    /// GIT のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_Git
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_Git", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_Git", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// GIT Search のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_GitSearch
+    /// <summary>
+    /// GIT Search のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_GitSearch
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_GitSearch", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_GitSearch", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Scoped Code Grep のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_Grep
+    /// <summary>
+    /// Scoped Code Grep のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_Grep
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_Grep", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_Grep", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Grep this folder のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_GrepThisFolder
+    /// <summary>
+    /// Grep this folder のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_GrepThisFolder
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_GrepThisFolder", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_GrepThisFolder", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Grep selected folders のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_GrepTooltip
+    /// <summary>
+    /// Grep selected folders のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_GrepTooltip
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_GrepTooltip", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_GrepTooltip", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Hide unchecked folders のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_HideUnchecked
+    /// <summary>
+    /// Hide unchecked folders のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_HideUnchecked
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_HideUnchecked", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_HideUnchecked", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Icon のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_Icon
+    /// <summary>
+    /// Icon のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_Icon
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_Icon", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_Icon", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Icon Apply のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_IconApply
+    /// <summary>
+    /// Icon Apply のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_IconApply
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_IconApply", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_IconApply", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Could not open the icon browser. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_IconBrowserFailed
+    /// <summary>
+    /// Could not open the icon browser. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_IconBrowserFailed
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_IconBrowserFailed", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_IconBrowserFailed", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Icon selection cancelled のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_IconCancelled
+    /// <summary>
+    /// Icon selection cancelled のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_IconCancelled
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_IconCancelled", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_IconCancelled", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Icon resources|*.ico;*.icl;*.dll;*.exe|All files|*.* のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_IconFilter
+    /// <summary>
+    /// Icon resources|*.ico;*.icl;*.dll;*.exe|All files|*.* のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_IconFilter
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_IconFilter", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_IconFilter", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// ICO / ICL / DLL / EXE のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_IconFormats
+    /// <summary>
+    /// ICO / ICL / DLL / EXE のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_IconFormats
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_IconFormats", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_IconFormats", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Icon {0} selected のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_IconNSelected
+    /// <summary>
+    /// Icon {0} selected のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_IconNSelected
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_IconNSelected", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_IconNSelected", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Icon Remove のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_IconRemove
+    /// <summary>
+    /// Icon Remove のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_IconRemove
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_IconRemove", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_IconRemove", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Indexed {0} folders のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_IndexedFolders
+    /// <summary>
+    /// Indexed {0} folders のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_IndexedFolders
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_IndexedFolders", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_IndexedFolders", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Indexed {0} folders… のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_IndexedFoldersEllipsis
+    /// <summary>
+    /// Indexed {0} folders… のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_IndexedFoldersEllipsis
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_IndexedFoldersEllipsis", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_IndexedFoldersEllipsis", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Index {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_IndexN
+    /// <summary>
+    /// Index {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_IndexN
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_IndexN", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_IndexN", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Invert のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_Invert
+    /// <summary>
+    /// Invert のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_Invert
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_Invert", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_Invert", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Invert selection のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_InvertSelection
+    /// <summary>
+    /// Invert selection のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_InvertSelection
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_InvertSelection", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_InvertSelection", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Keywords (optional) のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_KeywordsOptional
+    /// <summary>
+    /// Keywords (optional) のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_KeywordsOptional
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_KeywordsOptional", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_KeywordsOptional", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Large icons のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_LargeIcons
+    /// <summary>
+    /// Large icons のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_LargeIcons
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_LargeIcons", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_LargeIcons", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Library のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_Library
+    /// <summary>
+    /// Library のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_Library
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_Library", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_Library", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Could not select the icon library. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_LibrarySelectFailed
+    /// <summary>
+    /// Could not select the icon library. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_LibrarySelectFailed
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_LibrarySelectFailed", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_LibrarySelectFailed", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// List のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_List
+    /// <summary>
+    /// List のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_List
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_List", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_List", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Loading icons… のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_LoadingIcons
+    /// <summary>
+    /// Loading icons… のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_LoadingIcons
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_LoadingIcons", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_LoadingIcons", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// The search location does not exist. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_LocationMissing
+    /// <summary>
+    /// The search location does not exist. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_LocationMissing
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_LocationMissing", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_LocationMissing", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Search location set to {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_LocationSet
+    /// <summary>
+    /// Search location set to {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_LocationSet
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_LocationSet", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_LocationSet", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// {0} matches found · analyzing projects… のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_MatchesAnalyzing
+    /// <summary>
+    /// {0} matches found · analyzing projects… のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_MatchesAnalyzing
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_MatchesAnalyzing", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_MatchesAnalyzing", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// {0} folders のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_NFolders
+    /// <summary>
+    /// {0} folders のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_NFolders
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_NFolders", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_NFolders", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// {0} items のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_NItems
+    /// <summary>
+    /// {0} items のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_NItems
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_NItems", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_NItems", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// {0} matches のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_NMatches
+    /// <summary>
+    /// {0} matches のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_NMatches
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_NMatches", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_NMatches", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// No folders are available for Grep. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_NoGrepFolders
+    /// <summary>
+    /// No folders are available for Grep. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_NoGrepFolders
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_NoGrepFolders", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_NoGrepFolders", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// No icon groups were found. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_NoIconGroups
+    /// <summary>
+    /// No icon groups were found. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_NoIconGroups
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_NoIconGroups", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_NoIconGroups", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Not selected のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_NotSelected
+    /// <summary>
+    /// Not selected のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_NotSelected
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_NotSelected", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_NotSelected", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Could not open the file. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_OpenFileFailed
+    /// <summary>
+    /// Could not open the file. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_OpenFileFailed
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_OpenFileFailed", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_OpenFileFailed", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Open in Explorer のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_OpenInExplorer
+    /// <summary>
+    /// Open in Explorer のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_OpenInExplorer
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_OpenInExplorer", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_OpenInExplorer", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Physical のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_Physical
+    /// <summary>
+    /// Physical のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_Physical
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_Physical", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_Physical", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Preview unavailable のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_PreviewUnavailable
+    /// <summary>
+    /// Preview unavailable のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_PreviewUnavailable
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_PreviewUnavailable", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_PreviewUnavailable", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Reading the NTFS index… のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_ReadingNtfs
+    /// <summary>
+    /// Reading the NTFS index… のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_ReadingNtfs
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_ReadingNtfs", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_ReadingNtfs", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Removed settings from {0} folders のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_RemovedFrom
+    /// <summary>
+    /// Removed settings from {0} folders のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_RemovedFrom
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_RemovedFrom", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_RemovedFrom", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Icon settings removed. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_RemoveOk
+    /// <summary>
+    /// Icon settings removed. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_RemoveOk
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_RemoveOk", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_RemoveOk", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Icon settings removed.
-        ///{0} succeeded, {1} failed のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_RemoveResult
+    /// <summary>
+    /// Icon settings removed.
+    ///{0} succeeded, {1} failed のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_RemoveResult
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_RemoveResult", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_RemoveResult", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Remove settings のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_RemoveSettings
+    /// <summary>
+    /// Remove settings のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_RemoveSettings
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_RemoveSettings", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_RemoveSettings", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Replacement icon のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_ReplacementIcon
+    /// <summary>
+    /// Replacement icon のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_ReplacementIcon
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_ReplacementIcon", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_ReplacementIcon", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Failed to restore folder trees: {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_RestoreTreesFailed
+    /// <summary>
+    /// Failed to restore folder trees: {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_RestoreTreesFailed
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_RestoreTreesFailed", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_RestoreTreesFailed", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Failed to save folder trees: {0} のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_SaveTreesFailed
+    /// <summary>
+    /// Failed to save folder trees: {0} のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_SaveTreesFailed
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_SaveTreesFailed", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_SaveTreesFailed", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Scanning {0} folders… のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_ScanningFolders
+    /// <summary>
+    /// Scanning {0} folders… のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_ScanningFolders
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_ScanningFolders", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_ScanningFolders", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Search cancelled のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_SearchCancelled
+    /// <summary>
+    /// Search cancelled のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_SearchCancelled
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_SearchCancelled", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_SearchCancelled", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Search failed のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_SearchFailed
+    /// <summary>
+    /// Search failed のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_SearchFailed
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_SearchFailed", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_SearchFailed", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Search location のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_SearchLocation
+    /// <summary>
+    /// Search location のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_SearchLocation
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_SearchLocation", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_SearchLocation", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// {0} search results のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_SearchResults
+    /// <summary>
+    /// {0} search results のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_SearchResults
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_SearchResults", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_SearchResults", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Selected icon のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_SelectedIcon
+    /// <summary>
+    /// Selected icon のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_SelectedIcon
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_SelectedIcon", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_SelectedIcon", resourceCulture);
         }
+    }
 
-        /// <summary>
-        ///  selected のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_SelectedSuffix
+    /// <summary>
+    ///  selected のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_SelectedSuffix
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_SelectedSuffix", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_SelectedSuffix", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Select at least one folder. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_SelectOneFolder
+    /// <summary>
+    /// Select at least one folder. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_SelectOneFolder
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_SelectOneFolder", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_SelectOneFolder", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Select a search folder のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_SelectSearchFolder
+    /// <summary>
+    /// Select a search folder のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_SelectSearchFolder
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_SelectSearchFolder", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_SelectSearchFolder", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Show hidden folders のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_ShowHidden
+    /// <summary>
+    /// Show hidden folders のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_ShowHidden
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_ShowHidden", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_ShowHidden", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Small icons のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_SmallIcons
+    /// <summary>
+    /// Small icons のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_SmallIcons
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_SmallIcons", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_SmallIcons", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Solution のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_Solution
+    /// <summary>
+    /// Solution のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_Solution
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_Solution", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_Solution", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// {0} solutions found のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_SolutionsFound
+    /// <summary>
+    /// {0} solutions found のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_SolutionsFound
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_SolutionsFound", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_SolutionsFound", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Find folders by name or content and apply custom icons in batches のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_Subtitle
+    /// <summary>
+    /// Find folders by name or content and apply custom icons in batches のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_Subtitle
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_Subtitle", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_Subtitle", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Comfortable folder list のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_TreeComfortable
+    /// <summary>
+    /// Comfortable folder list のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_TreeComfortable
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_TreeComfortable", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_TreeComfortable", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Compact folder list のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_TreeCompact
+    /// <summary>
+    /// Compact folder list のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_TreeCompact
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_TreeCompact", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_TreeCompact", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Folder trees restored. Use Git to refresh. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_TreesRestored
+    /// <summary>
+    /// Folder trees restored. Use Git to refresh. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_TreesRestored
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_TreesRestored", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_TreesRestored", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Use as search location のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_UseAsSearchLocation
+    /// <summary>
+    /// Use as search location のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_UseAsSearchLocation
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_UseAsSearchLocation", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_UseAsSearchLocation", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// 0 matches のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Main_ZeroMatches
+    /// <summary>
+    /// 0 matches のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Main_ZeroMatches
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Main_ZeroMatches", resourceCulture);
-            }
+            return ResourceManager.GetString("Main_ZeroMatches", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// By Tamayan のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Splash_Author
+    /// <summary>
+    /// By Tamayan のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Splash_Author
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Splash_Author", resourceCulture);
-            }
+            return ResourceManager.GetString("Splash_Author", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Building the workspace… のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Splash_BuildingWorkspace
+    /// <summary>
+    /// Building the workspace… のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Splash_BuildingWorkspace
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Splash_BuildingWorkspace", resourceCulture);
-            }
+            return ResourceManager.GetString("Splash_BuildingWorkspace", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// © {0} ZEBRASOFT Co.,Ltd. のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Splash_Copyright
+    /// <summary>
+    /// © {0} ZEBRASOFT Co.,Ltd. のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Splash_Copyright
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Splash_Copyright", resourceCulture);
-            }
+            return ResourceManager.GetString("Splash_Copyright", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Initializing… のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Splash_Initializing
+    /// <summary>
+    /// Initializing… のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Splash_Initializing
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Splash_Initializing", resourceCulture);
-            }
+            return ResourceManager.GetString("Splash_Initializing", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Loading startup settings… のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Splash_LoadingSettings
+    /// <summary>
+    /// Loading startup settings… のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Splash_LoadingSettings
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Splash_LoadingSettings", resourceCulture);
-            }
+            return ResourceManager.GetString("Splash_LoadingSettings", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Preparing folder icons… のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Splash_PreparingIcons
+    /// <summary>
+    /// Preparing folder icons… のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Splash_PreparingIcons
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Splash_PreparingIcons", resourceCulture);
-            }
+            return ResourceManager.GetString("Splash_PreparingIcons", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Ready のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Splash_Ready
+    /// <summary>
+    /// Ready のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Splash_Ready
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Splash_Ready", resourceCulture);
-            }
+            return ResourceManager.GetString("Splash_Ready", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Restoring saved folder trees… のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Splash_RestoringTrees
+    /// <summary>
+    /// Restoring saved folder trees… のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Splash_RestoringTrees
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Splash_RestoringTrees", resourceCulture);
-            }
+            return ResourceManager.GetString("Splash_RestoringTrees", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// DesktopIniManager — Starting のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Splash_Title
+    /// <summary>
+    /// DesktopIniManager — Starting のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Splash_Title
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Splash_Title", resourceCulture);
-            }
+            return ResourceManager.GetString("Splash_Title", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Dark mode のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Theme_Dark
+    /// <summary>
+    /// Dark mode のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Theme_Dark
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Theme_Dark", resourceCulture);
-            }
+            return ResourceManager.GetString("Theme_Dark", resourceCulture);
         }
+    }
 
-        /// <summary>
-        /// Light mode のようなローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Theme_Light
+    /// <summary>
+    /// Light mode のようなローカライズされた文字列を検索します。
+    /// </summary>
+    public static string Theme_Light
+    {
+        get
         {
-            get
-            {
-                return ResourceManager.GetString("Theme_Light", resourceCulture);
-            }
+            return ResourceManager.GetString("Theme_Light", resourceCulture);
         }
     }
 }

@@ -100,7 +100,10 @@
           ToolTip="External diff command. Use {source} and {target}." />
       </Grid>
 
-      <Grid Grid.Row="1" Grid.ColumnSpan="3" Height="64">
+      <Grid
+        Grid.Row="1"
+        Grid.ColumnSpan="3"
+        Height="64">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="*" />
           <ColumnDefinition Width="12" />
@@ -112,8 +115,14 @@
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
           <WrapPanel x:Name="actionsPanel" VerticalAlignment="Center" />
-          <Viewbox x:Name="imageControlRow" Grid.Column="1" Stretch="Uniform" StretchDirection="DownOnly"
-                   HorizontalAlignment="Left" VerticalAlignment="Center" Visibility="Collapsed">
+          <Viewbox
+            x:Name="imageControlRow"
+            Grid.Column="1"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Center"
+            Stretch="Uniform"
+            StretchDirection="DownOnly"
+            Visibility="Collapsed">
             <StackPanel x:Name="imageToolbar" Orientation="Horizontal" />
           </Viewbox>
         </Grid>
@@ -122,11 +131,19 @@
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
-          <Viewbox Stretch="Uniform" StretchDirection="DownOnly" HorizontalAlignment="Right" VerticalAlignment="Center">
+          <Viewbox
+            HorizontalAlignment="Right"
+            VerticalAlignment="Center"
+            Stretch="Uniform"
+            StretchDirection="DownOnly">
             <StackPanel x:Name="imageDetails" Orientation="Horizontal" />
           </Viewbox>
-          <StackPanel x:Name="fileNavigationPanel" Grid.Column="1" HorizontalAlignment="Right"
-                      VerticalAlignment="Center" Orientation="Horizontal" />
+          <StackPanel
+            x:Name="fileNavigationPanel"
+            Grid.Column="1"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Center"
+            Orientation="Horizontal" />
         </Grid>
       </Grid>
     </Grid>

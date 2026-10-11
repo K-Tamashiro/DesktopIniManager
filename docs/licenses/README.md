@@ -1,4 +1,4 @@
-# Bundled document-search libraries
+﻿# Bundled document-search libraries
 
 - ExcelDataReader 3.7.0: MIT license, copyright (c) 2014 ExcelDataReader.
   [Upstream license at the packaged revision](https://github.com/ExcelDataReader/ExcelDataReader/blob/840007736467bb66be083764021a3a6b9afad5c2/LICENSE).

@@ -38,9 +38,9 @@ internal partial class SynchronizeConfirmWindow : Window
             : StringOverlay.Get(toTarget ? "Differencer_SourceToTarget" : "Differencer_TargetToSource");
         string unit = StringOverlay.Get(files.Length == 1 ? "Differencer_File" : "Differencer_Files");
         folders = folders ?? Array.Empty<DiffFolderSync>();
-        dialog.SummaryText.Text = heading + "   •   " + files.Length + " " + unit;
+        dialog.SummaryText.Text = heading + "   \u2022   " + files.Length + " " + unit;
         if (folders.Length > 0)
-            dialog.SummaryText.Text += "   •   " + folders.Length + (folders.Length == 1 ? " folder" : " folders");
+            dialog.SummaryText.Text += "   \u2022   " + folders.Length + (folders.Length == 1 ? " folder" : " folders");
         dialog.SourceLabelText.Text = StringOverlay.Get("Differencer_Source");
         dialog.TargetLabelText.Text = StringOverlay.Get("Differencer_Target");
         dialog.SourcePathText.Text = sourceRoot;

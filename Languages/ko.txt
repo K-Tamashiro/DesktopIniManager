@@ -1,4 +1,4 @@
-# DesktopIniManager 언어 파일(한국어)
+﻿# DesktopIniManager 언어 파일(한국어)
 # 위치: exe와 같은 폴더의 Languages\ko.txt
 # 전환: Languages\culture.txt에 ko
 

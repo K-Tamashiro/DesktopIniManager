@@ -1,4 +1,4 @@
-# FastVolumeIndex.Core — native enumeration
+﻿# FastVolumeIndex.Core — native enumeration
 
 This library provides the reusable path index used by DesktopIniManager.
 Its assembly and namespace retain the historical FastVolumeIndex

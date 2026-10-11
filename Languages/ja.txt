@@ -1,4 +1,4 @@
-# DesktopIniManager 言語ファイル（日本語）
+﻿# DesktopIniManager 言語ファイル（日本語）
 # 配置: exe と同じ場所の Languages\ja.txt
 
 App_Title=desktop.ini Manager

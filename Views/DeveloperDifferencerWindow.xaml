@@ -229,7 +229,7 @@
                             </Grid.ColumnDefinitions>
                             <ToggleButton
                                 x:Name="Expander"
-                                Content="▶"
+                                Content="&#x25B6;"
                                 Focusable="False"
                                 Foreground="{DynamicResource Muted}"
                                 IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}">
@@ -256,7 +256,7 @@
                                 <Setter TargetName="Expander" Property="Visibility" Value="Hidden" />
                             </Trigger>
                             <Trigger Property="IsExpanded" Value="True">
-                                <Setter TargetName="Expander" Property="Content" Value="▼" />
+                                <Setter TargetName="Expander" Property="Content" Value="&#x25BC;" />
                             </Trigger>
                             <Trigger Property="IsExpanded" Value="False">
                                 <Setter TargetName="ItemsHost" Property="Visibility" Value="Collapsed" />
@@ -292,7 +292,7 @@
                             </Grid.ColumnDefinitions>
                             <ToggleButton
                                 x:Name="Expander"
-                                Content="▶"
+                                Content="&#x25B6;"
                                 Focusable="False"
                                 Foreground="{DynamicResource Muted}"
                                 IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}">
@@ -316,7 +316,7 @@
                                 <Setter TargetName="Expander" Property="Visibility" Value="Hidden" />
                             </Trigger>
                             <Trigger Property="IsExpanded" Value="True">
-                                <Setter TargetName="Expander" Property="Content" Value="▼" />
+                                <Setter TargetName="Expander" Property="Content" Value="&#x25BC;" />
                             </Trigger>
                             <Trigger Property="IsExpanded" Value="False">
                                 <Setter TargetName="ItemsHost" Property="Visibility" Value="Collapsed" />
@@ -464,7 +464,7 @@
                                 BorderThickness="0"
                                 Command="{Binding DataContext.DeleteHistoryTabCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                 CommandParameter="{Binding}"
-                                Content="×"
+                                Content="&#x00D7;"
                                 Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
                                 ToolTip="{loc:L History_DeleteTab}" />
                         </StackPanel>
@@ -637,29 +637,71 @@
                     </Button>
                     <ToggleButton
                         x:Name="CompareTimestampBox"
-                        Style="{StaticResource TransparentCompareToggle}"
+                        Width="40"
+                        Height="40"
                         Margin="12,0,0,0"
                         Background="Transparent"
-                        Width="40" Height="40"
+                        Checked="CompareModeToggle_Changed"
                         IsChecked="{Binding CompareTimestamp, Mode=TwoWay}"
                         IsEnabled="{Binding CanEdit}"
+                        Style="{StaticResource TransparentCompareToggle}"
+                        ToolTip="{loc:L Differencer_CompareDatesTip}"
+                        Unchecked="CompareModeToggle_Changed">
+                        <Image
+                            x:Name="CompareTimestampIcon"
+                            RenderOptions.BitmapScalingMode="HighQuality"
+                            Stretch="Uniform" />
+                    </ToggleButton>
+                    <ToggleButton
+                        x:Name="CompareSizeBox"
+                        Width="40"
+                        Height="40"
+                        Margin="6,0,0,0"
+                        Background="Transparent"
                         Checked="CompareModeToggle_Changed"
-                        Unchecked="CompareModeToggle_Changed"
-                        ToolTip="{loc:L Differencer_CompareDatesTip}">
-                        <Image x:Name="CompareTimestampIcon" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" />
+                        IsChecked="{Binding CompareSize, Mode=TwoWay}"
+                        IsEnabled="{Binding CanEdit}"
+                        Style="{StaticResource TransparentCompareToggle}"
+                        ToolTip="Compare file sizes"
+                        Unchecked="CompareModeToggle_Changed">
+                        <Image
+                            x:Name="CompareSizeIcon"
+                            RenderOptions.BitmapScalingMode="HighQuality"
+                            Stretch="Uniform" />
+                    </ToggleButton>
+                    <ToggleButton
+                        x:Name="CompareAttributesBox"
+                        Width="40"
+                        Height="40"
+                        Margin="6,0,0,0"
+                        Background="Transparent"
+                        Checked="CompareModeToggle_Changed"
+                        IsChecked="{Binding CompareAttributes, Mode=TwoWay}"
+                        IsEnabled="{Binding CanEdit}"
+                        Style="{StaticResource TransparentCompareToggle}"
+                        ToolTip="ATTR: compare BOM presence (first 4 bytes only)"
+                        Unchecked="CompareModeToggle_Changed">
+                        <Image
+                            x:Name="CompareAttributesIcon"
+                            RenderOptions.BitmapScalingMode="HighQuality"
+                            Stretch="Uniform" />
                     </ToggleButton>
                     <ToggleButton
                         x:Name="PreciseCompareBox"
-                        Style="{StaticResource TransparentCompareToggle}"
+                        Width="40"
+                        Height="40"
                         Margin="6,0,0,0"
                         Background="Transparent"
-                        Width="40" Height="40"
+                        Checked="CompareModeToggle_Changed"
                         IsChecked="{Binding PreciseCompare, Mode=TwoWay}"
                         IsEnabled="{Binding CanEdit}"
-                        Checked="CompareModeToggle_Changed"
-                        Unchecked="CompareModeToggle_Changed"
-                        ToolTip="XXH128 content comparison (precise check)">
-                        <Image x:Name="PreciseCompareIcon" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" />
+                        Style="{StaticResource TransparentCompareToggle}"
+                        ToolTip="XXH128 content comparison (precise check)"
+                        Unchecked="CompareModeToggle_Changed">
+                        <Image
+                            x:Name="PreciseCompareIcon"
+                            RenderOptions.BitmapScalingMode="HighQuality"
+                            Stretch="Uniform" />
                     </ToggleButton>
                     <Button
                         x:Name="CleanSolutionButton"
@@ -925,16 +967,21 @@
                             </CheckBox>
                         </WrapPanel>
                     </Border>
-                    <TreeView x:Name="FrozenFolderRoot" DockPanel.Dock="Top"
-                              Background="{DynamicResource CardBackground}" Foreground="{DynamicResource Ink}"
-                              BorderThickness="0" HorizontalContentAlignment="Stretch"
-                              Focusable="{Binding CanEdit}" IsHitTestVisible="{Binding CanEdit}"
-                              ItemsSource="{Binding FolderItems}"
-                              ItemTemplate="{Binding ItemTemplate, ElementName=FolderTree}"
-                              ItemContainerStyle="{StaticResource FrozenFolderItemStyle}"
-                              SelectedItemChanged="FolderChanged"
-                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                              ScrollViewer.VerticalScrollBarVisibility="Disabled" />
+                    <TreeView
+                        x:Name="FrozenFolderRoot"
+                        HorizontalContentAlignment="Stretch"
+                        Background="{DynamicResource CardBackground}"
+                        BorderThickness="0"
+                        DockPanel.Dock="Top"
+                        Focusable="{Binding CanEdit}"
+                        Foreground="{DynamicResource Ink}"
+                        IsHitTestVisible="{Binding CanEdit}"
+                        ItemContainerStyle="{StaticResource FrozenFolderItemStyle}"
+                        ItemTemplate="{Binding ItemTemplate, ElementName=FolderTree}"
+                        ItemsSource="{Binding FolderItems}"
+                        ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                        ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                        SelectedItemChanged="FolderChanged" />
                     <TreeView
                         x:Name="FolderTree"
                         HorizontalContentAlignment="Stretch"

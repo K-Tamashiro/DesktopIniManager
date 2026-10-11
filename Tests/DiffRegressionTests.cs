@@ -45,13 +45,40 @@ internal static class DiffRegressionTests
             var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
             DateTime deadline = DateTime.UtcNow.AddSeconds(15);
             var leftField = typeof(DiffViewWindow).GetField("leftList", BindingFlags.Instance | BindingFlags.NonPublic);
+            var renderingField = typeof(DiffViewWindow).GetField("renderingContent", BindingFlags.Instance | BindingFlags.NonPublic);
+            var progressPanel = (FrameworkElement)viewer.FindName("loadProgressPanel");
+            Require(progressPanel.Visibility == Visibility.Visible, "progress is visible while loading");
+            bool responsiveWhileLoading = false;
+            viewer.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                responsiveWhileLoading = (bool)renderingField.GetValue(viewer);
+            }), DispatcherPriority.Normal);
             timer.Tick += (_, _) =>
             {
-                if (leftField.GetValue(viewer) != null || DateTime.UtcNow >= deadline) frame.Continue = false;
+                if ((leftField.GetValue(viewer) != null && !(bool)renderingField.GetValue(viewer)) || DateTime.UtcNow >= deadline) frame.Continue = false;
             };
             timer.Start();
             Dispatcher.PushFrame(frame);
             timer.Stop();
+            Require(responsiveWhileLoading, "dispatcher responds while diff is loading");
+            Require(progressPanel.Visibility == Visibility.Hidden, "progress clears without removing its layout space");
+            var retainedBody = (Grid)viewer.FindName("body");
+            viewer.UpdateLayout();
+            double retainedHeight = retainedBody.ActualHeight;
+            var retainedChildren = retainedBody.Children.Cast<UIElement>().ToArray();
+            var reloadTask = (System.Threading.Tasks.Task)typeof(DiffViewWindow)
+                .GetMethod("LoadContent", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(viewer, new object[] { false, true });
+            viewer.UpdateLayout();
+            Require(retainedChildren.SequenceEqual(retainedBody.Children.Cast<UIElement>()), "loading retains existing comparison frames and content");
+            Require(Math.Abs(retainedBody.ActualHeight - retainedHeight) < 1, "progress does not shift comparison layout");
+            var reloadFrame = new DispatcherFrame();
+            var reloadTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(20) };
+            reloadTimer.Tick += (_, _) => { if (reloadTask.IsCompleted || DateTime.UtcNow >= deadline) reloadFrame.Continue = false; };
+            reloadTimer.Start();
+            Dispatcher.PushFrame(reloadFrame);
+            reloadTimer.Stop();
+            Require(reloadTask.IsCompletedSuccessfully, "replacement comparison finishes rendering");
             foreach (var pair in new[] { ("leftList", "source marker"), ("rightList", "target marker") })
             {
                 var pane = typeof(DiffViewWindow).GetField(pair.Item1, BindingFlags.Instance | BindingFlags.NonPublic).GetValue(viewer) as RichTextBox;
@@ -152,14 +179,14 @@ internal static class DiffRegressionTests
         string fixture = Path.Combine(AppContext.BaseDirectory, "diff-regression-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(fixture);
         string path = Path.Combine(fixture, "encoding.txt");
-        const string content = "日本語 café\r\nnext\rlast\n";
+        const string content = "日本語 cafe\r\nnext\rlast\n";
         Encoding[] encodings = [new UTF8Encoding(true, true), new UTF8Encoding(false, true),
             new UnicodeEncoding(false, true, true), new UnicodeEncoding(true, true, true),
             new UTF32Encoding(false, true, true), new UTF32Encoding(true, true, true)];
         foreach (Encoding encoding in encodings)
         {
             File.WriteAllBytes(path, [.. encoding.GetPreamble(), .. encoding.GetBytes(content)]);
-            Require(DiffViewModel.ReadText(path).SequenceEqual(new[] { "日本語 café", "next", "last", "" }),
+            Require(DiffViewModel.ReadText(path).SequenceEqual(new[] { "日本語 cafe", "next", "last", "" }),
                 "BOM decoding and mixed line endings: " + encoding.WebName);
         }
         var jis = CodePagesEncodingProvider.Instance.GetEncoding(50220);
@@ -262,7 +289,7 @@ internal static class DiffRegressionTests
             string changed = DiffViewWindow.DescribePixel(map, new Point(50, 22));
             string equal = DiffViewWindow.DescribePixel(DiffViewWindow.CreateNavigationBitmap(window.ViewModel.SourceImage, window.ViewModel.SourceImage), new Point(50, 22));
             Require(changed != equal, "navigation map highlights differing regions");
-            Require(DiffViewWindow.DescribePixel(window.ViewModel.SourceImage, new Point(-1, 0)).Contains("RGB:—"), "out of bounds pixel is not sampled");
+            Require(DiffViewWindow.DescribePixel(window.ViewModel.SourceImage, new Point(-1, 0)).Contains("RGB:\u2014"), "out of bounds pixel is not sampled");
             var imageBody = (FrameworkElement)window.FindName("body");
             Require(Math.Abs(imageBody.TranslatePoint(new Point(), window).Y - textBodyTop) < 1,
                 "image and text comparison body starts at the same height");

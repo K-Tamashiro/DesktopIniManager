@@ -310,7 +310,7 @@
                 BorderThickness="0"
                 Command="{Binding DataContext.DeleteHistoryTabCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                 CommandParameter="{Binding}"
-                Content="×"
+                Content="&#x00D7;"
                 Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
                 ToolTip="{loc:L History_DeleteTab}" />
             </StackPanel>

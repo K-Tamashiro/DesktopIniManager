@@ -4,6 +4,7 @@ using DesktopIniManager.Properties;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
@@ -22,6 +23,28 @@ namespace DesktopIniManager.Views;
 internal sealed partial class DiffViewWindow : Window
 {
     internal DiffViewModel ViewModel { get; }
+    private bool renderingContent;
+    private bool windowClosed;
+
+    private void ShowLoadProgress(string message, double? percent = null)
+    {
+        loadProgressText.Text = message;
+        loadProgress.IsIndeterminate = !percent.HasValue;
+        loadProgress.Value = percent ?? 0;
+    }
+
+    private void SetRendering(bool value)
+    {
+        renderingContent = value;
+        loadProgressPanel.Visibility = value ? Visibility.Visible : Visibility.Hidden;
+        actionsPanel.IsEnabled = fileNavigationPanel.IsEnabled = !value;
+        body.IsHitTestVisible = !value;
+    }
+
+    private void CheckWindowOpen()
+    {
+        if (windowClosed) throw new OperationCanceledException();
+    }
     private List<int> hunks => ViewModel.Hunks;
     private List<DiffLine> lines => ViewModel.Lines;
     private RichTextBox leftList, rightList;
@@ -84,7 +107,7 @@ internal sealed partial class DiffViewWindow : Window
         Loaded += async (s, e) => await LoadContent();
         Activated += async (s, e) =>
         {
-            if (IsLoaded) await ViewModel.RefreshAfterExternalEditAsync();
+            if (IsLoaded && !renderingContent) await ViewModel.RefreshAfterExternalEditAsync();
         };
         SourceInitialized += (s, e) =>
         {
@@ -107,6 +130,7 @@ internal sealed partial class DiffViewWindow : Window
         };
         Closed += (s, e) =>
         {
+            windowClosed = true;
             inputSource?.RemoveHook(HorizontalWheelMessage);
             inputSource = null;
             DetachImageFitHandler();
@@ -151,6 +175,7 @@ internal sealed partial class DiffViewWindow : Window
 
     private void DiffViewKeyDown(object sender, KeyEventArgs e)
     {
+        if (renderingContent) return;
         if (e.Handled || Keyboard.FocusedElement is TextBox) return;
         if (Keyboard.Modifiers == ModifierKeys.Control)
         {
@@ -443,6 +468,9 @@ internal sealed partial class DiffViewWindow : Window
 
     private async Task LoadContent(bool reload = true, bool jumpToFirst = true)
     {
+        if (renderingContent || windowClosed) return;
+        SetRendering(true);
+        ShowLoadProgress(StringOverlay.Get("Diff_Loading"));
         DetachImageFitHandler();
         ResetImageNavigation();
         if (imageToolbar is Panel p)
@@ -450,8 +478,6 @@ internal sealed partial class DiffViewWindow : Window
             p.Children.Clear();
             p.Visibility = Visibility.Collapsed;
         }
-        body.Children.Clear();
-        mapColumn.Width = new GridLength(34);
         BuildToolbar();
         UpdateSideStatusIcons();
         leftList = rightList = null;
@@ -464,6 +490,8 @@ internal sealed partial class DiffViewWindow : Window
         mapSelection = null;
         try
         {
+            await Dispatcher.Yield(DispatcherPriority.Background);
+            CheckWindowOpen();
             if (reload && !await ViewModel.LoadContentAsync()) return;
             if (!IsLoaded) return;
             UpdateSideStatusIcons();
@@ -472,6 +500,12 @@ internal sealed partial class DiffViewWindow : Window
             sharedTextWidth = MeasureSharedTextWidth();
             FrameworkElement leftHost = MakeHost(true, out leftList);
             FrameworkElement rightHost = MakeHost(false, out rightList);
+            await PopulatePaneAsync(leftList, true, true);
+            await PopulatePaneAsync(rightList, false, true);
+            CheckWindowOpen();
+            // Keep the previous comparison visible until both new panes are ready.
+            body.Children.Clear();
+            mapColumn.Width = new GridLength(34);
             body.Children.Add(leftHost);
             Grid.SetColumn(rightHost, 2);
             body.Children.Add(rightHost);
@@ -497,6 +531,10 @@ internal sealed partial class DiffViewWindow : Window
             rightList.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(ScrollChanged));
             leftList.PreviewMouseLeftButtonDown += DiffPane_PreviewMouseLeftButtonDown;
             rightList.PreviewMouseLeftButtonDown += DiffPane_PreviewMouseLeftButtonDown;
+            long finalCount = Math.Max(0L, 2L * lines.Count - 1);
+            ShowLoadProgress("Preparing layout\u2026  " + finalCount + " / " + finalCount, 100);
+            await Dispatcher.Yield(DispatcherPriority.ContextIdle);
+            CheckWindowOpen();
             if (jumpToFirst && hunks.Count > 0)
             {
                 _ = Dispatcher.BeginInvoke(new Action(() =>
@@ -510,7 +548,9 @@ internal sealed partial class DiffViewWindow : Window
                 }), DispatcherPriority.Loaded);
             }
         }
+        catch (OperationCanceledException) when (windowClosed) { }
         catch (Exception ex) { ViewModel.ReportError(ex); }
+        finally { SetRendering(false); }
     }
     private double MeasureSharedTextWidth()
     {
@@ -519,9 +559,12 @@ internal sealed partial class DiffViewWindow : Window
         string longest = string.Empty;
         foreach (var line in lines)
         {
-            if (line.Left != null && line.Left.Length > longest.Length) longest = line.Left;
-            if (line.Right != null && line.Right.Length > longest.Length) longest = line.Right;
+            string left = (line.Left ?? string.Empty).Replace("\t", "    ");
+            string right = (line.Right ?? string.Empty).Replace("\t", "    ");
+            if (left.Length > longest.Length) longest = left;
+            if (right.Length > longest.Length) longest = right;
         }
+        if (ViewModel.CompareNewlines) longest += "?";
 
         var typeface = new Typeface(new FontFamily("Consolas, Yu Gothic UI, Meiryo UI"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
         var formatted = new FormattedText(longest, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface, 13, Brushes.Black, VisualTreeHelper.GetDpi(this).PixelsPerDip);
@@ -616,11 +659,16 @@ internal sealed partial class DiffViewWindow : Window
             box.Document.PageWidth = Math.Max(sharedTextWidth + 24, Math.Max(200, box.ActualWidth));
             UpdateHunkOverlay();
         };
-        PopulatePane(box, sourceSide);
         return box;
     }
 
+    private static readonly SolidColorBrush NewlineBrush = Brushes.Yellow;
+    private static readonly FontWeight NewlineWeight = FontWeights.Bold;
+    private static readonly Regex SpaceRuns = new Regex(@"\u0020+", RegexOptions.Compiled);
     private void PopulatePane(RichTextBox box, bool sourceSide)
+        => PopulatePaneAsync(box, sourceSide, false).GetAwaiter().GetResult();
+
+    private async Task PopulatePaneAsync(RichTextBox box, bool sourceSide, bool responsive)
     {
         var document = new FlowDocument
         {
@@ -629,16 +677,53 @@ internal sealed partial class DiffViewWindow : Window
             LineHeight = DiffLineHeight,
             LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
             PageWidth = Math.Max(sharedTextWidth + 24, Math.Max(200, box.ActualWidth)),
-            PageHeight = Math.Max(DiffLineHeight * Math.Max(1, lines == null ? 1 : lines.Count) + 24, 200)
+            PageHeight = Math.Max(DiffLineHeight * Math.Max(1, lines == null ? 1 : lines.Count) + 24, 200),
+            IsOptimalParagraphEnabled = false,
+            IsHyphenationEnabled = false
         };
         document.SetResourceReference(FlowDocument.BackgroundProperty, "CardBackground");
         document.SetResourceReference(FlowDocument.ForegroundProperty, "Ink");
+
         bool blockComment = false;
         int originalRow = 0;
+
+        var endings = (sourceSide ? ViewModel.SourceText : ViewModel.TargetText)?.Endings;
+        bool compareNewlines = ViewModel.CompareNewlines && endings != null;
+
+        // ブロックの一括追加用リスト（都度Addによるイベント発火を防止）
+        var blockList = new List<Block>(lines != null ? lines.Count : 0);
+        var slice = System.Diagnostics.Stopwatch.StartNew();
+
         foreach (DiffLine line in lines)
         {
+            if (responsive)
+            {
+                CheckWindowOpen();
+                long completed = (sourceSide ? 0L : lines.Count) + blockList.Count;
+                long total = Math.Max(0L, 2L * lines.Count - 1);
+                ShowLoadProgress((sourceSide ? "Source" : "Target") + "  " + completed + " / " + total,
+                    100.0 * completed / Math.Max(1L, total));
+                if (blockList.Count == 0 || slice.ElapsedMilliseconds >= 16)
+                {
+                    await Dispatcher.Yield(DispatcherPriority.Background);
+                    CheckWindowOpen();
+                    slice.Restart();
+                }
+            }
             string text = sourceSide ? line.Left : line.Right;
-            text = (text ?? string.Empty).Replace("\t", "    ");
+
+            // タブおよびスペースの置換を事前に行う（Run追加後のText再代入をなくす）
+            if (ViewModel.CompareSpaces && !string.IsNullOrEmpty(text))
+            {
+                text = SpaceRuns.Replace(text, m => new string('\uFF65', m.Length))
+                    .Replace("\u3000", "\u25AF")
+                    .Replace("\t", "\u003E\uFF65\uFF65\uFF65");
+            }
+            else
+            {
+                text = (text ?? string.Empty).Replace("\t", "    ");
+            }
+
             var paragraph = new Paragraph
             {
                 Margin = new Thickness(0),
@@ -647,25 +732,25 @@ internal sealed partial class DiffViewWindow : Window
                 LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
                 TextAlignment = TextAlignment.Left
             };
+
             if (line.FilteredLineCount > 0)
             {
                 paragraph.Cursor = Cursors.Hand;
                 paragraph.ToolTip = "Click to expand unchanged lines";
-                // Hidden text still determines the syntax state of the next visible line.
                 if (syntaxExtension == ".cs")
+                {
                     for (int i = 0; i < line.FilteredLineCount; i++)
                     {
                         DiffLine hidden = ViewModel.AllLines[originalRow + i];
                         AddCSharpRuns(null, (sourceSide ? hidden.Left : hidden.Right) ?? string.Empty, ref blockComment);
                     }
+                }
                 originalRow += line.FilteredLineCount;
                 paragraph.Inlines.Add(new Run(text));
                 paragraph.FontSize = 10;
                 paragraph.SetResourceReference(TextElement.ForegroundProperty, "Muted");
                 paragraph.SetResourceReference(TextElement.BackgroundProperty,
-                                TryFindResource("DiffFilteredBackground") != null
-                                    ? "DiffFilteredBackground"
-                                    : "HeaderBackground");
+                    TryFindResource("DiffFilteredBackground") != null ? "DiffFilteredBackground" : "HeaderBackground");
             }
             else
             {
@@ -674,16 +759,98 @@ internal sealed partial class DiffViewWindow : Window
                     paragraph.Cursor = Cursors.Hand;
                     paragraph.ToolTip = "Click to collapse unchanged lines";
                 }
+
+                // 置換済みテキストを使ってシンタックスハイライト（各Run）を生成
                 AddSyntaxRuns(paragraph, string.IsNullOrEmpty(text) ? " " : text, ref blockComment);
+
+                if (ViewModel.CompareCase && line.Kind == DiffLineKind.Modified)
+                {
+                    await MarkInlineDifferencesAsync(paragraph, line, sourceSide, responsive);
+                }
+
+                if (compareNewlines)
+                {
+                    int number = sourceSide ? line.LeftNumber : line.RightNumber;
+                    if (number > 0 && number <= endings.Length)
+                    {
+                        string mark = endings[number - 1] switch
+                        {
+                            "\r\n" => "\u21B2",
+                            "\n" => "\u2193",
+                            "\r" => "\u240D",
+                            _ => string.Empty
+                        };
+                        if (mark.Length > 0)
+                        {
+                            paragraph.Inlines.Add(new Run(mark)
+                            {
+                                Foreground = NewlineBrush,
+                                FontWeight = NewlineWeight
+                            });
+                        }
+                    }
+                }
+
                 originalRow++;
             }
+
             string resource = LineBrushKey(line.Kind, sourceSide);
             if (resource != null)
+            {
                 paragraph.SetResourceReference(TextElement.BackgroundProperty, resource);
-            document.Blocks.Add(paragraph);
+            }
+
+            blockList.Add(paragraph);
         }
 
+        // 最後にまとめて追加
+        document.Blocks.AddRange(blockList);
         box.Document = document;
+    }
+    private async Task MarkInlineDifferencesAsync(Paragraph paragraph, DiffLine line, bool sourceSide, bool responsive)
+    {
+        string left = (line.Left ?? string.Empty).Replace("\t", "    ");
+        string right = (line.Right ?? string.Empty).Replace("\t", "    ");
+        var differences = responsive
+            ? await Task.Run(() => DiffTextService.Compare(
+                left.Select(c => c.ToString()).ToArray(), right.Select(c => c.ToString()).ToArray()))
+            : DiffTextService.Compare(left.Select(c => c.ToString()).ToArray(), right.Select(c => c.ToString()).ToArray());
+        if (responsive) CheckWindowOpen();
+        var changed = new bool[sourceSide ? left.Length : right.Length];
+        foreach (var difference in differences)
+        {
+            int index = (sourceSide ? difference.LeftNumber : difference.RightNumber) - 1;
+            if (difference.Kind != DiffLineKind.Unchanged && index >= 0 &&
+                (ViewModel.CompareSpaces || (sourceSide ? left[index] : right[index]) != ' '))
+                changed[index] = true;
+        }
+
+        var ranges = new List<TextRange>();
+        int offset = 0;
+        foreach (Run run in paragraph.Inlines.OfType<Run>())
+        {
+            int index = 0;
+            while (index < run.Text.Length)
+            {
+                if (offset + index >= changed.Length || !changed[offset + index]) { index++; continue; }
+                int start = index++;
+                while (index < run.Text.Length && offset + index < changed.Length && changed[offset + index]) index++;
+                ranges.Add(new TextRange(run.ContentStart.GetPositionAtOffset(start), run.ContentStart.GetPositionAtOffset(index)));
+            }
+            offset += run.Text.Length;
+        }
+        var slice = System.Diagnostics.Stopwatch.StartNew();
+        foreach (TextRange range in ranges)
+        {
+            range.ApplyPropertyValue(TextElement.ForegroundProperty, Brushes.Red);
+            range.ApplyPropertyValue(TextElement.FontWeightProperty, FontWeights.Bold);
+            if (responsive && slice.ElapsedMilliseconds >= 16)
+            {
+                await Dispatcher.Yield(DispatcherPriority.Background);
+                CheckWindowOpen();
+                slice.Restart();
+            }
+        }
     }
 
     private static readonly HashSet<string> CSharpKeywords = new HashSet<string>(StringComparer.Ordinal)
@@ -1168,6 +1335,7 @@ internal sealed partial class DiffViewWindow : Window
     {
         var left = ViewModel.SourceImage;
         var right = ViewModel.TargetImage;
+        body.Children.Clear();
         body.ColumnDefinitions[1].Width = new GridLength(12);
         double width = Math.Max(left == null ? 0 : left.PixelWidth, right == null ? 0 : right.PixelWidth);
         double height = Math.Max(left == null ? 0 : left.PixelHeight, right == null ? 0 : right.PixelHeight);

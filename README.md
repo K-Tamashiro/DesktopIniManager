@@ -25,6 +25,9 @@ Extract into a fresh folder and run **DesktopIniManager.exe**. Keep all DLLs, JS
 - Fixed single-root folder row, folder-name hit highlighting/counting, resizable columns, and saved pane/column widths.
 - Source-yellow and Target-blue DIFF VIEW frames, a draggable difference map, and an all-lines / differences-only toggle whose state is saved on close.
 - Incremental comparison results, folder-building progress, and one-way Source-to-Target selection of an existing same-name folder.
+- Independently selectable comparison checks for modification date/time, file size, attributes (including BOM), and XXH128.
+- DIFF VIEW whitespace, inline-difference and line-ending markers, plus a progress bar while loading.
+- Updated icons for selected controls.
 
 ## Main window
 
@@ -44,7 +47,7 @@ Drag folders out with their immediate files, or drag multiple files from the fil
 
 Compare a yellow Source tree with a blue Target tree. Paths are indexed when selected; folder-label buttons provide explicit rescans. Source-to-Target folder matching selects an existing same-name folder under the current Target. It does not create folders or run in reverse.
 
-Comparison uses **file size and modification time**, or size alone when date comparison is disabled. It is not a content-hash comparison. One-sided files/folders are included. Environment/build artifacts are normally excluded, with separate obj and bin visibility controls.
+Comparison checks can be enabled individually for **modification date/time**, **file size**, **attributes (including BOM)**, and **XXH128 content hash**. One-sided files/folders are included. Environment/build artifacts are normally excluded, with separate obj and bin visibility controls.
 
 Filter Same, Different, Source-only, Target-only, obj, bin, and checked items. Same files are hidden by default. The Same-check action can include identical files in synchronization or ZIP selections.
 
@@ -85,6 +88,8 @@ Double-click a supported comparison file to open the read-only viewer. Text diff
 - Differences-only mode shows complete changed sections without unchanged context lines. Omitted sections have markers such as “52 filtered lines”.
 - **Ctrl + 0** performs the same toggle. Closing the viewer saves its last mode for the current slot.
 - Jump between sections/files, open either side in an external editor, or launch an external diff/merge tool.
+- Show Space and Tab characters, inline differences, and line-ending marks in the text comparison.
+- A progress bar indicates loading progress when opening DIFF VIEW.
 
 DIM does not edit or merge file contents in this viewer. Scanning, searching, comparing, and viewing leave source contents unchanged. Explicit icon application, synchronization, Clean/build commands, ZIP/export, and external tools can write files.
 
@@ -120,6 +125,10 @@ Choose Dark, Light, or a DIM1–DIM5 theme. English, Japanese, Simplified Chines
 | Ctrl + Up / Down | Previous / next difference section |
 | Ctrl + Left / Right | Previous / next comparison file |
 | Ctrl + 0 | Toggle all lines / differences only |
+
+## Source file encoding
+
+Files in the solution have been standardized to **UTF-8 with BOM and LF line endings**.
 
 ## Distribution and support
 

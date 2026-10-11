@@ -122,7 +122,7 @@ internal sealed partial class DiffViewWindow
         return text;
     }
 
-    private static string Dimensions(BitmapSource image) => image == null ? "—" : $"{image.PixelWidth} × {image.PixelHeight} px";
+    private static string Dimensions(BitmapSource image) => image == null ? "\u2014" : $"{image.PixelWidth} \u00D7 {image.PixelHeight} px";
 
     private void SetImagePointDetails(Point point, bool rememberOrigin)
     {
@@ -135,7 +135,7 @@ internal sealed partial class DiffViewWindow
     internal static string DescribePixel(BitmapSource pixels, Point point)
     {
         int x = (int)Math.Floor(point.X), y = (int)Math.Floor(point.Y);
-        if (pixels == null || x < 0 || y < 0 || x >= pixels.PixelWidth || y >= pixels.PixelHeight) return "X:— Y:—\nRGB:—\nA:—";
+        if (pixels == null || x < 0 || y < 0 || x >= pixels.PixelWidth || y >= pixels.PixelHeight) return "X:\u2014 Y:\u2014\nRGB:\u2014\nA:\u2014";
         var pixel = new byte[4];
         PixelImage(pixels).CopyPixels(new Int32Rect(x, y, 1, 1), pixel, 4, 0);
         return $"X:{x} Y:{y}\nRGB:{pixel[2]},{pixel[1]},{pixel[0]}\nA:{pixel[3]}";

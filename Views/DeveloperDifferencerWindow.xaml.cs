@@ -461,6 +461,8 @@ public partial class DeveloperDifferencerWindow : Window
     private void UpdateCompareModeIcons()
     {
         if (CompareTimestampBox != null) SetIcon(CompareTimestampIcon, CompareTimestampBox.IsChecked == true ? 130 : 131);
+        if (CompareSizeBox != null) SetIcon(CompareSizeIcon, CompareSizeBox.IsChecked == true ? 134 : 135);
+        if (CompareAttributesBox != null) SetIcon(CompareAttributesIcon, CompareAttributesBox.IsChecked == true ? 132 : 133);
         if (PreciseCompareBox != null) SetIcon(PreciseCompareIcon, PreciseCompareBox.IsChecked == true ? 128 : 129);
     }
 

@@ -41,8 +41,8 @@ internal sealed class DiffStamp
     }
     public static bool Same(DiffStamp a, DiffStamp b)
     { return Same(a, b, true); }
-    public static bool Same(DiffStamp a, DiffStamp b, bool compareTimestamp)
-    { return a == null || b == null ? a == b : a.Size == b.Size && (!compareTimestamp || a.ModifiedUtcSeconds == b.ModifiedUtcSeconds); }
+    public static bool Same(DiffStamp a, DiffStamp b, bool compareTimestamp, bool compareSize = true)
+    { return a == null || b == null ? a == b : (!compareSize || a.Size == b.Size) && (!compareTimestamp || a.ModifiedUtcSeconds == b.ModifiedUtcSeconds); }
     public string Describe() { return ModifiedUtc.ToLocalTime().ToString("yyyy/MM/dd HH:mm:ss.fffffff") + "\n" + Size.ToString("N0") + " bytes"; }
 }
 
@@ -56,23 +56,31 @@ internal sealed class DiffFile : INotifyPropertyChanged
     public DiffStamp Source { get; set; }
     public DiffStamp Target { get; set; }
     public bool CompareTimestamp { get; set; } = true;
+    public bool CompareSize { get; set; } = true;
+    public bool CompareAttributes { get; set; }
+    public bool? SourceBom { get; set; }
+    public bool? TargetBom { get; set; }
+    public bool AttributeUnreadable => CompareAttributes && ((Source != null && SourceBom == null) || (Target != null && TargetBom == null));
+    public bool AttributeDifferent => CompareAttributes && SourceBom != TargetBom;
     public bool PreciseCompare { get; set; }
     public string SourceHash { get; set; }
     public string TargetHash { get; set; }
     public bool ContentDifferent => PreciseCompare && SourceHash != null && TargetHash != null && !string.Equals(SourceHash, TargetHash, StringComparison.Ordinal);
-    public DiffKind Kind { get { return Source == null ? DiffKind.TargetOnly : Target == null ? DiffKind.SourceOnly : (DiffStamp.Same(Source, Target, CompareTimestamp) && !ContentDifferent) ? DiffKind.Same : DiffKind.Different; } }
-    public bool CanSync { get { return Kind != DiffKind.Same; } }
+    public DiffKind Kind { get { return Source == null ? DiffKind.TargetOnly : Target == null ? DiffKind.SourceOnly : (DiffStamp.Same(Source, Target, CompareTimestamp, CompareSize) && !ContentDifferent && !AttributeDifferent && !AttributeUnreadable) ? DiffKind.Same : DiffKind.Different; } }
+    public bool CanSync { get { return !AttributeUnreadable && Kind != DiffKind.Same; } }
     public bool CanToggleSelection { get { return CanSync || Selected; } }
-    public string State { get { return Kind == DiffKind.Same ? "Same" : Source == null ? "Target only" : Target == null ? "Source only" : ContentDifferent ? "Content differs" : !CompareTimestamp || Source.ModifiedUtcSeconds == Target.ModifiedUtcSeconds ? "Size differs" : "Time / size differs"; } }
+    public string State { get { return AttributeUnreadable ? "ATTR unreadable (BOM)" : Kind == DiffKind.Same ? "Same" : Source == null ? "Target only" : Target == null ? "Source only" : AttributeDifferent ? "ATTR differs (BOM)" : ContentDifferent ? "Content differs" : !CompareTimestamp || Source.ModifiedUtcSeconds == Target.ModifiedUtcSeconds ? "Size differs" : CompareSize && Source.Size != Target.Size ? "Time / size differs" : "Time differs"; } }
     public string SourceInfo { get { return Describe(Source, Target); } }
     public string TargetInfo { get { return Describe(Target, Source); } }
     private string Describe(DiffStamp own, DiffStamp other)
     {
         if (own == null) return "missing";
+        if (CompareAttributes && (ReferenceEquals(own, Source) ? SourceBom : TargetBom) == null)
+            return "ATTR unreadable (BOM)\n" + own.Describe();
         string state = other == null ? "" : Kind == DiffKind.Same ? "Same\n" :
             CompareTimestamp && own.ModifiedUtcSeconds != other.ModifiedUtcSeconds
                 ? (own.ModifiedUtcSeconds > other.ModifiedUtcSeconds ? "NEW\n" : "OLD\n")
-                : ContentDifferent ? "Content differs\n" : "Size differs\n";
+                : AttributeDifferent ? "ATTR differs (BOM)\n" : ContentDifferent ? "Content differs\n" : "Size differs\n";
         return state + own.Describe();
     }
     private bool selected;
@@ -109,6 +117,8 @@ internal sealed class DiffSnapshot
     public string SourceRoot;
     public string TargetRoot;
     public bool CompareTimestamp = true;
+    public bool CompareSize = true;
+    public bool CompareAttributes;
     public bool PreciseCompare;
     public List<DiffFile> Files = new List<DiffFile>();
     public HashSet<string> Folders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "" };
@@ -289,19 +299,19 @@ internal static class DeveloperDifferencerService
         // Scan each side once; the total becomes known after collecting its metadata.
         int total = 0;
 
-        progress?.Report(ReportCompare("Comparing source…", 0, total));
+        progress?.Report(ReportCompare("Comparing source\u2026", 0, total));
         var sourceFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "" };
         var targetFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "" };
-        Dictionary<string, DiffStamp> left = ScanSelectedFolder(source, string.Empty, sourceFolders, token, progress, "Comparing source…", 0, total);
+        Dictionary<string, DiffStamp> left = ScanSelectedFolder(source, string.Empty, sourceFolders, token, progress, "Comparing source\u2026", 0, total);
 
-        progress?.Report(ReportCompare("Comparing target…", left.Count, total));
-        Dictionary<string, DiffStamp> right = ScanSelectedFolder(target, string.Empty, targetFolders, token, progress, "Comparing target…", left.Count, total);
+        progress?.Report(ReportCompare("Comparing target\u2026", left.Count, total));
+        Dictionary<string, DiffStamp> right = ScanSelectedFolder(target, string.Empty, targetFolders, token, progress, "Comparing target\u2026", left.Count, total);
         result.SourceFolders = sourceFolders;
         result.TargetFolders = targetFolders;
         result.Folders = new HashSet<string>(sourceFolders.Union(targetFolders, StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase);
 
         total = Math.Max(1, left.Count + right.Count);
-        progress?.Report(ReportCompare("Classifying differences…", total, total));
+        progress?.Report(ReportCompare("Classifying differences\u2026", total, total));
         result.Files = Classify(left, right, true, compareTimestamp, token, progress, total);
         return result;
     }
@@ -318,22 +328,24 @@ internal static class DeveloperDifferencerService
 
     internal static DiffSnapshot Compare(DiffIndex source, DiffIndex target,
         IProgress<DiffProgress> progress, bool compareTimestamp, CancellationToken token,
-        Action<IReadOnlyList<DiffFile>> onBatch = null, Comparison<string> pathComparison = null, bool preciseCompare = false)
+        Action<IReadOnlyList<DiffFile>> onBatch = null, Comparison<string> pathComparison = null, bool preciseCompare = false, bool compareSize = true, bool compareAttributes = false)
     {
         token.ThrowIfCancellationRequested();
         ValidateRoots(Root(source.Root), Root(target.Root));
         int total = Math.Max(1, source.Files.Count + target.Files.Count);
-        progress?.Report(ReportCompare("Classifying differences…", 0, total));
+        progress?.Report(ReportCompare("Classifying differences\u2026", 0, total));
         return new DiffSnapshot
         {
             SourceRoot = source.Root,
             TargetRoot = target.Root,
             CompareTimestamp = compareTimestamp,
             PreciseCompare = preciseCompare,
+            CompareSize = compareSize,
+            CompareAttributes = compareAttributes,
             SourceFolders = new HashSet<string>(source.Folders, StringComparer.OrdinalIgnoreCase),
             TargetFolders = new HashSet<string>(target.Folders, StringComparer.OrdinalIgnoreCase),
             Folders = new HashSet<string>(source.Folders.Union(target.Folders), StringComparer.OrdinalIgnoreCase),
-            Files = Classify(source.Files, target.Files, true, compareTimestamp, token, progress, total, onBatch, pathComparison, source.Root, target.Root, preciseCompare)
+            Files = Classify(source.Files, target.Files, true, compareTimestamp, token, progress, total, onBatch, pathComparison, source.Root, target.Root, preciseCompare, compareSize, compareAttributes)
         };
     }
 
@@ -380,10 +392,12 @@ internal static class DeveloperDifferencerService
     }
 
     internal static List<DiffFile> Classify(Dictionary<string, DiffStamp> left, Dictionary<string, DiffStamp> right, bool includeSame = false, bool compareTimestamp = true, CancellationToken token = default(CancellationToken), IProgress<DiffProgress> progress = null, int offset = 0,
-        Action<IReadOnlyList<DiffFile>> onBatch = null, Comparison<string> pathComparison = null, string sourceRoot = null, string targetRoot = null, bool preciseCompare = false)
+        Action<IReadOnlyList<DiffFile>> onBatch = null, Comparison<string> pathComparison = null, string sourceRoot = null, string targetRoot = null, bool preciseCompare = false, bool compareSize = true, bool compareAttributes = false)
     {
         var files = new List<DiffFile>();
         var batch = onBatch == null ? null : new List<DiffFile>(128);
+        var sourceValidatedFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var targetValidatedFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         string[] paths = left.Keys.Union(right.Keys, StringComparer.OrdinalIgnoreCase).ToArray();
         if (pathComparison != null) Array.Sort(paths, pathComparison);
         else Array.Sort(paths, StringComparer.OrdinalIgnoreCase);
@@ -392,10 +406,15 @@ internal static class DeveloperDifferencerService
             token.ThrowIfCancellationRequested();
             string path = paths[index];
             if (progress != null && index % 128 == 0)
-                progress.Report(ReportCompare("Classifying differences…", index, paths.Length));
+                progress.Report(ReportCompare("Classifying differences\u2026", index, paths.Length));
             if (Protected(path)) continue;
             DiffStamp a, b; left.TryGetValue(path, out a); right.TryGetValue(path, out b);
             string sourceHash = null, targetHash = null;
+            bool? sourceBom = compareAttributes && a != null
+                ? HasBom(SafeAttributePath(sourceRoot, path, sourceValidatedFolders)) : false;
+
+            bool? targetBom = compareAttributes && b != null
+                ? HasBom(SafeAttributePath(targetRoot, path, targetValidatedFolders)) : false;
             if (preciseCompare)
             {
                 if (a != null) sourceHash = HashFile(SafePath(sourceRoot, path), token);
@@ -412,10 +431,11 @@ internal static class DeveloperDifferencerService
                     continue;
                 }
             }
-            if (includeSame || !DiffStamp.Same(a, b, compareTimestamp) || (preciseCompare && sourceHash != targetHash))
+            if (includeSame || !DiffStamp.Same(a, b, compareTimestamp, compareSize) || (preciseCompare && sourceHash != targetHash) || sourceBom != targetBom || sourceBom == null || targetBom == null)
             {
                 var file = new DiffFile { RelativePath = path, Source = a, Target = b, CompareTimestamp = compareTimestamp,
-                    PreciseCompare = preciseCompare, SourceHash = sourceHash, TargetHash = targetHash };
+                    PreciseCompare = preciseCompare, CompareSize = compareSize, SourceHash = sourceHash, TargetHash = targetHash,
+                    CompareAttributes = compareAttributes, SourceBom = sourceBom, TargetBom = targetBom };
                 files.Add(file);
                 batch?.Add(file);
                 if (batch?.Count >= 128)
@@ -426,9 +446,74 @@ internal static class DeveloperDifferencerService
             }
         }
         if (batch?.Count > 0) onBatch(batch.ToArray());
-        progress?.Report(ReportCompare("Classifying differences…", Math.Max(1, paths.Length), Math.Max(1, paths.Length)));
+        progress?.Report(ReportCompare("Classifying differences\u2026", Math.Max(1, paths.Length), Math.Max(1, paths.Length)));
         return files;
     }
+    private static string SafeAttributePath(
+        string root,
+        string relative,
+        HashSet<string> validatedFolders)
+    {
+        string folder = Path.GetDirectoryName(relative) ?? "";
+
+        if (!validatedFolders.Contains(folder))
+        {
+            // 親階層の検証は初回だけ行う。
+            // 実体のないファイルはHasBom側で読取り不可と判定する。
+            string validated;
+
+            try
+            {
+                validated = SafePath(root, relative);
+            }
+            catch (FileNotFoundException)
+            {
+                validated = Path.GetFullPath(Path.Combine(root, relative));
+            }
+            catch (DirectoryNotFoundException)
+            {
+                validated = Path.GetFullPath(Path.Combine(root, relative));
+            }
+
+            validatedFolders.Add(folder);
+            return validated;
+        }
+
+        string path = Path.GetFullPath(Path.Combine(root, relative));
+
+        try
+        {
+            FileAttributes attributes = File.GetAttributes(path);
+
+            if ((attributes & FileAttributes.ReparsePoint) != 0)
+                throw new IOException("Reparse points are excluded: " + path);
+        }
+        catch (FileNotFoundException)
+        {
+            // HasBomで読取り不可として扱う。
+        }
+        catch (DirectoryNotFoundException)
+        {
+            // HasBomで読取り不可として扱う。
+        }
+
+        return path;
+    }
+    internal static bool? HasBom(string path)
+    {
+        try
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 1);
+            Span<byte> prefix = stackalloc byte[4];
+            int count = stream.ReadAtLeast(prefix, 4, throwOnEndOfStream: false);
+            return (count >= 2 && ((prefix[0] == 0xFF && prefix[1] == 0xFE) || (prefix[0] == 0xFE && prefix[1] == 0xFF))) ||
+                   (count >= 3 && prefix[0] == 0xEF && prefix[1] == 0xBB && prefix[2] == 0xBF) ||
+                   (count == 4 && prefix[0] == 0 && prefix[1] == 0 && prefix[2] == 0xFE && prefix[3] == 0xFF);
+        }
+        catch (IOException) { return null; }
+        catch (UnauthorizedAccessException) { return null; }
+    }
+
     internal static string HashFile(string path, CancellationToken token = default)
     {
         if (string.IsNullOrEmpty(path) || !File.Exists(path)) return null;
@@ -470,6 +555,13 @@ internal static class DeveloperDifferencerService
         };
         foreach (DiffFile file in selected)
         {
+            if (file.AttributeUnreadable)
+            {
+                string failure = "FAIL ATTR unreadable (BOM): " + file.RelativePath;
+                log.Add(failure);
+                onLog?.Invoke(failure);
+                continue;
+            }
             int logIndex = log.Count;
             log.Add(null);
             bool destinationCommitted = false;

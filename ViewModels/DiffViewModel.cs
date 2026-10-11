@@ -25,7 +25,7 @@ internal sealed class DiffViewModel : ObservableObject
         }
     }
     private readonly string sourcePath, targetPath;
-    public string Title => string.Format(StringOverlay.Get("Diff_TitleFile"), sourcePath == null ? File.RelativePath : Path.GetFileName(sourcePath) + " ↔ " + Path.GetFileName(targetPath));
+    public string Title => string.Format(StringOverlay.Get("Diff_TitleFile"), sourcePath == null ? File.RelativePath : Path.GetFileName(sourcePath) + " \u2194 " + Path.GetFileName(targetPath));
     public string SourceHeader => HeaderMeta(File.SourceInfo);
     public string TargetHeader => HeaderMeta(File.TargetInfo);
     public bool IsImage => DiffMedia.IsImage(File.RelativePath);
@@ -46,7 +46,7 @@ internal sealed class DiffViewModel : ObservableObject
     internal IReadOnlyList<DiffLine> AllLines => allLines;
     internal bool DifferencesOnly { get; private set; }
     internal bool CompareNewlines { get; set; } = SettingsService.LoadDiffFlag("newlines", false);
-    internal bool CompareCase { get; set; } = SettingsService.LoadDiffFlag("case", true);
+    internal bool CompareCase { get; set; } = SettingsService.LoadDiffFlag("case", false);
     internal bool CompareSpaces { get; set; } = SettingsService.LoadDiffFlag("spaces", false);
     internal bool CanChangeComparison => !loadingContent && !navigating && !closed;
     internal TextDocument SourceText { get; private set; }
@@ -55,7 +55,7 @@ internal sealed class DiffViewModel : ObservableObject
     {
         internal string[] Lines = Array.Empty<string>();
         internal string[] Endings = Array.Empty<string>();
-        internal string EncodingName = "—";
+        internal string EncodingName = "\u2014";
         internal bool HasBom;
         internal string Newlines => string.Join("/", Endings.Where(e => e.Length > 0).Distinct().Select(e => e == "\r\n" ? "CRLF" : e == "\r" ? "CR" : "LF"));
     }
@@ -487,7 +487,7 @@ internal sealed class DiffViewModel : ObservableObject
         finally { navigating = false; }
     }
 
-    private static string ImageSize(BitmapSource image) { return image == null ? "none" : image.PixelWidth + " × " + image.PixelHeight + " px"; }
+    private static string ImageSize(BitmapSource image) { return image == null ? "none" : image.PixelWidth + " \u00D7 " + image.PixelHeight + " px"; }
 
     private static readonly string[] ExternalDiffPresets =
     {

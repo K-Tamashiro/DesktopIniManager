@@ -1,4 +1,4 @@
-# Matthias Hertel's Diff implementation
+﻿# Matthias Hertel's Diff implementation
 
 DIM's `Services/Diff.cs` is a modified derivative of Matthias Hertel's C#
 implementation of Eugene Myers' O(ND) difference algorithm.

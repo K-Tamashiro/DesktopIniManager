@@ -23,8 +23,8 @@ internal sealed partial class DeveloperDifferencerViewModel
     public RelayCommand DeleteAllHistoryTabsCommand { get; private set; }
     public ParameterCommand DeleteOtherHistoryTabsCommand { get; private set; }
     public string HistoryRoots => snapshot == null ? "" : HistorySourceRoot + "   " + HistoryTargetRoot;
-    public string HistorySourceRoot => snapshot == null ? "" : "Source: …" + RootName(snapshot.SourceRoot);
-    public string HistoryTargetRoot => snapshot == null ? "" : "Target: …" + RootName(snapshot.TargetRoot);
+    public string HistorySourceRoot => snapshot == null ? "" : "Source: \u2026" + RootName(snapshot.SourceRoot);
+    public string HistoryTargetRoot => snapshot == null ? "" : "Target: \u2026" + RootName(snapshot.TargetRoot);
     public string HistoryRootsTooltip => snapshot == null ? "" : "Source: " + snapshot.SourceRoot + "\nTarget: " + snapshot.TargetRoot;
     private static string RootName(string path) => System.IO.Path.GetFileName(DisplayRoot(path));
 
@@ -106,6 +106,8 @@ internal sealed partial class DeveloperDifferencerViewModel
             OnPropertyChanged(nameof(SourcePath)); OnPropertyChanged(nameof(TargetPath));
             snapshot = tab.Snapshot; treeSource = SourcePath; treeTarget = TargetPath;
             CompareTimestamp = snapshot.CompareTimestamp;
+            CompareSize = snapshot.CompareSize;
+            CompareAttributes = snapshot.CompareAttributes;
             PreciseCompare = snapshot.PreciseCompare;
             kindMask = tab.KindMask; showObj = tab.ShowObj; showBin = tab.ShowBin;
             ShowObj = showObj; ShowBin = showBin;

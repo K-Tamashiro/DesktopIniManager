@@ -49,7 +49,7 @@ internal sealed class FastFolderSearchService
                 foreach (var group in paths.FindFiles(new[] { extension })
                     .GroupBy(FolderPathOf, StringComparer.OrdinalIgnoreCase))
                     if (!string.IsNullOrEmpty(group.Key) && IsDisplayable(paths.Find(group.Key)))
-                        Add(matches, group.Key, "Contents: " + extension + " × " + group.Count());
+                        Add(matches, group.Key, "Contents: " + extension + " \u00D7 " + group.Count());
             }
         }
         foreach (string path in matches.Keys.ToArray())
@@ -181,8 +181,8 @@ internal sealed class FastFolderSearchService
             }
 
             if (repository) parts.Add("Repository");
-            if (solutions > 0) parts.Add("SLN ×" + solutions);
-            if (projects > 0) parts.Add("Project ×" + projects);
+            if (solutions > 0) parts.Add("SLN \u00D7" + solutions);
+            if (projects > 0) parts.Add("Project \u00D7" + projects);
 
             foreach (var extension in extensionCounts
                 .OrderByDescending(pair => pair.Value)
@@ -192,7 +192,7 @@ internal sealed class FastFolderSearchService
                 string name = string.IsNullOrEmpty(extension.Key)
                     ? "(no extension)"
                     : extension.Key.ToLowerInvariant();
-                parts.Add(name + " ×" + extension.Value);
+                parts.Add(name + " \u00D7" + extension.Value);
             }
 
             result[folder.Path] = parts.Count == 0 ? "Empty folder" : string.Join("  ", parts);

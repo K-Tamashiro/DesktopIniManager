@@ -111,8 +111,8 @@ internal sealed class MainWindowPresentationService
         _window.RunScriptButton.Click += (sender, args) => RunScriptCommand();
         _window.BrowseScriptButton.Click += (sender, args) => BrowseScriptCommand();
         _window.ScriptBox.PreviewKeyDown += ScriptBox_PreviewKeyDown;
-        _window.RunScriptButton.ToolTip = ScriptText("Main_RunScript", "Run  —  execute the command (%d folder / %f file / %n name)");
-        _window.BrowseScriptButton.ToolTip = ScriptText("Main_BrowseScript", "Browse  —  pick .bat / .cmd / .ps1 / .vbs");
+        _window.RunScriptButton.ToolTip = ScriptText("Main_RunScript", "Run  \u2014  execute the command (%d folder / %f file / %n name)");
+        _window.BrowseScriptButton.ToolTip = ScriptText("Main_BrowseScript", "Browse  \u2014  pick .bat / .cmd / .ps1 / .vbs");
         _window.ScriptBox.ToolTip = ScriptText("Main_ScriptTooltip", "Command. %d = folder, %f = file path, %n = file name. Quote as \"%d\" to wrap.");
         _window.Closing += OnClosing;
         _window.Closed += OnClosed;
@@ -535,21 +535,21 @@ internal sealed class MainWindowPresentationService
         for (int i = 0; i < files.Count; i++)
         {
             text.Append(prefix);
-            text.Append(dirs.Count > 0 ? "│  " : "    ");
+            text.Append(dirs.Count > 0 ? "\u2502  " : "    ");
             text.AppendLine(files[i]);
         }
         if (files.Count > 0 && dirs.Count > 0)
         {
             text.Append(prefix);
-            text.AppendLine("│");
+            text.AppendLine("\u2502");
         }
         for (int i = 0; i < dirs.Count; i++)
         {
             bool last = i == dirs.Count - 1;
             text.Append(prefix);
-            text.Append(last ? "└─" : "├─");
+            text.Append(last ? "\u2514\u2500" : "\u251C\u2500");
             text.AppendLine(dirs[i].Name);
-            WriteContainedLevel(text, dirs[i], prefix + (last ? "    " : "│   "), includeFiles);
+            WriteContainedLevel(text, dirs[i], prefix + (last ? "    " : "\u2502   "), includeFiles);
         }
     }
 

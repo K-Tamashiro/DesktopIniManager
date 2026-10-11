@@ -288,7 +288,7 @@ internal sealed class DiffSide : INotifyPropertyChanged
             {
                 var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.DelayCreation, BitmapCacheOption.None);
                 width = decoder.Frames[0].PixelWidth; height = decoder.Frames[0].PixelHeight;
-                result.Dimensions = width + " × " + height;
+                result.Dimensions = width + " \u00D7 " + height;
             }
             using (var stream = File.OpenRead(path))
             {

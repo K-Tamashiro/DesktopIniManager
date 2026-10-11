@@ -29,7 +29,7 @@ internal static class DiffRegressionTests
         Directory.CreateDirectory(fixture);
         string left = Path.Combine(fixture, "source.txt"), right = Path.Combine(fixture, "target.txt");
         string shared = string.Join("\n", Enumerable.Range(0, 100).Select(i => "unchanged " + i));
-        File.WriteAllText(left, "source marker\n" + shared + "\nsource end", new UTF8Encoding(true));
+        File.WriteAllText(left, "source marker\t \u3000\n" + shared + "\nsource end", new UTF8Encoding(true));
         File.WriteAllText(right, "target marker\n" + shared + "\ntarget end", new UnicodeEncoding(false, true));
         var launch = ExternalDiffLaunch.Parse(["-diff", left, right]);
         var snapshot = launch.CreateSnapshot();
@@ -129,6 +129,7 @@ internal static class DiffRegressionTests
                 Require(ReferenceEquals(sourcePane, leftField.GetValue(viewer)) && ReferenceEquals(sourceHost, ((Grid)sourcePane.Parent).Parent),
                     "folding retains pane and host controls");
                 Require(sourcePane.Document.Blocks.Count == 102 && rightPane.Document.Blocks.Count == 102, "both documents expanded in place");
+                if (cycle == 0) VerifyWhitespaceOverlay(viewer, sourcePane);
                 sourcePane.ScrollToVerticalOffset(220);
                 rightPane.ScrollToVerticalOffset(220);
                 viewer.UpdateLayout();
@@ -147,6 +148,57 @@ internal static class DiffRegressionTests
         }
         finally { viewer.Close(); app.Shutdown(); }
         return 0;
+    }
+
+    private static void VerifyWhitespaceOverlay(DiffViewWindow viewer, RichTextBox pane)
+    {
+        var overlay = ((Grid)pane.Parent).Children.Cast<FrameworkElement>().Single(e => e.GetType().Name == "WhitespaceOverlay");
+        var spaces = (CheckBox)viewer.FindName("showSpacesBox");
+        var endings = (CheckBox)viewer.FindName("showNewlinesBox");
+        bool oldSpaces = viewer.ViewModel.ShowSpaces, oldEndings = viewer.ViewModel.ShowNewlines;
+        var document = pane.Document;
+        var lines = viewer.ViewModel.Lines;
+        string before = new TextRange(document.ContentStart, document.ContentEnd).Text;
+        var render = overlay.GetType().GetMethod("OnRender", BindingFlags.Instance | BindingFlags.NonPublic);
+        int Draw()
+        {
+            viewer.UpdateLayout();
+            var visual = new System.Windows.Media.DrawingVisual();
+            using (var context = visual.RenderOpen()) render.Invoke(overlay, new object[] { context });
+            return (int)overlay.GetType().GetProperty("LastDrawnMarkCount", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(overlay);
+        }
+        void Toggle(bool showSpaces, bool showEndings)
+        {
+            spaces.IsChecked = showSpaces;
+            endings.IsChecked = showEndings;
+            spaces.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+        }
+        try
+        {
+            Toggle(false, false);
+            Require(Draw() == 0, "hidden markers produce no drawing");
+            Toggle(true, false);
+            Require(Draw() > 0, "visible spaces and tabs are drawn");
+            int visibleRows = (int)overlay.GetType().GetProperty("LastVisibleRowCount", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(overlay);
+            Require(visibleRows < 102, "marker rendering only visits viewport rows");
+            Toggle(false, true);
+            Require(Draw() > 0, "line endings are drawn independently");
+            for (int i = 0; i < 20; i++) Toggle(i % 2 == 0, i % 2 != 0);
+            Require(ReferenceEquals(document, pane.Document) && ReferenceEquals(lines, viewer.ViewModel.Lines), "marker toggles retain document and diff results");
+            Require(new TextRange(document.ContentStart, document.ContentEnd).Text == before && !before.Contains('\uFF65') && !before.Contains('\u2193'), "markers never enter selected or copied document text");
+            pane.ScrollToVerticalOffset(440);
+            Require(Draw() > 0, "markers follow scrolling");
+            pane.ScrollToVerticalOffset(0);
+            Toggle(true, true);
+            viewer.UpdateLayout();
+            var preview = new System.Windows.Media.Imaging.RenderTargetBitmap((int)viewer.ActualWidth, (int)viewer.ActualHeight, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+            preview.Render(viewer);
+            var png = new System.Windows.Media.Imaging.PngBitmapEncoder();
+            png.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(preview));
+            using (var output = File.Create(Path.Combine(AppContext.BaseDirectory, "diff-markers-preview.png"))) png.Save(output);
+            Console.WriteLine("PASS viewport marker rendering and display toggles preserve document and comparison");
+        }
+        finally { Toggle(oldSpaces, oldEndings); }
     }
 
     internal static int Run()

@@ -148,6 +148,10 @@
       </Grid>
     </Grid>
 
+    <StackPanel x:Name="markerOptions" DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="8,4,8,0">
+      <CheckBox x:Name="showSpacesBox" Content="Show spaces / tabs" Margin="0,0,16,0" Click="MarkerDisplay_Click" />
+      <CheckBox x:Name="showNewlinesBox" Content="Show line endings" Click="MarkerDisplay_Click" />
+    </StackPanel>
     <StackPanel x:Name="loadProgressPanel" DockPanel.Dock="Bottom" Height="30" Margin="8,6,8,0" Visibility="Hidden">
       <TextBlock x:Name="loadProgressText" Foreground="{DynamicResource Muted}" Margin="0,0,0,4" />
       <ProgressBar x:Name="loadProgress" Height="6" Minimum="0" Maximum="100" />

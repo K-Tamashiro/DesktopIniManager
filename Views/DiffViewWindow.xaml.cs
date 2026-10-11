@@ -1,4 +1,4 @@
-﻿using DesktopIniManager.ViewModels;
+using DesktopIniManager.ViewModels;
 using DesktopIniManager.Services;
 using DesktopIniManager.Properties;
 using System;
@@ -250,6 +250,9 @@ internal sealed partial class DiffViewWindow : Window
 
     private void BuildToolbar()
     {
+        showSpacesBox.IsChecked = ViewModel.ShowSpaces;
+        showNewlinesBox.IsChecked = ViewModel.ShowNewlines;
+        markerOptions.Visibility = ViewModel.IsImage ? Visibility.Hidden : Visibility.Visible;
         actionsPanel.Children.Clear();
         fileNavigationPanel.Children.Clear();
         if (!ViewModel.IsImage)
@@ -564,7 +567,8 @@ internal sealed partial class DiffViewWindow : Window
             if (left.Length > longest.Length) longest = left;
             if (right.Length > longest.Length) longest = right;
         }
-        if (ViewModel.CompareNewlines) longest += "?";
+        // Reserve room for an ending marker without changing layout when toggled.
+        longest += "  ";
 
         var typeface = new Typeface(new FontFamily("Consolas, Yu Gothic UI, Meiryo UI"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
         var formatted = new FormattedText(longest, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface, 13, Brushes.Black, VisualTreeHelper.GetDpi(this).PixelsPerDip);
@@ -628,6 +632,9 @@ internal sealed partial class DiffViewWindow : Window
         grid.Children.Add(gutterViewport);
         Grid.SetColumn(box, 1);
         grid.Children.Add(box);
+        var markers = new WhitespaceOverlay(box, ViewModel);
+        Grid.SetColumn(markers, 1);
+        grid.Children.Add(markers);
 
         var host = new Border { Child = grid, BorderThickness = new Thickness(5) };
         host.SetResourceReference(Border.BorderBrushProperty, sourceSide ? "SourceColor" : "TargetColor");
@@ -662,9 +669,6 @@ internal sealed partial class DiffViewWindow : Window
         return box;
     }
 
-    private static readonly SolidColorBrush NewlineBrush = Brushes.Yellow;
-    private static readonly FontWeight NewlineWeight = FontWeights.Bold;
-    private static readonly Regex SpaceRuns = new Regex(@"\u0020+", RegexOptions.Compiled);
     private void PopulatePane(RichTextBox box, bool sourceSide)
         => PopulatePaneAsync(box, sourceSide, false).GetAwaiter().GetResult();
 
@@ -688,7 +692,7 @@ internal sealed partial class DiffViewWindow : Window
         int originalRow = 0;
 
         var endings = (sourceSide ? ViewModel.SourceText : ViewModel.TargetText)?.Endings;
-        bool compareNewlines = ViewModel.CompareNewlines && endings != null;
+        var markerRows = new List<WhitespaceRow>(lines.Count);
 
         // ブロックの一括追加用リスト（都度Addによるイベント発火を防止）
         var blockList = new List<Block>(lines != null ? lines.Count : 0);
@@ -712,17 +716,7 @@ internal sealed partial class DiffViewWindow : Window
             }
             string text = sourceSide ? line.Left : line.Right;
 
-            // タブおよびスペースの置換を事前に行う（Run追加後のText再代入をなくす）
-            if (ViewModel.CompareSpaces && !string.IsNullOrEmpty(text))
-            {
-                text = SpaceRuns.Replace(text, m => new string('\uFF65', m.Length))
-                    .Replace("\u3000", "\u25AF")
-                    .Replace("\t", "\u003E\uFF65\uFF65\uFF65");
-            }
-            else
-            {
-                text = (text ?? string.Empty).Replace("\t", "    ");
-            }
+            text = (text ?? string.Empty).Replace("\t", "    ");
 
             var paragraph = new Paragraph
             {
@@ -760,35 +754,13 @@ internal sealed partial class DiffViewWindow : Window
                     paragraph.ToolTip = "Click to collapse unchanged lines";
                 }
 
-                // 置換済みテキストを使ってシンタックスハイライト（各Run）を生成
+                // Syntax highlighting uses text without display-only markers.
                 AddSyntaxRuns(paragraph, string.IsNullOrEmpty(text) ? " " : text, ref blockComment);
 
-                if (ViewModel.CompareCase && line.Kind == DiffLineKind.Modified)
+                if (ViewModel.CompareCase && line.Kind == DiffLineKind.Modified &&
+                    !string.Equals(line.Left, line.Right, StringComparison.Ordinal))
                 {
                     await MarkInlineDifferencesAsync(paragraph, line, sourceSide, responsive);
-                }
-
-                if (compareNewlines)
-                {
-                    int number = sourceSide ? line.LeftNumber : line.RightNumber;
-                    if (number > 0 && number <= endings.Length)
-                    {
-                        string mark = endings[number - 1] switch
-                        {
-                            "\r\n" => "\u21B2",
-                            "\n" => "\u2193",
-                            "\r" => "\u240D",
-                            _ => string.Empty
-                        };
-                        if (mark.Length > 0)
-                        {
-                            paragraph.Inlines.Add(new Run(mark)
-                            {
-                                Foreground = NewlineBrush,
-                                FontWeight = NewlineWeight
-                            });
-                        }
-                    }
                 }
 
                 originalRow++;
@@ -801,11 +773,17 @@ internal sealed partial class DiffViewWindow : Window
             }
 
             blockList.Add(paragraph);
+            int lineNumber = sourceSide ? line.LeftNumber : line.RightNumber;
+            string ending = lineNumber > 0 && endings != null && lineNumber <= endings.Length ? endings[lineNumber - 1] : string.Empty;
+            markerRows.Add(new WhitespaceRow(paragraph,
+                line.FilteredLineCount > 0 ? null : (sourceSide ? line.Left : line.Right), ending));
         }
 
         // 最後にまとめて追加
         document.Blocks.AddRange(blockList);
         box.Document = document;
+        if (box.Parent is Grid paneGrid)
+            paneGrid.Children.OfType<WhitespaceOverlay>().Single().SetRows(markerRows);
     }
     private async Task MarkInlineDifferencesAsync(Paragraph paragraph, DiffLine line, bool sourceSide, bool responsive)
     {

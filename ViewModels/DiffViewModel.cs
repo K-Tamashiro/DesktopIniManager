@@ -48,6 +48,8 @@ internal sealed class DiffViewModel : ObservableObject
     internal bool CompareNewlines { get; set; } = SettingsService.LoadDiffFlag("newlines", false);
     internal bool CompareCase { get; set; } = SettingsService.LoadDiffFlag("case", false);
     internal bool CompareSpaces { get; set; } = SettingsService.LoadDiffFlag("spaces", false);
+    internal bool ShowSpaces { get; set; } = SettingsService.LoadDiffFlag("show-spaces", SettingsService.LoadDiffFlag("spaces", false));
+    internal bool ShowNewlines { get; set; } = SettingsService.LoadDiffFlag("show-newlines", SettingsService.LoadDiffFlag("newlines", false));
     internal bool CanChangeComparison => !loadingContent && !navigating && !closed;
     internal TextDocument SourceText { get; private set; }
     internal TextDocument TargetText { get; private set; }
@@ -57,7 +59,7 @@ internal sealed class DiffViewModel : ObservableObject
         internal string[] Endings = Array.Empty<string>();
         internal string EncodingName = "\u2014";
         internal bool HasBom;
-        internal string Newlines => string.Join("/", Endings.Where(e => e.Length > 0).Distinct().Select(e => e == "\r\n" ? "CRLF" : e == "\r" ? "CR" : "LF"));
+        internal string Newlines = string.Empty;
     }
 
     internal bool ToggleDifferencesOnly()
@@ -173,6 +175,8 @@ internal sealed class DiffViewModel : ObservableObject
         SettingsService.SaveDiffFlag("newlines", CompareNewlines);
         SettingsService.SaveDiffFlag("case", CompareCase);
         SettingsService.SaveDiffFlag("spaces", CompareSpaces);
+        SettingsService.SaveDiffFlag("show-spaces", ShowSpaces);
+        SettingsService.SaveDiffFlag("show-newlines", ShowNewlines);
         externalDiffPending = false;
         FileClosed?.Invoke(File);
         if (string.IsNullOrWhiteSpace(ExternalDiff)) return;
@@ -370,7 +374,7 @@ internal sealed class DiffViewModel : ObservableObject
         var endings = new List<string>();
         var lines = new List<string>(
             Math.Min(4096, Math.Max(1, text.Length / 32)));
-
+        int newlineFlags = 0;
         int start = 0;
 
         for (int i = 0; i < text.Length; i++)
@@ -380,8 +384,23 @@ internal sealed class DiffViewModel : ObservableObject
             if (c == '\r' || c == '\n')
             {
                 lines.Add(text[start..i]);
-                endings.Add(c == '\r' && i + 1 < text.Length && text[i + 1] == '\n' ? "\r\n" : c.ToString());
+                bool crlf = c == '\r' && i + 1 < text.Length && text[i + 1] == '\n';
 
+                if (crlf)
+                {
+                    endings.Add("\r\n");
+                    newlineFlags |= 2;
+                }
+                else if (c == '\r')
+                {
+                    endings.Add("\r");
+                    newlineFlags |= 4;
+                }
+                else
+                {
+                    endings.Add("\n");
+                    newlineFlags |= 1;
+                }
                 if (lines.Count > 100000)
                     throw new IOException(
                         "Files over 100,000 lines should be opened in an external editor.");
@@ -418,6 +437,12 @@ internal sealed class DiffViewModel : ObservableObject
 
         endings.Add(string.Empty);
         document.Lines = lines.ToArray(); document.Endings = endings.ToArray();
+        document.Newlines = string.Join("/", new[]
+        {
+            (newlineFlags & 1) != 0 ? "LF" : null,
+            (newlineFlags & 2) != 0 ? "CRLF" : null,
+            (newlineFlags & 4) != 0 ? "CR" : null
+        }.Where(s => s != null));
         return document;
     }
     private static Encoding DetectUnicodeEncoding(byte[] bytes)

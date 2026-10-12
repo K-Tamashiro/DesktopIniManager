@@ -1516,7 +1516,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         syncingTreeFromFile = true;
         try { FileItems = visible; }
         finally { syncingTreeFromFile = wasSyncing; }
-        FilePanelTitle = "Files ? " + (selectedFolder.Length == 0 ? "all levels" : selectedFolder) + " (" + visible.Count + ")";
+        FilePanelTitle = "Files \u2014 " + (selectedFolder.Length == 0 ? "all levels" : selectedFolder) + " (" + visible.Count + ")";
         UpdateRefreshButtonState();
     }
 

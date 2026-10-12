@@ -17,7 +17,7 @@ internal partial class SynchronizationLogWindow : Window, ISynchronizationLog
     {
         Owner = owner;
         Title = "Synchronization / ZIP";
-        SummaryText.Text = direction + " ? processing\u2026";
+        SummaryText.Text = direction + " \u2014 processing\u2026";
         Show();
         AppendLine(direction);
         AppendLine("Source: " + snapshot.SourceRoot);

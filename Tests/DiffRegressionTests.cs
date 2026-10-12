@@ -129,6 +129,12 @@ internal static class DiffRegressionTests
                 Require(text.Contains(pair.Item2), "viewer displays decoded content: " + pair.Item1);
             }
             Require(viewer.ViewModel.SourceText.EncodingName == "UTF-8" && viewer.ViewModel.TargetText.EncodingName == "UTF-16 LE", "viewer encoding metadata");
+            Require(viewer.ViewModel.SourceText.Newlines == "LF" && viewer.ViewModel.TargetText.Newlines == "LF", "LF-only viewer files are not classified as mixed");
+            foreach (string panelName in new[] { "sourceStatusIcons", "targetStatusIcons" })
+            {
+                var tips = ((Panel)viewer.FindName(panelName)).Children.OfType<Image>().Select(i => i.ToolTip as string).ToArray();
+                Require(tips.Contains("LF") && !tips.Any(t => t != null && (t.Contains("CRLF") || t.Contains("LF/"))), "LF-only status indicator: " + panelName);
+            }
             Require(!viewer.ViewModel.SourceHeader.Contains(left), "standalone header omits redundant path");
             Require(!viewer.ViewModel.PreviousFileCommand.CanExecute(null) && !viewer.ViewModel.NextFileCommand.CanExecute(null),
                 "standalone file navigation commands are disabled");
@@ -307,6 +313,21 @@ internal static class DiffRegressionTests
             Require(DiffViewModel.ReadText(path).SequenceEqual(new[] { "日本語 cafe", "next", "last", "" }),
                 "BOM decoding and mixed line endings: " + encoding.WebName);
         }
+        foreach (Encoding encoding in encodings)
+        {
+            foreach (var sample in new[] {
+                (Text: "a\nb\n", Kind: "LF"), (Text: "a\r\nb\r\n", Kind: "CRLF"),
+                (Text: "a\rb\r", Kind: "CR"), (Text: "a\r\nb\n", Kind: "LF/CRLF"),
+                (Text: "a\nb\r", Kind: "LF/CR"), (Text: "a\r\nb\r", Kind: "CRLF/CR"),
+                (Text: "a\r\nb\nc\r", Kind: "LF/CRLF/CR"), (Text: "a", Kind: ""), (Text: "", Kind: "") })
+            {
+                File.WriteAllBytes(path, [.. encoding.GetPreamble(), .. encoding.GetBytes(sample.Text)]);
+                var read = DiffViewModel.ReadDocument(path);
+                Require(read.Newlines == sample.Kind, "newline classification " + encoding.WebName + " expected=" + sample.Kind + " actual=" + read.Newlines);
+                Require(read.Lines.Length == read.Endings.Length, "newline metadata stays aligned with lines");
+            }
+        }
+        Console.WriteLine("PASS 54 pure/mixed/no-newline cases across six encodings");
         var jis = CodePagesEncodingProvider.Instance.GetEncoding(50220);
         File.WriteAllBytes(path, jis.GetBytes("日本語\r\ntext"));
         var jisDocument = DiffViewModel.ReadDocument(path);

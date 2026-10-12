@@ -138,7 +138,7 @@ internal sealed partial class DiffViewWindow
             {
                 text = new FormattedText(glyph, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
                     new Typeface(pane.FontFamily, FontStyles.Normal, newline ? FontWeights.Bold : FontWeights.Normal, FontStretches.Normal),
-                    pane.FontSize, newline ? Brushes.Yellow : Brushes.Gray, dpi);
+                    pane.FontSize, newline ? (glyph == "\u2193" ? Brushes.Blue : Brushes.Yellow) : Brushes.Gray, dpi);
                 glyphs.Add(key, text);
             }
             drawing.DrawText(text, new Point(point.X, point.Y + (rect.Height - text.Height)));

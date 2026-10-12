@@ -39,6 +39,7 @@ internal sealed partial class DiffViewWindow : Window
         loadProgressPanel.Visibility = value ? Visibility.Visible : Visibility.Hidden;
         actionsPanel.IsEnabled = fileNavigationPanel.IsEnabled = !value;
         body.IsHitTestVisible = !value;
+        imageToolbar.IsHitTestVisible = imageDetails.IsHitTestVisible = !value;
     }
 
     private void CheckWindowOpen()
@@ -474,30 +475,29 @@ internal sealed partial class DiffViewWindow : Window
         if (renderingContent || windowClosed) return;
         SetRendering(true);
         ShowLoadProgress(StringOverlay.Get("Diff_Loading"));
-        DetachImageFitHandler();
-        ResetImageNavigation();
-        if (imageToolbar is Panel p)
-        {
-            p.Children.Clear();
-            p.Visibility = Visibility.Collapsed;
-        }
-        BuildToolbar();
-        UpdateSideStatusIcons();
-        leftList = rightList = null;
-        leftScroll = rightScroll = null;
-        imageZoom = null;
-        map = null;
-        hunkOverlay = null;
-        hunkStart = hunkEnd = -1;
-        viewportThumb = null;
-        mapSelection = null;
         try
         {
             await Dispatcher.Yield(DispatcherPriority.Background);
             CheckWindowOpen();
             if (reload && !await ViewModel.LoadContentAsync()) return;
             if (!IsLoaded) return;
+            DetachImageFitHandler();
+            ResetImageNavigation();
+            if (imageToolbar is Panel p)
+            {
+                p.Children.Clear();
+                p.Visibility = Visibility.Collapsed;
+            }
+            BuildToolbar();
             UpdateSideStatusIcons();
+            leftList = rightList = null;
+            leftScroll = rightScroll = null;
+            imageZoom = null;
+            map = null;
+            hunkOverlay = null;
+            hunkStart = hunkEnd = -1;
+            viewportThumb = null;
+            mapSelection = null;
             UpdateEncodingHeaders();
             if (ViewModel.IsImage) { await RenderImages(); return; }
             sharedTextWidth = MeasureSharedTextWidth();
@@ -1296,7 +1296,7 @@ internal sealed partial class DiffViewWindow : Window
         UpdateViewport(leftScroll);
     }
 
-    private async Task RenderImages()
+    private Task RenderImages()
     {
         var left = ViewModel.SourceImage;
         var right = ViewModel.TargetImage;
@@ -1413,7 +1413,13 @@ internal sealed partial class DiffViewWindow : Window
         };
         imageFitHandler = (s, e) => { fit(); UpdateImageNavigation(); };
         body.SizeChanged += imageFitHandler;
-        await Dispatcher.InvokeAsync(fit, System.Windows.Threading.DispatcherPriority.Loaded);
+        // Complete layout and fitting in the same dispatcher turn as the swap.
+        // Yielding here would expose the initial 100% image before its fitted size.
+        body.UpdateLayout();
+        fit();
+        body.UpdateLayout();
+        UpdateImageNavigation();
+        return Task.CompletedTask;
     }
 
     private static ScrollViewer ThemedViewer(object content, bool sourceSide, bool missing)

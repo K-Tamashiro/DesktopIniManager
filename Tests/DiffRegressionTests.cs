@@ -424,6 +424,34 @@ internal static class DiffRegressionTests
             using (var output = File.Create(Path.Combine(AppContext.BaseDirectory, "image-navigation-preview.png"))) encoder.Save(output);
             window.ScrollImagesTo(double.MaxValue, double.MaxValue); window.UpdateLayout();
             Require(sourceScroll.HorizontalOffset <= sourceScroll.ScrollableWidth && sourceScroll.VerticalOffset <= sourceScroll.ScrollableHeight, "map navigation clamps at image edges");
+            var retainedImages = ((Grid)imageBody).Children.Cast<UIElement>().ToArray();
+            var toolbar = (Panel)window.FindName("imageToolbar");
+            var retainedToolbar = toolbar.Children.Cast<UIElement>().ToArray();
+            var retainedNavigator = Field<Canvas>("imageNavigator");
+            bool blankFrame = false;
+            EventHandler observeFrame = (_, _) =>
+            {
+                blankFrame |= ((Grid)imageBody).Children.Count == 0 || zoomHost.Visibility != Visibility.Visible;
+            };
+            System.Windows.Media.CompositionTarget.Rendering += observeFrame;
+            try
+            {
+                var reload = (System.Threading.Tasks.Task)typeof(DiffViewWindow).GetMethod("LoadContent", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(window, new object[] { true, true });
+                Require(retainedImages.SequenceEqual(((Grid)imageBody).Children.Cast<UIElement>()) &&
+                    retainedToolbar.SequenceEqual(toolbar.Children.Cast<UIElement>()) && ReferenceEquals(retainedNavigator, Field<Canvas>("imageNavigator")) &&
+                    zoomHost.Visibility == Visibility.Visible, "image reload retains panes, zoom controls and navigator while reading");
+                var reloadFrame = new DispatcherFrame();
+                var reloadTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(20) };
+                DateTime reloadDeadline = DateTime.UtcNow.AddSeconds(15);
+                reloadTimer.Tick += (_, _) => { if (reload.IsCompleted || DateTime.UtcNow >= reloadDeadline) reloadFrame.Continue = false; };
+                reloadTimer.Start();
+                Dispatcher.PushFrame(reloadFrame);
+                reloadTimer.Stop();
+                Require(reload.IsCompletedSuccessfully && !blankFrame, "image reload completes without an empty frame");
+                Require(Field<Slider>("imageZoom").Value < 1, "replacement image is fitted before load completes");
+            }
+            finally { System.Windows.Media.CompositionTarget.Rendering -= observeFrame; }
             Console.WriteLine("PASS image navigation drag, shared scroll, zoom, RGBA/origin details and difference map");
         }
         finally { window.Close(); }

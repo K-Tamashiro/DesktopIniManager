@@ -583,17 +583,20 @@ internal sealed class DiffViewModel : ObservableObject
             externalTargetStamp = DiffStamp.Read(targetPath);
             externalDiffPending = true;
 
-            Process.Start(new ProcessStartInfo(executable, arguments)
-            {
-                UseShellExecute = true,
-                WindowStyle = ProcessWindowStyle.Hidden
-            });
+            Process.Start(CreateExternalDiffStartInfo(executable, arguments));
         }
         catch (Exception ex)
         {
             dialogs.Show(ErrorMessages.English(ex), Title, MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
+
+    internal static ProcessStartInfo CreateExternalDiffStartInfo(string executable, string arguments)
+        => new ProcessStartInfo(executable, arguments)
+        {
+            UseShellExecute = true,
+            WindowStyle = ProcessWindowStyle.Normal
+        };
 
     internal async Task RefreshAfterExternalEditAsync()
     {

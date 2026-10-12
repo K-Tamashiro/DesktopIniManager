@@ -247,6 +247,9 @@ internal static class DiffRegressionTests
 
     internal static int Run()
     {
+        var externalStart = DiffViewModel.CreateExternalDiffStartInfo(@"C:\Program Files\WinMerge\WinMergeU.exe", "\"C:\\source file.txt\" \"C:\\target file.txt\"");
+        Require(externalStart.UseShellExecute && externalStart.WindowStyle == System.Diagnostics.ProcessWindowStyle.Normal &&
+            externalStart.Arguments == "\"C:\\source file.txt\" \"C:\\target file.txt\"", "external diff opens visibly and preserves quoted file arguments");
         for (int flags = 0; flags < 8; flags++)
         {
             bool compareCase = (flags & 1) != 0, compareSpaces = (flags & 2) != 0, compareNewlines = (flags & 4) != 0;

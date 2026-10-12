@@ -59,7 +59,7 @@ internal static class DifferencerTests
                         events.Add(line);
                         if (line.StartsWith("OK ") && line.EndsWith(good)) { handle.Dispose(); handle = null; }
                     });
-                    Check(results.Count == 2 && results.All(l => l.StartsWith("OK ")), "retry recovery counts each operation once, direction " + forward);
+                    Check(results.Count == 2 && results.All(l => l.StartsWith("OK ")), "retry recovery counts each operation once, direction " + forward + ": " + string.Join(" | ", events.Concat(results)));
                     Check(events.Count(l => l.StartsWith("QUEUED ")) == 1 && events.Count(l => l.StartsWith("RETRY ")) == 1,
                         "one failure enters one retry pass");
                     Check(events.FindIndex(l => l.EndsWith(good)) < events.FindIndex(l => l.StartsWith("RETRY ")),

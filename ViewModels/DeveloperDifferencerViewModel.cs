@@ -1555,10 +1555,16 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
                 sourceStamp ??= file.Source;
                 targetStamp ??= file.Target;
             }
-            string sourceHash = useHash && sourceStamp != null ? DeveloperDifferencerService.HashFile(sourcePath) : null;
-            string targetHash = useHash && targetStamp != null ? DeveloperDifferencerService.HashFile(targetPath) : null;
             bool? sourceBom = useAttributes && sourceStamp != null ? DeveloperDifferencerService.HasBom(sourcePath) : false;
             bool? targetBom = useAttributes && targetStamp != null ? DeveloperDifferencerService.HasBom(targetPath) : false;
+            bool hashRequired = DeveloperDifferencerService.ShouldHash(sourceStamp, targetStamp, useTimestamp, useSize,
+                useAttributes, sourceBom, targetBom, useHash);
+            string sourceHash = hashRequired ? DeveloperDifferencerService.HashFile(sourcePath) : null;
+            string targetHash = hashRequired ? DeveloperDifferencerService.HashFile(targetPath) : null;
+            if (useHash && ((hashRequired && (sourceHash == null || targetHash == null)) ||
+                !DiffStamp.Same(sourceStamp, DiffStamp.Read(sourcePath), true) ||
+                !DiffStamp.Same(targetStamp, DiffStamp.Read(targetPath), true)))
+                throw new IOException("File changed during comparison. Compare again: " + file.RelativePath);
             return (sourceStamp, targetStamp, sourceHash, targetHash, sourceBom, targetBom);
         });
 

@@ -415,16 +415,23 @@ internal static class DeveloperDifferencerService
 
             bool? targetBom = compareAttributes && b != null
                 ? HasBom(SafeAttributePath(targetRoot, path, targetValidatedFolders)) : false;
+            if (ShouldHash(a, b, compareTimestamp, compareSize, compareAttributes, sourceBom, targetBom, preciseCompare))
+            {
+                sourceHash = HashFile(SafePath(sourceRoot, path), token);
+                targetHash = HashFile(SafePath(targetRoot, path), token);
+                if (sourceHash == null || targetHash == null)
+                {
+                    progress?.Report(ReportCompare("Skipped changed file: " + path, index + 1, paths.Length));
+                    continue;
+                }
+            }
             if (preciseCompare)
             {
-                if (a != null) sourceHash = HashFile(SafePath(sourceRoot, path), token);
-                if (b != null) targetHash = HashFile(SafePath(targetRoot, path), token);
                 // Files may disappear or change between enumeration and hashing
                 // (desktop.ini is a common example). Never interpret a vanished
                 // source as an instruction to delete its destination.
                 // Exclude this stale entry; a fresh comparison will pick it up.
-                if ((a != null && sourceHash == null) || (b != null && targetHash == null) ||
-                    !DiffStamp.Same(a, a == null ? null : DiffStamp.Read(SafePath(sourceRoot, path)), true) ||
+                if (!DiffStamp.Same(a, a == null ? null : DiffStamp.Read(SafePath(sourceRoot, path)), true) ||
                     !DiffStamp.Same(b, b == null ? null : DiffStamp.Read(SafePath(targetRoot, path)), true))
                 {
                     progress?.Report(ReportCompare("Skipped changed file: " + path, index + 1, paths.Length));
@@ -448,6 +455,14 @@ internal static class DeveloperDifferencerService
         if (batch?.Count > 0) onBatch(batch.ToArray());
         progress?.Report(ReportCompare("Classifying differences\u2026", Math.Max(1, paths.Length), Math.Max(1, paths.Length)));
         return files;
+    }
+
+    internal static bool ShouldHash(DiffStamp source, DiffStamp target, bool compareTimestamp, bool compareSize,
+        bool compareAttributes, bool? sourceBom, bool? targetBom, bool preciseCompare)
+    {
+        return preciseCompare && source != null && target != null &&
+            DiffStamp.Same(source, target, compareTimestamp, compareSize) &&
+            (!compareAttributes || (sourceBom.HasValue && targetBom.HasValue && sourceBom == targetBom));
     }
     private static string SafeAttributePath(
         string root,
@@ -531,7 +546,9 @@ internal static class DeveloperDifferencerService
 
     private static bool MatchesSnapshot(string path, DiffStamp stamp, string hash, bool compareTimestamp)
     {
-        if (!DiffStamp.Same(stamp, DiffStamp.Read(path), compareTimestamp)) return false;
+        // Snapshot validation is independent of the user's comparison filters.
+        // Even without a stored hash, reject size/time changes before synchronization.
+        if (!DiffStamp.Same(stamp, DiffStamp.Read(path), true)) return false;
         return hash == null || string.Equals(hash, HashFile(path), StringComparison.Ordinal);
     }
 

@@ -1,4 +1,4 @@
-﻿DesktopIniManager v4.2.0
+﻿DesktopIniManager v4.2.3
 =======================
 
 ■ ソフトウェア名・種別
@@ -22,7 +22,7 @@ Scoped Grep、フォルダー比較、読み取り専用DIFF VIEW、desktop.ini�
 ・外部エディター／DIFF・マージツールは任意で設定
 
 ■ インストール
-DesktopIniManager-v4.2.0-win-x64.zipを新しいフォルダーへ展開し、
+DesktopIniManager-v4.2.3-win-x64.zipを新しいフォルダーへ展開し、
 DesktopIniManager.exeを起動してください。
 DLL、JSON、Assets、Languagesを含め、同梱ファイルを一緒に配置します。
 ExcelDataReaderとPdfPigのDLLはDocument Grepで使用します。
@@ -33,7 +33,7 @@ ExcelDataReaderとPdfPigのDLLはDocument Grepで使用します。
 http://dim.zebrasoft.co.jp/
 GitHubダウンロード：
 https://github.com/K-Tamashiro/DesktopIniManager/releases
-v4.2.0のAssetsから配布ZIPを選択してください。
+v4.2.3のAssetsから配布ZIPを選択してください。
 Source codeのZIPは実行用の配布物ではありません。
 
 ■ v4系の主な機能・改善
@@ -97,6 +97,11 @@ Source選択時、現在のTargetに同名の末尾フォルダーがあれば�
 ATTRはBOMの有無を確認します。文字コードの種類や改行コードは比較しません。
 XXH128はファイル内容から128ビットのハッシュ値を計算し、内容の一致を判定します。
 内容のみを比較する場合は、日時・サイズ・ATTRをオフにしてXXH128を使用します。
+日時・サイズ・ATTRは、オンの項目をそれぞれ独立して判定します。
+日時やサイズに差異があっても、ATTRがオンならBOMも確認します。
+片側のみのファイル、または先行する有効な項目で差異が確定した場合、
+XXH128の計算は省略します。XXH128だけオンの場合は、
+両側に存在するファイルをハッシュ比較します。
 
 同一、差異あり、片側のみ、obj、bin、チェック済みをフィルター表示します。
 同一ファイルは基本状態では非表示です。

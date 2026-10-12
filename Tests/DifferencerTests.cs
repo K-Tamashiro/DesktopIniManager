@@ -115,6 +115,7 @@ internal static class DifferencerTests
         try
         {
             if (args.Contains("--diff-regression")) return DiffRegressionTests.Run();
+            if (args.Contains("--hash-comparison")) return DiffRegressionTests.RunHashComparison();
             if (args.Contains("--diff-viewer")) return DiffRegressionTests.RunViewer();
             if (args.Contains("--sync-retry")) return TestSyncRetry();
             if (args.Contains("--result-history")) return ResultHistoryTests.Execute();

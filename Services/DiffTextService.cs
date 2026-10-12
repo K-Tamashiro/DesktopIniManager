@@ -16,6 +16,8 @@ internal sealed class DiffLine
     public int LeftNumber { get; set; }
     public int RightNumber { get; set; }
     public int FilteredLineCount { get; set; }
+    internal bool[] LeftChanges { get; set; }
+    internal bool[] RightChanges { get; set; }
 }
 
 /// <summary>
@@ -30,7 +32,8 @@ internal static class DiffTextService
         bool ignoreCase = false,
         bool ignoreSpaces = false,
         string[] leftEndings = null,
-        string[] rightEndings = null)
+        string[] rightEndings = null,
+        bool calculateInlineDifferences = false)
     {
         left ??= [];
         right ??= [];
@@ -38,7 +41,7 @@ internal static class DiffTextService
         if (left.Length == 0 && right.Length == 0)
             return [];
 
-        // 本文だけを比較キーにする。改行コードはMyersに渡さない。
+        // Align content independently of spacing and line endings. Refine same rows below.
         string[] Keys(string[] lines)
         {
             var keys = new string[lines.Length];
@@ -47,8 +50,7 @@ internal static class DiffTextService
             {
                 string key = lines[i];
 
-                if (ignoreSpaces)
-                    key = key.Replace(" ", "").Replace("\t", "");
+                key = key.Replace(" ", "").Replace("\t", "");
 
                 if (ignoreCase)
                     key = key.ToUpperInvariant();
@@ -62,7 +64,7 @@ internal static class DiffTextService
         Diff.Item[] diffs = Diff.DiffLines(Keys(left), Keys(right));
 
         // 行の対応が確定した後で改行コードを比較する。
-        return BuildRows(left, right, diffs, leftEndings, rightEndings);
+        return BuildRows(left, right, diffs, leftEndings, rightEndings, ignoreCase, ignoreSpaces, calculateInlineDifferences);
     }
 
     private static List<DiffLine> BuildRows(
@@ -70,7 +72,10 @@ internal static class DiffTextService
         string[] right,
         Diff.Item[] diffs,
         string[] leftEndings,
-        string[] rightEndings)
+        string[] rightEndings,
+        bool ignoreCase,
+        bool ignoreSpaces,
+        bool calculateInlineDifferences)
     {
         var rows = new List<DiffLine>(Math.Max(left.Length, right.Length));
         int leftIndex = 0;
@@ -78,19 +83,23 @@ internal static class DiffTextService
 
         // 改行比較が有効な場合のみ判定する。
         bool compareNewlines = leftEndings != null && rightEndings != null;
+        StringComparison comparison = ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
         void AddRow(string l, string r, int lNum, int rNum, DiffLineKind kind)
         {
-            if (compareNewlines &&
-                lNum > 0 &&
-                rNum > 0 &&
-                kind == DiffLineKind.Unchanged &&
-                !string.Equals(
-                    leftEndings[lNum - 1],
-                    rightEndings[rNum - 1],
-                    StringComparison.Ordinal))
+            bool[] leftChanges = null, rightChanges = null;
+            if (kind == DiffLineKind.Modified)
             {
-                kind = DiffLineKind.Modified;
+                // Calculate once per aligned text change, shared by both panes.
+                if (calculateInlineDifferences)
+                    (leftChanges, rightChanges) = CompareCharacters(l, r, ignoreSpaces);
+            }
+            else if (kind == DiffLineKind.Unchanged)
+            {
+                if (!ignoreSpaces && !string.Equals(l, r, comparison))
+                    kind = DiffLineKind.Modified;
+                else if (compareNewlines && !string.Equals(leftEndings[lNum - 1], rightEndings[rNum - 1], StringComparison.Ordinal))
+                    kind = DiffLineKind.Modified;
             }
 
             rows.Add(new DiffLine
@@ -99,7 +108,9 @@ internal static class DiffTextService
                 Right = r,
                 LeftNumber = lNum,
                 RightNumber = rNum,
-                Kind = kind
+                Kind = kind,
+                LeftChanges = leftChanges,
+                RightChanges = rightChanges
             });
         }
 
@@ -151,5 +162,22 @@ internal static class DiffTextService
         }
 
         return rows;
+    }
+
+    private static (bool[] Left, bool[] Right) CompareCharacters(string left, string right, bool ignoreSpaces)
+    {
+        left = left.Replace("\t", "    ");
+        right = right.Replace("\t", "    ");
+        var changes = Diff.DiffLines(left.Select(c => c.ToString()).ToArray(), right.Select(c => c.ToString()).ToArray());
+        var a = new bool[left.Length];
+        var b = new bool[right.Length];
+        foreach (var change in changes)
+        {
+            for (int i = change.StartA; i < change.StartA + change.DeletedA; i++)
+                a[i] = !ignoreSpaces || left[i] != '\u0020';
+            for (int i = change.StartB; i < change.StartB + change.InsertedB; i++)
+                b[i] = !ignoreSpaces || right[i] != '\u0020';
+        }
+        return (a, b);
     }
 }

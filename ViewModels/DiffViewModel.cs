@@ -158,8 +158,8 @@ internal sealed class DiffViewModel : ObservableObject
         Snapshot = snapshot; File = file;
         PreviousHunkCommand = new RelayCommand(() => NavigateHunk(-1));
         NextHunkCommand = new RelayCommand(() => NavigateHunk(1));
-        PreviousFileCommand = new AsyncRelayCommand(() => NavigateFileAsync(-1), ReportError);
-        NextFileCommand = new AsyncRelayCommand(() => NavigateFileAsync(1), ReportError);
+        PreviousFileCommand = new AsyncRelayCommand(() => NavigateFileAsync(-1), ReportError, () => this.sourcePath == null && this.targetPath == null);
+        NextFileCommand = new AsyncRelayCommand(() => NavigateFileAsync(1), ReportError, () => this.sourcePath == null && this.targetPath == null);
         OpenSourceCommand = new RelayCommand(() => OpenAssociatedApplication(true));
         OpenTargetCommand = new RelayCommand(() => OpenAssociatedApplication(false));
         OpenExternalDiffCommand = new RelayCommand(OpenExternalDiff);
@@ -249,7 +249,8 @@ internal sealed class DiffViewModel : ObservableObject
         var documents = prepared ?? await Task.Run(() => new[] { ReadDocument(left), ReadDocument(right) });
         SourceText = documents[0]; TargetText = documents[1];
         allLines = await Task.Run(() => DiffTextService.Compare(SourceText.Lines, TargetText.Lines,
-            !CompareCase, !CompareSpaces, CompareNewlines ? SourceText.Endings : null, CompareNewlines ? TargetText.Endings : null));
+            !CompareCase, !CompareSpaces, CompareNewlines ? SourceText.Endings : null, CompareNewlines ? TargetText.Endings : null,
+            calculateInlineDifferences: CompareCase));
         UpdateDisplayedLines();
     }
     private void NavigateHunk(int direction)

@@ -1,4 +1,4 @@
-# DesktopIniManager v4.2.0
+# DesktopIniManager v4.2.3
 
 DesktopIniManager (DIM) is a Windows workspace for exploring development folders and Visual Studio solutions, finding files, running scoped searches, comparing folders, viewing differences, and managing folder icons through desktop.ini.
 
@@ -8,7 +8,7 @@ DesktopIniManager (DIM) is a Windows workspace for exploring development folders
 
 ## Download and setup
 
-Download **DesktopIniManager-v4.2.0-win-x64.zip** from the v4.2.0 GitHub release assets, rather than GitHub's source-code archive. A matching .zip.sha256 file provides its SHA-256 checksum.
+Download **DesktopIniManager-v4.2.3-win-x64.zip** from the v4.2.3 GitHub release assets, rather than GitHub's source-code archive. A matching .zip.sha256 file provides its SHA-256 checksum.
 
 - Windows 10 or Windows 11, x64.
 - .NET 10 Desktop Runtime (x64), installed separately.
@@ -26,6 +26,7 @@ Extract into a fresh folder and run **DesktopIniManager.exe**. Keep all DLLs, JS
 - Source-yellow and Target-blue DIFF VIEW frames, a draggable difference map, and an all-lines / differences-only toggle whose state is saved on close.
 - Incremental comparison results, folder-building progress, and one-way Source-to-Target selection of an existing same-name folder.
 - Independently selectable comparison checks for modification date/time, file size, attributes (including BOM), and XXH128.
+- Comparison evaluates enabled date/time, size, and BOM checks independently. XXH128 is calculated only for files present on both sides that have not already been classified as different by an enabled check.
 - DIFF VIEW whitespace, inline-difference and line-ending markers, plus a progress bar while loading.
 - Updated icons for selected controls.
 
@@ -47,7 +48,7 @@ Drag folders out with their immediate files, or drag multiple files from the fil
 
 Compare a yellow Source tree with a blue Target tree. Paths are indexed when selected; folder-label buttons provide explicit rescans. Source-to-Target folder matching selects an existing same-name folder under the current Target. It does not create folders or run in reverse.
 
-Comparison checks can be enabled individually for **modification date/time**, **file size**, **attributes (including BOM)**, and **XXH128 content hash**. One-sided files/folders are included. Environment/build artifacts are normally excluded, with separate obj and bin visibility controls.
+Comparison checks can be enabled individually for **modification date/time**, **file size**, **attributes (including BOM)**, and **XXH128 content hash**. Enabled metadata and BOM checks remain independent: a date/time or size mismatch does not skip the BOM check. XXH128 is skipped when a file exists on only one side or any enabled preceding check already establishes a difference. With only XXH128 enabled, every file present on both sides is hash-compared. One-sided files/folders are included. Environment/build artifacts are normally excluded, with separate obj and bin visibility controls.
 
 Filter Same, Different, Source-only, Target-only, obj, bin, and checked items. Same files are hidden by default. The Same-check action can include identical files in synchronization or ZIP selections.
 
@@ -138,4 +139,4 @@ DIM is freeware by Tamayan / ZEBRASOFT. Copyright remains with the author. See t
 - Repository / issue reports: <https://github.com/K-Tamashiro/DesktopIniManager>
 - Contact: <tamayan@zebrasoft.co.jp>
 
-For maintainers, scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> packages existing v4.2.0 binaries without building. Omitting that option runs dotnet publish. Archives/checksums go to release/ for upload as GitHub assets; they are not stored in Git.
+For maintainers, scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> packages existing v4.2.3 binaries without building. Omitting that option runs dotnet publish. Archives/checksums go to release/ for upload as GitHub assets; they are not stored in Git.

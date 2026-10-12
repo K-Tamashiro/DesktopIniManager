@@ -14,6 +14,48 @@ using System.Reflection;
 
 internal static class DiffRegressionTests
 {
+    internal static int RunHashComparison()
+    {
+        string root = Path.Combine(AppContext.BaseDirectory, "hash-comparison-" + Guid.NewGuid().ToString("N"));
+        string source = Path.Combine(root, "source"), target = Path.Combine(root, "target");
+        Directory.CreateDirectory(source);
+        Directory.CreateDirectory(target);
+        string a = Path.Combine(source, "sample.txt"), b = Path.Combine(target, "sample.txt");
+        var time = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        for (int differences = 0; differences < 16; differences++)
+        {
+            bool timeDiff = (differences & 1) != 0, sizeDiff = (differences & 2) != 0;
+            bool attrDiff = (differences & 4) != 0, contentDiff = (differences & 8) != 0;
+            File.WriteAllBytes(a, new byte[] { 65, 66, 67, 68 });
+            byte[] other = attrDiff ? new byte[] { 239, 187, 191, 65 } : new byte[] { 65, 66, 67, (byte)(contentDiff ? 69 : 68) };
+            if (sizeDiff) other = other.Concat(new byte[] { 70 }).ToArray();
+            File.WriteAllBytes(b, other);
+            File.SetLastWriteTimeUtc(a, time);
+            File.SetLastWriteTimeUtc(b, time.AddSeconds(timeDiff ? 2 : 0));
+            var left = new System.Collections.Generic.Dictionary<string, DiffStamp> { ["sample.txt"] = DiffStamp.Read(a) };
+            var right = new System.Collections.Generic.Dictionary<string, DiffStamp> { ["sample.txt"] = DiffStamp.Read(b) };
+            for (int flags = 0; flags < 16; flags++)
+            {
+                bool timestamp = (flags & 1) != 0, size = (flags & 2) != 0, attributes = (flags & 4) != 0, hash = (flags & 8) != 0;
+                bool earlyDifference = (timestamp && timeDiff) || (size && sizeDiff) || (attributes && attrDiff);
+                bool hashRequired = hash && !earlyDifference;
+                var result = DeveloperDifferencerService.Classify(left, right, includeSame: true, compareTimestamp: timestamp,
+                    sourceRoot: source, targetRoot: target, preciseCompare: hash, compareSize: size, compareAttributes: attributes).Single();
+                Require((result.SourceHash != null && result.TargetHash != null) == hashRequired,
+                    "hash eligibility flags=" + flags + " differences=" + differences);
+                bool different = earlyDifference || (hashRequired && (sizeDiff || attrDiff || contentDiff));
+                Require(result.Kind == (different ? DiffKind.Different : DiffKind.Same), "classification flags=" + flags + " differences=" + differences);
+            }
+        }
+        var stamp = DiffStamp.Read(a);
+        Require(!DeveloperDifferencerService.ShouldHash(stamp, stamp, false, false, true, null, false, true), "unreadable ATTR never counts as same for hashing");
+        var only = DeveloperDifferencerService.Classify(new() { ["sample.txt"] = stamp }, new(), includeSame: true,
+            sourceRoot: source, targetRoot: target, preciseCompare: true).Single();
+        Require(only.Kind == DiffKind.SourceOnly && only.SourceHash == null && only.TargetHash == null, "one-sided files skip hashing");
+        Console.WriteLine("PASS 256 file comparison combinations, XXH128 eligibility, unreadable ATTR and one-sided files");
+        return 0;
+    }
+
     internal static int RunViewer()
     {
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
@@ -88,6 +130,8 @@ internal static class DiffRegressionTests
             }
             Require(viewer.ViewModel.SourceText.EncodingName == "UTF-8" && viewer.ViewModel.TargetText.EncodingName == "UTF-16 LE", "viewer encoding metadata");
             Require(!viewer.ViewModel.SourceHeader.Contains(left), "standalone header omits redundant path");
+            Require(!viewer.ViewModel.PreviousFileCommand.CanExecute(null) && !viewer.ViewModel.NextFileCommand.CanExecute(null),
+                "standalone file navigation commands are disabled");
             viewer.UpdateLayout();
             foreach (double width in new[] { 1400.0, 900.0, 1200.0 })
             {
@@ -214,6 +258,25 @@ internal static class DiffRegressionTests
         Require(DiffTextService.Compare(["Case"], ["case"], true)[0].Kind == DiffLineKind.Unchanged, "case ignored");
         Require(DiffTextService.Compare(["a b"], ["ab"], false, true)[0].Kind == DiffLineKind.Unchanged, "spaces ignored");
         Require(DiffTextService.Compare(["x"], ["x"], false, false, ["\r"], ["\n"])[0].Kind != DiffLineKind.Unchanged, "CR differs from LF");
+        var alignedSpaces = DiffTextService.Compare(["a b", "tail"], ["insert", "ab", "tail"],
+            leftEndings: ["\n", ""], rightEndings: ["\n", "\n", ""], calculateInlineDifferences: true);
+        Require(alignedSpaces.Count == 3 && alignedSpaces[0].Kind == DiffLineKind.Added &&
+            alignedSpaces[1].LeftNumber == 1 && alignedSpaces[1].RightNumber == 2 && alignedSpaces[1].Kind == DiffLineKind.Modified,
+            "spacing refinement preserves content alignment across inserted rows");
+        Require(alignedSpaces[1].LeftChanges == null && alignedSpaces[1].RightChanges == null,
+            "spacing-only changes do not run character diff");
+        var textChange = DiffTextService.Compare(["abc"], ["axc"], leftEndings: [], rightEndings: [], calculateInlineDifferences: true)[0];
+        Require(textChange.Kind == DiffLineKind.Modified && textChange.LeftChanges.SequenceEqual(new[] { false, true, false }) &&
+            textChange.RightChanges.SequenceEqual(new[] { false, true, false }),
+            "text-modified rows compute both character masks once and skip newline lookup");
+        var spaceChange = DiffTextService.Compare(["a b"], ["a\tb"], leftEndings: [], rightEndings: [], calculateInlineDifferences: true)[0];
+        Require(spaceChange.Kind == DiffLineKind.Modified && spaceChange.LeftChanges == null,
+            "spacing mismatch short-circuits newline lookup");
+        var endingChange = DiffTextService.Compare(["same"], ["same"], leftEndings: ["\r\n"], rightEndings: ["\n"], calculateInlineDifferences: true)[0];
+        Require(endingChange.Kind == DiffLineKind.Modified && endingChange.LeftChanges == null,
+            "newline-only changes use stored endings without character diff");
+        Require(DiffTextService.Compare(["a b"], ["a\tb"], ignoreSpaces: true, leftEndings: ["\r"], rightEndings: ["\n"])[0].Kind == DiffLineKind.Modified,
+            "ignored spacing still permits final newline comparison");
         VerifyRows([], ["added"]);
         VerifyRows(["removed"], []);
         VerifyRows([], [""]);
@@ -248,7 +311,9 @@ internal static class DiffRegressionTests
         Require(!jisDocument.HasBom && jisDocument.Newlines == "CRLF", "JIS attributes");
         File.WriteAllBytes(path, [.. new UTF8Encoding(true).GetPreamble(), .. Encoding.UTF8.GetBytes("x\r\ny\nz\r")]);
         var mixed = DiffViewModel.ReadDocument(path);
-        Require(mixed.HasBom && mixed.EncodingName == "UTF-8" && mixed.Newlines == "CRLF/LF/CR", "BOM and mixed newline metadata");
+        Require(mixed.HasBom && mixed.EncodingName == "UTF-8" &&
+            mixed.Newlines.Split('/').OrderBy(e => e).SequenceEqual(new[] { "CR", "CRLF", "LF" }) &&
+            mixed.Endings.SequenceEqual(new[] { "\r\n", "\n", "\r", "" }), "BOM and mixed newline metadata");
         File.WriteAllBytes(path, [0xef, 0xbb, 0xbf, 0xff]);
         bool malformedBom = false;
         try { DiffViewModel.ReadDocument(path); } catch (DecoderFallbackException) { malformedBom = true; }

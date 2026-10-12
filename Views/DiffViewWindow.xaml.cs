@@ -787,21 +787,8 @@ internal sealed partial class DiffViewWindow : Window
     }
     private async Task MarkInlineDifferencesAsync(Paragraph paragraph, DiffLine line, bool sourceSide, bool responsive)
     {
-        string left = (line.Left ?? string.Empty).Replace("\t", "    ");
-        string right = (line.Right ?? string.Empty).Replace("\t", "    ");
-        var differences = responsive
-            ? await Task.Run(() => DiffTextService.Compare(
-                left.Select(c => c.ToString()).ToArray(), right.Select(c => c.ToString()).ToArray()))
-            : DiffTextService.Compare(left.Select(c => c.ToString()).ToArray(), right.Select(c => c.ToString()).ToArray());
-        if (responsive) CheckWindowOpen();
-        var changed = new bool[sourceSide ? left.Length : right.Length];
-        foreach (var difference in differences)
-        {
-            int index = (sourceSide ? difference.LeftNumber : difference.RightNumber) - 1;
-            if (difference.Kind != DiffLineKind.Unchanged && index >= 0 &&
-                (ViewModel.CompareSpaces || (sourceSide ? left[index] : right[index]) != ' '))
-                changed[index] = true;
-        }
+        var changed = sourceSide ? line.LeftChanges : line.RightChanges;
+        if (changed == null) return;
 
         var ranges = new List<TextRange>();
         int offset = 0;

@@ -1,4 +1,4 @@
-using DesktopIniManager.ViewModels;
+﻿using DesktopIniManager.ViewModels;
 using DesktopIniManager.Services;
 using DesktopIniManager.Properties;
 using System;
@@ -67,6 +67,7 @@ internal sealed partial class DiffViewWindow : Window
     private Point imagePanLast;
     private SizeChangedEventHandler imageFitHandler;
     private Slider imageZoom;
+    private bool imageXorMode = false;
 
     internal DiffSnapshot Snapshot => ViewModel.Snapshot;
 
@@ -1395,6 +1396,46 @@ internal sealed partial class DiffViewWindow : Window
             wrapper.Children.Add(chrome);
             AddIconActionButton(wrapper, DifferencerStatusIcons.GetCustomIcon(72), StringOverlay.Get("Diff_Fit"), () => { fitToWindow = true; fit(); });
             AddIconActionButton(wrapper, DifferencerStatusIcons.GetCustomIcon(73), "100%", () => { fitToWindow = false; zoom.Value = 1; });
+            BitmapSource xorImage = null;
+            var xorIcon = new Image { Source = DifferencerStatusIcons.GetCustomIcon(136), Stretch = Stretch.Uniform };
+            RenderOptions.SetBitmapScalingMode(xorIcon, BitmapScalingMode.HighQuality);
+            var xorButton = new ToggleButton
+            {
+                Content = xorIcon,
+                Style = TryFindResource("IconToggleButton") as Style,
+                ToolTip = "XOR mode",
+                Margin = new Thickness(0, 0, 8, 8),
+                IsChecked = imageXorMode,
+                IsEnabled = left != null && right != null
+            };
+            System.Windows.Automation.AutomationProperties.SetName(xorButton, "XOR mode");
+            void ApplyXorMode()
+            {
+                xorIcon.Opacity = imageXorMode ? 1.0 : 0.35;
+                if (left == null || right == null) return;
+                if (imageXorMode) xorImage ??= CreateXorBitmap(left, right);
+                // XOR is commutative: reversing foreground/background gives the same pixels.
+                void ReplaceImage(Canvas canvas, BitmapSource pixels, ref Canvas pixelGrid)
+                {
+                    var replacement = ImageCanvas(pixels, width, height, out var newGrid);
+                    canvas.Children.Clear();
+                    while (replacement.Children.Count > 0)
+                    {
+                        UIElement child = replacement.Children[0];
+                        replacement.Children.RemoveAt(0);
+                        canvas.Children.Add(child);
+                    }
+                    pixelGrid = newGrid;
+                    if (pixelGrid != null)
+                        pixelGrid.Visibility = zoom.Value >= zoom.Maximum - 0.0001 ? Visibility.Visible : Visibility.Collapsed;
+                }
+                ReplaceImage(leftCanvas, imageXorMode ? xorImage : left, ref leftPixelGrid);
+                ReplaceImage(rightCanvas, imageXorMode ? xorImage : right, ref rightPixelGrid);
+            }
+            xorButton.Checked += (_, _) => { imageXorMode = true; ApplyXorMode(); };
+            xorButton.Unchecked += (_, _) => { imageXorMode = false; ApplyXorMode(); };
+            wrapper.Children.Add(xorButton);
+            ApplyXorMode();
             wrapper.Visibility = Visibility.Visible;
             imageControlRow.Visibility = Visibility.Visible;
         }

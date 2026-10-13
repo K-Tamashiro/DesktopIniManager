@@ -430,6 +430,23 @@ internal static class DiffRegressionTests
             string changed = DiffViewWindow.DescribePixel(map, new Point(50, 22));
             string equal = DiffViewWindow.DescribePixel(DiffViewWindow.CreateNavigationBitmap(window.ViewModel.SourceImage, window.ViewModel.SourceImage), new Point(50, 22));
             Require(changed != equal, "navigation map highlights differing regions");
+            var xorButton = ((Panel)window.FindName("imageToolbar")).Children.OfType<System.Windows.Controls.Primitives.ToggleButton>()
+                .Single(button => (string)button.ToolTip == "XOR mode");
+            Require(xorButton.IsChecked == false && ((Image)xorButton.Content).Opacity < 0.5, "XOR initially off and dim");
+            double previousOffset = sourceScroll.HorizontalOffset;
+            xorButton.IsChecked = true;
+            Require(((Image)xorButton.Content).Opacity == 1, "active XOR toggle is bright");
+            window.UpdateLayout();
+            var sourcePicture = ((Canvas)sourceScroll.Content).Children.OfType<Image>().Single();
+            var targetPicture = ((Canvas)targetScroll.Content).Children.OfType<Image>().Single();
+            var xor = (System.Windows.Media.Imaging.BitmapSource)sourcePicture.Source;
+            Require(ReferenceEquals(xor, targetPicture.Source), "XOR shown in both image panes");
+            Require(DiffViewWindow.DescribePixel(xor, new Point(10, 20)).Contains("RGB:0,0,0"), "equal XOR pixels are black");
+            Require(DiffViewWindow.DescribePixel(xor, new Point(600, 300)).Contains("RGB:155,0,0"), "XOR exposes changed pixels");
+            Require(zoom.Value == 2 && Math.Abs(sourceScroll.HorizontalOffset - previousOffset) < 1, "XOR preserves zoom and scroll");
+            xorButton.IsChecked = false;
+            Require(ReferenceEquals(((Canvas)sourceScroll.Content).Children.OfType<Image>().Single().Source, window.ViewModel.SourceImage) &&
+                ReferenceEquals(((Canvas)targetScroll.Content).Children.OfType<Image>().Single().Source, window.ViewModel.TargetImage), "second XOR click restores original images");
             Require(DiffViewWindow.DescribePixel(window.ViewModel.SourceImage, new Point(-1, 0)).Contains("RGB:\u2014"), "out of bounds pixel is not sampled");
             var imageBody = (FrameworkElement)window.FindName("body");
             Require(Math.Abs(imageBody.TranslatePoint(new Point(), window).Y - textBodyTop) < 1,
@@ -447,6 +464,7 @@ internal static class DiffRegressionTests
             Require(sourceScroll.HorizontalOffset <= sourceScroll.ScrollableWidth && sourceScroll.VerticalOffset <= sourceScroll.ScrollableHeight, "map navigation clamps at image edges");
             var retainedImages = ((Grid)imageBody).Children.Cast<UIElement>().ToArray();
             var toolbar = (Panel)window.FindName("imageToolbar");
+            xorButton.IsChecked = true;
             var retainedToolbar = toolbar.Children.Cast<UIElement>().ToArray();
             var retainedNavigator = Field<Canvas>("imageNavigator");
             bool blankFrame = false;
@@ -471,6 +489,10 @@ internal static class DiffRegressionTests
                 reloadTimer.Stop();
                 Require(reload.IsCompletedSuccessfully && !blankFrame, "image reload completes without an empty frame");
                 Require(Field<Slider>("imageZoom").Value < 1, "replacement image is fitted before load completes");
+                var restoredXor = toolbar.Children.OfType<System.Windows.Controls.Primitives.ToggleButton>().Single();
+                Require(restoredXor.IsChecked == true && ((Image)restoredXor.Content).Opacity == 1, "XOR mode survives image reload");
+                var reloadedXor = (System.Windows.Media.Imaging.BitmapSource)((Canvas)Field<ScrollViewer>("leftScroll").Content).Children.OfType<Image>().Single().Source;
+                Require(DiffViewWindow.DescribePixel(reloadedXor, new Point(600, 300)).Contains("RGB:155,0,0"), "reloaded image still displays XOR pixels");
             }
             finally { System.Windows.Media.CompositionTarget.Rendering -= observeFrame; }
             Console.WriteLine("PASS image navigation drag, shared scroll, zoom, RGBA/origin details and difference map");

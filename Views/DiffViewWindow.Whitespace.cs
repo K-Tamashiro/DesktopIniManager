@@ -133,12 +133,15 @@ internal sealed partial class DiffViewWindow
             if (rect.IsEmpty) return;
             Point point = pane.TranslatePoint(rect.TopLeft, this);
             if (point.X < -30 || point.X > ActualWidth || point.Y < -DiffLineHeight || point.Y > ActualHeight) return;
-            string key = (newline ? "n" : "s") + glyph;
+            bool light = Window.GetWindow(pane) is DiffViewWindow window && !window.IsDarkBackground();
+            Brush foreground = !newline ? Brushes.Gray : glyph == "\u2193" ? Brushes.RoyalBlue :
+                glyph == "\u21B2" && light ? Brushes.DarkRed : Brushes.Gold;
+            string key = (newline ? "n" : "s") + glyph + (light ? "light" : "dark");
             if (!glyphs.TryGetValue(key, out var text))
             {
                 text = new FormattedText(glyph, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
                     new Typeface(pane.FontFamily, FontStyles.Normal, newline ? FontWeights.Bold : FontWeights.Normal, FontStretches.Normal),
-                    pane.FontSize, newline ? (glyph == "\u2193" ? Brushes.Blue : Brushes.Yellow) : Brushes.Gray, dpi);
+                    pane.FontSize, foreground, dpi);
                 glyphs.Add(key, text);
             }
             drawing.DrawText(text, new Point(point.X, point.Y + (rect.Height - text.Height)));

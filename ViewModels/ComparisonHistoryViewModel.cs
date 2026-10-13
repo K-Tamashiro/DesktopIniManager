@@ -89,7 +89,7 @@ internal sealed partial class DeveloperDifferencerViewModel
         try { await SelectHistoryTabAsync(tab); }
         catch (Exception ex) { ShowError(ex); }
     }
-    internal async Task SelectHistoryTabAsync(ComparisonHistoryTab tab)
+    internal async Task SelectHistoryTabAsync(ComparisonHistoryTab tab, bool resetView = false)
     {
         if (IsBusy || tab == null) return;
         CaptureHistoryTab();
@@ -117,7 +117,13 @@ internal sealed partial class DeveloperDifferencerViewModel
             ShowTargetOnly = (kindMask & Services.DiffKind.TargetOnly) != 0;
             rows = snapshot.Files.Select(f => new DiffRow { File = f, SourceRoot = snapshot.SourceRoot, TargetRoot = snapshot.TargetRoot }).ToList();
             restoringFolders = tab.FolderStates.ToDictionary(f => f.Path, StringComparer.OrdinalIgnoreCase);
-            await BuildTreeAsync(snapshot.Folders, tab.Expanded, tab.SelectedFolder, CancellationToken.None);
+            await BuildTreeAsync(snapshot.Folders, resetView ? Array.Empty<string>() : tab.Expanded,
+                resetView ? "" : tab.SelectedFolder, CancellationToken.None);
+            if (resetView)
+            {
+                ResetAfterComparison();
+                ComparisonCompleted?.Invoke();
+            }
             Status = tab.Status;
             NotifyHistory();
         }
@@ -189,7 +195,7 @@ internal sealed partial class DeveloperDifferencerViewModel
             var saved = ResultHistoryStore.Load<HistoryFile<ComparisonHistoryTab>>("comparison");
             var selected = saved.Tabs.ElementAtOrDefault(saved.SelectedIndex);
             foreach (var tab in saved.Tabs.Where(t => t.Snapshot != null).OrderByDescending(t => t.CreatedAt).Take(ResultHistoryStore.Limit)) HistoryTabs.Add(tab);
-            if (HistoryTabs.Count > 0) await SelectHistoryTabAsync(HistoryTabs.Contains(selected) ? selected : HistoryTabs[0]);
+            if (HistoryTabs.Count > 0) await SelectHistoryTabAsync(HistoryTabs.Contains(selected) ? selected : HistoryTabs[0], resetView: true);
         }
         catch (Exception ex) { ShowError(ex); }
     }

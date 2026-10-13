@@ -171,6 +171,39 @@ internal sealed partial class DiffViewWindow
         Canvas.SetTop(imageViewport, navigationTop + leftScroll.VerticalOffset / zoom * navigationScale);
     }
 
+    internal static BitmapSource CreateXorBitmap(BitmapSource foreground, BitmapSource background)
+    {
+        var front = PixelImage(foreground);
+        var back = PixelImage(background);
+        int width = Math.Max(front.PixelWidth, back.PixelWidth);
+        int height = Math.Max(front.PixelHeight, back.PixelHeight);
+        int stride = checked(width * 4);
+        var result = new byte[checked(stride * height)];
+        var frontRow = new byte[stride];
+        var backRow = new byte[stride];
+        for (int y = 0; y < height; y++)
+        {
+            Array.Clear(frontRow, 0, stride);
+            Array.Clear(backRow, 0, stride);
+            if (y < front.PixelHeight)
+                front.CopyPixels(new Int32Rect(0, y, front.PixelWidth, 1), frontRow, stride, 0);
+            if (y < back.PixelHeight)
+                back.CopyPixels(new Int32Rect(0, y, back.PixelWidth, 1), backRow, stride, 0);
+            for (int x = 0; x < width; x++)
+            {
+                int p = x * 4, output = y * stride + p;
+                // Include alpha-only differences, but keep the result opaque so equal pixels are black.
+                int alpha = frontRow[p + 3] ^ backRow[p + 3];
+                for (int c = 0; c < 3; c++)
+                    result[output + c] = (byte)((frontRow[p + c] ^ backRow[p + c]) | alpha);
+                result[output + 3] = 255;
+            }
+        }
+        var bitmap = BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgra32, null, result, stride);
+        bitmap.Freeze();
+        return bitmap;
+    }
+
     internal static BitmapSource CreateNavigationBitmap(BitmapSource source, BitmapSource target)
     {
         int width = (int)NavigatorWidth, height = (int)NavigatorHeight;

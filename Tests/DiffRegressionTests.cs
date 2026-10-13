@@ -431,8 +431,14 @@ internal static class DiffRegressionTests
             string equal = DiffViewWindow.DescribePixel(DiffViewWindow.CreateNavigationBitmap(window.ViewModel.SourceImage, window.ViewModel.SourceImage), new Point(50, 22));
             Require(changed != equal, "navigation map highlights differing regions");
             var xorButton = ((Panel)window.FindName("imageToolbar")).Children.OfType<System.Windows.Controls.Primitives.ToggleButton>()
-                .Single(button => (string)button.ToolTip == "XOR mode");
-            Require(xorButton.IsChecked == false && ((Image)xorButton.Content).Opacity < 0.5, "XOR initially off and dim");
+                .Single(button => (string)button.ToolTip == "Source XOR mode");
+            var targetXorButton = ((Panel)window.FindName("imageToolbar")).Children.OfType<System.Windows.Controls.Primitives.ToggleButton>()
+                .Single(button => (string)button.ToolTip == "Target XOR mode");
+            Require(xorButton.IsChecked == SettingsService.LoadDiffFlag("source-image-xor", false) &&
+                targetXorButton.IsChecked == SettingsService.LoadDiffFlag("target-image-xor", false), "XOR restores saved choices");
+            xorButton.IsChecked = false;
+            targetXorButton.IsChecked = false;
+            Require(((Image)xorButton.Content).Opacity < 0.5 && ((Image)targetXorButton.Content).Opacity < 0.5, "disabled XOR buttons are dim");
             double previousOffset = sourceScroll.HorizontalOffset;
             xorButton.IsChecked = true;
             Require(((Image)xorButton.Content).Opacity == 1, "active XOR toggle is bright");
@@ -440,11 +446,15 @@ internal static class DiffRegressionTests
             var sourcePicture = ((Canvas)sourceScroll.Content).Children.OfType<Image>().Single();
             var targetPicture = ((Canvas)targetScroll.Content).Children.OfType<Image>().Single();
             var xor = (System.Windows.Media.Imaging.BitmapSource)sourcePicture.Source;
-            Require(ReferenceEquals(xor, targetPicture.Source), "XOR shown in both image panes");
+            Require(ReferenceEquals(targetPicture.Source, window.ViewModel.TargetImage), "Source XOR leaves Target unchanged");
+            targetXorButton.IsChecked = true;
+            Require(ReferenceEquals(xor, ((Canvas)targetScroll.Content).Children.OfType<Image>().Single().Source), "both XOR buttons show XOR independently");
             Require(DiffViewWindow.DescribePixel(xor, new Point(10, 20)).Contains("RGB:0,0,0"), "equal XOR pixels are black");
             Require(DiffViewWindow.DescribePixel(xor, new Point(600, 300)).Contains("RGB:155,0,0"), "XOR exposes changed pixels");
             Require(zoom.Value == 2 && Math.Abs(sourceScroll.HorizontalOffset - previousOffset) < 1, "XOR preserves zoom and scroll");
             xorButton.IsChecked = false;
+            Require(ReferenceEquals(xor, ((Canvas)targetScroll.Content).Children.OfType<Image>().Single().Source), "Target XOR remains active when Source is off");
+            targetXorButton.IsChecked = false;
             Require(ReferenceEquals(((Canvas)sourceScroll.Content).Children.OfType<Image>().Single().Source, window.ViewModel.SourceImage) &&
                 ReferenceEquals(((Canvas)targetScroll.Content).Children.OfType<Image>().Single().Source, window.ViewModel.TargetImage), "second XOR click restores original images");
             Require(DiffViewWindow.DescribePixel(window.ViewModel.SourceImage, new Point(-1, 0)).Contains("RGB:\u2014"), "out of bounds pixel is not sampled");
@@ -489,10 +499,17 @@ internal static class DiffRegressionTests
                 reloadTimer.Stop();
                 Require(reload.IsCompletedSuccessfully && !blankFrame, "image reload completes without an empty frame");
                 Require(Field<Slider>("imageZoom").Value < 1, "replacement image is fitted before load completes");
-                var restoredXor = toolbar.Children.OfType<System.Windows.Controls.Primitives.ToggleButton>().Single();
+                var restoredXor = toolbar.Children.OfType<System.Windows.Controls.Primitives.ToggleButton>().Single(button => (string)button.ToolTip == "Source XOR mode");
                 Require(restoredXor.IsChecked == true && ((Image)restoredXor.Content).Opacity == 1, "XOR mode survives image reload");
                 var reloadedXor = (System.Windows.Media.Imaging.BitmapSource)((Canvas)Field<ScrollViewer>("leftScroll").Content).Children.OfType<Image>().Single().Source;
                 Require(DiffViewWindow.DescribePixel(reloadedXor, new Point(600, 300)).Contains("RGB:155,0,0"), "reloaded image still displays XOR pixels");
+                var reopened = new DiffViewWindow(snapshot, snapshot.Files[0], left, right);
+                try
+                {
+                    bool SavedField(string name) => (bool)typeof(DiffViewWindow).GetField(name, BindingFlags.NonPublic | BindingFlags.Instance).GetValue(reopened);
+                    Require(SavedField("sourceImageXorMode") && !SavedField("targetImageXorMode"), "new window restores independent XOR choices");
+                }
+                finally { reopened.Close(); }
             }
             finally { System.Windows.Media.CompositionTarget.Rendering -= observeFrame; }
             Console.WriteLine("PASS image navigation drag, shared scroll, zoom, RGBA/origin details and difference map");

@@ -1,4 +1,4 @@
-﻿using DesktopIniManager.ViewModels;
+using DesktopIniManager.ViewModels;
 using DesktopIniManager.Services;
 using DesktopIniManager.Properties;
 using System;
@@ -67,7 +67,8 @@ internal sealed partial class DiffViewWindow : Window
     private Point imagePanLast;
     private SizeChangedEventHandler imageFitHandler;
     private Slider imageZoom;
-    private bool imageXorMode = false;
+    private bool sourceImageXorMode = SettingsService.LoadDiffFlag("source-image-xor", false);
+    private bool targetImageXorMode = SettingsService.LoadDiffFlag("target-image-xor", false);
 
     internal DiffSnapshot Snapshot => ViewModel.Snapshot;
 
@@ -1397,45 +1398,59 @@ internal sealed partial class DiffViewWindow : Window
             AddIconActionButton(wrapper, DifferencerStatusIcons.GetCustomIcon(72), StringOverlay.Get("Diff_Fit"), () => { fitToWindow = true; fit(); });
             AddIconActionButton(wrapper, DifferencerStatusIcons.GetCustomIcon(73), "100%", () => { fitToWindow = false; zoom.Value = 1; });
             BitmapSource xorImage = null;
-            var xorIcon = new Image { Source = DifferencerStatusIcons.GetCustomIcon(136), Stretch = Stretch.Uniform };
-            RenderOptions.SetBitmapScalingMode(xorIcon, BitmapScalingMode.HighQuality);
-            var xorButton = new ToggleButton
+            void AddXorButton(bool sourceSide, int iconIndex, string title)
             {
-                Content = xorIcon,
-                Style = TryFindResource("IconToggleButton") as Style,
-                ToolTip = "XOR mode",
-                Margin = new Thickness(0, 0, 8, 8),
-                IsChecked = imageXorMode,
-                IsEnabled = left != null && right != null
-            };
-            System.Windows.Automation.AutomationProperties.SetName(xorButton, "XOR mode");
-            void ApplyXorMode()
-            {
-                xorIcon.Opacity = imageXorMode ? 1.0 : 0.35;
-                if (left == null || right == null) return;
-                if (imageXorMode) xorImage ??= CreateXorBitmap(left, right);
-                // XOR is commutative: reversing foreground/background gives the same pixels.
-                void ReplaceImage(Canvas canvas, BitmapSource pixels, ref Canvas pixelGrid)
+                var xorIcon = new Image { Source = DifferencerStatusIcons.GetCustomIcon(iconIndex), Stretch = Stretch.Uniform };
+                RenderOptions.SetBitmapScalingMode(xorIcon, BitmapScalingMode.HighQuality);
+                var xorButton = new ToggleButton
                 {
-                    var replacement = ImageCanvas(pixels, width, height, out var newGrid);
-                    canvas.Children.Clear();
-                    while (replacement.Children.Count > 0)
+                    Content = xorIcon,
+                    Style = TryFindResource("IconToggleButton") as Style,
+                    ToolTip = title,
+                    Margin = new Thickness(0, 0, 8, 8),
+                    IsChecked = sourceSide ? sourceImageXorMode : targetImageXorMode,
+                    IsEnabled = left != null && right != null
+                };
+                System.Windows.Automation.AutomationProperties.SetName(xorButton, title);
+                void ApplyXorMode()
+                {
+                    bool enabled = xorButton.IsChecked == true;
+                    xorIcon.Opacity = enabled ? 1.0 : 0.35;
+                    if (left == null || right == null) return;
+                    if (enabled) xorImage ??= CreateXorBitmap(left, right);
+                    // XOR is commutative: reversing foreground/background gives the same pixels.
+                    void ReplaceImage(Canvas canvas, BitmapSource pixels, ref Canvas pixelGrid)
                     {
-                        UIElement child = replacement.Children[0];
-                        replacement.Children.RemoveAt(0);
-                        canvas.Children.Add(child);
+                        var replacement = ImageCanvas(pixels, width, height, out var newGrid);
+                        canvas.Children.Clear();
+                        while (replacement.Children.Count > 0)
+                        {
+                            UIElement child = replacement.Children[0];
+                            replacement.Children.RemoveAt(0);
+                            canvas.Children.Add(child);
+                        }
+                        pixelGrid = newGrid;
+                        if (pixelGrid != null)
+                            pixelGrid.Visibility = zoom.Value >= zoom.Maximum - 0.0001 ? Visibility.Visible : Visibility.Collapsed;
                     }
-                    pixelGrid = newGrid;
-                    if (pixelGrid != null)
-                        pixelGrid.Visibility = zoom.Value >= zoom.Maximum - 0.0001 ? Visibility.Visible : Visibility.Collapsed;
+                    if (sourceSide) ReplaceImage(leftCanvas, enabled ? xorImage : left, ref leftPixelGrid);
+                    else ReplaceImage(rightCanvas, enabled ? xorImage : right, ref rightPixelGrid);
                 }
-                ReplaceImage(leftCanvas, imageXorMode ? xorImage : left, ref leftPixelGrid);
-                ReplaceImage(rightCanvas, imageXorMode ? xorImage : right, ref rightPixelGrid);
+                void SaveXorMode(object sender, RoutedEventArgs e)
+                {
+                    bool enabled = xorButton.IsChecked == true;
+                    if (sourceSide) sourceImageXorMode = enabled;
+                    else targetImageXorMode = enabled;
+                    SettingsService.SaveDiffFlag(sourceSide ? "source-image-xor" : "target-image-xor", enabled);
+                    ApplyXorMode();
+                }
+                xorButton.Checked += SaveXorMode;
+                xorButton.Unchecked += SaveXorMode;
+                wrapper.Children.Add(xorButton);
+                ApplyXorMode();
             }
-            xorButton.Checked += (_, _) => { imageXorMode = true; ApplyXorMode(); };
-            xorButton.Unchecked += (_, _) => { imageXorMode = false; ApplyXorMode(); };
-            wrapper.Children.Add(xorButton);
-            ApplyXorMode();
+            AddXorButton(true, 137, "Source XOR mode");
+            AddXorButton(false, 138, "Target XOR mode");
             wrapper.Visibility = Visibility.Visible;
             imageControlRow.Visibility = Visibility.Visible;
         }

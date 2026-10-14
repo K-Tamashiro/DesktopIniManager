@@ -143,10 +143,34 @@ internal sealed partial class DiffViewWindow
 
     private static BitmapSource PixelImage(BitmapSource image)
     {
-        if (image == null || image.Format == PixelFormats.Bgra32) return image;
-        var converted = new FormatConvertedBitmap(image, PixelFormats.Bgra32, null, 0);
-        converted.Freeze();
-        return converted;
+        if (image == null)
+            return null;
+
+        if (image.Format == PixelFormats.Bgra32 && image.IsFrozen)
+            return image;
+
+        var source = image.Format == PixelFormats.Bgra32
+            ? image
+            : new FormatConvertedBitmap(
+                image, PixelFormats.Bgra32, null, 0);
+
+        int stride = checked(source.PixelWidth * 4);
+        byte[] pixels = new byte[checked(stride * source.PixelHeight)];
+
+        source.CopyPixels(pixels, stride, 0);
+
+        var result = BitmapSource.Create(
+            source.PixelWidth,
+            source.PixelHeight,
+            source.DpiX,
+            source.DpiY,
+            PixelFormats.Bgra32,
+            null,
+            pixels,
+            stride);
+
+        result.Freeze();
+        return result;
     }
 
     internal Point ScrollImagesTo(double x, double y)

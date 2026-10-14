@@ -64,6 +64,22 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
     private bool showObj, showBin;
     private string treeSource, treeTarget;
     public DiffSnapshot Snapshot => snapshot;
+    private HashSet<string> disabledIgnoreRules = new(StringComparer.Ordinal);
+    public bool CanConfigureIgnore => !IsBusy && snapshot?.IgnoreRules?.Count > 0;
+    internal async Task ApplyIgnoreRulesAsync(IEnumerable<string> disabled)
+    {
+        if (!CanConfigureIgnore) return;
+        var selection = new HashSet<string>(disabled, StringComparer.Ordinal);
+        var visible = new HashSet<string>(snapshot.IgnoreRules.Select(r => r.Key), StringComparer.Ordinal);
+        selection.UnionWith(disabledIgnoreRules.Where(key => !visible.Contains(key)));
+        if (disabledIgnoreRules.SetEquals(selection)) return;
+        var previousTab = selectedHistoryTab;
+        disabledIgnoreRules = selection;
+        InvalidateIndexes();
+        await CompareCoreAsync(replaceCurrent: true);
+        if (snapshot == null && previousTab != null && HistoryTabs.Contains(previousTab))
+            await SelectHistoryTabAsync(previousTab);
+    }
     public IReadOnlyDictionary<string, DiffFolder> Folders => folders;
     public void SelectFolder(string path)
     {
@@ -92,6 +108,12 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         string current = source ? SourcePath : TargetPath;
         if (!force && string.Equals(MainWindowViewModel.TryNormalizeFolderPath(current),
             MainWindowViewModel.TryNormalizeFolderPath(path), StringComparison.OrdinalIgnoreCase)) return;
+        if (!string.Equals(MainWindowViewModel.TryNormalizeFolderPath(current),
+            MainWindowViewModel.TryNormalizeFolderPath(path), StringComparison.OrdinalIgnoreCase))
+        {
+            disabledIgnoreRules.Clear();
+            InvalidateIndexes();
+        }
         if (source)
         {
             bool changed = SetProperty(ref _sourcePath, path, nameof(SourcePath));
@@ -180,7 +202,8 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         public Task<DiffIndex> Task { get; }
         public string Path { get; }
         public Exception Error { get; private set; }
-        public PendingIndex(string path) { Path = path; Task = BuildAsync(path); }
+        private readonly string[] disabled;
+        public PendingIndex(string path, IEnumerable<string> disabled) { Path = path; this.disabled = disabled.ToArray(); Task = BuildAsync(path); }
         public void Cancel()
         {
             try { cancellation.Cancel(); } catch (ObjectDisposedException) { }
@@ -190,7 +213,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
             try
             {
                 return await System.Threading.Tasks.Task.Run(
-                    () => DeveloperDifferencerService.BuildIndex(path, cancellation.Token), cancellation.Token);
+                    () => DeveloperDifferencerService.BuildIndex(path, cancellation.Token, disabled), cancellation.Token);
             }
             catch (OperationCanceledException) { return null; }
             catch (Exception ex) { Error = ex; return null; }
@@ -204,12 +227,12 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         if (source)
         {
             sourceIndex?.Cancel();
-            sourceIndex = closed || string.IsNullOrWhiteSpace(SourcePath) ? null : new PendingIndex(SourcePath);
+            sourceIndex = closed || string.IsNullOrWhiteSpace(SourcePath) ? null : new PendingIndex(SourcePath, disabledIgnoreRules);
         }
         else
         {
             targetIndex?.Cancel();
-            targetIndex = closed || string.IsNullOrWhiteSpace(TargetPath) ? null : new PendingIndex(TargetPath);
+            targetIndex = closed || string.IsNullOrWhiteSpace(TargetPath) ? null : new PendingIndex(TargetPath, disabledIgnoreRules);
         }
         _ = ObserveIndexProgressAsync(source ? sourceIndex : targetIndex);
     }
@@ -481,7 +504,8 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
             if (!File.Exists(StatePath)) return;
             DifferencerState state;
             using (var stream = File.OpenRead(StatePath)) state = (DifferencerState)new XmlSerializer(typeof(DifferencerState)).Deserialize(stream);
-            SourcePath = DisplayRoot(state.Source); TargetPath = DisplayRoot(state.Target);
+            _sourcePath = DisplayRoot(state.Source); _targetPath = DisplayRoot(state.Target);
+            OnPropertyChanged(nameof(SourcePath)); OnPropertyChanged(nameof(TargetPath));
             rootLinkVersion++; // Restoring saved paths must not initiate automatic linking.
             treeSource = SourcePath; treeTarget = TargetPath; selectedFolder = ""; cachedVisibleFolders = null;
             Status = "Source and Target restored. Click Compare to build the difference tree.";
@@ -811,6 +835,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         FileItems = null;
         streamingRows = null;
         snapshot = null; rows.Clear();
+        OnPropertyChanged(nameof(CanConfigureIgnore));
         selectedHistoryTab = null;
         NotifyHistory();
         _selectAllFiles = false; OnPropertyChanged(nameof(SelectAllFiles));
@@ -904,11 +929,13 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         finally { syncingTreeFromFile = false; }
     }
     internal event Action ComparisonCompleted;
-    internal async Task CompareAsync()
+    internal Task CompareAsync() => CompareCoreAsync(false);
+    private async Task CompareCoreAsync(bool replaceCurrent)
     {
         if (IsBusy) return;
         await pendingRootLink;
-        if (closed || IsBusy || !PrepareComparisonTab()) return;
+        if (closed || IsBusy || (!replaceCurrent && !PrepareComparisonTab())) return;
+        var replacedTab = replaceCurrent ? selectedHistoryTab : null;
         CaptureHistoryTab();
         CommitRootHistoryRequested?.Invoke();
         var expanded = folders.Values.Where(f => f.Expanded).Select(f => f.Path).ToList();
@@ -928,8 +955,8 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         { sourceIndex.Cancel(); sourceIndex = null; }
         if (targetIndex != null && !string.Equals(targetIndex.Path, target, StringComparison.OrdinalIgnoreCase))
         { targetIndex.Cancel(); targetIndex = null; }
-        PendingIndex leftIndex = sourceIndex ?? (sourceIndex = new PendingIndex(source));
-        PendingIndex rightIndex = targetIndex ?? (targetIndex = new PendingIndex(target));
+        PendingIndex leftIndex = sourceIndex ?? (sourceIndex = new PendingIndex(source, disabledIgnoreRules));
+        PendingIndex rightIndex = targetIndex ?? (targetIndex = new PendingIndex(target, disabledIgnoreRules));
         _ = ObserveIndexProgressAsync(leftIndex);
         _ = ObserveIndexProgressAsync(rightIndex);
         bool classifying = true;
@@ -984,8 +1011,14 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
             ResetAfterComparison();
             ComparisonCompleted?.Invoke();
             Status = folders[""].CountFor(DiffKind.Differences) + " differences / " + folders[""].CountFor(DiffKind.Same) + " identical. Check items to synchronize.";
-            AddComparisonTab();
-            SaveState();
+            if (replacedTab != null)
+            {
+                selectedHistoryTab = replacedTab;
+                CaptureHistoryTab();
+                NotifyHistory();
+            }
+            else AddComparisonTab();
+            await SaveStateAsync();
         }
         catch (OperationCanceledException) { ClearComparisonView(); Status = "Compare cancelled"; }
         catch (Exception ex) { ClearComparisonView(); Status = "Compare failed (sync disabled): " + ErrorMessages.English(ex); ShowError(ex); }
@@ -1523,6 +1556,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
     internal void SetBusy(bool value)
     {
         IsBusy = value; OnPropertyChanged(nameof(CanEdit)); CanFilter = !value && snapshot != null;
+        OnPropertyChanged(nameof(CanConfigureIgnore));
         CanCancel = value && comparing;
         SetFilePanelBusy(value, value ? "Please wait\u2026" : null);
         UpdateSelectionSummary(); UpdateRefreshButtonState();
@@ -1648,6 +1682,23 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
             if (File.Exists(StatePath)) File.Replace(temporary, StatePath, null); else File.Move(temporary, StatePath);
         }
         catch (Exception ex) { Status = "Failed to save tree: " + ErrorMessages.English(ex); }
+    }
+
+    // Call while interaction is disabled (closing) or IsBusy (comparison).
+    internal async Task SaveStateAsync()
+    {
+        CaptureHistoryTab();
+        var history = new HistoryFile<ComparisonHistoryTab> { Tabs = HistoryTabs.ToList(), SelectedIndex = HistoryTabs.IndexOf(selectedHistoryTab) };
+        var state = new DifferencerState { Source = SourcePath, Target = TargetPath };
+        string path = StatePath;
+        await Task.Run(() =>
+        {
+            ResultHistoryStore.Save("comparison", history);
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            string temporary = path + ".tmp";
+            using (var stream = File.Create(temporary)) new XmlSerializer(typeof(DifferencerState)).Serialize(stream, state);
+            File.Move(temporary, path, true);
+        });
     }
 
 }

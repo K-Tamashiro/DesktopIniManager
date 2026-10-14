@@ -114,6 +114,7 @@ internal static class DifferencerTests
     {
         try
         {
+            if (args.Contains("--v430")) return V430Tests.Run();
             if (args.Contains("--diff-regression")) return DiffRegressionTests.Run();
             if (args.Contains("--hash-comparison")) return DiffRegressionTests.RunHashComparison();
             if (args.Contains("--diff-viewer")) return DiffRegressionTests.RunViewer();

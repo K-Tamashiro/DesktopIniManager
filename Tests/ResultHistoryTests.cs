@@ -84,6 +84,9 @@ internal static class ResultHistoryTests
         Directory.Move(source, source + "-moved");
         var restored = Differencer(dialogs);
         Run(restored.RestoreHistoryAsync());
+        Check(restored.Snapshot == null && restored.SelectedHistoryTab == null && !restored.IsSourceIndexing && !restored.IsTargetIndexing,
+            "opening restores only tabs without scanning or displaying a comparison");
+        Run(restored.SelectHistoryTabAsync(restored.HistoryTabs[0]));
         Check(restored.HistoryTabs.Count == 20 && restored.Snapshot.Files.Count == 2, "comparison JSON restores snapshots after restart");
         Check(restored.Folders["folder"].SourceExists, "historical folder state survives missing source directory");
         diff.Close();
@@ -158,7 +161,7 @@ internal static class ResultHistoryTests
             text = Regex.Replace(text, @"\s+x:Class=""[^""]+""", "");
             text = text.Replace("clr-namespace:DesktopIniManager.Views", "clr-namespace:DesktopIniManager.Views;assembly=DesktopIniManager")
                 .Replace("clr-namespace:DesktopIniManager.Properties", "clr-namespace:DesktopIniManager.Properties;assembly=DesktopIniManager");
-            text = Regex.Replace(text, @"\s+(Icon|Loaded|Unloaded|DataContextChanged|SelectedItemChanged|PreviewMouseLeftButtonDown|MouseDoubleClick|MouseLeftButtonDown|Click|Expanded|Collapsed)=""[^""]*""", "");
+            text = Regex.Replace(text, @"\s+(Icon|Loaded|Unloaded|DataContextChanged|SelectedItemChanged|PreviewMouseLeftButtonDown|MouseDoubleClick|MouseLeftButtonDown|Click|Checked|Unchecked|Expanded|Collapsed)=""[^""]*""", "");
             text = Regex.Replace(text, @"<EventSetter\s+[^>]+/>", "");
             text = Regex.Replace(text, @"<history:GrepGroup\w+Converter\s+[^>]+/>", "");
             var window = (Window)XamlReader.Parse(text);
@@ -166,7 +169,7 @@ internal static class ResultHistoryTests
             if (name == "GrepWindow")
             {
                 ((Image)window.FindName("AddHistoryTabIcon")).Source = DifferencerStatusIcons.GetCustomIcon(94);
-                ((Image)window.FindName("SaveHistoryTabIcon")).Source = DifferencerStatusIcons.GetCustomIcon(95);
+                if (window.FindName("SaveHistoryTabIcon") is Image saveIcon) saveIcon.Source = DifferencerStatusIcons.GetCustomIcon(95);
             }
             var content = (FrameworkElement)window.Content;
             content.SetResourceReference(Panel.BackgroundProperty, "WindowBackground");

@@ -33,6 +33,24 @@ internal sealed class DiffViewModel : ObservableObject
     public string ExternalDiff { get => externalDiff; set => SetProperty(ref externalDiff, value); }
     public BitmapSource SourceImage { get; private set; }
     public BitmapSource TargetImage { get; private set; }
+    private GifFrames sourceGif, targetGif;
+    internal int ImageFrameCount => Math.Max(sourceGif?.Count ?? 1, targetGif?.Count ?? 1);
+    internal int ImageFrameIndex { get; private set; }
+    private int frameVersion;
+    internal string ImageFrameDetails => $"Frame {ImageFrameIndex + 1}/{ImageFrameCount}  Source: {FrameDetails(sourceGif)}  Target: {FrameDetails(targetGif)}";
+    private string FrameDetails(GifFrames gif) => gif == null ? "still" : ImageFrameIndex >= gif.Count
+        ? $"missing ({gif.Count} frames)" : $"{gif.DelayMilliseconds(ImageFrameIndex)} ms ({gif.Count} frames)";
+    internal async Task<bool> SelectImageFrameAsync(int index)
+    {
+        int version = ++frameVersion;
+        var a = sourceGif; var b = targetGif;
+        var images = await Task.Run(() => (a?.Compose(index), b?.Compose(index)));
+        if (closed || version != frameVersion) return false;
+        if (a != null) SourceImage = images.Item1;
+        if (b != null) TargetImage = images.Item2;
+        ImageFrameIndex = index;
+        return true;
+    }
     internal string SourceImageFormat { get; private set; }
     internal string TargetImageFormat { get; private set; }
     private readonly IUserDialogService dialogs;
@@ -200,6 +218,9 @@ internal sealed class DiffViewModel : ObservableObject
         ResetContent();
         RefreshFileDetails();
         SourceImage = TargetImage = null;
+        sourceGif = targetGif = null;
+        ImageFrameIndex = 0;
+        frameVersion++;
         SourceImageFormat = TargetImageFormat = null;
         Status = StringOverlay.Get("Diff_Loading");
         try
@@ -213,6 +234,8 @@ internal sealed class DiffViewModel : ObservableObject
                 TargetImage = images[1].Image;
                 SourceImageFormat = images[0].Format;
                 TargetImageFormat = images[1].Format;
+                sourceGif = images[0].Gif;
+                targetGif = images[1].Gif;
                 Status = string.Empty;
             }
             else
@@ -475,9 +498,9 @@ internal sealed class DiffViewModel : ObservableObject
         return string.Join("\n", kept);
     }
 
-    private static (BitmapSource Image, string Format) LoadImage(string path)
+    private static (BitmapSource Image, string Format, GifFrames Gif) LoadImage(string path)
     {
-        if (DiffStamp.Read(path) == null) return (null, null);
+        if (DiffStamp.Read(path) == null) return (null, null, null);
         using var stream = System.IO.File.OpenRead(path);
         var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
         string format = decoder switch
@@ -491,9 +514,14 @@ internal sealed class DiffViewModel : ObservableObject
             WmpBitmapDecoder => "WDP",
             _ => Path.GetExtension(path).TrimStart('.').ToUpperInvariant()
         };
+        if (decoder is GifBitmapDecoder gifDecoder)
+        {
+            var gif = new GifFrames(gifDecoder);
+            return (gif.Compose(0), format, gif);
+        }
         var frame = decoder.Frames[0];
         frame.Freeze();
-        return (frame, format);
+        return (frame, format, null);
     }
 
     internal async Task ReloadFromDiskAsync()

@@ -765,6 +765,20 @@
                             RenderOptions.BitmapScalingMode="HighQuality"
                             Stretch="Uniform" />
                     </ToggleButton>
+                    <Button
+                        x:Name="IgnoreListButton"
+                        Margin="8,0,0,0"
+                        Background="Transparent"
+                        Click="IgnoreListButton_Click"
+                        IsEnabled="{Binding CanConfigureIgnore}"
+                        Style="{StaticResource IconButton}"
+                        ToolTip="{loc:L Ignore_Title}"
+                        AutomationProperties.Name="{loc:L Ignore_Title}">
+                        <Image
+                            x:Name="IgnoreListIcon"
+                            RenderOptions.BitmapScalingMode="HighQuality"
+                            Stretch="Uniform" />
+                    </Button>
                 </StackPanel>
                 <StackPanel
                     Grid.Column="2"

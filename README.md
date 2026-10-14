@@ -1,4 +1,4 @@
-# DesktopIniManager v4.2.3
+﻿# DesktopIniManager v4.3.0
 
 DesktopIniManager (DIM) is a Windows workspace for exploring development folders and Visual Studio solutions, finding files, running scoped searches, comparing folders, viewing differences, and managing folder icons through desktop.ini.
 
@@ -8,7 +8,7 @@ DesktopIniManager (DIM) is a Windows workspace for exploring development folders
 
 ## Download and setup
 
-Download **DesktopIniManager-v4.2.3-win-x64.zip** from the v4.2.3 GitHub release assets, rather than GitHub's source-code archive. A matching .zip.sha256 file provides its SHA-256 checksum.
+Download **DesktopIniManager-v4.3.0-win-x64.zip** from the v4.3.0 GitHub release assets, rather than GitHub's source-code archive. A matching .zip.sha256 file provides its SHA-256 checksum.
 
 - Windows 10 or Windows 11, x64.
 - .NET 10 Desktop Runtime (x64), installed separately.
@@ -17,7 +17,7 @@ Download **DesktopIniManager-v4.2.3-win-x64.zip** from the v4.2.3 GitHub release
 
 Extract into a fresh folder and run **DesktopIniManager.exe**. Keep all DLLs, JSON files, Assets, and Languages together. ExcelDataReader and the bundled PdfPig libraries are required for Document Grep. The default folder icon library is resolved from the application's Assets directory.
 
-## Main features and improvements in v4.x
+## Main features
 
 - Five independent DIM process slots, each with its own settings and history.
 - Dark, Light, and DIM1–DIM5 themes, restored on startup.
@@ -50,9 +50,11 @@ Compare a yellow Source tree with a blue Target tree. Paths are indexed when sel
 
 Comparison checks can be enabled individually for **modification date/time**, **file size**, **attributes (including BOM)**, and **XXH128 content hash**. Enabled metadata and BOM checks remain independent: a date/time or size mismatch does not skip the BOM check. XXH128 is skipped when a file exists on only one side or any enabled preceding check already establishes a difference. With only XXH128 enabled, every file present on both sides is hash-compared. One-sided files/folders are included. Environment/build artifacts are normally excluded, with separate obj and bin visibility controls.
 
+Comparison respects .gitignore files in each selected root and its descendants, including directory patterns, *, ?, character classes, **, anchored paths, escaped characters, and ! negation. Deeper rules override parent rules; children cannot be re-included while their parent directory remains excluded. A path ignored by either Source or Target is excluded from both sides of the comparison and from synchronization. Rules outside the selected roots and global Git excludes are not used. Rescan or compare again after editing ignore files. The ignore button to the right of the filter button opens the merged Source/Target exclusion list; it is disabled when the comparison has no exclusion rules. Checked rules exclude paths; clear a checkbox to disable that rule, then apply to rescan and update the current comparison tab. Other enabled exclusions and negation rules still apply. Cancel discards changes, and the middle button inverts the checkboxes. Choices are retained with the comparison history and used during synchronization; the .gitignore files are not modified.
+
 Filter Same, Different, Source-only, Target-only, obj, bin, and checked items. Same files are hidden by default. The Same-check action can include identical files in synchronization or ZIP selections.
 
-Keep up to 20 dated comparison tabs, newest on the left. Delete tabs to make room at the limit. Refresh the whole comparison or the selected folder, and run Solution Clean where appropriate.
+Keep up to 20 dated comparison tabs, newest on the left. Opening Developer Differencer restores the tab list asynchronously without running a comparison or displaying the previous result tree. Select a history tab to display its saved result. Closing waits for background history persistence before exiting. Delete tabs to make room at the limit. Refresh the whole comparison or the selected folder, and run Solution Clean where appropriate.
 
 Create a ZIP from checked Source or Target files while preserving relative paths. Drag the ZIP icon to export the selected folder structure without creating an archive. Synchronization is available in either direction; review its direction and operations in the confirmation window.
 
@@ -96,7 +98,9 @@ DIM does not edit or merge file contents in this viewer. Scanning, searching, co
 
 ## Image DIFF VIEW
 
-Image comparison mode shows Source and Target side by side with zoom controls. A pixel grid appears at high magnification, and ARGB values and relative coordinates are displayed at the pointer position. The map overlays both images at 50% transparency; it does not automatically detect or highlight differing pixels.
+Image comparison mode shows Source and Target side by side. BMP, JPG/JPEG, PNG, GIF, and TIFF/TIF (as well as the other supported image formats) use nearest-neighbor scaling without smoothing. Zoom ranges from 5% to 1600%; the pixel grid appears only at the maximum 1600%. ARGB values and relative coordinates are displayed at the pointer position. Each side can independently switch between its original image and the XOR overlay. The navigation map overlays both images and highlights differences.
+
+For animated GIFs, a frame slider appears below the zoom slider. Move it and release to compare a composed frame as a still image; playback is not automatic. The shared range uses the larger frame count. A side with no frame at the selected index is shown as missing. Frame counts and original frame delays (milliseconds) are displayed. Transparent pixels, local frame rectangles, and background/previous-frame disposal are applied before comparison. MP4 remains unsupported in DIFF VIEW.
 
 ## Scoped Grep
 
@@ -139,4 +143,4 @@ DIM is freeware by Tamayan / ZEBRASOFT. Copyright remains with the author. See t
 - Repository / issue reports: <https://github.com/K-Tamashiro/DesktopIniManager>
 - Contact: <tamayan@zebrasoft.co.jp>
 
-For maintainers, scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> packages existing v4.2.3 binaries without building. Omitting that option runs dotnet publish. Archives/checksums go to release/ for upload as GitHub assets; they are not stored in Git.
+For maintainers, scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> packages existing v4.3.0 binaries without building. Omitting that option runs dotnet publish. Archives/checksums go to release/ for upload as GitHub assets; they are not stored in Git.

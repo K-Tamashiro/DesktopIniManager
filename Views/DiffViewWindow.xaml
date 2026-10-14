@@ -208,13 +208,28 @@
           Orientation="Horizontal" />
       </Grid>
     </Grid>
-
-    <Grid x:Name="body" PreviewMouseWheel="Body_PreviewMouseWheel">
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="*" />
-        <ColumnDefinition x:Name="mapColumn" Width="34" />
-        <ColumnDefinition Width="*" />
-      </Grid.ColumnDefinitions>
-    </Grid>
-  </DockPanel>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid
+            x:Name="body"
+            Grid.Row="0"
+            PreviewMouseWheel="Body_PreviewMouseWheel">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition x:Name="mapColumn" Width="34" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+            </Grid>
+            <StackPanel
+            x:Name="gifFrameHost"
+            Grid.Row="1"
+            HorizontalAlignment="Center"
+            Orientation="Vertical"
+            Margin="0,4,0,4"
+            Visibility="Collapsed" />
+        </Grid>
+    </DockPanel>
 </Window>

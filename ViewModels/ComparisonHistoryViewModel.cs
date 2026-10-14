@@ -101,10 +101,18 @@ internal sealed partial class DeveloperDifferencerViewModel
             // Assign backing fields so restoring roots does not clear the selected snapshot.
             _sourcePath = DisplayRoot(tab.Snapshot.SourceRoot); _targetPath = DisplayRoot(tab.Snapshot.TargetRoot);
             rootLinkVersion++;
-            if (sourceIndex == null || !string.Equals(sourceIndex.Path, _sourcePath, StringComparison.OrdinalIgnoreCase)) RestartIndex(true);
-            if (targetIndex == null || !string.Equals(targetIndex.Path, _targetPath, StringComparison.OrdinalIgnoreCase)) RestartIndex(false);
+            // A historical snapshot does not need a filesystem scan. Compare refreshes indexes.
             OnPropertyChanged(nameof(SourcePath)); OnPropertyChanged(nameof(TargetPath));
             snapshot = tab.Snapshot; treeSource = SourcePath; treeTarget = TargetPath;
+            disabledIgnoreRules = new System.Collections.Generic.HashSet<string>(snapshot.DisabledIgnoreRules ?? new(), StringComparer.Ordinal);
+            InvalidateIndexes();
+            if (snapshot.IgnoreRules == null)
+            {
+                var savedSnapshot = snapshot;
+                savedSnapshot.IgnoreRules = await Task.Run(() => Services.GitIgnoreMatcher.Merge(
+                    Services.GitIgnoreMatcher.Discover(savedSnapshot.SourceRoot, savedSnapshot.DisabledIgnoreRules, CancellationToken.None),
+                    Services.GitIgnoreMatcher.Discover(savedSnapshot.TargetRoot, savedSnapshot.DisabledIgnoreRules, CancellationToken.None)));
+            }
             CompareTimestamp = snapshot.CompareTimestamp;
             CompareSize = snapshot.CompareSize;
             CompareAttributes = snapshot.CompareAttributes;
@@ -192,10 +200,17 @@ internal sealed partial class DeveloperDifferencerViewModel
     {
         try
         {
-            var saved = ResultHistoryStore.Load<HistoryFile<ComparisonHistoryTab>>("comparison");
-            var selected = saved.Tabs.ElementAtOrDefault(saved.SelectedIndex);
-            foreach (var tab in saved.Tabs.Where(t => t.Snapshot != null).OrderByDescending(t => t.CreatedAt).Take(ResultHistoryStore.Limit)) HistoryTabs.Add(tab);
-            if (HistoryTabs.Count > 0) await SelectHistoryTabAsync(HistoryTabs.Contains(selected) ? selected : HistoryTabs[0], resetView: true);
+            var saved = await Task.Run(() => ResultHistoryStore.Load<HistoryFile<ComparisonHistoryTab>>("comparison"));
+            if (closed) return;
+            changingHistoryTabs = true;
+            try
+            {
+                foreach (var tab in saved.Tabs.Where(t => t.Snapshot != null).OrderByDescending(t => t.CreatedAt).Take(ResultHistoryStore.Limit)) HistoryTabs.Add(tab);
+            }
+            finally { changingHistoryTabs = false; }
+            // Opening the window only restores tab labels. Select a tab to display its snapshot.
+            selectedHistoryTab = null;
+            NotifyHistory();
         }
         catch (Exception ex) { ShowError(ex); }
     }

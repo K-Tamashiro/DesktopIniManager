@@ -929,12 +929,25 @@ internal sealed class MainWindowPresentationService
 
     /// <summary>Opens or activates the developer differencer window.</summary>
 
-    private void OnClosing(object sender, System.ComponentModel.CancelEventArgs e)
+    private bool savingDifferencerOnClose;
+    private bool differencerSavedOnClose;
+    private async void OnClosing(object sender, System.ComponentModel.CancelEventArgs e)
     {
-        if (_differencerWindow != null)
+        if (_differencerWindow != null && !differencerSavedOnClose)
         {
-            if (_differencerWindow.IsWorking) e.Cancel = true;
-            else _differencerWindow.SaveState();
+            e.Cancel = true;
+            if (_differencerWindow.IsWorking || savingDifferencerOnClose) return;
+            savingDifferencerOnClose = true;
+            try
+            {
+                if (await _differencerWindow.PrepareCloseAsync())
+                {
+                    differencerSavedOnClose = true;
+                    _ = _window.Dispatcher.BeginInvoke(new Action(() => _window.Close()));
+                }
+            }
+            finally { savingDifferencerOnClose = false; }
+            return;
         }
         if (!e.Cancel) ViewModel.SaveFolderTrees();
     }

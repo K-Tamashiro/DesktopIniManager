@@ -25,6 +25,9 @@ public partial class DeveloperDifferencerWindow : Window
     private bool _zipDragFromSource;
     private bool _zipDragging;
     private bool _zipDragArmed;
+    private Task historyLoad = Task.CompletedTask;
+    private Task<bool> closePreparation;
+    private bool closeReady;
     /// <summary>Initializes a new developer differencer window.</summary>
     public DeveloperDifferencerWindow()
     {
@@ -102,7 +105,13 @@ public partial class DeveloperDifferencerWindow : Window
             TreeDensityToggle.Unchecked += TreeDensityToggle_Changed;
         }
         // HistoryTextBox persists Source/Target via HistoryKey.
-        Closing += (s, e) => { if (ViewModel.IsBusy) { e.Cancel = true; return; } SaveState(); };
+        Closing += async (s, e) =>
+        {
+            if (closeReady) return;
+            e.Cancel = true;
+            if (ViewModel.IsBusy || closePreparation != null) return;
+            if (await PrepareCloseAsync()) _ = Dispatcher.BeginInvoke(new Action(Close));
+        };
         Closed += (s, e) =>
         {
             StringOverlay.CultureChanged -= OnCultureChanged;
@@ -112,12 +121,28 @@ public partial class DeveloperDifferencerWindow : Window
         PreviewDragEnter += FolderDropPreview;
         PreviewDragOver += FolderDropPreview;
         PreviewDrop += Differencer_Drop;
-        Loaded += async (s, e) => { ViewModel.SetFilePanelBusy(false); await ViewModel.RestoreHistoryAsync(); };
+        Loaded += async (s, e) =>
+        {
+            IsEnabled = false;
+            ViewModel.SetFilePanelBusy(false);
+            try { await (historyLoad = ViewModel.RestoreHistoryAsync()); }
+            finally { if (closePreparation == null) IsEnabled = true; }
+        };
         StringOverlay.CultureChanged += OnCultureChanged;
         ViewModel.RestoreState();
     }
 
     private DiffRow pendingProgressRow;
+    private async void IgnoreListButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!ViewModel.CanConfigureIgnore) return;
+        var dialog = new IgnoreRulesWindow(ViewModel.Snapshot) { Owner = this };
+        if (dialog.ShowDialog() == true)
+        {
+            try { await ViewModel.ApplyIgnoreRulesAsync(dialog.DisabledRules); }
+            catch (Exception ex) { ViewModel.ShowError(ex); }
+        }
+    }
     private bool progressScrollPending;
 
     private void ScrollToProgressFile(DiffRow row)
@@ -389,6 +414,28 @@ public partial class DeveloperDifferencerWindow : Window
         SaveGridLayout();
     }
 
+    internal Task<bool> PrepareCloseAsync() => closePreparation ??= SaveForCloseAsync();
+
+    private async Task<bool> SaveForCloseAsync()
+    {
+        IsEnabled = false;
+        try
+        {
+            await historyLoad;
+            SaveGridLayout();
+            await ViewModel.SaveStateAsync();
+            closeReady = true;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            ViewModel.ShowError(ex);
+            _ = Dispatcher.BeginInvoke(new Action(() => closePreparation = null));
+            IsEnabled = true;
+            return false;
+        }
+    }
+
     private void RestoreGridLayout()
     {
         var values = SettingsService.LoadDifferencerLayout();
@@ -452,6 +499,7 @@ public partial class DeveloperDifferencerWindow : Window
         SetIcon(CheckedOnlyIcon, 100);
         SetIcon(ForwardButtonIcon, 85);
         SetIcon(ReverseButtonIcon, 86);
+        SetIcon(IgnoreListIcon, 139);
         UpdateNodeExpandIcon();
         UpdateDensityIcon();
     }

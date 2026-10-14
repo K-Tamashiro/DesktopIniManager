@@ -397,3 +397,13 @@ History_SaveTabs=タブを保存
 
 Differencer_RescanSource=ソースフォルダーを再走査
 Differencer_RescanTarget=ターゲットフォルダーを再走査
+
+Ignore_Title=.gitignore 除外設定
+Ignore_Description=Source / Target の .gitignore を統合した除外一覧
+Ignore_Help=チェックあり：比較対象から除外 ／ チェックなし：比較対象に含める（ほかの有効な指定で除外される場合を除く）。否定指定（!）は維持します。適用すると両フォルダーを再走査します。
+Ignore_Cancel=キャンセル
+Ignore_Invert=チェックを反転
+Ignore_Apply=適用して再比較
+Ignore_Both=Source / Target 共通
+Ignore_Source=Source のみ
+Ignore_Target=Target のみ

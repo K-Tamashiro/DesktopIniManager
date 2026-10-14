@@ -1,4 +1,4 @@
-using DesktopIniManager.ViewModels;
+﻿using DesktopIniManager.ViewModels;
 using DesktopIniManager.Services;
 using DesktopIniManager.Properties;
 using System;
@@ -1303,6 +1303,14 @@ internal sealed partial class DiffViewWindow : Window
         var left = ViewModel.SourceImage;
         var right = ViewModel.TargetImage;
         body.Children.Clear();
+        // 前回の描画で登録したウィンドウ側のキーイベントを解除する。
+        if (gifFrameHost.Tag is System.Windows.Input.KeyEventHandler previousFrameKeyHandler)
+        {
+            RemoveHandler(System.Windows.Input.Keyboard.PreviewKeyDownEvent, previousFrameKeyHandler);
+            gifFrameHost.Tag = null;
+        }
+        gifFrameHost.Children.Clear();
+        gifFrameHost.Visibility = Visibility.Collapsed;
         body.ColumnDefinitions[1].Width = new GridLength(12);
         double width = Math.Max(left == null ? 0 : left.PixelWidth, right == null ? 0 : right.PixelWidth);
         double height = Math.Max(left == null ? 0 : left.PixelHeight, right == null ? 0 : right.PixelHeight);
@@ -1344,15 +1352,56 @@ internal sealed partial class DiffViewWindow : Window
         {
             if (!fitToWindow || width <= 0 || height <= 0) return;
             double viewportWidth = Math.Min(leftScroll.ViewportWidth, rightScroll.ViewportWidth);
-			double viewportHeight = Math.Min(leftScroll.ViewportHeight, rightScroll.ViewportHeight);
-			if (viewportWidth <= 0 || viewportHeight <= 0) return;
-			double scale = Math.Min(viewportWidth / width, viewportHeight / height);
-			scale = Math.Min(1.0, scale);
+            double viewportHeight = Math.Min(leftScroll.ViewportHeight, rightScroll.ViewportHeight);
+            if (viewportWidth <= 0 || viewportHeight <= 0) return;
+            double scale = Math.Min(viewportWidth / width, viewportHeight / height);
+            scale = Math.Min(1.0, scale);
             if (scale <= 0) return;
             fitting = true;
             zoom.Value = Math.Max(zoom.Minimum, Math.Min(zoom.Maximum, scale));
             fitting = false;
         };
+
+        // GIFフレームの更新では、画像枠・スライダー・ズームを再生成しない。
+        BitmapSource xorImage = null;
+        void UpdateDisplayedFrames()
+        {
+            left = ViewModel.SourceImage;
+            right = ViewModel.TargetImage;
+            width = Math.Max(left?.PixelWidth ?? 0, right?.PixelWidth ?? 0);
+            height = Math.Max(left?.PixelHeight ?? 0, right?.PixelHeight ?? 0);
+            xorImage = null; // フレームが変わったのでXORを再計算する
+
+            if (left != null && right != null &&
+                (sourceImageXorMode || targetImageXorMode))
+                xorImage = CreateXorBitmap(left, right);
+
+            void UpdateCanvas(Canvas canvas, BitmapSource pixels, ref Canvas pixelGrid)
+            {
+                var replacement = ImageCanvas(pixels, width, height, out var newGrid);
+                canvas.Width = width;
+                canvas.Height = height;
+                canvas.Children.Clear();
+                while (replacement.Children.Count > 0)
+                {
+                    UIElement child = replacement.Children[0];
+                    replacement.Children.RemoveAt(0);
+                    canvas.Children.Add(child);
+                }
+                pixelGrid = newGrid;
+                if (pixelGrid != null)
+                    pixelGrid.Visibility = zoom.Value >= zoom.Maximum - 0.0001
+                        ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            UpdateCanvas(leftCanvas,
+                sourceImageXorMode && xorImage != null ? xorImage : left,
+                ref leftPixelGrid);
+            UpdateCanvas(rightCanvas,
+                targetImageXorMode && xorImage != null ? xorImage : right,
+                ref rightPixelGrid);
+            UpdateImageNavigation();
+        }
 
         var wrapper = imageToolbar as Panel;
         if (wrapper != null)
@@ -1387,7 +1436,9 @@ internal sealed partial class DiffViewWindow : Window
                 fitToWindow = false;
                 zoom.Value = Math.Max(zoom.Minimum, zoom.Value / 1.25);
             }));
-            chromeRow.Children.Add(zoom);
+            var zoomControls = new StackPanel();
+            zoomControls.Children.Add(zoom);
+            chromeRow.Children.Add(zoomControls);
             chromeRow.Children.Add(ImageZoomStepButton("\uE710", "Zoom in", () =>
             {
                 fitToWindow = false;
@@ -1397,7 +1448,6 @@ internal sealed partial class DiffViewWindow : Window
             wrapper.Children.Add(chrome);
             AddIconActionButton(wrapper, DifferencerStatusIcons.GetCustomIcon(72), StringOverlay.Get("Diff_Fit"), () => { fitToWindow = true; fit(); });
             AddIconActionButton(wrapper, DifferencerStatusIcons.GetCustomIcon(73), "100%", () => { fitToWindow = false; zoom.Value = 1; });
-            BitmapSource xorImage = null;
             void AddXorButton(bool sourceSide, int iconIndex, string title)
             {
                 var xorIcon = new Image { Source = DifferencerStatusIcons.GetCustomIcon(iconIndex), Stretch = Stretch.Uniform };
@@ -1416,25 +1466,7 @@ internal sealed partial class DiffViewWindow : Window
                 {
                     bool enabled = xorButton.IsChecked == true;
                     xorIcon.Opacity = enabled ? 1.0 : 0.35;
-                    if (left == null || right == null) return;
-                    if (enabled) xorImage ??= CreateXorBitmap(left, right);
-                    // XOR is commutative: reversing foreground/background gives the same pixels.
-                    void ReplaceImage(Canvas canvas, BitmapSource pixels, ref Canvas pixelGrid)
-                    {
-                        var replacement = ImageCanvas(pixels, width, height, out var newGrid);
-                        canvas.Children.Clear();
-                        while (replacement.Children.Count > 0)
-                        {
-                            UIElement child = replacement.Children[0];
-                            replacement.Children.RemoveAt(0);
-                            canvas.Children.Add(child);
-                        }
-                        pixelGrid = newGrid;
-                        if (pixelGrid != null)
-                            pixelGrid.Visibility = zoom.Value >= zoom.Maximum - 0.0001 ? Visibility.Visible : Visibility.Collapsed;
-                    }
-                    if (sourceSide) ReplaceImage(leftCanvas, enabled ? xorImage : left, ref leftPixelGrid);
-                    else ReplaceImage(rightCanvas, enabled ? xorImage : right, ref rightPixelGrid);
+                    UpdateDisplayedFrames();
                 }
                 void SaveXorMode(object sender, RoutedEventArgs e)
                 {
@@ -1453,6 +1485,173 @@ internal sealed partial class DiffViewWindow : Window
             AddXorButton(false, 138, "Target XOR mode");
             wrapper.Visibility = Visibility.Visible;
             imageControlRow.Visibility = Visibility.Visible;
+        }
+        if (ViewModel.ImageFrameCount > 1)
+        {
+            var frames = new Slider
+            {
+                Minimum = 0,
+                Maximum = ViewModel.ImageFrameCount - 1,
+                Value = ViewModel.ImageFrameIndex,
+                TickFrequency = 1,
+                SmallChange = 1,
+                LargeChange = 1,
+                IsSnapToTickEnabled = true,
+                IsMoveToPointEnabled = false,
+                ToolTip = ViewModel.ImageFrameDetails,
+                Style = (Style)FindResource("FrameSlider")
+            };
+
+            var frameLabel = new TextBlock
+            {
+                Text = ViewModel.ImageFrameDetails,
+                FontSize = 12,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 4)
+            };
+            frameLabel.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
+
+            var framePanel = new StackPanel
+            {
+                Orientation = Orientation.Vertical,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 8, 0, 8)
+            };
+            framePanel.Children.Add(frameLabel);
+
+            // GIFフレームの前後ボタンは、Sliderのテンプレートではなく独立したButtonにする。
+            // IsMoveToPointEnabledの影響を受けず、必ず1フレームずつ移動する。
+            Button FrameStepButton(string caption, string tip, int step)
+            {
+                var glyph = new TextBlock
+                {
+                    Text = caption,
+                    FontSize = 24,
+                    FontWeight = FontWeights.Bold,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    TextAlignment = TextAlignment.Center,
+                    IsHitTestVisible = false
+                };
+                glyph.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
+
+                var button = new Button
+                {
+                    Content = glyph,
+                    Width = 34,
+                    Height = 34,
+                    Padding = new Thickness(0),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(6, 0, 6, 0),
+                    ToolTip = tip
+                };
+                // 明示的なContentPresenterで、アプリ共通Buttonスタイルによる
+                // Content非表示を回避する。
+                var border = new FrameworkElementFactory(typeof(Border));
+                border.SetValue(Border.CornerRadiusProperty, new CornerRadius(7));
+                border.SetValue(Border.BorderThicknessProperty, new Thickness(1));
+                border.SetResourceReference(Border.BackgroundProperty, "CardBackground");
+                border.SetResourceReference(Border.BorderBrushProperty, "Line");
+                var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
+                presenter.SetValue(ContentPresenter.ContentProperty,
+                    new TemplateBindingExtension(ContentControl.ContentProperty));
+                presenter.SetValue(FrameworkElement.HorizontalAlignmentProperty,
+                    HorizontalAlignment.Center);
+                presenter.SetValue(FrameworkElement.VerticalAlignmentProperty,
+                    VerticalAlignment.Center);
+                border.AppendChild(presenter);
+                button.Template = new ControlTemplate(typeof(Button)) { VisualTree = border };
+                button.Click += (_, _) =>
+                    frames.Value = Math.Max(frames.Minimum,
+                        Math.Min(frames.Maximum, frames.Value + step));
+                return button;
+            }
+
+            var frameRow = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            frameRow.Children.Add(FrameStepButton("−", "Previous frame", -1));
+            frameRow.Children.Add(frames);
+            frameRow.Children.Add(FrameStepButton("+", "Next frame", 1));
+            framePanel.Children.Add(frameRow);
+
+            // ウィンドウ内のどこにフォーカスがあっても左右キーでフレーム移動する。
+            // RenderImages再実行時は冒頭で前回の登録を解除する。
+            System.Windows.Input.KeyEventHandler frameKeyHandler = (_, e) =>
+            {
+                if (gifFrameHost.Visibility != Visibility.Visible) return;
+                int step;
+                if (e.Key == System.Windows.Input.Key.Left) step = -1;
+                else if (e.Key == System.Windows.Input.Key.Right) step = 1;
+                else return;
+
+                frames.Value = Math.Max(frames.Minimum,
+                    Math.Min(frames.Maximum, frames.Value + step));
+                e.Handled = true;
+            };
+            AddHandler(System.Windows.Input.Keyboard.PreviewKeyDownEvent,
+                frameKeyHandler, true);
+            gifFrameHost.Tag = frameKeyHandler;
+
+            // ラベル、前後ボタン、スライダーをまとめて角丸枠で囲む。
+            var frameBorder = new Border
+            {
+                CornerRadius = new CornerRadius(18),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(12, 8, 12, 8),
+                Margin = new Thickness(0, 8, 0, 8),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Child = framePanel
+            };
+            frameBorder.SetResourceReference(Border.BackgroundProperty, "CardBackground");
+            frameBorder.SetResourceReference(Border.BorderBrushProperty, "Line");
+
+            // 余白は外枠に集約する。
+            framePanel.Margin = new Thickness(0);
+            gifFrameHost.Children.Add(frameBorder);
+            gifFrameHost.Visibility = Visibility.Visible;
+
+            int requestedFrame = ViewModel.ImageFrameIndex;
+            bool processingFrame = false;
+
+            async void SelectFrame()
+            {
+                // ドラッグ中もValueChangedを受け付ける。非同期処理中は最後の要求を保持する。
+                if (processingFrame) return;
+                processingFrame = true;
+                try
+                {
+                    while (IsLoaded && requestedFrame != ViewModel.ImageFrameIndex)
+                    {
+                        int index = requestedFrame;
+                        bool changed = await ViewModel.SelectImageFrameAsync(index);
+                        if (!IsLoaded) return;
+                        if (!changed) break;
+
+                        // RenderImages()を呼ばないので、Thumbのキャプチャとズームが維持される。
+                        UpdateDisplayedFrames();
+                        frameLabel.Text = ViewModel.ImageFrameDetails;
+                        frames.ToolTip = ViewModel.ImageFrameDetails;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ViewModel.ReportError(ex);
+                }
+                finally
+                {
+                    processingFrame = false;
+                }
+            }
+
+            frames.ValueChanged += (_, _) =>
+            {
+                requestedFrame = (int)Math.Round(frames.Value);
+                SelectFrame();
+            };
         }
         zoom.ValueChanged += (s, e) =>
         {

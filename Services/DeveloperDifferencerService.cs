@@ -120,6 +120,8 @@ internal sealed class DiffSnapshot
     public bool CompareSize = true;
     public bool CompareAttributes;
     public bool PreciseCompare;
+    public List<string> DisabledIgnoreRules = new List<string>();
+    public List<GitIgnoreRuleInfo> IgnoreRules;
     public List<DiffFile> Files = new List<DiffFile>();
     public HashSet<string> Folders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "" };
     public HashSet<string> SourceFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "" };
@@ -132,6 +134,8 @@ internal sealed class DiffIndex
     public Dictionary<string, DiffStamp> Files;
     public HashSet<string> Folders;
     public HashSet<string> NonEmptyFolders;
+    public List<GitIgnoreRuleInfo> IgnoreRules = new();
+    public List<string> DisabledIgnoreRules = new();
 }
 
 /// <summary>Compares and synchronizes two development directory trees.</summary>
@@ -200,9 +204,10 @@ internal static class DeveloperDifferencerService
     }
 
     private static Dictionary<string, DiffStamp> ScanSelectedFolder(string root, string relativeFolder, HashSet<string> folders, CancellationToken token, IProgress<DiffProgress> progress = null, string stage = null, int offset = 0, int total = 0,
-        HashSet<string> nonEmptyFolders = null)
+        HashSet<string> nonEmptyFolders = null, GitIgnoreMatcher ignore = null)
     {
         var files = new Dictionary<string, DiffStamp>(StringComparer.OrdinalIgnoreCase);
+        ignore ??= new GitIgnoreMatcher(root);
         string baseDirectory = relativeFolder.Length == 0
             ? root
             : SafeFolderPath(root, relativeFolder);
@@ -218,6 +223,8 @@ internal static class DeveloperDifferencerService
             token.ThrowIfCancellationRequested();
             string directory = pending.Pop();
             string directoryRelative = RelativeFromRoot(root, directory);
+            if (ignore.IsIgnored(directoryRelative, true)) continue;
+            ignore.ReadDirectory(directoryRelative);
             folders.Add(directoryRelative);
 
             foreach (var entry in VolumePathIndex.EnumerateNativeDirectory(directory, token))
@@ -227,7 +234,7 @@ internal static class DeveloperDifferencerService
                 nonEmptyFolders?.Add(directoryRelative);
                 string path = Path.Combine(directory, entry.Name);
                 string relative = RelativeFromRoot(root, path);
-                if (Protected(relative)) continue;
+                if (Protected(relative) || ignore.IsIgnored(relative, (entry.Attributes & FileAttributes.Directory) != 0)) continue;
                 if ((entry.Attributes & FileAttributes.Directory) != 0)
                 {
                     folders.Add(relative);
@@ -306,6 +313,7 @@ internal static class DeveloperDifferencerService
 
         progress?.Report(ReportCompare("Comparing target\u2026", left.Count, total));
         Dictionary<string, DiffStamp> right = ScanSelectedFolder(target, string.Empty, targetFolders, token, progress, "Comparing target\u2026", left.Count, total);
+        ExcludeIgnored(source, target, left, right, sourceFolders, targetFolders, token);
         result.SourceFolders = sourceFolders;
         result.TargetFolders = targetFolders;
         result.Folders = new HashSet<string>(sourceFolders.Union(targetFolders, StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase);
@@ -316,14 +324,17 @@ internal static class DeveloperDifferencerService
         return result;
     }
 
-    internal static DiffIndex BuildIndex(string root, CancellationToken token)
+    internal static DiffIndex BuildIndex(string root, CancellationToken token, IEnumerable<string> disabledIgnoreRules = null)
     {
         token.ThrowIfCancellationRequested();
         root = Root(root);
         var folders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "" };
         var nonEmptyFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var files = ScanSelectedFolder(root, string.Empty, folders, token, nonEmptyFolders: nonEmptyFolders);
-        return new DiffIndex { Root = root, Files = files, Folders = folders, NonEmptyFolders = nonEmptyFolders };
+        var disabled = (disabledIgnoreRules ?? Array.Empty<string>()).ToList();
+        var ignore = new GitIgnoreMatcher(root, disabled);
+        var files = ScanSelectedFolder(root, string.Empty, folders, token, nonEmptyFolders: nonEmptyFolders, ignore: ignore);
+        return new DiffIndex { Root = root, Files = files, Folders = folders, NonEmptyFolders = nonEmptyFolders,
+            IgnoreRules = ignore.Entries, DisabledIgnoreRules = disabled };
     }
 
     internal static DiffSnapshot Compare(DiffIndex source, DiffIndex target,
@@ -332,12 +343,19 @@ internal static class DeveloperDifferencerService
     {
         token.ThrowIfCancellationRequested();
         ValidateRoots(Root(source.Root), Root(target.Root));
+        // Filter copies: cached indexes may also be used with another partner root.
+        source = CopyIndex(source);
+        target = CopyIndex(target);
+        var disabled = source.DisabledIgnoreRules.Union(target.DisabledIgnoreRules, StringComparer.Ordinal).ToList();
+        ExcludeIgnored(source.Root, target.Root, source.Files, target.Files, source.Folders, target.Folders, token, disabled);
         int total = Math.Max(1, source.Files.Count + target.Files.Count);
         progress?.Report(ReportCompare("Classifying differences\u2026", 0, total));
         return new DiffSnapshot
         {
             SourceRoot = source.Root,
             TargetRoot = target.Root,
+            IgnoreRules = GitIgnoreMatcher.Merge(source.IgnoreRules, target.IgnoreRules),
+            DisabledIgnoreRules = disabled,
             CompareTimestamp = compareTimestamp,
             PreciseCompare = preciseCompare,
             CompareSize = compareSize,
@@ -361,9 +379,38 @@ internal static class DeveloperDifferencerService
         var right = new Dictionary<string, DiffStamp>(StringComparer.OrdinalIgnoreCase);
         ScanFolderLevel(source, relativeFolder, result.SourceFolders, left, token);
         ScanFolderLevel(target, relativeFolder, result.TargetFolders, right, token);
+        ExcludeIgnored(source, target, left, right, result.SourceFolders, result.TargetFolders, token);
         result.Folders = new HashSet<string>(result.SourceFolders.Union(result.TargetFolders, StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase);
         result.Files = Classify(left, right, true, compareTimestamp, token);
         return result;
+    }
+
+    private static DiffIndex CopyIndex(DiffIndex index) => new DiffIndex
+    {
+        Root = index.Root,
+        Files = new Dictionary<string, DiffStamp>(index.Files, StringComparer.OrdinalIgnoreCase),
+        Folders = new HashSet<string>(index.Folders, StringComparer.OrdinalIgnoreCase),
+        NonEmptyFolders = index.NonEmptyFolders,
+        IgnoreRules = index.IgnoreRules,
+        DisabledIgnoreRules = index.DisabledIgnoreRules
+    };
+
+    private static void ExcludeIgnored(string source, string target, Dictionary<string, DiffStamp> left,
+        Dictionary<string, DiffStamp> right, HashSet<string> sourceFolders, HashSet<string> targetFolders, CancellationToken token,
+        IEnumerable<string> disabled = null)
+    {
+        var a = new GitIgnoreMatcher(source, disabled);
+        var b = new GitIgnoreMatcher(target, disabled);
+        foreach (string path in left.Keys.Union(right.Keys, StringComparer.OrdinalIgnoreCase).ToArray())
+        {
+            token.ThrowIfCancellationRequested();
+            if (a.IsIgnored(path, false) || b.IsIgnored(path, false)) { left.Remove(path); right.Remove(path); }
+        }
+        foreach (string path in sourceFolders.Union(targetFolders, StringComparer.OrdinalIgnoreCase).ToArray())
+        {
+            token.ThrowIfCancellationRequested();
+            if (a.IsIgnored(path, true) || b.IsIgnored(path, true)) { sourceFolders.Remove(path); targetFolders.Remove(path); }
+        }
     }
 
     private static void ScanFolderLevel(string root, string relativeFolder, HashSet<string> folders, Dictionary<string, DiffStamp> files, CancellationToken token)
@@ -565,6 +612,8 @@ internal static class DeveloperDifferencerService
         var log = new List<string>();
         var fileRetryQueue = new Queue<Action>();
         var folderRetryQueue = new Queue<Action>();
+        var sourceIgnore = new GitIgnoreMatcher(snapshot.SourceRoot, snapshot.DisabledIgnoreRules);
+        var targetIgnore = new GitIgnoreMatcher(snapshot.TargetRoot, snapshot.DisabledIgnoreRules);
         Action<int, string> writeLog = (index, line) =>
         {
             log[index] = line;
@@ -572,6 +621,11 @@ internal static class DeveloperDifferencerService
         };
         foreach (DiffFile file in selected)
         {
+            if (sourceIgnore.IsIgnored(file.RelativePath, false) || targetIgnore.IsIgnored(file.RelativePath, false))
+            {
+                string skipped = "SKIP .gitignore: " + file.RelativePath;
+                log.Add(skipped); onLog?.Invoke(skipped); continue;
+            }
             if (file.AttributeUnreadable)
             {
                 string failure = "FAIL ATTR unreadable (BOM): " + file.RelativePath;
@@ -680,6 +734,11 @@ internal static class DeveloperDifferencerService
 
         foreach (DiffFolderSync folder in folderOperations)
         {
+            if (sourceIgnore.IsIgnored(folder.RelativePath, true) || targetIgnore.IsIgnored(folder.RelativePath, true))
+            {
+                string skipped = "SKIP .gitignore: " + folder.RelativePath;
+                log.Add(skipped); onLog?.Invoke(skipped); continue;
+            }
             int logIndex = log.Count;
             log.Add(null);
             bool folderCommitted = false;

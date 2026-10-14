@@ -378,3 +378,13 @@ History_SaveTabs=保存标签页
 
 Differencer_RescanSource=重新扫描源文件夹
 Differencer_RescanTarget=重新扫描目标文件夹
+
+Ignore_Title=.gitignore 排除设置
+Ignore_Description=合并 Source / Target 的 .gitignore 排除规则
+Ignore_Help=勾选：从比较中排除。未勾选：纳入比较（其他启用的规则仍可能排除该路径）。保留否定规则（!）。应用后重新扫描两侧文件夹。
+Ignore_Cancel=取消
+Ignore_Invert=反选
+Ignore_Apply=应用并重新比较
+Ignore_Both=Source / Target 共有
+Ignore_Source=仅 Source
+Ignore_Target=仅 Target

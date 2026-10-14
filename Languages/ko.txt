@@ -378,3 +378,13 @@ History_SaveTabs=탭 저장
 
 Differencer_RescanSource=소스 폴더 다시 검색
 Differencer_RescanTarget=대상 폴더 다시 검색
+
+Ignore_Title=.gitignore 제외 설정
+Ignore_Description=Source / Target의 .gitignore를 통합한 제외 목록
+Ignore_Help=선택: 비교에서 제외. 선택 해제: 비교에 포함(다른 활성 규칙에 의해 제외되는 경우는 제외). 부정 규칙(!)은 유지됩니다. 적용하면 양쪽 폴더를 다시 검색합니다.
+Ignore_Cancel=취소
+Ignore_Invert=선택 반전
+Ignore_Apply=적용 후 다시 비교
+Ignore_Both=Source / Target 공통
+Ignore_Source=Source만
+Ignore_Target=Target만

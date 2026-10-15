@@ -141,7 +141,7 @@ internal sealed partial class DiffViewWindow : Window
             inputSource?.RemoveHook(HorizontalWheelMessage);
             inputSource = null;
             DetachImageFitHandler();
-            try { leftMedia?.Stop(); rightMedia?.Stop(); leftMedia?.Close(); rightMedia?.Close(); videoPositionTimer?.Stop(); } catch { }
+            ResetMediaController();
             ViewModel.Close();
         };
     }
@@ -522,6 +522,7 @@ internal sealed partial class DiffViewWindow : Window
             if (!IsLoaded) return;
             DetachImageFitHandler();
             ResetImageNavigation();
+            ResetMediaController();
             if (imageToolbar is Panel p)
             {
                 p.Children.Clear();
@@ -1742,6 +1743,30 @@ internal sealed partial class DiffViewWindow : Window
     private bool videoIsPlaying;
     private ScaleTransform leftVideoScale, rightVideoScale;
     private DispatcherTimer videoPositionTimer;
+
+    private void ResetMediaController()
+    {
+        videoPositionTimer?.Stop();
+        videoPositionTimer = null;
+        videoIsPlaying = false;
+        videoSeeking = false;
+        foreach (var media in new[] { leftMedia, rightMedia })
+        {
+            if (media == null) continue;
+            media.MediaOpened -= Video_MediaOpened;
+            try { media.Close(); } catch { }
+        }
+        leftMedia = rightMedia = null;
+        leftVideoScale = rightVideoScale = null;
+        videoSeek = null;
+        videoPlayPause = null;
+        videoTimeLabel = null;
+        if (gifFrameHost.Tag is KeyEventHandler frameKeyHandler)
+            RemoveHandler(Keyboard.PreviewKeyDownEvent, frameKeyHandler);
+        gifFrameHost.Tag = null;
+        gifFrameHost.Children.Clear();
+        gifFrameHost.Visibility = Visibility.Collapsed;
+    }
 
     private Task RenderVideos()
     {

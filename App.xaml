@@ -129,69 +129,71 @@
         </Setter>
       </Style>
 
-            <Style x:Key="FrameSlider" TargetType="{x:Type Slider}">
-                <Setter Property="Width" Value="400"/>
-                <Setter Property="Height" Value="40"/>
-                <Setter Property="VerticalAlignment" Value="Center"/>
-                <Setter Property="IsMoveToPointEnabled" Value="True"/>
-                <Setter Property="SmallChange" Value="1"/>
-                <Setter Property="LargeChange" Value="1"/>
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="{x:Type Slider}">
-                            <Grid Height="40" SnapsToDevicePixels="True">
-                                <Border Height="8"
-                            Margin="9,0"
+      <Style x:Key="FrameSlider" TargetType="{x:Type Slider}">
+        <Setter Property="Width" Value="400" />
+        <Setter Property="Height" Value="40" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="IsMoveToPointEnabled" Value="True" />
+        <Setter Property="SmallChange" Value="1" />
+        <Setter Property="LargeChange" Value="1" />
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="{x:Type Slider}">
+              <Grid Height="40" SnapsToDevicePixels="True">
+                <Border
+                  Height="8"
+                  Margin="9,0"
+                  VerticalAlignment="Center"
+                  Background="{DynamicResource HeaderBackground}"
+                  CornerRadius="4" />
+
+                <Track
+                  x:Name="PART_Track"
+                  Margin="9,0"
+                  VerticalAlignment="Center">
+                  <Track.DecreaseRepeatButton>
+                    <RepeatButton Command="Slider.DecreaseLarge" IsTabStop="False">
+                      <RepeatButton.Template>
+                        <ControlTemplate TargetType="RepeatButton">
+                          <Border
+                            Height="8"
                             VerticalAlignment="Center"
-                            Background="{DynamicResource HeaderBackground}"
-                            CornerRadius="4"/>
-
-                                <Track x:Name="PART_Track"
-                           Margin="9,0"
-                           VerticalAlignment="Center">
-                                    <Track.DecreaseRepeatButton>
-                                        <RepeatButton Command="Slider.DecreaseLarge"
-                                          IsTabStop="False">
-                                            <RepeatButton.Template>
-                                                <ControlTemplate TargetType="RepeatButton">
-                                                    <Border Height="8"
-                                                VerticalAlignment="Center"
-                                                Background="{DynamicResource Accent}"
-                                                CornerRadius="4,0,0,4"/>
-                                                </ControlTemplate>
-                                            </RepeatButton.Template>
-                                        </RepeatButton>
-                                    </Track.DecreaseRepeatButton>
-
-                                    <Track.IncreaseRepeatButton>
-                                        <RepeatButton Command="Slider.IncreaseLarge"
-                                          IsTabStop="False">
-                                            <RepeatButton.Template>
-                                                <ControlTemplate TargetType="RepeatButton">
-                                                    <Border Background="Transparent"/>
-                                                </ControlTemplate>
-                                            </RepeatButton.Template>
-                                        </RepeatButton>
-                                    </Track.IncreaseRepeatButton>
-
-                                    <Track.Thumb>
-                                        <Thumb Width="18" Height="18">
-                                            <Thumb.Template>
-                                                <ControlTemplate TargetType="Thumb">
-                                                    <Ellipse Fill="{DynamicResource Accent}"
-                                                 Stroke="White"
-                                                 StrokeThickness="2"/>
-                                                </ControlTemplate>
-                                            </Thumb.Template>
-                                        </Thumb>
-                                    </Track.Thumb>
-                                </Track>
-                            </Grid>
+                            Background="{DynamicResource Accent}"
+                            CornerRadius="4,0,0,4" />
                         </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
-            <Style
+                      </RepeatButton.Template>
+                    </RepeatButton>
+                  </Track.DecreaseRepeatButton>
+
+                  <Track.IncreaseRepeatButton>
+                    <RepeatButton Command="Slider.IncreaseLarge" IsTabStop="False">
+                      <RepeatButton.Template>
+                        <ControlTemplate TargetType="RepeatButton">
+                          <Border Background="Transparent" />
+                        </ControlTemplate>
+                      </RepeatButton.Template>
+                    </RepeatButton>
+                  </Track.IncreaseRepeatButton>
+
+                  <Track.Thumb>
+                    <Thumb Width="18" Height="18">
+                      <Thumb.Template>
+                        <ControlTemplate TargetType="Thumb">
+                          <Ellipse
+                            Fill="{DynamicResource Accent}"
+                            Stroke="White"
+                            StrokeThickness="2" />
+                        </ControlTemplate>
+                      </Thumb.Template>
+                    </Thumb>
+                  </Track.Thumb>
+                </Track>
+              </Grid>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+      <Style
         x:Key="TypeSizeButton"
         BasedOn="{StaticResource IconButton}"
         TargetType="Button">

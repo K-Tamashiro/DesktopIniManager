@@ -16,7 +16,11 @@ internal partial class IgnoreRulesWindow : Window
     internal IgnoreRulesWindow(DiffSnapshot snapshot)
     {
         var disabled = new HashSet<string>(snapshot.DisabledIgnoreRules ?? new(), StringComparer.Ordinal);
-        Rules = snapshot.IgnoreRules.Select(rule => new IgnoreRuleRow(rule, !disabled.Contains(rule.Key))).ToList();
+        Rules = snapshot.IgnoreRules
+            .OrderBy(rule => rule.Pattern.EndsWith("/", StringComparison.Ordinal) ? 0 : 1)
+            .ThenBy(rule => rule.Pattern, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(rule => rule.Scope, StringComparer.OrdinalIgnoreCase)
+            .Select(rule => new IgnoreRuleRow(rule, !disabled.Contains(rule.Key))).ToList();
         InitializeComponent();
         DataContext = this;
         CancelIcon.Source = DifferencerStatusIcons.GetCustomIcon(26);

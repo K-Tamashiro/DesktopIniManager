@@ -388,3 +388,11 @@ Ignore_Apply=应用并重新比较
 Ignore_Both=Source / Target 共有
 Ignore_Source=仅 Source
 Ignore_Target=仅 Target
+
+Diff_ClearInputs=清空 Source 和 Target
+Diff_DropHint=将文件拖放到 Source 或 Target。清空后可切换比较类型。
+Diff_DropHere=在此拖放文本文件或图像
+Diff_DropDuplicate=该文件已加载，请选择其他文件。
+Diff_DropMode=不能混合文本文件和图像。请清空两侧后切换模式。不支持的二进制文件无法打开。
+Diff_DropFilesOnly=请拖放现有文件，不能拖放文件夹。
+Diff_DropCount=请向一侧拖放一个文件，或同时拖放两个文件作为 Source 和 Target。

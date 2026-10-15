@@ -104,10 +104,14 @@ internal sealed partial class DiffViewWindow : Window
                     SettingsService.SaveDiffWindowPlacement(bounds.Left, bounds.Top, bounds.Width, bounds.Height, (int)WindowState);
             }
             // WPF can clear Owner before Closed is raised.
-            if (Owner is DeveloperDifferencerWindow owner) owner.SelectLastViewedFile(ViewModel.File);
+            if (!ViewModel.IsDetachedComparison && Owner is DeveloperDifferencerWindow owner) owner.SelectLastViewedFile(ViewModel.File);
         };
         BuildToolbar();
         Loaded += async (s, e) => await LoadContent();
+        AllowDrop = true;
+        PreviewDragEnter += FileDragOver;
+        PreviewDragOver += FileDragOver;
+        PreviewDrop += FileDrop;
         Activated += async (s, e) =>
         {
             if (IsLoaded && !renderingContent) await ViewModel.RefreshAfterExternalEditAsync();
@@ -249,6 +253,37 @@ internal sealed partial class DiffViewWindow : Window
         }, ViewModel.ReportError);
 
     private ICommand reloadCommand;
+    private ICommand clearInputsCommand;
+    private ICommand ClearInputsCommand => clearInputsCommand ??= new AsyncRelayCommand(async () =>
+    {
+        if (renderingContent || !ViewModel.CanChangeComparison) return;
+        ViewModel.ClearInputs();
+        await LoadContent();
+    }, ViewModel.ReportError);
+
+    private void FileDragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = !renderingContent && ViewModel.CanChangeComparison && e.Data.GetDataPresent(DataFormats.FileDrop)
+            ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private async void FileDrop(object sender, DragEventArgs e)
+    {
+        e.Handled = true;
+        if (renderingContent || !ViewModel.CanChangeComparison || !e.Data.GetDataPresent(DataFormats.FileDrop)) return;
+        var paths = e.Data.GetData(DataFormats.FileDrop) as string[];
+        if (paths == null || paths.Length == 0) return;
+        if (paths.Length > 2) { ViewModel.Status = StringOverlay.Get("Diff_DropCount"); return; }
+        bool sourceSide = e.GetPosition(body).X < body.ActualWidth / 2;
+        bool accepted = false;
+        SetRendering(true);
+        try { accepted = await ViewModel.DropFilesAsync(paths, sourceSide); }
+        catch (Exception ex) { ViewModel.ReportError(ex); }
+        finally { SetRendering(false); }
+        if (accepted && !windowClosed) await LoadContent();
+    }
+
     private ICommand ReloadCommand => reloadCommand ??= new AsyncRelayCommand(ViewModel.ReloadFromDiskAsync, ViewModel.ReportError);
 
     private void BuildToolbar()
@@ -277,6 +312,7 @@ internal sealed partial class DiffViewWindow : Window
             AddComparisonButton(ViewModel.CompareSpaces ? 117 : 120, "Compare spaces / tabs", () => ViewModel.CompareSpaces = !ViewModel.CompareSpaces);
             AddComparisonButton(ViewModel.CompareNewlines ? 118 : 121, "Compare line endings", () => ViewModel.CompareNewlines = !ViewModel.CompareNewlines);
         }
+        AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(140), StringOverlay.Get("Diff_ClearInputs"), ClearInputsCommand);
         AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(69), "Reload", ReloadCommand);
         AddButton(fileNavigationPanel, DifferencerStatusIcons.GetCustomIcon(40), StringOverlay.Get("Diff_PreviousFile"), ViewModel.PreviousFileCommand);
         AddButton(fileNavigationPanel, DifferencerStatusIcons.GetCustomIcon(41), StringOverlay.Get("Diff_NextFile"), ViewModel.NextFileCommand);
@@ -532,6 +568,25 @@ internal sealed partial class DiffViewWindow : Window
             Grid.SetColumnSpan(hunkOverlay, 3);
             Panel.SetZIndex(hunkOverlay, 2);
             body.Children.Add(hunkOverlay);
+            if (ViewModel.IsEmpty)
+            {
+                foreach (int column in new[] { 0, 2 })
+                {
+                    var hint = new TextBlock
+                    {
+                        Text = (column == 0 ? "Source" : "Target") + "\n" + StringOverlay.Get("Diff_DropHere"),
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        TextAlignment = TextAlignment.Center,
+                        TextWrapping = TextWrapping.Wrap,
+                        Margin = new Thickness(16),
+                        IsHitTestVisible = false
+                    };
+                    hint.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
+                    Grid.SetColumn(hint, column);
+                    body.Children.Add(hint);
+                }
+            }
             leftList.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(ScrollChanged));
             rightList.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(ScrollChanged));
             leftList.PreviewMouseLeftButtonDown += DiffPane_PreviewMouseLeftButtonDown;

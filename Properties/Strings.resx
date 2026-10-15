@@ -1254,13 +1254,52 @@ Cancel: select a different tab without searching</value>
   <data name="Diff_FilteredLines" xml:space="preserve">
     <value>── {0} filtered lines ──</value>
   </data>
-  <data name="Ignore_Title" xml:space="preserve"><value>.gitignore exclusions</value></data>
-  <data name="Ignore_Description" xml:space="preserve"><value>Merged exclusion rules from Source / Target .gitignore files</value></data>
-  <data name="Ignore_Help" xml:space="preserve"><value>Checked: exclude. Unchecked: include unless another enabled rule excludes the path. Negation (!) rules remain active. Apply rescans both folders.</value></data>
-  <data name="Ignore_Cancel" xml:space="preserve"><value>Cancel</value></data>
-  <data name="Ignore_Invert" xml:space="preserve"><value>Invert checkboxes</value></data>
-  <data name="Ignore_Apply" xml:space="preserve"><value>Apply and compare again</value></data>
-  <data name="Ignore_Both" xml:space="preserve"><value>Source / Target</value></data>
-  <data name="Ignore_Source" xml:space="preserve"><value>Source only</value></data>
-  <data name="Ignore_Target" xml:space="preserve"><value>Target only</value></data>
+  <data name="Ignore_Title" xml:space="preserve">
+    <value>.gitignore exclusions</value>
+  </data>
+  <data name="Ignore_Description" xml:space="preserve">
+    <value>Merged exclusion rules from Source / Target .gitignore files</value>
+  </data>
+  <data name="Ignore_Help" xml:space="preserve">
+    <value>Checked: exclude. Unchecked: include unless another enabled rule excludes the path. Negation (!) rules remain active. Apply rescans both folders.</value>
+  </data>
+  <data name="Ignore_Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Ignore_Invert" xml:space="preserve">
+    <value>Invert checkboxes</value>
+  </data>
+  <data name="Ignore_Apply" xml:space="preserve">
+    <value>Apply and compare again</value>
+  </data>
+  <data name="Ignore_Both" xml:space="preserve">
+    <value>Source / Target</value>
+  </data>
+  <data name="Ignore_Source" xml:space="preserve">
+    <value>Source only</value>
+  </data>
+  <data name="Ignore_Target" xml:space="preserve">
+    <value>Target only</value>
+  </data>
+  <data name="Diff_ClearInputs" xml:space="preserve">
+    <value>Clear Source and Target</value>
+  </data>
+  <data name="Diff_DropHint" xml:space="preserve">
+    <value>Drop files onto Source or Target. Clear to choose a different comparison type.</value>
+  </data>
+  <data name="Diff_DropHere" xml:space="preserve">
+    <value>Drop a text file or image here</value>
+  </data>
+  <data name="Diff_DropDuplicate" xml:space="preserve">
+    <value>This file is already loaded. Choose a different file.</value>
+  </data>
+  <data name="Diff_DropMode" xml:space="preserve">
+    <value>Text files and images cannot be mixed. Clear both sides to switch modes. Unsupported binary files cannot be opened.</value>
+  </data>
+  <data name="Diff_DropFilesOnly" xml:space="preserve">
+    <value>Drop an existing file, not a folder.</value>
+  </data>
+  <data name="Diff_DropCount" xml:space="preserve">
+    <value>Drop one file onto a side, or two files for Source and Target.</value>
+  </data>
 </root>

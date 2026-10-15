@@ -148,13 +148,36 @@
       </Grid>
     </Grid>
 
-    <StackPanel x:Name="markerOptions" DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="8,4,8,0">
-      <CheckBox x:Name="showSpacesBox" Content="Show spaces / tabs" Margin="0,0,16,0" Click="MarkerDisplay_Click" />
-      <CheckBox x:Name="showNewlinesBox" Content="Show line endings" Click="MarkerDisplay_Click" />
+    <StackPanel
+      x:Name="markerOptions"
+      Margin="8,4,8,0"
+      DockPanel.Dock="Bottom"
+      Orientation="Horizontal">
+      <CheckBox
+        x:Name="showSpacesBox"
+        Margin="0,0,16,0"
+        Click="MarkerDisplay_Click"
+        Content="Show spaces / tabs" />
+      <CheckBox
+        x:Name="showNewlinesBox"
+        Click="MarkerDisplay_Click"
+        Content="Show line endings" />
     </StackPanel>
-    <StackPanel x:Name="loadProgressPanel" DockPanel.Dock="Bottom" Height="30" Margin="8,6,8,0" Visibility="Hidden">
-      <TextBlock x:Name="loadProgressText" Foreground="{DynamicResource Muted}" Margin="0,0,0,4" />
-      <ProgressBar x:Name="loadProgress" Height="6" Minimum="0" Maximum="100" />
+    <StackPanel
+      x:Name="loadProgressPanel"
+      Height="30"
+      Margin="8,6,8,0"
+      DockPanel.Dock="Bottom"
+      Visibility="Hidden">
+      <TextBlock
+        x:Name="loadProgressText"
+        Margin="0,0,0,4"
+        Foreground="{DynamicResource Muted}" />
+      <ProgressBar
+        x:Name="loadProgress"
+        Height="6"
+        Maximum="100"
+        Minimum="0" />
     </StackPanel>
 
     <TextBlock
@@ -208,28 +231,28 @@
           Orientation="Horizontal" />
       </Grid>
     </Grid>
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <Grid
-            x:Name="body"
-            Grid.Row="0"
-            PreviewMouseWheel="Body_PreviewMouseWheel">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition x:Name="mapColumn" Width="34" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-            </Grid>
-            <StackPanel
-            x:Name="gifFrameHost"
-            Grid.Row="1"
-            HorizontalAlignment="Center"
-            Orientation="Vertical"
-            Margin="0,4,0,4"
-            Visibility="Collapsed" />
-        </Grid>
-    </DockPanel>
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="*" />
+        <RowDefinition Height="Auto" />
+      </Grid.RowDefinitions>
+      <Grid
+        x:Name="body"
+        Grid.Row="0"
+        PreviewMouseWheel="Body_PreviewMouseWheel">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition x:Name="mapColumn" Width="34" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+      </Grid>
+      <StackPanel
+        x:Name="gifFrameHost"
+        Grid.Row="1"
+        Margin="0,4,0,4"
+        HorizontalAlignment="Center"
+        Orientation="Vertical"
+        Visibility="Collapsed" />
+    </Grid>
+  </DockPanel>
 </Window>

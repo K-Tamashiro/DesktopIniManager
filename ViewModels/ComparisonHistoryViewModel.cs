@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Threading;
 using DesktopIniManager.Properties;
 
 namespace DesktopIniManager.ViewModels;
@@ -95,9 +96,15 @@ internal sealed partial class DeveloperDifferencerViewModel
         CaptureHistoryTab();
         ClearComparisonView();
         selectedHistoryTab = tab;
+        compareCts?.Dispose();
+        var cancellation = compareCts = new CancellationTokenSource();
+        var token = cancellation.Token;
+        comparing = true;
         SetBusy(true);
         try
         {
+            await Dispatcher.Yield(DispatcherPriority.Background);
+            token.ThrowIfCancellationRequested();
             // Assign backing fields so restoring roots does not clear the selected snapshot.
             _sourcePath = DisplayRoot(tab.Snapshot.SourceRoot); _targetPath = DisplayRoot(tab.Snapshot.TargetRoot);
             rootLinkVersion++;
@@ -109,9 +116,11 @@ internal sealed partial class DeveloperDifferencerViewModel
             if (snapshot.IgnoreRules == null)
             {
                 var savedSnapshot = snapshot;
-                savedSnapshot.IgnoreRules = await Task.Run(() => Services.GitIgnoreMatcher.Merge(
-                    Services.GitIgnoreMatcher.Discover(savedSnapshot.SourceRoot, savedSnapshot.DisabledIgnoreRules, CancellationToken.None),
-                    Services.GitIgnoreMatcher.Discover(savedSnapshot.TargetRoot, savedSnapshot.DisabledIgnoreRules, CancellationToken.None)));
+                var rules = await Task.Run(() => Services.GitIgnoreMatcher.Merge(
+                    Services.GitIgnoreMatcher.Discover(savedSnapshot.SourceRoot, savedSnapshot.DisabledIgnoreRules, token),
+                    Services.GitIgnoreMatcher.Discover(savedSnapshot.TargetRoot, savedSnapshot.DisabledIgnoreRules, token)), token);
+                token.ThrowIfCancellationRequested();
+                savedSnapshot.IgnoreRules = rules;
             }
             CompareTimestamp = snapshot.CompareTimestamp;
             CompareSize = snapshot.CompareSize;
@@ -123,10 +132,23 @@ internal sealed partial class DeveloperDifferencerViewModel
             ShowDifferent = (kindMask & Services.DiffKind.Different) != 0;
             ShowSourceOnly = (kindMask & Services.DiffKind.SourceOnly) != 0;
             ShowTargetOnly = (kindMask & Services.DiffKind.TargetOnly) != 0;
-            rows = snapshot.Files.Select(f => new DiffRow { File = f, SourceRoot = snapshot.SourceRoot, TargetRoot = snapshot.TargetRoot }).ToList();
-            restoringFolders = tab.FolderStates.ToDictionary(f => f.Path, StringComparer.OrdinalIgnoreCase);
+            rows = new System.Collections.Generic.List<DiffRow>(snapshot.Files.Count);
+            foreach (var file in snapshot.Files)
+            {
+                token.ThrowIfCancellationRequested();
+                rows.Add(new DiffRow { File = file, SourceRoot = snapshot.SourceRoot, TargetRoot = snapshot.TargetRoot });
+                if (rows.Count % 256 == 0) await Dispatcher.Yield(DispatcherPriority.Background);
+            }
+            restoringFolders = new System.Collections.Generic.Dictionary<string, HistoryFolderState>(StringComparer.OrdinalIgnoreCase);
+            foreach (var folder in tab.FolderStates)
+            {
+                token.ThrowIfCancellationRequested();
+                restoringFolders.Add(folder.Path, folder);
+                if (restoringFolders.Count % 256 == 0) await Dispatcher.Yield(DispatcherPriority.Background);
+            }
             await BuildTreeAsync(snapshot.Folders, resetView ? Array.Empty<string>() : tab.Expanded,
-                resetView ? "" : tab.SelectedFolder, CancellationToken.None);
+                resetView ? "" : tab.SelectedFolder, token);
+            token.ThrowIfCancellationRequested();
             if (resetView)
             {
                 ResetAfterComparison();
@@ -135,7 +157,31 @@ internal sealed partial class DeveloperDifferencerViewModel
             Status = tab.Status;
             NotifyHistory();
         }
-        finally { restoringFolders = null; SetBusy(false); }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            // Do not capture a partially restored tree over the saved history.
+            selectedHistoryTab = null;
+            ClearComparisonView();
+            folders.Clear();
+            Status = "Compare cancelled";
+        }
+        catch
+        {
+            selectedHistoryTab = null;
+            ClearComparisonView();
+            folders.Clear();
+            throw;
+        }
+        finally
+        {
+            restoringFolders = null;
+            comparing = false;
+            IsProgressVisible = false;
+            ProgressIndeterminate = false;
+            if (ReferenceEquals(compareCts, cancellation)) compareCts = null;
+            cancellation.Dispose();
+            SetBusy(false);
+        }
     }
     private async void DeleteHistoryTab(object item)
     {

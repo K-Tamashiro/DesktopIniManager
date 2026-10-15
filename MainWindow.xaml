@@ -551,39 +551,44 @@
                     Foreground="{DynamicResource Muted}"
                     Text="{loc:L Main_Subtitle}" />
             </StackPanel>
-            <Viewbox Margin="360,0,150,0" HorizontalAlignment="Center" VerticalAlignment="Top"
-                     Stretch="Uniform" StretchDirection="DownOnly" MaxHeight="46">
+            <Viewbox
+                MaxHeight="46"
+                Margin="360,0,150,0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                Stretch="Uniform"
+                StretchDirection="DownOnly">
                 <StackPanel Orientation="Horizontal">
-                <Button
-                    x:Name="SlotButton1"
-                    BorderBrush="#4DA3FF"
-                    Content="DIM 1"
-                    Style="{StaticResource InstanceSlotButton}"
-                    Tag="Free" />
-                <Button
-                    x:Name="SlotButton2"
-                    BorderBrush="#F0C14A"
-                    Content="DIM 2"
-                    Style="{StaticResource InstanceSlotButton}"
-                    Tag="Free" />
-                <Button
-                    x:Name="SlotButton3"
-                    BorderBrush="#B07CFF"
-                    Content="DIM 3"
-                    Style="{StaticResource InstanceSlotButton}"
-                    Tag="Free" />
-                <Button
-                    x:Name="SlotButton4"
-                    BorderBrush="#FF6B6B"
-                    Content="DIM 4"
-                    Style="{StaticResource InstanceSlotButton}"
-                    Tag="Free" />
-                <Button
-                    x:Name="SlotButton5"
-                    BorderBrush="#3DDC97"
-                    Content="DIM 5"
-                    Style="{StaticResource InstanceSlotButton}"
-                    Tag="Free" />
+                    <Button
+                        x:Name="SlotButton1"
+                        BorderBrush="#4DA3FF"
+                        Content="DIM 1"
+                        Style="{StaticResource InstanceSlotButton}"
+                        Tag="Free" />
+                    <Button
+                        x:Name="SlotButton2"
+                        BorderBrush="#F0C14A"
+                        Content="DIM 2"
+                        Style="{StaticResource InstanceSlotButton}"
+                        Tag="Free" />
+                    <Button
+                        x:Name="SlotButton3"
+                        BorderBrush="#B07CFF"
+                        Content="DIM 3"
+                        Style="{StaticResource InstanceSlotButton}"
+                        Tag="Free" />
+                    <Button
+                        x:Name="SlotButton4"
+                        BorderBrush="#FF6B6B"
+                        Content="DIM 4"
+                        Style="{StaticResource InstanceSlotButton}"
+                        Tag="Free" />
+                    <Button
+                        x:Name="SlotButton5"
+                        BorderBrush="#3DDC97"
+                        Content="DIM 5"
+                        Style="{StaticResource InstanceSlotButton}"
+                        Tag="Free" />
                 </StackPanel>
             </Viewbox>
             <StackPanel

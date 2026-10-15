@@ -1121,16 +1121,20 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         {
             SetTreeProgress("Preparing folders\u2026", 0, 0);
             await Dispatcher.Yield(DispatcherPriority.Background);
+            token.ThrowIfCancellationRequested();
             folders.Clear();
             var all = new HashSet<string>(paths, StringComparer.OrdinalIgnoreCase) { "" };
+            int prepared = 0;
             foreach (string path in all.Where(p => p.Length > 0).ToArray())
             {
+                token.ThrowIfCancellationRequested();
                 string p = Path.GetDirectoryName(path);
                 while (!string.IsNullOrEmpty(p))
                 {
                     all.Add(p);
                     p = Path.GetDirectoryName(p);
                 }
+                if (++prepared % 256 == 0) await Dispatcher.Yield(DispatcherPriority.Background);
             }
 
             var expansion = new HashSet<string>(expanded ?? new string[0], StringComparer.OrdinalIgnoreCase);
@@ -1238,6 +1242,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
                 processed = 0;
                 foreach (DiffFile file in snapshot.Files)
                 {
+                    token.ThrowIfCancellationRequested();
                     file.PropertyChanged += FileSelectionChanged;
                     if (++processed % 512 == 0)
                         await Dispatcher.Yield(DispatcherPriority.Background);

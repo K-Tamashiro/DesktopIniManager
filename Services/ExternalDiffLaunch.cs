@@ -6,7 +6,7 @@ namespace DesktopIniManager.Services;
 
 internal sealed class ExternalDiffLaunch
 {
-    internal const string Usage = "Usage: DesktopIniManager.exe -diff <Source> <Target>";
+    internal const string Usage = "Usage: DesktopIniManager.exe -diff [<Source> <Target>]";
     internal string SourcePath { get; private set; }
     internal string TargetPath { get; private set; }
 
@@ -15,6 +15,8 @@ internal sealed class ExternalDiffLaunch
 
     internal static ExternalDiffLaunch Parse(string[] args)
     {
+        if (args?.Length == 1 && string.Equals(args[0], "-diff", StringComparison.OrdinalIgnoreCase))
+            return new ExternalDiffLaunch { SourcePath = "", TargetPath = "" };
         if (args == null || args.Length != 3 ||
             !string.Equals(args[0], "-diff", StringComparison.OrdinalIgnoreCase) ||
             string.IsNullOrWhiteSpace(args[1]) || string.IsNullOrWhiteSpace(args[2]))
@@ -25,7 +27,9 @@ internal sealed class ExternalDiffLaunch
             TargetPath = Path.GetFullPath(args[2])
         };
         foreach (string path in new[] { launch.SourcePath, launch.TargetPath })
-            if (!File.Exists(path)) throw new FileNotFoundException("Comparison file does not exist.", path);
+            if (Directory.Exists(path)) throw new ArgumentException("Comparison paths must be files.");
+        if (!File.Exists(launch.SourcePath) && !File.Exists(launch.TargetPath))
+            throw new FileNotFoundException("Neither comparison file exists.");
         return launch;
     }
 
@@ -33,12 +37,12 @@ internal sealed class ExternalDiffLaunch
     {
         var snapshot = new DiffSnapshot
         {
-            SourceRoot = Path.GetDirectoryName(SourcePath),
-            TargetRoot = Path.GetDirectoryName(TargetPath)
+            SourceRoot = string.IsNullOrEmpty(SourcePath) ? "" : Path.GetDirectoryName(SourcePath),
+            TargetRoot = string.IsNullOrEmpty(TargetPath) ? "" : Path.GetDirectoryName(TargetPath)
         };
         snapshot.Files.Add(new DiffFile
         {
-            RelativePath = Path.GetFileName(SourcePath),
+            RelativePath = Path.GetFileName(File.Exists(SourcePath) ? SourcePath : TargetPath),
             Source = DiffStamp.Read(SourcePath),
             Target = DiffStamp.Read(TargetPath)
         });

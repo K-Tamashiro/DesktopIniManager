@@ -768,12 +768,12 @@
                     <Button
                         x:Name="IgnoreListButton"
                         Margin="8,0,0,0"
+                        AutomationProperties.Name="{loc:L Ignore_Title}"
                         Background="Transparent"
                         Click="IgnoreListButton_Click"
                         IsEnabled="{Binding CanConfigureIgnore}"
                         Style="{StaticResource IconButton}"
-                        ToolTip="{loc:L Ignore_Title}"
-                        AutomationProperties.Name="{loc:L Ignore_Title}">
+                        ToolTip="{loc:L Ignore_Title}">
                         <Image
                             x:Name="IgnoreListIcon"
                             RenderOptions.BitmapScalingMode="HighQuality"

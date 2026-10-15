@@ -333,8 +333,15 @@ internal static class DeveloperDifferencerService
         var disabled = (disabledIgnoreRules ?? Array.Empty<string>()).ToList();
         var ignore = new GitIgnoreMatcher(root, disabled);
         var files = ScanSelectedFolder(root, string.Empty, folders, token, nonEmptyFolders: nonEmptyFolders, ignore: ignore);
-        return new DiffIndex { Root = root, Files = files, Folders = folders, NonEmptyFolders = nonEmptyFolders,
-            IgnoreRules = ignore.Entries, DisabledIgnoreRules = disabled };
+        return new DiffIndex
+        {
+            Root = root,
+            Files = files,
+            Folders = folders,
+            NonEmptyFolders = nonEmptyFolders,
+            IgnoreRules = ignore.Entries,
+            DisabledIgnoreRules = disabled
+        };
     }
 
     internal static DiffSnapshot Compare(DiffIndex source, DiffIndex target,
@@ -487,9 +494,20 @@ internal static class DeveloperDifferencerService
             }
             if (includeSame || !DiffStamp.Same(a, b, compareTimestamp, compareSize) || (preciseCompare && sourceHash != targetHash) || sourceBom != targetBom || sourceBom == null || targetBom == null)
             {
-                var file = new DiffFile { RelativePath = path, Source = a, Target = b, CompareTimestamp = compareTimestamp,
-                    PreciseCompare = preciseCompare, CompareSize = compareSize, SourceHash = sourceHash, TargetHash = targetHash,
-                    CompareAttributes = compareAttributes, SourceBom = sourceBom, TargetBom = targetBom };
+                var file = new DiffFile
+                {
+                    RelativePath = path,
+                    Source = a,
+                    Target = b,
+                    CompareTimestamp = compareTimestamp,
+                    PreciseCompare = preciseCompare,
+                    CompareSize = compareSize,
+                    SourceHash = sourceHash,
+                    TargetHash = targetHash,
+                    CompareAttributes = compareAttributes,
+                    SourceBom = sourceBom,
+                    TargetBom = targetBom
+                };
                 files.Add(file);
                 batch?.Add(file);
                 if (batch?.Count >= 128)

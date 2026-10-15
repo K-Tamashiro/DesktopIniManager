@@ -407,3 +407,11 @@ Ignore_Apply=適用して再比較
 Ignore_Both=Source / Target 共通
 Ignore_Source=Source のみ
 Ignore_Target=Target のみ
+
+Diff_ClearInputs=Source／Targetをクリア
+Diff_DropHint=Source／Targetへファイルをドロップしてください。比較の種類を変えるにはクリアしてください。
+Diff_DropHere=テキストファイルまたは画像をドロップ
+Diff_DropDuplicate=同じファイルは取り込めません。別のファイルを選択してください。
+Diff_DropMode=テキストと画像は混在できません。種類を変更するには両側をクリアしてください。未対応のバイナリファイルは開けません。
+Diff_DropFilesOnly=存在するファイルをドロップしてください。フォルダーは取り込めません。
+Diff_DropCount=片側に1ファイル、またはSource／Target用に2ファイルをドロップしてください。

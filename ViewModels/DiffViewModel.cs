@@ -24,8 +24,10 @@ internal sealed class DiffViewModel : ObservableObject
             if (SetProperty(ref file, value)) RefreshFileDetails();
         }
     }
-    private readonly string sourcePath, targetPath;
-    public string Title => string.Format(StringOverlay.Get("Diff_TitleFile"), sourcePath == null ? File.RelativePath : Path.GetFileName(sourcePath) + " \u2194 " + Path.GetFileName(targetPath));
+    private string sourcePath, targetPath;
+    internal bool IsDetachedComparison => sourcePath != null || targetPath != null;
+    internal bool IsEmpty => string.IsNullOrEmpty(File.RelativePath);
+    public string Title => IsEmpty ? StringOverlay.Get("Diff_Heading") : string.Format(StringOverlay.Get("Diff_TitleFile"), !IsDetachedComparison ? File.RelativePath : Path.GetFileName(sourcePath) + " \u2194 " + Path.GetFileName(targetPath));
     public string SourceHeader => HeaderMeta(File.SourceInfo);
     public string TargetHeader => HeaderMeta(File.TargetInfo);
     public bool IsImage => DiffMedia.IsImage(File.RelativePath);
@@ -68,7 +70,7 @@ internal sealed class DiffViewModel : ObservableObject
     internal bool CompareSpaces { get; set; } = SettingsService.LoadDiffFlag("spaces", false);
     internal bool ShowSpaces { get; set; } = SettingsService.LoadDiffFlag("show-spaces", SettingsService.LoadDiffFlag("spaces", false));
     internal bool ShowNewlines { get; set; } = SettingsService.LoadDiffFlag("show-newlines", SettingsService.LoadDiffFlag("newlines", false));
-    internal bool CanChangeComparison => !loadingContent && !navigating && !closed;
+    internal bool CanChangeComparison => !loadingContent && !navigating && !checkingExternalEdit && !closed;
     internal TextDocument SourceText { get; private set; }
     internal TextDocument TargetText { get; private set; }
     internal sealed class TextDocument
@@ -176,8 +178,8 @@ internal sealed class DiffViewModel : ObservableObject
         Snapshot = snapshot; File = file;
         PreviousHunkCommand = new RelayCommand(() => NavigateHunk(-1));
         NextHunkCommand = new RelayCommand(() => NavigateHunk(1));
-        PreviousFileCommand = new AsyncRelayCommand(() => NavigateFileAsync(-1), ReportError, () => this.sourcePath == null && this.targetPath == null);
-        NextFileCommand = new AsyncRelayCommand(() => NavigateFileAsync(1), ReportError, () => this.sourcePath == null && this.targetPath == null);
+        PreviousFileCommand = new AsyncRelayCommand(() => NavigateFileAsync(-1), ReportError, () => !IsDetachedComparison);
+        NextFileCommand = new AsyncRelayCommand(() => NavigateFileAsync(1), ReportError, () => !IsDetachedComparison);
         OpenSourceCommand = new RelayCommand(() => OpenAssociatedApplication(true));
         OpenTargetCommand = new RelayCommand(() => OpenAssociatedApplication(false));
         OpenExternalDiffCommand = new RelayCommand(OpenExternalDiff);
@@ -241,7 +243,7 @@ internal sealed class DiffViewModel : ObservableObject
             else
             {
                 await LoadTextAsync();
-                Status = Hunks.Count == 0 ? "Identical content"
+                Status = IsEmpty ? StringOverlay.Get("Diff_DropHint") : Hunks.Count == 0 ? "Identical content"
                     : string.Format(StringOverlay.Get("Diff_HunkStatus"), Hunks.Count);
             }
             return true;
@@ -260,6 +262,59 @@ internal sealed class DiffViewModel : ObservableObject
     }
 
     internal void ReportError(Exception ex) => Status = string.Format(StringOverlay.Get("Diff_Unable"), ErrorMessages.English(ex));
+    internal void ClearInputs()
+    {
+        if (!CanChangeComparison) return;
+        ReplaceInputs("", "");
+    }
+
+    private void ReplaceInputs(string source, string target)
+    {
+        // Manual pairs must not modify or refresh the owning comparison snapshot.
+        sourcePath = source ?? ""; targetPath = target ?? "";
+        RefreshFileRequested = null; VisibleFilesRequested = null; FileClosed = null;
+        externalDiffPending = false; preparedText = null; frameVersion++;
+        var sourceStamp = DiffStamp.Read(sourcePath);
+        var targetStamp = DiffStamp.Read(targetPath);
+        File = new DiffFile
+        {
+            RelativePath = Path.GetFileName(sourceStamp != null ? sourcePath : targetPath),
+            Source = sourceStamp,
+            Target = targetStamp
+        };
+        PreviousFileCommand.NotifyCanExecuteChanged(); NextFileCommand.NotifyCanExecuteChanged();
+    }
+
+    internal async Task<bool> DropFilesAsync(string[] paths, bool sourceSide)
+    {
+        if (!CanChangeComparison || paths == null || paths.Length == 0 || paths.Length > 2) return false;
+        string[] full = paths.Select(Path.GetFullPath).ToArray();
+        string currentSource = GetPath(true), currentTarget = GetPath(false);
+        if (full.Distinct(StringComparer.OrdinalIgnoreCase).Count() != full.Length || full.Any(path =>
+            string.Equals(path, currentSource, StringComparison.OrdinalIgnoreCase) || string.Equals(path, currentTarget, StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException(StringOverlay.Get("Diff_DropDuplicate"));
+        bool imageMode = IsEmpty ? DiffMedia.IsImage(full[0]) : IsImage;
+        if (full.Any(path => DiffMedia.IsBinary(path) || DiffMedia.IsImage(path) != imageMode))
+            throw new InvalidOperationException(StringOverlay.Get("Diff_DropMode"));
+        navigating = true;
+        try
+        {
+            // Validate before replacing either side, so a rejected drop retains the pair.
+            await Task.Run(() =>
+            {
+                foreach (string path in full)
+                {
+                    if (!System.IO.File.Exists(path)) throw new FileNotFoundException(StringOverlay.Get("Diff_DropFilesOnly"), path);
+                    if (imageMode) LoadImage(path); else ReadDocument(path);
+                }
+            });
+            if (closed) return false;
+            if (full.Length == 2) ReplaceInputs(full[0], full[1]);
+            else ReplaceInputs(sourceSide ? full[0] : currentSource, sourceSide ? currentTarget : full[0]);
+            return true;
+        }
+        finally { navigating = false; }
+    }
     internal string GetPath(bool source) => (source ? sourcePath : targetPath)
         ?? DeveloperDifferencerService.SafePath(source ? Snapshot.SourceRoot : Snapshot.TargetRoot, File.RelativePath);
     internal void ResetContent() { Hunks.Clear(); CurrentHunk = -1; }

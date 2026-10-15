@@ -31,6 +31,7 @@ internal sealed class DiffViewModel : ObservableObject
     public string SourceHeader => HeaderMeta(File.SourceInfo);
     public string TargetHeader => HeaderMeta(File.TargetInfo);
     public bool IsImage => DiffMedia.IsImage(File.RelativePath);
+    public bool IsVideo => DiffMedia.IsVideo(File.RelativePath);
     private string externalDiff = string.Empty;
     public string ExternalDiff { get => externalDiff; set => SetProperty(ref externalDiff, value); }
     public BitmapSource SourceImage { get; private set; }
@@ -211,6 +212,7 @@ internal sealed class DiffViewModel : ObservableObject
         OnPropertyChanged(nameof(SourceHeader));
         OnPropertyChanged(nameof(TargetHeader));
         OnPropertyChanged(nameof(IsImage));
+        OnPropertyChanged(nameof(IsVideo));
     }
 
     internal async Task<bool> LoadContentAsync()
@@ -224,11 +226,16 @@ internal sealed class DiffViewModel : ObservableObject
         ImageFrameIndex = 0;
         frameVersion++;
         SourceImageFormat = TargetImageFormat = null;
-        Status = StringOverlay.Get("Diff_Loading");
+        // Status = StringOverlay.Get("Diff_Loading");  // プログレスパネルで表示するため重複を避ける
         try
         {
             if (DiffMedia.IsBinary(File.RelativePath)) throw new InvalidDataException(DiffMedia.BinaryMessage);
-            if (IsImage)
+            if (IsVideo)
+            {
+                // Videos are played via MediaElement in the view; no frame extraction here.
+                Status = string.Empty;
+            }
+            else if (IsImage)
             {
                 string leftPath = GetPath(true), rightPath = GetPath(false);
                 var images = await Task.Run(() => new[] { LoadImage(leftPath), LoadImage(rightPath) });
@@ -294,7 +301,8 @@ internal sealed class DiffViewModel : ObservableObject
             string.Equals(path, currentSource, StringComparison.OrdinalIgnoreCase) || string.Equals(path, currentTarget, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException(StringOverlay.Get("Diff_DropDuplicate"));
         bool imageMode = IsEmpty ? DiffMedia.IsImage(full[0]) : IsImage;
-        if (full.Any(path => DiffMedia.IsBinary(path) || DiffMedia.IsImage(path) != imageMode))
+        bool videoMode = IsEmpty ? DiffMedia.IsVideo(full[0]) : IsVideo;
+        if (full.Any(path => DiffMedia.IsBinary(path) || (DiffMedia.IsImage(path) != imageMode && DiffMedia.IsVideo(path) != videoMode)))
             throw new InvalidOperationException(StringOverlay.Get("Diff_DropMode"));
         navigating = true;
         try
@@ -305,7 +313,8 @@ internal sealed class DiffViewModel : ObservableObject
                 foreach (string path in full)
                 {
                     if (!System.IO.File.Exists(path)) throw new FileNotFoundException(StringOverlay.Get("Diff_DropFilesOnly"), path);
-                    if (imageMode) LoadImage(path); else ReadDocument(path);
+                    if (imageMode) LoadImage(path);
+                    else if (!videoMode) ReadDocument(path);
                 }
             });
             if (closed) return false;
@@ -357,7 +366,7 @@ internal sealed class DiffViewModel : ObservableObject
                 var candidate = candidates[index];
                 if (string.Equals(candidate.RelativePath, File.RelativePath, StringComparison.OrdinalIgnoreCase)) return;
                 TextDocument[] text = null;
-                if (!DiffMedia.IsImage(candidate.RelativePath))
+                if (!DiffMedia.IsImage(candidate.RelativePath) && !DiffMedia.IsVideo(candidate.RelativePath))
                 {
                     string left = DeveloperDifferencerService.SafePath(Snapshot.SourceRoot, candidate.RelativePath);
                     string right = DeveloperDifferencerService.SafePath(Snapshot.TargetRoot, candidate.RelativePath);

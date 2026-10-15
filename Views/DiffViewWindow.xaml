@@ -152,7 +152,8 @@
       x:Name="markerOptions"
       Margin="8,4,8,0"
       DockPanel.Dock="Bottom"
-      Orientation="Horizontal">
+      Orientation="Horizontal"
+      Visibility="Collapsed">
       <CheckBox
         x:Name="showSpacesBox"
         Margin="0,0,16,0"
@@ -168,7 +169,7 @@
       Height="30"
       Margin="8,6,8,0"
       DockPanel.Dock="Bottom"
-      Visibility="Hidden">
+      Visibility="Collapsed">
       <TextBlock
         x:Name="loadProgressText"
         Margin="0,0,0,4"

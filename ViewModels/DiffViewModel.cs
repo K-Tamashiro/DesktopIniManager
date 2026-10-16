@@ -25,6 +25,8 @@ internal sealed class DiffViewModel : ObservableObject
         }
     }
     private string sourcePath, targetPath;
+    private readonly bool standalone;
+    private DiffFile listFile;
     internal bool IsDetachedComparison => sourcePath != null || targetPath != null;
     internal bool IsEmpty => string.IsNullOrEmpty(File.RelativePath);
     public string Title => IsEmpty ? StringOverlay.Get("Diff_Heading") : string.Format(StringOverlay.Get("Diff_TitleFile"), !IsDetachedComparison ? File.RelativePath : Path.GetFileName(sourcePath) + " \u2194 " + Path.GetFileName(targetPath));
@@ -32,6 +34,7 @@ internal sealed class DiffViewModel : ObservableObject
     public string TargetHeader => HeaderMeta(File.TargetInfo);
     public bool IsImage => DiffMedia.IsImage(File.RelativePath);
     public bool IsVideo => DiffMedia.IsVideo(File.RelativePath);
+    public bool IsAudio => DiffMedia.IsAudio(File.RelativePath);
     private string externalDiff = string.Empty;
     public string ExternalDiff { get => externalDiff; set => SetProperty(ref externalDiff, value); }
     public BitmapSource SourceImage { get; private set; }
@@ -174,13 +177,15 @@ internal sealed class DiffViewModel : ObservableObject
     {
         this.sourcePath = sourcePath;
         this.targetPath = targetPath;
+        standalone = sourcePath != null || targetPath != null;
+        listFile = file;
         this.dialogs = dialogs;
         DifferencesOnly = SettingsService.LoadDiffDifferencesOnly();
         Snapshot = snapshot; File = file;
         PreviousHunkCommand = new RelayCommand(() => NavigateHunk(-1));
         NextHunkCommand = new RelayCommand(() => NavigateHunk(1));
-        PreviousFileCommand = new AsyncRelayCommand(() => NavigateFileAsync(-1), ReportError, () => !IsDetachedComparison);
-        NextFileCommand = new AsyncRelayCommand(() => NavigateFileAsync(1), ReportError, () => !IsDetachedComparison);
+        PreviousFileCommand = new AsyncRelayCommand(() => NavigateFileAsync(-1), ReportError, () => !standalone);
+        NextFileCommand = new AsyncRelayCommand(() => NavigateFileAsync(1), ReportError, () => !standalone);
         OpenSourceCommand = new RelayCommand(() => OpenAssociatedApplication(true));
         OpenTargetCommand = new RelayCommand(() => OpenAssociatedApplication(false));
         OpenExternalDiffCommand = new RelayCommand(OpenExternalDiff);
@@ -199,7 +204,7 @@ internal sealed class DiffViewModel : ObservableObject
         SettingsService.SaveDiffFlag("show-spaces", ShowSpaces);
         SettingsService.SaveDiffFlag("show-newlines", ShowNewlines);
         externalDiffPending = false;
-        FileClosed?.Invoke(File);
+        if (!standalone) FileClosed?.Invoke(listFile);
         if (string.IsNullOrWhiteSpace(ExternalDiff)) return;
         ExternalDiffHistoryRequested?.Invoke();
         SettingsService.SaveExternalDiff(ExternalDiff.Trim());
@@ -213,6 +218,7 @@ internal sealed class DiffViewModel : ObservableObject
         OnPropertyChanged(nameof(TargetHeader));
         OnPropertyChanged(nameof(IsImage));
         OnPropertyChanged(nameof(IsVideo));
+        OnPropertyChanged(nameof(IsAudio));
     }
 
     internal async Task<bool> LoadContentAsync()
@@ -230,7 +236,7 @@ internal sealed class DiffViewModel : ObservableObject
         try
         {
             if (DiffMedia.IsBinary(File.RelativePath)) throw new InvalidDataException(DiffMedia.BinaryMessage);
-            if (IsVideo)
+            if (IsVideo || IsAudio)
             {
                 // Videos are played via MediaElement in the view; no frame extraction here.
                 Status = string.Empty;
@@ -279,7 +285,6 @@ internal sealed class DiffViewModel : ObservableObject
     {
         // Manual pairs must not modify or refresh the owning comparison snapshot.
         sourcePath = source ?? ""; targetPath = target ?? "";
-        RefreshFileRequested = null; VisibleFilesRequested = null; FileClosed = null;
         externalDiffPending = false; preparedText = null; frameVersion++;
         var sourceStamp = DiffStamp.Read(sourcePath);
         var targetStamp = DiffStamp.Read(targetPath);
@@ -289,7 +294,6 @@ internal sealed class DiffViewModel : ObservableObject
             Source = sourceStamp,
             Target = targetStamp
         };
-        PreviousFileCommand.NotifyCanExecuteChanged(); NextFileCommand.NotifyCanExecuteChanged();
     }
 
     internal async Task<bool> DropFilesAsync(string[] paths, bool sourceSide)
@@ -300,10 +304,13 @@ internal sealed class DiffViewModel : ObservableObject
         if (full.Distinct(StringComparer.OrdinalIgnoreCase).Count() != full.Length || full.Any(path =>
             string.Equals(path, currentSource, StringComparison.OrdinalIgnoreCase) || string.Equals(path, currentTarget, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException(StringOverlay.Get("Diff_DropDuplicate"));
-        bool imageMode = IsEmpty ? DiffMedia.IsImage(full[0]) : IsImage;
-        bool videoMode = IsEmpty ? DiffMedia.IsVideo(full[0]) : IsVideo;
-        if (full.Any(path => DiffMedia.IsBinary(path) || (DiffMedia.IsImage(path) != imageMode && DiffMedia.IsVideo(path) != videoMode)))
+        bool imageMode = DiffMedia.IsImage(full[0]);
+        bool videoMode = DiffMedia.IsVideo(full[0]);
+        bool audioMode = DiffMedia.IsAudio(full[0]);
+        if (full.Any(path => DiffMedia.IsBinary(path) || DiffMedia.IsImage(path) != imageMode || DiffMedia.IsVideo(path) != videoMode || DiffMedia.IsAudio(path) != audioMode))
             throw new InvalidOperationException(StringOverlay.Get("Diff_DropMode"));
+        // A mode change starts a new pair; never feed the previous text/image to the video player.
+        if (imageMode != IsImage || videoMode != IsVideo || audioMode != IsAudio) currentSource = currentTarget = "";
         navigating = true;
         try
         {
@@ -314,7 +321,7 @@ internal sealed class DiffViewModel : ObservableObject
                 {
                     if (!System.IO.File.Exists(path)) throw new FileNotFoundException(StringOverlay.Get("Diff_DropFilesOnly"), path);
                     if (imageMode) LoadImage(path);
-                    else if (!videoMode) ReadDocument(path);
+                    else if (!videoMode && !audioMode) ReadDocument(path);
                 }
             });
             if (closed) return false;
@@ -348,7 +355,7 @@ internal sealed class DiffViewModel : ObservableObject
     }
     private async Task NavigateFileAsync(int direction)
     {
-        if (closed || navigating || loadingContent || checkingExternalEdit) return;
+        if (standalone || closed || navigating || loadingContent || checkingExternalEdit) return;
         navigating = true;
         try
         {
@@ -357,16 +364,16 @@ internal sealed class DiffViewModel : ObservableObject
                 ? Snapshot.Files.Where(IsVisibleComparableFile)
                 : requested.Where(IsVisibleComparableFile)).ToList();
             if (candidates.Count == 0) return;
-            int index = candidates.FindIndex(candidate => ReferenceEquals(candidate, File) || string.Equals(candidate.RelativePath, File.RelativePath, StringComparison.OrdinalIgnoreCase));
-            if (candidates.Count == 1 && index == 0) return;
+            int index = candidates.FindIndex(candidate => ReferenceEquals(candidate, listFile) || string.Equals(candidate.RelativePath, listFile.RelativePath, StringComparison.OrdinalIgnoreCase));
+            if (!IsDetachedComparison && candidates.Count == 1 && index == 0) return;
             if (index < 0) index = direction > 0 ? -1 : 0;
             for (int visited = 0; visited < candidates.Count; visited++)
             {
                 index = (index + direction + candidates.Count) % candidates.Count;
                 var candidate = candidates[index];
-                if (string.Equals(candidate.RelativePath, File.RelativePath, StringComparison.OrdinalIgnoreCase)) return;
+                if (!IsDetachedComparison && string.Equals(candidate.RelativePath, File.RelativePath, StringComparison.OrdinalIgnoreCase)) return;
                 TextDocument[] text = null;
-                if (!DiffMedia.IsImage(candidate.RelativePath) && !DiffMedia.IsVideo(candidate.RelativePath))
+                if (!DiffMedia.IsImage(candidate.RelativePath) && !DiffMedia.IsVideo(candidate.RelativePath) && !DiffMedia.IsAudio(candidate.RelativePath))
                 {
                     string left = DeveloperDifferencerService.SafePath(Snapshot.SourceRoot, candidate.RelativePath);
                     string right = DeveloperDifferencerService.SafePath(Snapshot.TargetRoot, candidate.RelativePath);
@@ -379,6 +386,8 @@ internal sealed class DiffViewModel : ObservableObject
                 if (closed) return;
                 externalDiffPending = false;
                 preparedText = text;
+                sourcePath = targetPath = null;
+                listFile = candidate;
                 File = candidate;
                 if (ReloadRequested != null) await ReloadRequested();
                 return;
@@ -594,7 +603,7 @@ internal sealed class DiffViewModel : ObservableObject
         navigating = true;
         try
         {
-            if (RefreshFileRequested != null) await RefreshFileRequested(File);
+            if (!IsDetachedComparison && RefreshFileRequested != null) await RefreshFileRequested(File);
             File.Source = DiffStamp.Read(GetPath(true));
             File.Target = DiffStamp.Read(GetPath(false));
             preparedText = null;
@@ -704,7 +713,7 @@ internal sealed class DiffViewModel : ObservableObject
             externalSourceStamp = source;
             externalTargetStamp = target;
 
-            if (RefreshFileRequested != null) await RefreshFileRequested(File);
+            if (!IsDetachedComparison && RefreshFileRequested != null) await RefreshFileRequested(File);
             RefreshFileDetails();
             if (ReloadRequested != null) await ReloadRequested();
         }

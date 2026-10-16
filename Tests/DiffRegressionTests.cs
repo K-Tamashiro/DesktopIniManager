@@ -360,6 +360,7 @@ internal static class DiffRegressionTests
         Require(DeveloperDifferencerViewModel.FindTargetHistoryMatch(@"C:\source\Project", new[] { "", "relative", @"D:\Project" }) == @"D:\Project", "invalid history entries are skipped");
         Console.WriteLine("PASS Source-to-Target history matching");
         VerifyFilteredExpansion(fixture);
+        VerifyDroppedNavigation(fixture);
         VerifyImageReload(fixture);
         return 0;
     }
@@ -553,6 +554,43 @@ internal static class DiffRegressionTests
         Require(ReferenceEquals(viewer.Background, canvas.Background) && ReferenceEquals(viewer.BorderBrush, canvas.Background),
             "missing pane and border use the same dark brush");
         Console.WriteLine("PASS image formats, reload, missing/re-created image and dark empty pane");
+    }
+
+    private static void VerifyDroppedNavigation(string fixture)
+    {
+        string left = Path.Combine(fixture, "list.txt"), right = Path.Combine(fixture, "other.txt");
+        string video = Path.Combine(fixture, "drop.mp4"), video2 = Path.Combine(fixture, "drop2.mp4");
+        File.WriteAllText(left, "left"); File.WriteAllText(right, "right");
+        File.WriteAllBytes(video, new byte[] { 0, 1, 2 }); File.WriteAllBytes(video2, new byte[] { 0, 1, 2 });
+        var snapshot = ExternalDiffLaunch.Parse(["-diff", left, right]).CreateSnapshot();
+        foreach (bool standalone in new[] { false, true })
+        {
+            var model = new DiffViewModel(snapshot, snapshot.Files[0], null, standalone ? left : null, standalone ? right : null);
+            int refreshes = 0;
+            model.RefreshFileRequested = _ => { refreshes++; return System.Threading.Tasks.Task.CompletedTask; };
+            model.VisibleFilesRequested = () => snapshot.Files;
+            Require(model.DropFilesAsync(new[] { video }, true).GetAwaiter().GetResult() && model.IsVideo,
+                "video drop switches mode, standalone=" + standalone);
+            Require(model.GetPath(false) == "", "mode switch removes incompatible opposite input");
+            Require(model.LoadContentAsync().GetAwaiter().GetResult(), "video is not read as text");
+            Require(model.DropFilesAsync(new[] { video2 }, false).GetAwaiter().GetResult() && model.GetPath(true) == video,
+                "second video preserves first video");
+            model.ReloadFromDiskAsync().GetAwaiter().GetResult();
+            Require(refreshes == 0, "temporary pair never refreshes owning list");
+            Require(model.NextFileCommand.CanExecute(null) == !standalone && model.PreviousFileCommand.CanExecute(null) == !standalone,
+                "navigation availability follows launch mode");
+            if (standalone) continue;
+            foreach (int direction in new[] { 1, -1 })
+            {
+                ((System.Threading.Tasks.Task)typeof(DiffViewModel).GetMethod("NavigateFileAsync", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(model, new object[] { direction })).GetAwaiter().GetResult();
+                Require(!model.IsDetachedComparison && ReferenceEquals(model.File, snapshot.Files[0]), "navigation returns to single-item list");
+                Require(model.GetPath(true) != video && model.VisibleFilesRequested != null && model.RefreshFileRequested != null,
+                    "list paths and callbacks restored");
+                model.ClearInputs();
+            }
+        }
+        Console.WriteLine("PASS dropped video mode, standalone navigation, temporary-pair isolation and list return");
     }
 
     private static void VerifyFilteredExpansion(string fixture)

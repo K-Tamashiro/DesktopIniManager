@@ -1294,7 +1294,7 @@ Cancel: select a different tab without searching</value>
     <value>This file is already loaded. Choose a different file.</value>
   </data>
   <data name="Diff_DropMode" xml:space="preserve">
-    <value>Text files and images cannot be mixed. Clear both sides to switch modes. Unsupported binary files cannot be opened.</value>
+    <value>Drop files of the same type: text, images, or videos. Unsupported binary files cannot be opened.</value>
   </data>
   <data name="Diff_DropFilesOnly" xml:space="preserve">
     <value>Drop an existing file, not a folder.</value>

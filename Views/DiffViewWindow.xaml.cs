@@ -1,4 +1,4 @@
-﻿using DesktopIniManager.ViewModels;
+using DesktopIniManager.ViewModels;
 using DesktopIniManager.Services;
 using DesktopIniManager.Properties;
 using System;
@@ -170,7 +170,7 @@ internal sealed partial class DiffViewWindow : Window
 
     private void Body_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
-        if ((ViewModel.IsImage || ViewModel.IsVideo) && imageZoom != null)
+        if ((ViewModel.IsImage || ViewModel.IsVideo || ViewModel.IsAudio) && imageZoom != null)
         {
             ChangeImageZoom(e.Delta / 120.0);
             e.Handled = true;
@@ -185,6 +185,14 @@ internal sealed partial class DiffViewWindow : Window
     {
         if (renderingContent) return;
         if (e.Handled || Keyboard.FocusedElement is TextBox) return;
+        if (ViewModel.IsAudio &&
+        Keyboard.Modifiers == ModifierKeys.None &&
+        e.Key == Key.Space)
+            {
+                ToggleAudioPlayback();
+                e.Handled = true;
+                return;
+            }
         if (Keyboard.Modifiers == ModifierKeys.Control)
         {
             ICommand command;
@@ -196,7 +204,7 @@ internal sealed partial class DiffViewWindow : Window
                 case Key.Right: command = ViewModel.NextFileCommand; break;
                 case Key.D0:
                 case Key.NumPad0:
-                    if (ViewModel.IsImage || ViewModel.IsVideo) return;
+                    if (ViewModel.IsImage || ViewModel.IsVideo || ViewModel.IsAudio) return;
                     command = ToggleDisplayCommand;
                     break;
                 default: return;
@@ -215,7 +223,7 @@ internal sealed partial class DiffViewWindow : Window
             case Key.PageUp:
             case Key.PageDown:
                 int direction = e.Key == Key.PageUp ? -1 : 1;
-                if ((ViewModel.IsImage || ViewModel.IsVideo) && imageZoom != null)
+                if ((ViewModel.IsImage || ViewModel.IsVideo || ViewModel.IsAudio) && imageZoom != null)
                 {
                     ChangeImageZoom(-direction);
                     e.Handled = true;
@@ -276,7 +284,7 @@ internal sealed partial class DiffViewWindow : Window
         var paths = e.Data.GetData(DataFormats.FileDrop) as string[];
         if (paths == null || paths.Length == 0) return;
         if (paths.Length > 2) { ViewModel.Status = StringOverlay.Get("Diff_DropCount"); return; }
-        bool sourceSide = e.GetPosition(body).X < body.ActualWidth / 2;
+        bool sourceSide = ViewModel.IsAudio ? e.GetPosition(body).Y < body.ActualHeight / 2 : e.GetPosition(body).X < body.ActualWidth / 2;
         bool accepted = false;
         SetRendering(true);
         try { accepted = await ViewModel.DropFilesAsync(paths, sourceSide); }
@@ -291,10 +299,10 @@ internal sealed partial class DiffViewWindow : Window
     {
         showSpacesBox.IsChecked = ViewModel.ShowSpaces;
         showNewlinesBox.IsChecked = ViewModel.ShowNewlines;
-        markerOptions.Visibility = (ViewModel.IsImage || ViewModel.IsVideo) ? Visibility.Collapsed : Visibility.Visible;
+        markerOptions.Visibility = (ViewModel.IsImage || ViewModel.IsVideo || ViewModel.IsAudio) ? Visibility.Collapsed : Visibility.Visible;
         actionsPanel.Children.Clear();
         fileNavigationPanel.Children.Clear();
-        if (!ViewModel.IsImage && !ViewModel.IsVideo)
+        if (!ViewModel.IsImage && !ViewModel.IsVideo && !ViewModel.IsAudio)
         {
             AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(33), StringOverlay.Get("Diff_PreviousHunk"), ViewModel.PreviousHunkCommand);
             AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(32), StringOverlay.Get("Diff_NextHunk"), ViewModel.NextHunkCommand);
@@ -303,11 +311,11 @@ internal sealed partial class DiffViewWindow : Window
         AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(54), StringOverlay.Get("Diff_OpenTarget"), ViewModel.OpenTargetCommand);
         var openExtDiffButton = AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(52), "Open Ext Diff", ViewModel.OpenExternalDiffCommand);
         openExtDiffButton.Background = Brushes.Transparent;
-        if (!ViewModel.IsImage && !ViewModel.IsVideo)
+        if (!ViewModel.IsImage && !ViewModel.IsVideo && !ViewModel.IsAudio)
             AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(ViewModel.DifferencesOnly ? 109 : 110),
                 StringOverlay.Get(ViewModel.DifferencesOnly ? "Diff_ShowAllLines" : "Diff_ShowDifferences"),
                 ToggleDisplayCommand);
-        if (!ViewModel.IsImage && !ViewModel.IsVideo)
+        if (!ViewModel.IsImage && !ViewModel.IsVideo && !ViewModel.IsAudio)
         {
             AddComparisonButton(ViewModel.CompareCase ? 116 : 119, "Compare case", () => ViewModel.CompareCase = !ViewModel.CompareCase);
             AddComparisonButton(ViewModel.CompareSpaces ? 117 : 120, "Compare spaces / tabs", () => ViewModel.CompareSpaces = !ViewModel.CompareSpaces);
@@ -539,6 +547,7 @@ internal sealed partial class DiffViewWindow : Window
             viewportThumb = null;
             mapSelection = null;
             UpdateEncodingHeaders();
+            if (ViewModel.IsAudio) { await RenderAudio(); return; }
             if (ViewModel.IsVideo) { await RenderVideos(); return; }
             if (ViewModel.IsImage) { await RenderImages(); return; }
             sharedTextWidth = MeasureSharedTextWidth();
@@ -1746,6 +1755,8 @@ internal sealed partial class DiffViewWindow : Window
 
     private void ResetMediaController()
     {
+        ResetAudio();
+        gifFrameHost.HorizontalAlignment = HorizontalAlignment.Center;
         videoPositionTimer?.Stop();
         videoPositionTimer = null;
         videoIsPlaying = false;

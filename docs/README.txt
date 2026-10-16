@@ -1,4 +1,4 @@
-﻿DesktopIniManager v4.3.0
+﻿DesktopIniManager v4.3.8
 =======================
 
 ■ ソフトウェア名・種別
@@ -22,7 +22,7 @@ Scoped Grep、フォルダー比較、読み取り専用DIFF VIEW、desktop.ini�
 ・外部エディター／DIFF・マージツールは任意で設定
 
 ■ インストール
-DesktopIniManager-v4.3.0-win-x64.zipを新しいフォルダーへ展開し、
+DesktopIniManager-v4.3.8-win-x64.zipを新しいフォルダーへ展開し、
 DesktopIniManager.exeを起動してください。
 DLL、JSON、Assets、Languagesを含め、同梱ファイルを一緒に配置します。
 ExcelDataReaderとPdfPigのDLLはDocument Grepで使用します。
@@ -33,7 +33,7 @@ ExcelDataReaderとPdfPigのDLLはDocument Grepで使用します。
 http://dim.zebrasoft.co.jp/
 GitHubダウンロード：
 https://github.com/K-Tamashiro/DesktopIniManager/releases
-v4.3.0のAssetsから配布ZIPを選択してください。
+v4.3.8のAssetsから配布ZIPを選択してください。
 Source codeのZIPは実行用の配布物ではありません。
 
 ■ v4系の主な機能・改善
@@ -46,6 +46,7 @@ Source codeのZIPは実行用の配布物ではありません。
 ・更新日時／サイズ／BOM／XXH128を個別に指定できるファイル比較
 ・DIFF VIEWの行内差分・空白・改行記号の表示と読み込み進捗バー
 ・一部の操作アイコンのデザインを調整
+・DIFF VIEWの画像／GIF／MP4動画／WAV・MP3音声比較
 ・DIFF VIEWのSource黄色枠／Target青枠
 ・差分のみ／全行表示の切替、Ctrl+0、終了時の表示状態保存
 ・同梱アイコンパスをアプリの配置先から復元
@@ -179,7 +180,11 @@ Source／Targetそれぞれで元画像とXOR重ね合わせを切り替えら�
 スライダーを動かして離すと、選んだフレームを静止状態で比較します。自動再生は行いません。
 左右の多い方のフレーム数を範囲とし、短い側の存在しないフレームはmissing表示になります。
 フレーム数と本来の表示時間（ms）を表示し、透過・差分フレーム・背景／直前状態への復元を反映して合成します。
-MP4はDIFF VIEWの対象外です。
+MP4動画は左右に表示し、共通の再生・シーク操作で比較します。
+
+■ 音声DIFF VIEW
+WAV／MP3の波形をSource／Targetの上下に表示します。
+モノラル／ステレオに対応し、再生・シーク操作と個別の音量調整・ミュートができます。
 マップを拡大して表示領域に収まらなくなるとガイド枠が表示されます。ガイド枠をドラッグすると、マップ上でも画像を移動できます。
 
 ■ Scoped Grep

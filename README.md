@@ -1,4 +1,4 @@
-﻿# DesktopIniManager v4.3.0
+﻿# DesktopIniManager v4.3.8
 
 DesktopIniManager (DIM) is a Windows workspace for exploring development folders and Visual Studio solutions, finding files, running scoped searches, comparing folders, viewing differences, and managing folder icons through desktop.ini.
 
@@ -8,7 +8,7 @@ DesktopIniManager (DIM) is a Windows workspace for exploring development folders
 
 ## Download and setup
 
-Download **DesktopIniManager-v4.3.0-win-x64.zip** from the v4.3.0 GitHub release assets, rather than GitHub's source-code archive. A matching .zip.sha256 file provides its SHA-256 checksum.
+Download **DesktopIniManager-v4.3.8-win-x64.zip** from the v4.3.8 GitHub release assets, rather than GitHub's source-code archive. A matching .zip.sha256 file provides its SHA-256 checksum. See the [v4.3.8 release notes](RELEASE_NOTES_v4.3.8.md).
 
 - Windows 10 or Windows 11, x64.
 - .NET 10 Desktop Runtime (x64), installed separately.
@@ -28,6 +28,7 @@ Extract into a fresh folder and run **DesktopIniManager.exe**. Keep all DLLs, JS
 - Independently selectable comparison checks for modification date/time, file size, attributes (including BOM), and XXH128.
 - Comparison evaluates enabled date/time, size, and BOM checks independently. XXH128 is calculated only for files present on both sides that have not already been classified as different by an enabled check.
 - DIFF VIEW whitespace, inline-difference and line-ending markers, plus a progress bar while loading.
+- Image/GIF, video, and MP3/WAV comparison in DIFF VIEW, including synchronized audio playback and independent Source/Target volume controls.
 - Updated icons for selected controls.
 
 ## Main window
@@ -70,7 +71,7 @@ DesktopIniManager.exe -diff "C:\work\Source.txt" "C:\work\Target.txt"
 
 Each invocation opens an independent process, even when all five DIM slots are occupied. It uses slot 1's theme, language and viewer settings without acquiring a slot, opening the main workspace or splash screen, or scanning folders. The process stays alive until its viewer closes. Source is on the left and Target on the right. Either file may be missing: the existing side opens against an empty opposite side, allowing added or deleted files to be reviewed. Quote paths containing spaces. Relative paths resolve from the caller's working directory. Invalid arguments, directory arguments, or a pair with neither file present show an error and exit with code 1; normal closing exits with code 0 (not a content-equality result).
 
-Run `DesktopIniManager.exe -diff` without paths to open an empty DIFF VIEW. Drop a file onto the Source or Target side, or drop two files together to fill both sides in drop order. The first input selects text or image mode; mixed types, unsupported binaries, and files already loaded on either side are rejected. The clear button (icon 140), immediately left of Reload, clears both sides and resets the mode. Clear and drop are available in both text and image views, including viewers opened from Developer Differencer. A manually replaced pair is independent of the original comparison result.
+Run `DesktopIniManager.exe -diff` without paths to open an empty DIFF VIEW. Drop a file onto the Source or Target side, or drop two files together to fill both sides in drop order. The first input selects text, image, video, or audio mode; files from different modes, unsupported binaries, and files already loaded on either side are rejected. MP3 and WAV belong to the same audio mode and can be compared together. The clear button (icon 140), immediately left of Reload, clears both sides and resets the mode. Clear and drop are available in all four modes, including viewers opened from Developer Differencer. A manually replaced pair is independent of the original comparison result.
 
 For Git, add the following to your global `.gitconfig`, replacing the executable path with your installation path:
 
@@ -102,7 +103,27 @@ DIM does not edit or merge file contents in this viewer. Scanning, searching, co
 
 Image comparison mode shows Source and Target side by side. BMP, JPG/JPEG, PNG, GIF, and TIFF/TIF (as well as the other supported image formats) use nearest-neighbor scaling without smoothing. Zoom ranges from 5% to 1600%; the pixel grid appears only at the maximum 1600%. ARGB values and relative coordinates are displayed at the pointer position. Each side can independently switch between its original image and the XOR overlay. The navigation map overlays both images and highlights differences.
 
-For animated GIFs, a frame slider appears below the image panes. Move it and release to compare a composed frame as a still image; playback is not automatic. The shared range uses the larger frame count. A side with no frame at the selected index is shown as missing. Frame counts and original frame delays (milliseconds) are displayed. Transparent pixels, local frame rectangles, and background/previous-frame disposal are applied before comparison. MP4 remains unsupported in DIFF VIEW.
+For animated GIFs, a frame slider appears below the image panes. Move it and release to compare a composed frame as a still image; playback is not automatic. The shared range uses the larger frame count. A side with no frame at the selected index is shown as missing. Frame counts and original frame delays (milliseconds) are displayed. Transparent pixels, local frame rectangles, and background/previous-frame disposal are applied before comparison.
+
+## Video DIFF VIEW
+
+Video comparison displays Source and Target side by side with shared play/pause, a seek slider, current/total time, and zoom controls. Use Fit to fit both previews in the available area, or 100% to return to the original scale. Video preview is muted.
+
+Recognized extensions are MP4, AVI, MKV, MOV, WMV, WebM, M4V, MPG, and MPEG. Playback uses Windows media support; the codecs installed on the computer determine which files can be decoded.
+
+## Audio DIFF VIEW
+
+Open MP3 or WAV (`.wav` / `.wave`) files to review changes to voice guidance and other audio resources. Source appears above Target, with yellow and blue frames respectively. Both waveforms use the same time scale, based on the longer file. Mono audio has one waveform per pane; stereo audio has separate left/right channel waveforms.
+
+- Use the bottom-center play/pause button to play both inputs from the same position. Red vertical cursors mark the common playback position.
+- Move the shared seek slider or click either waveform to seek both inputs. The time label shows the current position and total duration.
+- Adjust Source volume at the bottom left and Target volume at the bottom right to listen to either side or both together. Both start at 100%.
+- The mute icon (142) sets that side to 0%; the maximum icon (141) sets it to 100%. Each slider adjusts its volume independently.
+- When the shorter input ends, it contributes silence while the longer input continues. A missing side is labelled “No file”.
+- Waveforms use white in Dark and DIM1–DIM5 themes, and a dark foreground in Light. Backgrounds follow the selected theme. Playback volume does not change the displayed waveform amplitude.
+- Drop a single replacement file in the upper Source or lower Target pane, or drop two audio files together. MP3 and WAV can be paired; audio cannot be paired with text, images, or video.
+
+Audio is decoded and played locally with [NAudio 2.2.1](https://github.com/naudio/NAudio), under the [MIT license](docs/licenses/NAudio-LICENSE.txt). Keep the NAudio DLLs with the application. No API key or online audio service is required. This view supports mono/stereo waveform inspection and synchronized listening; automatic changed-passage detection, recording alignment, editing, and merging are not included.
 
 ## Scoped Grep
 
@@ -145,4 +166,4 @@ DIM is freeware by Tamayan / ZEBRASOFT. Copyright remains with the author. See t
 - Repository / issue reports: <https://github.com/K-Tamashiro/DesktopIniManager>
 - Contact: <tamayan@zebrasoft.co.jp>
 
-For maintainers, scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> packages existing v4.3.0 binaries without building. Omitting that option runs dotnet publish. Archives/checksums go to release/ for upload as GitHub assets; they are not stored in Git.
+For maintainers, scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> packages existing v4.3.8 binaries without building. Omitting that option runs dotnet publish. Archives/checksums go to release/ for upload as GitHub assets; they are not stored in Git.

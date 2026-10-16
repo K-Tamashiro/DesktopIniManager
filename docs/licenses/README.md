@@ -8,4 +8,7 @@
   [Upstream license at the packaged revision](https://github.com/UglyToad/PdfPig/blob/baeac0d0c344e543ed8b277eac3edd8f8b9c1ac4/LICENSE).
   See `PdfPig-LICENSE.txt`.
 
+- NAudio 2.2.1: MIT license, copyright 2020 Mark Heath. Used by Audio Diff.
+  See `NAudio-LICENSE.txt` (copied from the NuGet package).
+
 The versions and source revisions above are recorded in the installed NuGet package metadata.

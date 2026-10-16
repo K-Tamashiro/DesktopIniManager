@@ -54,17 +54,37 @@ internal static class FolderTreeStateService
         }).ToList();
     }
 
+    // C#
     private static int CaptureIcon(ImageSource image, List<byte[]> icons, Dictionary<ImageSource, int> ids)
     {
         if (icons == null || !(image is BitmapSource bitmap)) return -1;
-        int index;
-        if (ids.TryGetValue(image, out index)) return index;
-        var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(bitmap));
-        using (var stream = new MemoryStream())
+        if (ids.TryGetValue(image, out var index)) return index;
+
+        BitmapSource frozenCopy = null;
+        var dispatcher = (bitmap as System.Windows.Threading.DispatcherObject)?.Dispatcher
+                         ?? System.Windows.Application.Current?.Dispatcher;
+
+        Action createAndFreeze = () =>
+        {
+            var temp = new System.Windows.Media.Imaging.WriteableBitmap(bitmap);
+            temp.Freeze();
+            frozenCopy = temp;
+        };
+
+        if (dispatcher != null && !dispatcher.CheckAccess())
+            dispatcher.Invoke(createAndFreeze);
+        else
+            createAndFreeze();
+
+        var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+        encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(frozenCopy));
+        using (var stream = new System.IO.MemoryStream())
         {
             encoder.Save(stream);
-            index = icons.Count; icons.Add(stream.ToArray()); ids.Add(image, index);
+            var data = stream.ToArray();
+            index = icons.Count;
+            icons.Add(data);
+            ids.Add(image, index);
             return index;
         }
     }

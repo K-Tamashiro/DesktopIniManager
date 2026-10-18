@@ -16,6 +16,49 @@ using NAudio.Wave;
 
 internal static class AudioDiffTests
 {
+    internal static int RunClipboard()
+    {
+        var store = new ClipboardInputStore(AppContext.BaseDirectory);
+        string first;
+        try
+        {
+            var text = new DataObject(); text.SetText("日本語\r\nclipboard\n");
+            first = store.Capture(text)[0];
+            Check(File.ReadAllText(first) == "日本語\r\nclipboard\n", "clipboard text preserves Unicode and line endings");
+            string second = store.Capture(text)[0];
+            Check(first != second, "each paste receives its own temporary file");
+            var launch = ExternalDiffLaunch.Parse(new[] { "-diff" }); var snapshot = launch.CreateSnapshot();
+            var model = new DesktopIniManager.ViewModels.DiffViewModel(snapshot, snapshot.Files[0], null, "", "");
+            Check(model.DropFilesAsync(new[] { first }, true).GetAwaiter().GetResult() &&
+                model.DropFilesAsync(new[] { second }, false).GetAwaiter().GetResult() &&
+                model.GetPath(true) == first && model.GetPath(false) == second, "clipboard temporary files populate Source and Target independently");
+            model.Close();
+            var imageData = new DataObject();
+            imageData.SetImage(BitmapSource.Create(1, 1, 96, 96, PixelFormats.Bgra32, null, new byte[] { 0, 0, 255, 255 }, 4));
+            string imagePath = store.Capture(imageData)[0];
+            using (var stream = File.OpenRead(imagePath))
+                Check(BitmapFrame.Create(stream).PixelWidth == 1, "clipboard bitmap is saved as a readable PNG");
+            string original = Path.Combine(AppContext.BaseDirectory, "clipboard-original.wav");
+            Write(original, 48000, 1, 0.1, 0.25f);
+            var audio = new DataObject();
+            using var audioStream = new MemoryStream(File.ReadAllBytes(original));
+            audio.SetAudio(audioStream);
+            string audioPath = store.Capture(audio)[0];
+            using (var reader = new AudioFileReader(audioPath)) Check(reader.TotalTime.TotalSeconds > 0, "clipboard WAVE audio is readable");
+            var fileData = new DataObject(DataFormats.FileDrop, new[] { original });
+            string copy = store.Capture(fileData)[0];
+            Check(copy != original && File.ReadAllBytes(copy).SequenceEqual(File.ReadAllBytes(original)), "copied clipboard files are isolated temporary copies");
+            bool unsupported = false;
+            try { store.Capture(new DataObject("CustomAudioEditor", "private data")); }
+            catch (InvalidOperationException) { unsupported = true; }
+            Check(unsupported, "unsupported editor-private clipboard formats are reported");
+            store.Dispose();
+            Check(!File.Exists(first) && !File.Exists(audioPath) && File.Exists(original), "cleanup deletes temporary inputs while preserving originals");
+        }
+        finally { store.Dispose(); }
+        return 0;
+    }
+
     internal static int RunDifferences()
     {
         string root = Path.Combine(AppContext.BaseDirectory, "audio-difference-fixtures");

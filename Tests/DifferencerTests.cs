@@ -118,6 +118,7 @@ internal static class DifferencerTests
             if (args.Contains("--audio-diff")) return AudioDiffTests.Run();
             if (args.Contains("--audio-overview")) return AudioDiffTests.RunOverview();
             if (args.Contains("--audio-differences")) return AudioDiffTests.RunDifferences();
+            if (args.Contains("--diff-clipboard")) return AudioDiffTests.RunClipboard();
             if (args.Contains("--diff-regression")) return DiffRegressionTests.Run();
             if (args.Contains("--hash-comparison")) return DiffRegressionTests.RunHashComparison();
             if (args.Contains("--diff-viewer")) return DiffRegressionTests.RunViewer();

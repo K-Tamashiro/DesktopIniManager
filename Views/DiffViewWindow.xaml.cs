@@ -25,6 +25,8 @@ internal sealed partial class DiffViewWindow : Window
     internal DiffViewModel ViewModel { get; }
     private bool renderingContent;
     private bool windowClosed;
+    private readonly ClipboardInputStore clipboardInputs = new();
+    private bool clipboardSource = true;
 
     private void ShowLoadProgress(string message, double? percent = null)
     {
@@ -79,6 +81,21 @@ internal sealed partial class DiffViewWindow : Window
         DataContext = ViewModel;
         if (sourcePath != null) selectedFileText.Visibility = Visibility.Collapsed;
         PreviewKeyDown += DiffViewKeyDown;
+        body.Focusable = true;
+        body.PreviewMouseDown += (_, e) =>
+        {
+            clipboardSource = ViewModel.IsAudio ? e.GetPosition(body).Y < body.ActualHeight / 2 : e.GetPosition(body).X < body.ActualWidth / 2;
+            if (ViewModel.IsAudio || ViewModel.IsImage || ViewModel.IsVideo) body.Focus();
+        };
+        sourceHeader.MouseLeftButtonDown += (_, _) => { clipboardSource = true; body.Focus(); };
+        targetHeader.MouseLeftButtonDown += (_, _) => { clipboardSource = false; body.Focus(); };
+        var pasteMenu = new ContextMenu();
+        var pasteSource = new MenuItem { Header = "Source に貼り付け" };
+        var pasteTarget = new MenuItem { Header = "Target に貼り付け" };
+        pasteSource.Click += async (_, _) => await PasteClipboardAsync(true);
+        pasteTarget.Click += async (_, _) => await PasteClipboardAsync(false);
+        pasteMenu.Items.Add(pasteSource); pasteMenu.Items.Add(pasteTarget);
+        body.ContextMenu = pasteMenu;
         ViewModel.JumpRequested += Jump;
         ViewModel.ReloadRequested = () => LoadContent();
         ViewModel.CloseRequested += Close;
@@ -141,8 +158,12 @@ internal sealed partial class DiffViewWindow : Window
             inputSource?.RemoveHook(HorizontalWheelMessage);
             inputSource = null;
             DetachImageFitHandler();
-            ResetMediaController();
-            ViewModel.Close();
+            try { ResetMediaController(); }
+            finally
+            {
+                ViewModel.Close();
+                clipboardInputs.Dispose();
+            }
         };
     }
 
@@ -187,6 +208,12 @@ internal sealed partial class DiffViewWindow : Window
     {
         if (renderingContent) return;
         if (e.Handled || Keyboard.FocusedElement is TextBox) return;
+        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.V)
+        {
+            e.Handled = true;
+            _ = PasteClipboardAsync(clipboardSource);
+            return;
+        }
         if (ViewModel.IsAudio &&
         Keyboard.Modifiers == ModifierKeys.None &&
         e.Key == Key.Space)
@@ -290,6 +317,22 @@ internal sealed partial class DiffViewWindow : Window
         bool accepted = false;
         SetRendering(true);
         try { accepted = await ViewModel.DropFilesAsync(paths, sourceSide); }
+        catch (Exception ex) { ViewModel.ReportError(ex); }
+        finally { SetRendering(false); }
+        if (accepted && !windowClosed) await LoadContent();
+    }
+
+    private async Task PasteClipboardAsync(bool sourceSide)
+    {
+        if (renderingContent || windowClosed || !ViewModel.CanChangeComparison) return;
+        bool accepted = false;
+        SetRendering(true);
+        try
+        {
+            var paths = clipboardInputs.Capture(Clipboard.GetDataObject());
+            accepted = await ViewModel.DropFilesAsync(paths, sourceSide);
+            clipboardSource = sourceSide;
+        }
         catch (Exception ex) { ViewModel.ReportError(ex); }
         finally { SetRendering(false); }
         if (accepted && !windowClosed) await LoadContent();

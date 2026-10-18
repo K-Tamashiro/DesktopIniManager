@@ -90,6 +90,7 @@
     <Compile Include="Services\ISynchronizationLog.cs" />
     <Compile Include="Services\DiffMedia.cs" />
     <Compile Include="Services\AudioDiff.cs" />
+    <Compile Include="Services\ClipboardInputStore.cs" />
     <Compile Include="Views\DiffViewWindow.Audio.cs" />
     <Compile Include="Services\GitIgnoreMatcher.cs" />
     <Page Include="Views\IgnoreRulesWindow.xaml" />

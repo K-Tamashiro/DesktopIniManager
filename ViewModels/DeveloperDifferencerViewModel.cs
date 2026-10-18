@@ -65,17 +65,50 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
     private string treeSource, treeTarget;
     public DiffSnapshot Snapshot => snapshot;
     private HashSet<string> disabledIgnoreRules = new(StringComparer.Ordinal);
-    public bool CanConfigureIgnore => !IsBusy && snapshot?.IgnoreRules?.Count > 0;
+    public bool CanConfigureIgnore => !IsBusy && (snapshot?.IgnoreRules?.Count > 0 ||
+        sourceIndex != null || targetIndex != null);
+    internal async Task<DiffSnapshot> GetIgnoreSnapshotAsync()
+    {
+        if (closed || IsBusy) return null;
+        if (snapshot != null) return snapshot;
+        PendingIndex left = sourceIndex;
+        PendingIndex right = targetIndex;
+        if (left == null && right == null) return null;
+        DiffIndex[] indexes = await Task.WhenAll(
+            left?.Task ?? Task.FromResult<DiffIndex>(null),
+            right?.Task ?? Task.FromResult<DiffIndex>(null));
+        if (closed || IsBusy || !ReferenceEquals(left, sourceIndex) || !ReferenceEquals(right, targetIndex)) return null;
+        if (left?.Error != null) throw left.Error;
+        if (right?.Error != null) throw right.Error;
+        var rules = GitIgnoreMatcher.Merge(indexes[0]?.IgnoreRules, indexes[1]?.IgnoreRules);
+        if (rules.Count == 0) return null;
+        return new DiffSnapshot
+        {
+            SourceRoot = SourcePath,
+            TargetRoot = TargetPath,
+            IgnoreRules = rules,
+            DisabledIgnoreRules = disabledIgnoreRules.ToList()
+        };
+    }
     internal async Task ApplyIgnoreRulesAsync(IEnumerable<string> disabled)
     {
         if (!CanConfigureIgnore) return;
+        DiffSnapshot ignoreSnapshot = await GetIgnoreSnapshotAsync();
+        if (ignoreSnapshot == null) return;
         var selection = new HashSet<string>(disabled, StringComparer.Ordinal);
-        var visible = new HashSet<string>(snapshot.IgnoreRules.Select(r => r.Key), StringComparer.Ordinal);
+        var visible = new HashSet<string>(ignoreSnapshot.IgnoreRules.Select(r => r.Key), StringComparer.Ordinal);
         selection.UnionWith(disabledIgnoreRules.Where(key => !visible.Contains(key)));
         if (disabledIgnoreRules.SetEquals(selection)) return;
         var previousTab = selectedHistoryTab;
+        bool hadComparison = snapshot != null;
         disabledIgnoreRules = selection;
         InvalidateIndexes();
+        if (!hadComparison)
+        {
+            RestartIndex(true);
+            RestartIndex(false);
+            return;
+        }
         await CompareCoreAsync(replaceCurrent: true);
         if (snapshot == null && previousTab != null && HistoryTabs.Contains(previousTab))
             await SelectHistoryTabAsync(previousTab);
@@ -193,7 +226,10 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         // PendingIndex observes failures; this continuation only updates the activity indicators.
         await pending.Task;
         if (!closed && (ReferenceEquals(sourceIndex, pending) || ReferenceEquals(targetIndex, pending)))
+        {
             NotifyIndexProgress();
+            OnPropertyChanged(nameof(CanConfigureIgnore));
+        }
     }
 
     private sealed class PendingIndex
@@ -235,6 +271,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
             targetIndex = closed || string.IsNullOrWhiteSpace(TargetPath) ? null : new PendingIndex(TargetPath, disabledIgnoreRules);
         }
         _ = ObserveIndexProgressAsync(source ? sourceIndex : targetIndex);
+        OnPropertyChanged(nameof(CanConfigureIgnore));
     }
 
     internal void RescanRoot(bool source)
@@ -249,6 +286,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         targetIndex?.Cancel();
         sourceIndex = targetIndex = null;
         NotifyIndexProgress();
+        OnPropertyChanged(nameof(CanConfigureIgnore));
     }
     private string _status = "Ready";
     public string Status { get => _status; set => SetProperty(ref _status, value); }
@@ -508,6 +546,8 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
             OnPropertyChanged(nameof(SourcePath)); OnPropertyChanged(nameof(TargetPath));
             rootLinkVersion++; // Restoring saved paths must not initiate automatic linking.
             treeSource = SourcePath; treeTarget = TargetPath; selectedFolder = ""; cachedVisibleFolders = null;
+            RestartIndex(true);
+            RestartIndex(false);
             Status = "Source and Target restored. Click Compare to build the difference tree.";
         }
         catch (Exception ex) { Status = "Failed to restore tree: " + ErrorMessages.English(ex); }

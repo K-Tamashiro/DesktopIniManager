@@ -136,7 +136,11 @@ public partial class DeveloperDifferencerWindow : Window
     private async void IgnoreListButton_Click(object sender, RoutedEventArgs e)
     {
         if (!ViewModel.CanConfigureIgnore) return;
-        var dialog = new IgnoreRulesWindow(ViewModel.Snapshot) { Owner = this };
+        DiffSnapshot ignoreSnapshot;
+        try { ignoreSnapshot = await ViewModel.GetIgnoreSnapshotAsync(); }
+        catch (Exception ex) { ViewModel.ShowError(ex); return; }
+        if (ignoreSnapshot == null) return;
+        var dialog = new IgnoreRulesWindow(ignoreSnapshot) { Owner = this };
         if (dialog.ShowDialog() == true)
         {
             try { await ViewModel.ApplyIgnoreRulesAsync(dialog.DisabledRules); }

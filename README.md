@@ -116,8 +116,13 @@ Recognized extensions are MP4, AVI, MKV, MOV, WMV, WebM, M4V, MPG, and MPEG. Pla
 Open MP3 or WAV (`.wav` / `.wave`) files to review changes to voice guidance and other audio resources. Source appears above Target, with yellow and blue frames respectively. Both waveforms use the same time scale, based on the longer file. Mono audio has one waveform per pane; stereo audio has separate left/right channel waveforms.
 
 - Use the bottom-center play/pause button to play both inputs from the same position. Red vertical cursors mark the common playback position.
+- The top overview shows Source/Target block waveforms with colored playback progress. Click it to seek. The meters at right show each side's output peak after volume adjustment on a -60 to 0 dBFS scale, and clear when paused or finished.
+- The comparison toggle (icon 143, immediately after Fit) is dim when off and full color when on. It highlights differing waveform segments in red using decoded PCM samples before playback volume adjustment. Channels are compared at the same time; missing channels/tails count as differences. Different sample rates use linear interpolation on the higher-rate time grid, without time shifting or loudness normalization. The overview map stays unchanged.
+- A single contiguous cut/insertion with matching sample rate and channel count is detected by verifying the common prefix and the entire shifted suffix. Only the removed/inserted interval is red on the longer side; a red dashed line marks the join on the shorter side. Playback and waveform positions retain their original timelines. Other edits fall back to same-time sample comparison.
+- Use the zoom bar or mouse wheel over the audio panes to expand the horizontal time scale (100–3200%) without changing waveform height. The shared scrollbar, Shift+wheel, and native horizontal/side wheel scroll both panes together. Playback follows the playhead; Fit restores the complete longer-file timeline. The top overview always shows the entire recording.
+- Zoom changes start at time zero. The main waveforms connect their peaks as continuous lines; the overview retains its block map.
 - Move the shared seek slider or click either waveform to seek both inputs. The time label shows the current position and total duration.
-- Adjust Source volume at the bottom left and Target volume at the bottom right to listen to either side or both together. Both start at 100%.
+- Adjust Source volume at the bottom left and Target volume at the bottom right to listen to either side or both together. Both default to 100%; each side's volume is saved automatically and restored when switching files, reopening DIFF VIEW, or restarting the app.
 - The mute icon (142) sets that side to 0%; the maximum icon (141) sets it to 100%. Each slider adjusts its volume independently.
 - When the shorter input ends, it contributes silence while the longer input continues. A missing side is labelled “No file”.
 - Waveforms use white in Dark and DIM1–DIM5 themes, and a dark foreground in Light. Backgrounds follow the selected theme. Playback volume does not change the displayed waveform amplitude.
@@ -145,8 +150,8 @@ Choose Dark, Light, or a DIM1–DIM5 theme. English, Japanese, Simplified Chines
 
 | Keys | Action |
 | --- | --- |
-| Ctrl + 1 / 2 / 3 | Main / Developer Differencer / Scoped Grep |
-| Ctrl + Space | Cycle through the three main windows |
+| Ctrl + 1 / 2 / 3 / 4 | Main / Developer Differencer / Scoped Grep / standalone DIFF VIEW (opens if needed) |
+| Ctrl + Space | Cycle through Main, Developer Differencer, Scoped Grep, and all open DIFF VIEW windows |
 | Arrow keys | Scroll DIFF VIEW vertically/horizontally |
 | Page Up / Page Down | Page scroll in text DIFF VIEW |
 | Shift + mouse wheel / thumb wheel | Horizontal scrolling |

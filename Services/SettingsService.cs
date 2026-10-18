@@ -145,6 +145,20 @@ internal static class SettingsService
 
     public static string LoadEditorPath() => ReadSetting(EditorPath, "code");
     public static string LoadExternalDiff() => ReadSetting(ExternalDiffPath, null);
+    internal static double LoadDiffAudioVolume(bool source)
+    {
+        string text = ReadSetting(DiffAudioVolumePath(source), null);
+        return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double value) &&
+            double.IsFinite(value) ? Math.Clamp(value, 0, 1) : 1;
+    }
+
+    internal static void SaveDiffAudioVolume(bool source, double value) =>
+        WriteSetting(DiffAudioVolumePath(source),
+            (double.IsFinite(value) ? Math.Clamp(value, 0, 1) : 1).ToString("R", CultureInfo.InvariantCulture));
+
+    private static string DiffAudioVolumePath(bool source) =>
+        Path.Combine(SettingsDirectory, source ? "diff-audio-source-volume.txt" : "diff-audio-target-volume.txt");
+
     public static bool LoadDiffDifferencesOnly() => string.Equals(
         ReadSetting(DiffDisplayModePath, "all"), "differences", StringComparison.OrdinalIgnoreCase);
     public static void SaveDiffDifferencesOnly(bool differencesOnly) =>

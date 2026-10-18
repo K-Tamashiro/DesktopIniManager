@@ -16,6 +16,164 @@ using NAudio.Wave;
 
 internal static class AudioDiffTests
 {
+    internal static int RunDifferences()
+    {
+        string root = Path.Combine(AppContext.BaseDirectory, "audio-difference-fixtures");
+        Directory.CreateDirectory(root);
+        string a = Path.Combine(root, "source.wav"), b = Path.Combine(root, "target.wav");
+        float[] samples = Enumerable.Range(0, 1000).Select(i => (float)(0.5 * Math.Sin(i * 0.1))).ToArray();
+        void Save(string path, float[] data, int channels = 1, int rate = 1000)
+        {
+            using var writer = new WaveFileWriter(path, WaveFormat.CreateIeeeFloatWaveFormat(rate, channels));
+            writer.WriteSamples(data, 0, data.Length);
+        }
+        Save(a, samples); Save(b, samples);
+        Check(AudioDifferences.Load(a, b, CancellationToken.None).Channels[0].Count == 0, "identical PCM has no differences");
+        var changed = (float[])samples.Clone();
+        for (int i = 400; i < 600; i++) changed[i] *= 0.5f;
+        Save(b, changed);
+        var differences = AudioDifferences.Load(a, b, CancellationToken.None);
+        Check(differences.Channels[0].Count == 1 && differences.Channels[0][0] == (0.4, 0.6), "amplitude edit marks only its sample interval");
+        var envelope = AudioEnvelope.Load(a, CancellationToken.None);
+        var wave = new AudioWaveform(envelope, 1, a) { Foreground = Brushes.White, Background = Brushes.Black };
+        wave.SetDifferences(differences, false);
+        byte[] Render(bool enabled)
+        {
+            wave.ShowDifferences = enabled;
+            wave.Measure(new Size(600, 180)); wave.Arrange(new Rect(0, 0, 600, 180)); wave.UpdateLayout();
+            var bitmap = new RenderTargetBitmap(600, 180, 96, 96, PixelFormats.Pbgra32); bitmap.Render(wave);
+            var bytes = new byte[600 * 180 * 4]; bitmap.CopyPixels(bytes, 2400, 0);
+            var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
+            using var file = File.Create(Path.Combine(root, enabled ? "enabled.png" : "disabled.png")); encoder.Save(file);
+            return bytes;
+        }
+        var off = Render(false); var on = Render(true);
+        Check(!off.SequenceEqual(on), "comparison adds visible red waveform highlighting");
+        Check(off.SequenceEqual(Render(false)), "disabling comparison restores the original waveform exactly");
+        Save(b, samples.Take(500).ToArray());
+        var shorter = AudioDifferences.Load(a, b, CancellationToken.None);
+        Check(shorter.Channels[0].Count == 1 && shorter.Channels[0][0] == (0.5, 1.0), "missing tail is different without stretching time");
+        Save(b, samples.SelectMany(value => new[] { value, value }).ToArray(), 2);
+        var stereo = AudioDifferences.Load(a, b, CancellationToken.None);
+        Check(stereo.Channels[0].Count == 0 && stereo.Channels[1].Count == 1, "missing stereo channel is marked independently");
+        Check(AudioDifferences.Load(a, null, CancellationToken.None).Channels[0][0] == (0.0, 1.0), "missing file marks the available waveform");
+        Save(a, new float[1000]); Save(b, new float[2000], 1, 2000);
+        Check(AudioDifferences.Load(a, b, CancellationToken.None).Channels[0].Count == 0, "different sample rates align on a common time axis");
+        using var canceled = new CancellationTokenSource(); canceled.Cancel();
+        bool rejected = false;
+        try { AudioDifferences.Load(a, b, canceled.Token); } catch (OperationCanceledException) { rejected = true; }
+        Check(rejected, "comparison supports cancellation");
+        // Cutting an interior span shifts the suffix, but does not change its audio.
+        var original = Enumerable.Range(0, 2000).Select(i => (float)(Math.Sin(i * 0.137) * 0.4 + Math.Cos(i * 0.079) * 0.2)).ToArray();
+        var cut = original.Take(800).Concat(original.Skip(836)).ToArray();
+        Save(a, original, 2); Save(b, cut, 2);
+        var deletion = AudioDifferences.Load(a, b, CancellationToken.None);
+        Check(deletion.Channels.All(channel => channel.Count == 1 && channel[0] == (0.4, 0.418)) &&
+            deletion.TargetChannels.All(channel => channel.Count == 0) && deletion.TargetJoin == 0.4,
+            "middle stereo cut marks only the removed 18 ms and the target join; matching suffix stays unchanged");
+        var insertion = AudioDifferences.Load(b, a, CancellationToken.None);
+        Check(insertion.Channels.All(channel => channel.Count == 0) && insertion.SourceJoin == 0.4 &&
+            insertion.TargetChannels.All(channel => channel.Count == 1 && channel[0] == (0.4, 0.418)),
+            "reversed comparison marks the inserted interval on Target");
+        cut[1500] += 0.1f; Save(b, cut, 2);
+        var editedSuffix = AudioDifferences.Load(a, b, CancellationToken.None);
+        Check(editedSuffix.TargetJoin == null && editedSuffix.Channels.Any(channel => channel.Any(range => range.End > 0.7)),
+            "a changed suffix is not falsely classified as a pure cut");
+        var launch = ExternalDiffLaunch.Parse(new[] { "-diff" });
+        var snapshot = launch.CreateSnapshot();
+        var model = new DesktopIniManager.ViewModels.DiffViewModel(snapshot, snapshot.Files[0], null, "", "");
+        Check(model.DropFilesAsync(new[] { a }, true).GetAwaiter().GetResult() && model.IsAudio,
+            "first audio drop opens Source in an empty viewer");
+        Check(model.DropFilesAsync(new[] { b }, false).GetAwaiter().GetResult() && model.GetPath(true) == a && model.GetPath(false) == b,
+            "second audio drop fills Target and retains Source");
+        string replacement = Path.Combine(root, "replacement.wav"); Save(replacement, samples);
+        Check(model.DropFilesAsync(new[] { replacement }, true).GetAwaiter().GetResult() && model.CanChangeComparison,
+            "replacement audio drop leaves subsequent drops enabled");
+        model.Close();
+        return 0;
+    }
+
+    internal static int RunOverview()
+    {
+        var envelope = new AudioEnvelope
+        {
+            Channels = 1, Duration = 2,
+            Min = new[] { new[] { -0.2f, -0.5f, -0.8f, -0.4f } },
+            Max = new[] { new[] { 0.2f, 0.5f, 0.8f, 0.4f } }
+        };
+        var overview = new AudioOverview(new[] { envelope, envelope }, 2)
+        { Foreground = Brushes.White, Background = Brushes.Black };
+        byte[] Render(double seconds, float source, float target, int width, string name)
+        {
+            overview.Update(seconds, source, target);
+            overview.Measure(new Size(width, 64));
+            overview.Arrange(new Rect(0, 0, width, 64));
+            overview.UpdateLayout();
+            var bitmap = new RenderTargetBitmap(width, 64, 96, 96, PixelFormats.Pbgra32);
+            bitmap.Render(overview);
+            var pixels = new byte[width * 64 * 4];
+            bitmap.CopyPixels(pixels, width * 4, 0);
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(bitmap));
+            using var file = File.Create(Path.Combine(AppContext.BaseDirectory, name + ".png"));
+            encoder.Save(file);
+            return pixels;
+        }
+        var idle = Render(0, 0, 0, 900, "audio-overview-idle");
+        var playing = Render(1, 0.5f, 0.1f, 900, "audio-overview-playing");
+        Check(!idle.SequenceEqual(playing), "overview playback progress and output levels change the rendered pixels");
+        var paused = Render(1, 0, 0, 900, "audio-overview-paused");
+        Check(!playing.SequenceEqual(paused), "paused meters clear while progress is retained");
+        Render(2, 1, 1, 200, "audio-overview-narrow");
+        overview = new AudioOverview(new AudioEnvelope[] { null, envelope }, 2)
+        { Foreground = Brushes.Black, Background = Brushes.White };
+        Render(0.5, 0, 0.5f, 900, "audio-overview-one-sided-light");
+        Check(true, "overview handles resize, missing source and light colors");
+        var timeline = new AudioTimeline(new[] { envelope, envelope }, 2, new string[2]);
+        void LayoutTimeline(double width)
+        {
+            timeline.Measure(new Size(width, 400));
+            timeline.Arrange(new Rect(0, 0, width, 400));
+            timeline.UpdateLayout();
+        }
+        LayoutTimeline(900);
+        double height = timeline.Waves[0].ActualHeight;
+        Check(Math.Abs(timeline.Waves[0].TimeAt(timeline.Viewport) - 2) < 0.001, "fit shows the full longer timeline");
+        timeline.SetZoom(4);
+        LayoutTimeline(900);
+        Check(timeline.Offset == 0 && timeline.Waves[0].TimeAt(0) == 0, "zoom starts at time zero");
+        Check(timeline.Waves[0].ActualHeight == height, "horizontal zoom preserves waveform height");
+        Check(Math.Abs(timeline.Waves[0].TimeAt(450) - timeline.Waves[0].TimeAt(0) - 450 / timeline.Viewport / 2) < 0.001,
+            "zoom reduces the visible time interval");
+        timeline.ScrollBy(120);
+        Check(timeline.Waves[0].TimeAt(100) == timeline.Waves[1].TimeAt(100), "both panes scroll on the same time axis");
+        timeline.SetZoom(8);
+        Check(timeline.Offset == 0, "zoom after scrolling returns to time zero");
+        timeline.UpdatePosition(0, true);
+        Check(timeline.Offset == 0, "seeking to start restores the left viewport");
+        timeline.UpdatePosition(1.8, true);
+        Check(timeline.Offset > 0 && timeline.Waves[0].PixelAt(1.8) - timeline.Offset <= timeline.Viewport,
+            "playback follow keeps the playhead visible");
+        double pausedOffset = timeline.Offset;
+        timeline.UpdatePosition(0.2, false);
+        Check(timeline.Offset == pausedOffset, "paused playback allows manual scrolling");
+        LayoutTimeline(600);
+        Check(timeline.Offset <= timeline.Viewport * (timeline.Zoom - 1), "resize keeps the scroll offset in bounds");
+        timeline.Fit(); LayoutTimeline(600);
+        Check(timeline.Zoom == 1 && timeline.Offset == 0 && Math.Abs(timeline.Waves[1].TimeAt(timeline.Viewport) - 2) < 0.001,
+            "fit resets zoom and horizontal scroll");
+        foreach (var wave in timeline.Waves) { wave.Foreground = Brushes.White; wave.Background = Brushes.Black; }
+        timeline.SetZoom(4); timeline.UpdatePosition(1, true); LayoutTimeline(600);
+        var timelineImage = new RenderTargetBitmap(600, 400, 96, 96, PixelFormats.Pbgra32);
+        timelineImage.Render(timeline);
+        var waveformGeometry = (Geometry)typeof(AudioWaveform).GetField("geometry", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(timeline.Waves[0]);
+        Check(PathGeometry.CreateFromGeometry(waveformGeometry).Figures.Count == 1,
+            "waveform is a continuous line rather than separate vertical bars");
+        var timelineEncoder = new PngBitmapEncoder(); timelineEncoder.Frames.Add(BitmapFrame.Create(timelineImage));
+        using (var file = File.Create(Path.Combine(AppContext.BaseDirectory, "audio-timeline-zoom.png"))) timelineEncoder.Save(file);
+        return 0;
+    }
+
     private static void Check(bool value, string message)
     { if (!value) throw new Exception(message); Console.WriteLine("PASS " + message); }
     private static void Await(Task task)

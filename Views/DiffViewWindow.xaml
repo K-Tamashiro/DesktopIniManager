@@ -11,24 +11,24 @@
   Background="{DynamicResource WindowBackground}"
   Foreground="{DynamicResource Ink}"
   WindowStartupLocation="CenterOwner">
-  <Window.Resources>
-    <SolidColorBrush x:Key="SourceColor" Color="#E8B949" />
-    <SolidColorBrush x:Key="TargetColor" Color="#2878BF" />
-  </Window.Resources>
-  <DockPanel Margin="16">
-    <Grid Margin="0,0,0,10" DockPanel.Dock="Top">
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="*" />
-        <ColumnDefinition Width="Auto" />
-        <ColumnDefinition Width="Auto" />
-      </Grid.ColumnDefinitions>
-      <TextBlock
+    <Window.Resources>
+        <SolidColorBrush x:Key="SourceColor" Color="#E8B949" />
+        <SolidColorBrush x:Key="TargetColor" Color="#2878BF" />
+    </Window.Resources>
+    <DockPanel Margin="16">
+        <Grid Margin="0,0,0,10" DockPanel.Dock="Top">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock
         VerticalAlignment="Center"
         FontSize="26"
         FontWeight="SemiBold"
         Foreground="{DynamicResource Accent}"
         Text="{loc:L Diff_Heading}" />
-      <TextBlock
+            <TextBlock
         x:Name="selectedFileText"
         Grid.Column="1"
         MaxWidth="720"
@@ -42,7 +42,7 @@
         TextAlignment="Right"
         TextTrimming="CharacterEllipsis"
         ToolTip="{Binding File.RelativePath}" />
-      <Button
+            <Button
         x:Name="CloseButton"
         Grid.Column="2"
         VerticalAlignment="Center"
@@ -50,30 +50,30 @@
         Command="{Binding CloseCommand}"
         Style="{DynamicResource IconButton}"
         ToolTip="{loc:L Common_Close}">
-        <Image
+                <Image
           x:Name="CloseButtonIcon"
           RenderOptions.BitmapScalingMode="HighQuality"
           Stretch="Uniform" />
-      </Button>
-    </Grid>
+            </Button>
+        </Grid>
 
-    <Grid Margin="0,0,0,4" DockPanel.Dock="Top">
-      <Grid.RowDefinitions>
-        <RowDefinition Height="Auto" />
-        <RowDefinition Height="Auto" />
-      </Grid.RowDefinitions>
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="Auto" />
-        <ColumnDefinition Width="*" />
-        <ColumnDefinition Width="Auto" />
-      </Grid.ColumnDefinitions>
+        <Grid Margin="0,0,0,4" DockPanel.Dock="Top">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
 
-      <Grid Grid.ColumnSpan="3" Margin="0,0,0,8">
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="Auto" />
-          <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
-        <Image
+            <Grid Grid.ColumnSpan="3" Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Image
           x:Name="ExternalDiffLabelIcon"
           Width="28"
           Height="28"
@@ -82,7 +82,7 @@
           RenderOptions.BitmapScalingMode="HighQuality"
           Stretch="Uniform"
           ToolTip="External Diff" />
-        <history:HistoryTextBox
+                <history:HistoryTextBox
           x:Name="externalDiffBox"
           Grid.Column="1"
           Height="36"
@@ -98,24 +98,24 @@
           TextAlignment="Left"
           TextWrapping="NoWrap"
           ToolTip="External diff command. Use {source} and {target}." />
-      </Grid>
+            </Grid>
 
-      <Grid
+            <Grid
         Grid.Row="1"
         Grid.ColumnSpan="3"
         Height="64">
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="*" />
-          <ColumnDefinition Width="12" />
-          <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
-        <Grid>
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="*" />
-          </Grid.ColumnDefinitions>
-          <WrapPanel x:Name="actionsPanel" VerticalAlignment="Center" />
-          <Viewbox
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <WrapPanel x:Name="actionsPanel" VerticalAlignment="Center" />
+                    <Viewbox
             x:Name="imageControlRow"
             Grid.Column="1"
             HorizontalAlignment="Left"
@@ -123,65 +123,67 @@
             Stretch="Uniform"
             StretchDirection="DownOnly"
             Visibility="Collapsed">
-            <StackPanel x:Name="imageToolbar" Orientation="Horizontal" />
-          </Viewbox>
-        </Grid>
-        <Grid Grid.Column="2">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-          </Grid.ColumnDefinitions>
-          <Viewbox
+                        <StackPanel x:Name="imageToolbar" Orientation="Horizontal" />
+                    </Viewbox>
+                </Grid>
+                <Grid Grid.Column="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Viewbox
             HorizontalAlignment="Right"
             VerticalAlignment="Center"
             Stretch="Uniform"
             StretchDirection="DownOnly">
-            <StackPanel x:Name="imageDetails" Orientation="Horizontal" />
-          </Viewbox>
-          <StackPanel
+                        <StackPanel x:Name="imageDetails" Orientation="Horizontal" />
+                    </Viewbox>
+                    <StackPanel
             x:Name="fileNavigationPanel"
             Grid.Column="1"
             HorizontalAlignment="Right"
             VerticalAlignment="Center"
             Orientation="Horizontal" />
+                </Grid>
+            </Grid>
         </Grid>
-      </Grid>
-    </Grid>
 
-    <StackPanel
+        <Grid x:Name="audioOverviewHost" DockPanel.Dock="Top" Height="64" Margin="0,0,0,8" Visibility="Collapsed" />
+
+        <StackPanel
       x:Name="markerOptions"
       Margin="8,4,8,0"
       DockPanel.Dock="Bottom"
       Orientation="Horizontal"
       Visibility="Collapsed">
-      <CheckBox
+            <CheckBox
         x:Name="showSpacesBox"
         Margin="0,0,16,0"
         Click="MarkerDisplay_Click"
         Content="Show spaces / tabs" />
-      <CheckBox
+            <CheckBox
         x:Name="showNewlinesBox"
         Click="MarkerDisplay_Click"
         Content="Show line endings" />
-    </StackPanel>
-    <StackPanel
+        </StackPanel>
+        <StackPanel
       x:Name="loadProgressPanel"
       Height="30"
       Margin="8,6,8,0"
       DockPanel.Dock="Bottom"
       Visibility="Collapsed">
-      <TextBlock
+            <TextBlock
         x:Name="loadProgressText"
         Margin="0,0,0,4"
         Foreground="{DynamicResource Muted}" />
-      <ProgressBar
+            <ProgressBar
         x:Name="loadProgress"
         Height="6"
         Maximum="100"
         Minimum="0" />
-    </StackPanel>
+        </StackPanel>
 
-    <TextBlock
+        <TextBlock
       x:Name="status"
       Margin="8,6,8,0"
       DockPanel.Dock="Bottom"
@@ -189,71 +191,89 @@
       Text="{Binding Status}"
       TextWrapping="Wrap" />
 
-    <Grid DockPanel.Dock="Top">
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="*" />
-        <ColumnDefinition Width="34" />
-        <ColumnDefinition Width="*" />
-      </Grid.ColumnDefinitions>
-      <Grid Margin="8,0,8,4">
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="*" />
-          <ColumnDefinition Width="Auto" />
-        </Grid.ColumnDefinitions>
-        <TextBlock
+        <Grid DockPanel.Dock="Top">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="34" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border x:Name="sourceFileNameBorder" Grid.Row="0" Margin="8,0,8,5"
+              Padding="9,4" CornerRadius="8" BorderThickness="1.5"
+              BorderBrush="{DynamicResource SourceColor}" Visibility="Collapsed"
+              HorizontalAlignment="Left" MaxWidth="600">
+                <TextBlock x:Name="sourceFileNameText" FontWeight="SemiBold"
+                   Foreground="{DynamicResource SourceColor}" TextTrimming="CharacterEllipsis" />
+            </Border>
+            <Border x:Name="targetFileNameBorder" Grid.Row="0" Grid.Column="2" Margin="8,0,8,5"
+              Padding="9,4" CornerRadius="8" BorderThickness="1.5"
+              BorderBrush="{DynamicResource TargetColor}" Visibility="Collapsed"
+              HorizontalAlignment="Left" MaxWidth="600">
+                <TextBlock x:Name="targetFileNameText" FontWeight="SemiBold"
+                   Foreground="{DynamicResource TargetColor}" TextTrimming="CharacterEllipsis" />
+            </Border>
+            <Grid Grid.Row="1" Margin="8,0,8,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock
           x:Name="sourceHeader"
           VerticalAlignment="Center"
           Foreground="{DynamicResource Ink}"
           Text="{Binding SourceHeader}"
           TextWrapping="Wrap" />
-        <StackPanel
+                <StackPanel
           x:Name="sourceStatusIcons"
           Grid.Column="1"
           Margin="8,0,0,0"
           VerticalAlignment="Center"
           Orientation="Horizontal" />
-      </Grid>
-      <Grid Grid.Column="2" Margin="8,0,8,4">
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="*" />
-          <ColumnDefinition Width="Auto" />
-        </Grid.ColumnDefinitions>
-        <TextBlock
+            </Grid>
+            <Grid Grid.Row="1" Grid.Column="2" Margin="8,0,8,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock
           x:Name="targetHeader"
           VerticalAlignment="Center"
           Foreground="{DynamicResource Ink}"
           Text="{Binding TargetHeader}"
           TextWrapping="Wrap" />
-        <StackPanel
+                <StackPanel
           x:Name="targetStatusIcons"
           Grid.Column="1"
           Margin="8,0,0,0"
           VerticalAlignment="Center"
           Orientation="Horizontal" />
-      </Grid>
-    </Grid>
-    <Grid>
-      <Grid.RowDefinitions>
-        <RowDefinition Height="*" />
-        <RowDefinition Height="Auto" />
-      </Grid.RowDefinitions>
-      <Grid
+            </Grid>
+        </Grid>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid
         x:Name="body"
         Grid.Row="0"
         PreviewMouseWheel="Body_PreviewMouseWheel">
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="*" />
-          <ColumnDefinition x:Name="mapColumn" Width="34" />
-          <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
-      </Grid>
-      <StackPanel
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition x:Name="mapColumn" Width="34" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+            </Grid>
+            <StackPanel
         x:Name="gifFrameHost"
         Grid.Row="1"
         Margin="0,4,0,4"
         HorizontalAlignment="Center"
         Orientation="Vertical"
         Visibility="Collapsed" />
-    </Grid>
-  </DockPanel>
+        </Grid>
+    </DockPanel>
 </Window>

@@ -170,7 +170,9 @@ internal sealed partial class DiffViewWindow : Window
 
     private void Body_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
-        if ((ViewModel.IsImage || ViewModel.IsVideo || ViewModel.IsAudio) && imageZoom != null)
+        if (ViewModel.IsAudio && (Keyboard.Modifiers & ModifierKeys.Shift) != 0)
+            e.Handled = ScrollHorizontally(-e.Delta);
+        else if ((ViewModel.IsImage || ViewModel.IsVideo || ViewModel.IsAudio) && imageZoom != null)
         {
             ChangeImageZoom(e.Delta / 120.0);
             e.Handled = true;
@@ -188,11 +190,11 @@ internal sealed partial class DiffViewWindow : Window
         if (ViewModel.IsAudio &&
         Keyboard.Modifiers == ModifierKeys.None &&
         e.Key == Key.Space)
-            {
-                ToggleAudioPlayback();
-                e.Handled = true;
-                return;
-            }
+        {
+            ToggleAudioPlayback();
+            e.Handled = true;
+            return;
+        }
         if (Keyboard.Modifiers == ModifierKeys.Control)
         {
             ICommand command;
@@ -340,6 +342,11 @@ internal sealed partial class DiffViewWindow : Window
 
     private bool ScrollHorizontally(int delta)
     {
+        if (ViewModel.IsAudio && audioTimeline != null)
+        {
+            audioTimeline.ScrollBy(delta * 48.0 / 120);
+            return true;
+        }
         if (leftScroll == null) leftScroll = FindScroll(leftList);
         if (rightScroll == null) rightScroll = FindScroll(rightList);
         if (leftScroll == null || rightScroll == null) return false;
@@ -420,6 +427,23 @@ internal sealed partial class DiffViewWindow : Window
             else panel.Children.Add(new TextBlock { Text = endings, VerticalAlignment = VerticalAlignment.Center, ToolTip = "Line endings", Margin = new Thickness(4, 0, 0, 0) });
         }
         panel.Children.Add(StatusIcon(sourceSide ? 111 : 112));
+    }
+
+    private void UpdateDetachedFileNames()
+    {
+        bool visible = ViewModel.IsDetachedComparison;
+        sourceFileNameBorder.Visibility = targetFileNameBorder.Visibility =
+            visible ? Visibility.Visible : Visibility.Collapsed;
+        if (!visible) return;
+
+        void Update(TextBlock label, string path)
+        {
+            label.Text = string.IsNullOrEmpty(path) ? "(No file)" : System.IO.Path.GetFileName(path);
+            label.ToolTip = path;
+        }
+
+        Update(sourceFileNameText, ViewModel.GetPath(true));
+        Update(targetFileNameText, ViewModel.GetPath(false));
     }
 
     private void UpdateEncodingHeaders()
@@ -547,6 +571,7 @@ internal sealed partial class DiffViewWindow : Window
             viewportThumb = null;
             mapSelection = null;
             UpdateEncodingHeaders();
+            UpdateDetachedFileNames();
             if (ViewModel.IsAudio) { await RenderAudio(); return; }
             if (ViewModel.IsVideo) { await RenderVideos(); return; }
             if (ViewModel.IsImage) { await RenderImages(); return; }

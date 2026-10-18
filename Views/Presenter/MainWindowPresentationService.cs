@@ -354,14 +354,27 @@ internal sealed class MainWindowPresentationService
             || key.Handled) return;
         Window active = Application.Current.Windows.Cast<Window>().FirstOrDefault(window => window.IsActive);
         if (active == null) return;
+        var viewers = Application.Current.Windows.OfType<DiffViewWindow>().Where(window => window.IsVisible).ToList();
+        DiffViewWindow selectedViewer = null;
         int destination;
         if (key.Key == Key.Space && Keyboard.Modifiers == ModifierKeys.Control)
         {
-            // Treat owned windows (including DIFF VIEW) as their parent workspace.
+            // Keep DIFF VIEW in the cycle, even when owned by the differencer.
             while (active.Owner != null && active != _window
-                && active != _differencerWindow && active != _grepWindow)
+                && active != _differencerWindow && active != _grepWindow && active is not DiffViewWindow)
                 active = active.Owner;
-            destination = active == _grepWindow ? 1 : active == _differencerWindow ? 3 : 2;
+            int viewerIndex = viewers.IndexOf(active as DiffViewWindow);
+            if (viewerIndex >= 0)
+            {
+                selectedViewer = viewers.Skip(viewerIndex + 1).FirstOrDefault();
+                destination = selectedViewer == null ? 1 : 4;
+            }
+            else if (active == _grepWindow)
+            {
+                selectedViewer = viewers.FirstOrDefault();
+                destination = selectedViewer == null ? 1 : 4;
+            }
+            else destination = active == _differencerWindow ? 3 : 2;
         }
         else if (Keyboard.Modifiers == ModifierKeys.Control)
         {
@@ -373,6 +386,11 @@ internal sealed class MainWindowPresentationService
                 case Key.NumPad2: destination = 2; break;
                 case Key.D3:
                 case Key.NumPad3: destination = 3; break;
+                case Key.D4:
+                case Key.NumPad4:
+                    destination = 4;
+                    selectedViewer = viewers.FirstOrDefault(window => window.Owner == null);
+                    break;
                 default: return;
             }
         }
@@ -389,6 +407,21 @@ internal sealed class MainWindowPresentationService
                 {
                     if (_differencerWindow == null) DeveloperDifferencer();
                     else WindowActivationService.BringToFront(_differencerWindow, selectWindow: true);
+                }
+                else if (destination == 4)
+                {
+                    if (selectedViewer == null)
+                    {
+                        var launch = ExternalDiffLaunch.Parse(new[] { "-diff" });
+                        var snapshot = launch.CreateSnapshot();
+                        selectedViewer = new DiffViewWindow(snapshot, snapshot.Files[0], launch.SourcePath, launch.TargetPath)
+                        {
+                            Width = Math.Max(900, _window.ActualWidth),
+                            Height = Math.Max(600, _window.ActualHeight)
+                        };
+                        selectedViewer.Show();
+                    }
+                    WindowActivationService.BringToFront(selectedViewer, selectWindow: true);
                 }
                 else if (_grepWindow != null) WindowActivationService.BringToFront(_grepWindow, selectWindow: true);
                 else OpenGrep(ViewModel.PrepareGrepScopes());

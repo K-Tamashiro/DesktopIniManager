@@ -1,4 +1,4 @@
-﻿# DesktopIniManager v4.3.8
+# DesktopIniManager v4.4.3
 
 DesktopIniManager (DIM) is a Windows workspace for exploring development folders and Visual Studio solutions, finding files, running scoped searches, comparing folders, viewing differences, and managing folder icons through desktop.ini.
 
@@ -8,7 +8,7 @@ DesktopIniManager (DIM) is a Windows workspace for exploring development folders
 
 ## Download and setup
 
-Download **DesktopIniManager-v4.3.8-win-x64.zip** from the v4.3.8 GitHub release assets, rather than GitHub's source-code archive. A matching .zip.sha256 file provides its SHA-256 checksum. See the [v4.3.8 release notes](RELEASE_NOTES_v4.3.8.md).
+Download **DesktopIniManager-v4.4.3-win-x64.zip** from the v4.4.3 GitHub release assets, rather than GitHub's source-code archive. A matching .zip.sha256 file provides its SHA-256 checksum. 
 
 - Windows 10 or Windows 11, x64.
 - .NET 10 Desktop Runtime (x64), installed separately.
@@ -28,7 +28,7 @@ Extract into a fresh folder and run **DesktopIniManager.exe**. Keep all DLLs, JS
 - Independently selectable comparison checks for modification date/time, file size, attributes (including BOM), and XXH128.
 - Comparison evaluates enabled date/time, size, and BOM checks independently. XXH128 is calculated only for files present on both sides that have not already been classified as different by an enabled check.
 - DIFF VIEW whitespace, inline-difference and line-ending markers, plus a progress bar while loading.
-- Image/GIF, video, and MP3/WAV comparison in DIFF VIEW, including synchronized audio playback and independent Source/Target volume controls.
+- Image/GIF, video, and MP3/WAV comparison in DIFF VIEW, including synchronized audio playback, independent Source/Target volume controls, and red highlighting of detected audio waveform differences.
 - Updated icons for selected controls.
 
 ## Main window
@@ -113,6 +113,10 @@ Recognized extensions are MP4, AVI, MKV, MOV, WMV, WebM, M4V, MPG, and MPEG. Pla
 
 ## Audio DIFF VIEW
 
+![DIM v4.4.3 audio difference highlighting](docs/images/2026-10-18_16h35_34.png)
+
+The comparison view highlights detected differences in red while preserving the Source/Target colors and the shared time axis.
+
 Open MP3 or WAV (`.wav` / `.wave`) files to review changes to voice guidance and other audio resources. Source appears above Target, with yellow and blue frames respectively. Both waveforms use the same time scale, based on the longer file. Mono audio has one waveform per pane; stereo audio has separate left/right channel waveforms.
 
 - Use the bottom-center play/pause button to play both inputs from the same position. Red vertical cursors mark the common playback position.
@@ -125,10 +129,10 @@ Open MP3 or WAV (`.wav` / `.wave`) files to review changes to voice guidance and
 - Adjust Source volume at the bottom left and Target volume at the bottom right to listen to either side or both together. Both default to 100%; each side's volume is saved automatically and restored when switching files, reopening DIFF VIEW, or restarting the app.
 - The mute icon (142) sets that side to 0%; the maximum icon (141) sets it to 100%. Each slider adjusts its volume independently.
 - When the shorter input ends, it contributes silence while the longer input continues. A missing side is labelled “No file”.
-- Waveforms use white in Dark and DIM1–DIM5 themes, and a dark foreground in Light. Backgrounds follow the selected theme. Playback volume does not change the displayed waveform amplitude.
+- Waveforms use Source-yellow and Target-blue tones, muted ahead of the playback position and brighter in the played region. Backgrounds follow the selected theme. Playback volume does not change the displayed waveform amplitude.
 - Drop a single replacement file in the upper Source or lower Target pane, or drop two audio files together. MP3 and WAV can be paired; audio cannot be paired with text, images, or video.
 
-Audio is decoded and played locally with [NAudio 2.2.1](https://github.com/naudio/NAudio), under the [MIT license](docs/licenses/NAudio-LICENSE.txt). Keep the NAudio DLLs with the application. No API key or online audio service is required. This view supports mono/stereo waveform inspection and synchronized listening; automatic changed-passage detection, recording alignment, editing, and merging are not included.
+Audio is decoded and played locally with [NAudio 2.2.1](https://github.com/naudio/NAudio), under the [MIT license](docs/licenses/NAudio-LICENSE.txt). Keep the NAudio DLLs with the application. No API key or online audio service is required. This view supports mono/stereo waveform inspection, synchronized listening, and visual highlighting of detected waveform differences. It does not perform automatic time alignment, editing, or merging.
 
 ## Scoped Grep
 
@@ -171,4 +175,4 @@ DIM is freeware by Tamayan / ZEBRASOFT. Copyright remains with the author. See t
 - Repository / issue reports: <https://github.com/K-Tamashiro/DesktopIniManager>
 - Contact: <tamayan@zebrasoft.co.jp>
 
-For maintainers, scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> packages existing v4.3.8 binaries without building. Omitting that option runs dotnet publish. Archives/checksums go to release/ for upload as GitHub assets; they are not stored in Git.
+For maintainers, scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> packages existing v4.4.3 binaries without building. Omitting that option runs dotnet publish. Archives/checksums go to release/ for upload as GitHub assets; they are not stored in Git.

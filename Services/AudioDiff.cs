@@ -185,6 +185,37 @@ internal sealed class AudioEnvelope
     internal double Duration;
     internal int Channels;
     internal int SampleRate;
+    internal int? BitDepth;
+    internal long? BitRate;
+    internal bool FloatingPoint;
+
+    private void ReadFormat(string path, CancellationToken cancellation)
+    {
+        if (Path.GetExtension(path).Equals(".mp3", StringComparison.OrdinalIgnoreCase))
+        {
+            using var mp3 = new Mp3FileReader(path);
+            double seconds = 0, weightedBits = 0;
+            Mp3Frame frame;
+            while ((frame = mp3.ReadNextFrame()) != null)
+            {
+                cancellation.ThrowIfCancellationRequested();
+                double length = (double)frame.SampleCount / frame.SampleRate;
+                seconds += length;
+                weightedBits += frame.BitRate * length;
+            }
+            if (seconds > 0) BitRate = (long)Math.Round(weightedBits / seconds);
+            // Lossy MP3 has no source PCM bit depth; do not report decoder float precision.
+            return;
+        }
+        using var wav = new WaveFileReader(path);
+        var format = wav.WaveFormat;
+        FloatingPoint = format.Encoding == WaveFormatEncoding.IeeeFloat ||
+            format is WaveFormatExtensible extensible && extensible.SubFormat == new Guid("00000003-0000-0010-8000-00aa00389b71");
+        if (format.Encoding == WaveFormatEncoding.Pcm || FloatingPoint ||
+            format is WaveFormatExtensible pcm && pcm.SubFormat == new Guid("00000001-0000-0010-8000-00aa00389b71"))
+            BitDepth = format.BitsPerSample;
+        BitRate = (long)format.AverageBytesPerSecond * 8;
+    }
 
     internal static AudioEnvelope Load(string path, CancellationToken cancellation)
     {
@@ -203,6 +234,7 @@ internal sealed class AudioEnvelope
             Max = new float[channels][],
             MinimumFirst = new bool[channels][]
         };
+        result.ReadFormat(path, cancellation);
         for (int c = 0; c < channels; c++)
         {
             result.Min[c] = new float[bins];

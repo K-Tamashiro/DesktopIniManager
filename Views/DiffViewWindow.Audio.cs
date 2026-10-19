@@ -20,6 +20,7 @@ internal sealed partial class DiffViewWindow
     private CancellationTokenSource audioLoading;
     private DispatcherTimer audioTimer;
     private AudioTimeline audioTimeline;
+    private AudioOverview audioOverview;
     private bool audioDifferenceEnabled;
     private Task<AudioDifferences> audioDifferenceTask;
     private void ResetAudio()
@@ -31,6 +32,7 @@ internal sealed partial class DiffViewWindow
         audioTimer?.Stop();
         audioTimer = null;
         audioTimeline = null;
+        audioOverview = null;
         audioPlayer?.Dispose();
         audioPlayer = null;
         audioOverviewHost.Children.Clear();
@@ -88,6 +90,7 @@ internal sealed partial class DiffViewWindow
             if (token.IsCancellationRequested || windowClosed || !ReferenceEquals(timeline, audioTimeline)) return;
             for (int side = 0; side < timeline.Waves.Length; side++)
                 timeline.Waves[side].SetDifferences(differences, audioDifferenceEnabled, side == 0);
+            audioOverview?.SetDifferences(differences, audioDifferenceEnabled);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -106,7 +109,7 @@ internal sealed partial class DiffViewWindow
         CheckWindowOpen();
         double duration = Math.Max(envelopes[0]?.Duration ?? 0, envelopes[1]?.Duration ?? 0);
         audioPlayer = new AudioDiffPlayer(source, target, duration);
-        var overview = new AudioOverview(envelopes, duration);
+        var overview = audioOverview = new AudioOverview(envelopes, duration);
         overview.SetResourceReference(Control.ForegroundProperty, "AudioWaveformInk");
         overview.SetResourceReference(Control.BackgroundProperty, "CardBackground");
         audioOverviewHost.Children.Add(overview);
@@ -329,6 +332,7 @@ internal sealed partial class DiffViewWindow
             differenceIcon.Opacity = audioDifferenceEnabled ? 1 : 0.35;
             if (audioTimeline != null)
                 foreach (var wave in audioTimeline.Waves) wave.ShowDifferences = audioDifferenceEnabled;
+            if (audioOverview != null) audioOverview.ShowDifferences = audioDifferenceEnabled;
             if (audioDifferenceEnabled) _ = ApplyAudioDifferencesAsync();
         }
         differenceToggle.Checked += (_, _) => UpdateDifferenceMode();
@@ -345,6 +349,56 @@ internal sealed partial class DiffViewWindow
 // Compact block waveforms with playback progress and post-volume output peaks.
 internal sealed class AudioOverview : Control
 {
+    private AudioDifferences differences;
+    private bool showDifferences;
+    internal bool ShowDifferences
+    {
+        get => showDifferences;
+        set { showDifferences = value; InvalidateVisual(); }
+    }
+
+    internal void SetDifferences(AudioDifferences value, bool enabled)
+    {
+        differences = value;
+        ShowDifferences = enabled;
+    }
+
+    private void DrawDifferences(DrawingContext dc, int side, double width, double rowHeight)
+    {
+        if (!showDifferences || differences == null || duration <= 0 || width <= 0 || rowHeight <= 6) return;
+        var channels = side == 0 ? differences.Channels : differences.TargetChannels;
+        // One geometry keeps overlapping stereo differences from accumulating opacity.
+        var regions = new StreamGeometry { FillRule = FillRule.Nonzero };
+        double top = side * rowHeight + 3, bottom = (side + 1) * rowHeight - 3;
+        using (var context = regions.Open())
+        {
+            foreach (var ranges in channels)
+                foreach (var range in ranges)
+                {
+                    double left = Math.Clamp(range.Start / duration, 0, 1) * width;
+                    double right = Math.Clamp(range.End / duration, 0, 1) * width;
+                    if (right <= left) continue;
+                    left = Math.Min(left, Math.Max(0, width - 2));
+                    right = Math.Min(width, Math.Max(left + 2, right));
+                    context.BeginFigure(new Point(left, top), true, true);
+                    context.LineTo(new Point(right, top), true, false);
+                    context.LineTo(new Point(right, bottom), true, false);
+                    context.LineTo(new Point(left, bottom), true, false);
+                }
+        }
+        regions.Freeze();
+        dc.PushOpacity(0.25);
+        dc.DrawGeometry(Brushes.Red, null, regions);
+        dc.Pop();
+        double? join = side == 0 ? differences.SourceJoin : differences.TargetJoin;
+        if (join.HasValue)
+        {
+            double x = Math.Clamp(join.Value / duration, 0, 1) * width;
+            dc.DrawLine(new Pen(Brushes.Red, 2) { DashStyle = DashStyles.Dash },
+                new Point(x, top), new Point(x, bottom));
+        }
+    }
+
     private readonly AudioEnvelope[] envelopes;
     private readonly double duration;
     private double position;
@@ -396,6 +450,7 @@ internal sealed class AudioOverview : Control
                     if (!played) dc.Pop();
                 }
             }
+            DrawDifferences(dc, side, width, rowHeight);
             // dBFS scale: -60 dB to 0 dB, including saved volume/mute.
             double level = levels[side] > 0 ? Math.Clamp((20 * Math.Log10(levels[side]) + 60) / 60, 0, 1) : 0;
             for (int segment = 0; segment < 16; segment++)
@@ -417,6 +472,37 @@ internal sealed class AudioOverview : Control
 // Both panes share one horizontal time axis; only visible pixels are rendered.
 internal sealed class AudioTimeline : Grid
 {
+    internal static TextBlock CreateHeader(AudioEnvelope current, AudioEnvelope other, bool source)
+    {
+        var label = new TextBlock
+        {
+            Margin = new Thickness(8, 3, 8, 3),
+            FontWeight = FontWeights.SemiBold,
+            TextWrapping = TextWrapping.Wrap
+        };
+        label.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
+        label.Inlines.Add(new System.Windows.Documents.Run(source ? "Source" : "Target"));
+        if (current == null) { label.Inlines.Add(" — No file"); return label; }
+        void Add(string title, string value, bool different)
+        {
+            label.Inlines.Add("   " + title);
+            var run = new System.Windows.Documents.Run(value);
+            if (other != null && different) run.Foreground = Brushes.Red;
+            label.Inlines.Add(run);
+        }
+        string Number(double value, string format) => value.ToString(format, System.Globalization.CultureInfo.InvariantCulture);
+        Add("", current.Channels + " ch", current.Channels != other?.Channels);
+        Add("", TimeSpan.FromSeconds(current.Duration).ToString(@"hh\:mm\:ss\.fff"),
+            Math.Round(current.Duration * 1000) != Math.Round((other?.Duration ?? 0) * 1000));
+        Add("Sample Rate: ", Number(current.SampleRate / 1000.0, "0.0##") + " kHz", current.SampleRate != other?.SampleRate);
+        Add("Bit Depth: ", current.BitDepth.HasValue ? current.BitDepth + (current.FloatingPoint ? " bit float" : " bit") : "N/A",
+            current.BitDepth != other?.BitDepth || current.FloatingPoint != other?.FloatingPoint);
+        Add("Bit Rate: ", current.BitRate.HasValue ? Number(current.BitRate.Value / 1000.0, "0.###") + " kbps" : "N/A",
+            current.BitRate != other?.BitRate);
+        label.ToolTip = "PCM bit rate = sample rate × bit depth × channels. MP3 shows average encoded bit rate; bit depth is not applicable.";
+        return label;
+    }
+
     internal readonly AudioWaveform[] Waves = new AudioWaveform[2];
     private readonly ScrollBar scroll = new ScrollBar { Orientation = Orientation.Horizontal, Height = 16, Minimum = 0 };
     private double zoom = 1;
@@ -456,14 +542,7 @@ internal sealed class AudioTimeline : Grid
             var pane = new Grid();
             pane.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             pane.RowDefinitions.Add(new RowDefinition());
-            var label = new TextBlock
-            {
-                Margin = new Thickness(8, 3, 8, 3),
-                FontWeight = FontWeights.SemiBold,
-                Text = (side == 0 ? "Source" : "Target") + (envelopes[side] == null ? " — No file" :
-                    $"   {envelopes[side].Channels} ch   {TimeSpan.FromSeconds(envelopes[side].Duration):hh\\:mm\\:ss\\.fff}")
-            };
-            label.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
+            var label = CreateHeader(envelopes[side], envelopes[1 - side], side == 0);
             pane.Children.Add(label);
             SetRow(wave, 1); pane.Children.Add(wave);
             var frame = new Border

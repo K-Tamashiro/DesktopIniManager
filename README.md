@@ -119,10 +119,12 @@ The comparison view highlights detected differences in red while preserving the 
 
 Open MP3 or WAV (`.wav` / `.wave`) files to review changes to voice guidance and other audio resources. Source appears above Target, with yellow and blue frames respectively. Both waveforms use the same time scale, based on the longer file. Mono audio has one waveform per pane; stereo audio has separate left/right channel waveforms.
 
+Each pane header shows Sample Rate (kHz), Bit Depth (bit), and Bit Rate (kbps) after the channel count and duration. Values that differ between Source and Target appear in red. PCM bit rate includes the channel count: sample rate × bit depth × channels. MP3 shows its average encoded bit rate and Bit Depth: N/A, rather than the decoder's internal sample precision.
+
 - Use the bottom-center play/pause button to play both inputs from the same position. Red vertical cursors mark the common playback position.
 - The top overview shows Source/Target block waveforms with colored playback progress. Click it to seek. The meters at right show each side's output peak after volume adjustment on a -60 to 0 dBFS scale, and clear when paused or finished.
 - Click a Source/Target pane (or its header), then press Ctrl+V to paste into that side. The pane context menu also offers explicit Source/Target paste actions. Clipboard text, bitmap images, standard WAVE audio, and copied files are loaded through private temporary files, cleaned up when the viewer closes. Two copied files fill both sides. Editor-private audio clipboard formats require exporting/copying a WAV file. Ctrl+V in an editable text box keeps its usual text-editing behavior.
-- The comparison toggle (icon 143, immediately after Fit) is dim when off and full color when on. It highlights differing waveform segments in red using decoded PCM samples before playback volume adjustment. Channels are compared at the same time; missing channels/tails count as differences. Different sample rates use linear interpolation on the higher-rate time grid, without time shifting or loudness normalization. The overview map stays unchanged.
+- The comparison toggle (icon 143, immediately after Fit) is dim when off and full color when on. It highlights differing waveform segments in red using decoded PCM samples before playback volume adjustment. Channels are compared at the same time; missing channels/tails count as differences. Different sample rates use linear interpolation on the higher-rate time grid, without time shifting or loudness normalization. The overview map marks differences with translucent red bands without borders in the corresponding Source/Target row, and cut/insertion joins with red dashed lines. Turning comparison off hides these markers.
 - A single contiguous cut/insertion with matching sample rate and channel count is detected by verifying the common prefix and the entire shifted suffix. Only the removed/inserted interval is red on the longer side; a red dashed line marks the join on the shorter side. Playback and waveform positions retain their original timelines. Other edits fall back to same-time sample comparison.
 - Use the zoom bar or mouse wheel over the audio panes to expand the horizontal time scale (100–3200%) without changing waveform height. The shared scrollbar, Shift+wheel, and native horizontal/side wheel scroll both panes together. Playback follows the playhead; Fit restores the complete longer-file timeline. The top overview always shows the entire recording.
 - Zoom changes start at time zero. The main waveforms connect their peaks as continuous lines; the overview retains its block map.
@@ -151,19 +153,6 @@ DIM1–DIM5 run as independent processes. **In Use** identifies the current slot
 
 Choose Dark, Light, or a DIM1–DIM5 theme. English, Japanese, Simplified Chinese, and Korean UI resources are included. A history reset command is also available.
 
-## Keyboard controls
-
-| Keys | Action |
-| --- | --- |
-| Ctrl + 1 / 2 / 3 / 4 | Main / Developer Differencer / Scoped Grep / standalone DIFF VIEW (opens if needed) |
-| Ctrl + Space | Cycle through Main, Developer Differencer, Scoped Grep, and all open DIFF VIEW windows |
-| Arrow keys | Scroll DIFF VIEW vertically/horizontally |
-| Page Up / Page Down | Page scroll in text DIFF VIEW |
-| Shift + mouse wheel / thumb wheel | Horizontal scrolling |
-| Ctrl + Up / Down | Previous / next difference section |
-| Ctrl + Left / Right | Previous / next comparison file |
-| Ctrl + 0 | Toggle all lines / differences only |
-
 ## Source file encoding
 
 Files in the solution have been standardized to **UTF-8 with BOM and LF line endings**.
@@ -177,3 +166,23 @@ DIM is freeware by Tamayan / ZEBRASOFT. Copyright remains with the author. See t
 - Contact: <tamayan@zebrasoft.co.jp>
 
 For maintainers, scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> packages existing v4.4.3 binaries without building. Omitting that option runs dotnet publish. Archives/checksums go to release/ for upload as GitHub assets; they are not stored in Git.
+
+## Keyboard shortcuts, startup options, and batch launcher variables
+
+| Keys / option / variable | Action |
+| --- | --- |
+| Ctrl + 1 / 2 / 3 | Main / Developer Differencer / Scoped Grep |
+| Ctrl + 4 | Open standalone DIFF VIEW, or activate it if already open |
+| Ctrl + Space | Cycle through Main, Developer Differencer, Scoped Grep, and all open DIFF VIEW windows |
+| Arrow keys | Scroll DIFF VIEW vertically/horizontally |
+| Page Up / Page Down | Page scroll in text DIFF VIEW |
+| Shift + mouse wheel / thumb wheel | Horizontal scrolling |
+| Ctrl + Up / Down | Previous / next difference section |
+| Ctrl + Left / Right | Previous / next comparison file |
+| Ctrl + 0 | Toggle all lines / differences only |
+| `-diff` | Open an empty standalone DIFF VIEW without file paths. Drag and drop one file onto Source or Target, or two files together to fill both sides in drop order. |
+| `-diff Source Target` | Open standalone DIFF VIEW with the two specified files. Quote paths containing spaces. |
+| `-d1 / -d2 / -d3 / -d4 / -d5` | Start DIM1 / DIM2 / DIM3 / DIM4 / DIM5 respectively. If the requested slot is in use, show a notice and exit. Without a slot option, select a free slot automatically. |
+| `%f%` | Batch launcher: selected file full path |
+| `%d%` | Batch launcher: directory full path |
+| `%n%` | Batch launcher: file name |

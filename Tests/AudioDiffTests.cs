@@ -16,6 +16,45 @@ using NAudio.Wave;
 
 internal static class AudioDiffTests
 {
+    internal static int RunMetadata()
+    {
+        string root = Path.Combine(AppContext.BaseDirectory, "audio-metadata-fixtures");
+        Directory.CreateDirectory(root);
+        AudioEnvelope Make(string name, WaveFormat format)
+        {
+            string path = Path.Combine(root, name + ".wav");
+            using (var writer = new WaveFileWriter(path, format))
+                writer.Write(new byte[format.AverageBytesPerSecond], 0, format.AverageBytesPerSecond);
+            return AudioEnvelope.Load(path, CancellationToken.None);
+        }
+        var mono = Make("mono", new WaveFormat(48000, 16, 1));
+        var stereo = Make("stereo", new WaveFormat(48000, 24, 2));
+        var floating = Make("float", WaveFormat.CreateIeeeFloatWaveFormat(44100, 1));
+        Check(mono.SampleRate == 48000 && mono.BitDepth == 16 && mono.BitRate == 768000,
+            "original 16-bit mono metadata is retained instead of decoder 32-bit precision");
+        Check(stereo.BitDepth == 24 && stereo.BitRate == 2304000, "PCM bit rate includes both stereo channels");
+        Check(floating.BitDepth == 32 && floating.FloatingPoint, "floating point source format is identified");
+        var header = AudioTimeline.CreateHeader(mono, stereo, true);
+        var runs = header.Inlines.OfType<System.Windows.Documents.Run>().ToArray();
+        Check(runs.Any(r => r.Text == "48.0 kHz" && r.Foreground != Brushes.Red), "matching sample rate keeps normal text color");
+        Check(runs.Any(r => r.Text == "16 bit" && r.Foreground == Brushes.Red) &&
+            runs.Any(r => r.Text == "768 kbps" && r.Foreground == Brushes.Red), "differing bit depth and bit rate are red");
+        Check(!AudioTimeline.CreateHeader(mono, null, true).Inlines.OfType<System.Windows.Documents.Run>().Any(r => r.Foreground == Brushes.Red),
+            "missing peer does not mark all metadata as different");
+        string mp3 = Path.Combine(root, "encoded.mp3");
+        using (var reader = new AudioFileReader(Path.Combine(root, "mono.wav")))
+            MediaFoundationEncoder.EncodeToMp3(reader, mp3, 128000);
+        var compressed = AudioEnvelope.Load(mp3, CancellationToken.None);
+        Check(compressed.BitDepth == null && compressed.BitRate > 0 && compressed.BitRate < 200000,
+            "MP3 reports encoded bitrate and no PCM bit depth");
+        header.Measure(new Size(900, 80)); header.Arrange(new Rect(0, 0, 900, 80)); header.UpdateLayout();
+        var bitmap = new RenderTargetBitmap(900, 80, 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(header);
+        var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using (var file = File.Create(Path.Combine(root, "header.png"))) encoder.Save(file);
+        return 0;
+    }
+
     internal static int RunClipboard()
     {
         var store = new ClipboardInputStore(AppContext.BaseDirectory);
@@ -167,6 +206,23 @@ internal static class AudioDiffTests
         Check(!idle.SequenceEqual(playing), "overview playback progress and output levels change the rendered pixels");
         var paused = Render(1, 0, 0, 900, "audio-overview-paused");
         Check(!playing.SequenceEqual(paused), "paused meters clear while progress is retained");
+        var differences = (AudioDifferences)Activator.CreateInstance(typeof(AudioDifferences),
+            BindingFlags.Instance | BindingFlags.NonPublic, null, new object[] { 2 }, null);
+        differences.Channels[0].Add((0.5, 0.75));
+        differences.Channels[1].Add((0.5, 0.75));
+        differences.TargetChannels = new[] { new System.Collections.Generic.List<(double Start, double End)>() };
+        differences.TargetJoin = 0.5;
+        overview.SetDifferences(differences, true);
+        var highlighted = Render(1, 0, 0, 900, "audio-overview-differences");
+        int sourcePixel = (10 * 900 + 220) * 4;
+        int targetPixel = (42 * 900 + 220) * 4;
+        Check(highlighted[sourcePixel + 2] > paused[sourcePixel + 2], "overview marks source difference at its time position");
+        Check(highlighted[targetPixel + 2] == paused[targetPixel + 2], "source-only difference does not tint target row");
+        Check(highlighted.Skip(800 * 4).Take(100 * 4).SequenceEqual(paused.Skip(800 * 4).Take(100 * 4)),
+            "difference overlay leaves the output meter area unchanged");
+        overview.ShowDifferences = false;
+        Check(Render(1, 0, 0, 900, "audio-overview-differences-off").SequenceEqual(paused),
+            "turning differences off restores the original overview");
         Render(2, 1, 1, 200, "audio-overview-narrow");
         overview = new AudioOverview(new AudioEnvelope[] { null, envelope }, 2)
         { Foreground = Brushes.Black, Background = Brushes.White };

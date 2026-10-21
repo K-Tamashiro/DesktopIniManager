@@ -115,6 +115,9 @@ internal static class DifferencerTests
         try
         {
             if (args.Contains("--v430")) return V430Tests.Run();
+            if (args.Contains("--waveform-control")) return WaveformControlTests.Run();
+            if (args.Contains("--audio-repeat")) return AudioDiffTests.RunRepeat();
+            if (args.Contains("--audio-progress")) return AudioDiffTests.RunProgress();
             if (args.Contains("--audio-diff")) return AudioDiffTests.Run();
             if (args.Contains("--audio-overview")) return AudioDiffTests.RunOverview();
             if (args.Contains("--audio-metadata")) return AudioDiffTests.RunMetadata();

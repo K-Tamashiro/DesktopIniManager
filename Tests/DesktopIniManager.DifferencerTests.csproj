@@ -19,5 +19,5 @@
  <ItemGroup><ProjectReference Include="..\FastVolumeIndex\FastVolumeIndex.Core\FastVolumeIndex.Core.csproj"><Project>{A67C59A1-8E4E-4F44-9A88-D2D1BE56DD81}</Project><Name>FastVolumeIndex.Core</Name></ProjectReference></ItemGroup>
  <ItemGroup><None Include="..\App.xaml" Link="TestAssets\App.xaml" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
  <ItemGroup><None Include="..\Views\GrepWindow.xaml" Link="TestAssets\GrepWindow.xaml" CopyToOutputDirectory="PreserveNewest" /><None Include="..\Views\DeveloperDifferencerWindow.xaml" Link="TestAssets\DeveloperDifferencerWindow.xaml" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
- <ItemGroup><Compile Include="V430Tests.cs" /><Compile Include="AudioDiffTests.cs" /></ItemGroup>
+ <ItemGroup><Compile Include="V430Tests.cs" /><Compile Include="AudioDiffTests.cs" /><Compile Include="WaveformControlTests.cs" /></ItemGroup>
 </Project>

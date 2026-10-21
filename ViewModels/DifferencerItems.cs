@@ -27,7 +27,7 @@ internal static class DifferencerStatusIcons
 
     private static ImageSource[] Load()
     {
-        var result = new ImageSource[150];
+        var result = new ImageSource[151];
         try
         {
             string baseDir = AppDomain.CurrentDomain.BaseDirectory;

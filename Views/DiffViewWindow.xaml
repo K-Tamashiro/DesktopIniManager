@@ -107,7 +107,7 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="12" />
-                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -115,16 +115,16 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <WrapPanel x:Name="actionsPanel" VerticalAlignment="Center" />
-                    <Viewbox
+                    <ScrollViewer
             x:Name="imageControlRow"
             Grid.Column="1"
-            HorizontalAlignment="Left"
+            HorizontalAlignment="Stretch"
             VerticalAlignment="Center"
-            Stretch="Uniform"
-            StretchDirection="DownOnly"
+            HorizontalScrollBarVisibility="Auto"
+            VerticalScrollBarVisibility="Disabled"
             Visibility="Collapsed">
                         <StackPanel x:Name="imageToolbar" Orientation="Horizontal" />
-                    </Viewbox>
+                    </ScrollViewer>
                 </Grid>
                 <Grid Grid.Column="2">
                     <Grid.ColumnDefinitions>

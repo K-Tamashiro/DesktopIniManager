@@ -1,4 +1,4 @@
-DesktopIniManager v4.4.3
+DesktopIniManager v4.5.0
 =======================
 
 ■ ソフトウェア名・種別
@@ -22,7 +22,7 @@ Scoped Grep、フォルダー比較、読み取り専用DIFF VIEW、desktop.ini�
 ・外部エディター／DIFF・マージツールは任意で設定
 
 ■ インストール
-DesktopIniManager-v4.4.3-win-x64.zipを新しいフォルダーへ展開し、
+DesktopIniManager-v4.5.0-win-x64.zipを新しいフォルダーへ展開し、
 DesktopIniManager.exeを起動してください。
 DLL、JSON、Assets、Languagesを含め、同梱ファイルを一緒に配置します。
 ExcelDataReaderとPdfPigのDLLはDocument Grepで使用します。
@@ -33,7 +33,7 @@ ExcelDataReaderとPdfPigのDLLはDocument Grepで使用します。
 http://dim.zebrasoft.co.jp/
 GitHubダウンロード：
 https://github.com/K-Tamashiro/DesktopIniManager/releases
-v4.4.3のAssetsから配布ZIPを選択してください。
+v4.5.0のAssetsから配布ZIPを選択してください。
 Source codeのZIPは実行用の配布物ではありません。
 
 ■ v4系の主な機能・改善
@@ -47,7 +47,8 @@ Source codeのZIPは実行用の配布物ではありません。
 ・DIFF VIEWの行内差分・空白・改行記号の表示と読み込み進捗バー
 ・一部の操作アイコンのデザインを調整
 ・DIFF VIEWの画像／GIF／MP4動画／WAV・MP3音声比較
-・音声の差分検出区間を赤く強調表示（切替可能）
+・音声のPCMサンプル差分を計算し、差異区間を赤く強調表示（切替可能）
+・音声のA–B区間リピートと6段階の再生速度切り替え
 ・DIFF VIEWのSource黄色枠／Target青枠
 ・差分のみ／全行表示の切替、Ctrl+0、終了時の表示状態保存
 ・同梱アイコンパスをアプリの配置先から復元
@@ -184,6 +185,16 @@ Source／Targetそれぞれで元画像とXOR重ね合わせを切り替えら�
 MP4動画は左右に表示し、共通の再生・シーク操作で比較します。
 
 ■ 音声DIFF VIEW
+音源リソース（音声ガイダンスなど）の変更箇所を確認するための機能です。
+波形を単に並べて表示するだけでなく、デコードしたPCMサンプルを
+共通の時間軸上で比較し、差異が検出された区間を赤色で強調します。
+サンプルレートが異なる場合は高い方の時間グリッドへ線形補間して比較し、
+チャンネルの欠落や長さの違いも差分として扱います。
+音声認識や高度な音声解析ではなく、その手前で音源の差異を可視化します。
+
+A–B区間のリピート再生、上部マップのガイド枠ドラッグに対応します。
+再生速度は0.5／0.75／1.0／1.5／1.75／2.0倍の6段階で切り替えます。
+初期値は1.0倍、選択中のボタンを明るく表示し、未選択を薄く表示します。
 WAV／MP3の波形をSource／Targetの上下に表示します。
 モノラル／ステレオに対応し、再生・シーク操作と個別の音量調整・ミュートができます。
 フィットボタン右の音声比較アイコン（143番）で差分表示を切り替えます。

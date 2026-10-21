@@ -181,7 +181,7 @@ internal sealed class AudioDifferences
 internal sealed class AudioEnvelope
 {
     internal float[][] Min, Max;
-    internal bool[][] MinimumFirst;
+    internal DesktopIniManager.Controls.WaveformData Data;
     internal double Duration;
     internal int Channels;
     internal int SampleRate;
@@ -220,79 +220,176 @@ internal sealed class AudioEnvelope
     internal static AudioEnvelope Load(string path, CancellationToken cancellation)
     {
         if (string.IsNullOrEmpty(path) || !File.Exists(path)) return null;
-        using var reader = new AudioFileReader(path);
-        int channels = reader.WaveFormat.Channels;
-        if (channels < 1 || channels > 2) throw new InvalidDataException("Audio Diff supports mono and stereo audio.");
-        // Retain fine time slices for horizontal zoom without retaining the full PCM file.
-        const int bins = 131072;
+        var data = DesktopIniManager.Controls.WaveformData.Load(path, cancellation);
+        if (data.Channels > 2) throw new InvalidDataException("Audio Diff supports mono and stereo audio.");
         var result = new AudioEnvelope
         {
-            Channels = channels,
-            SampleRate = reader.WaveFormat.SampleRate,
-            Duration = reader.TotalTime.TotalSeconds,
-            Min = new float[channels][],
-            Max = new float[channels][],
-            MinimumFirst = new bool[channels][]
+            Data = data, Channels = data.Channels, SampleRate = data.SampleRate, Duration = data.Duration
         };
         result.ReadFormat(path, cancellation);
-        for (int c = 0; c < channels; c++)
-        {
-            result.Min[c] = new float[bins];
-            result.Max[c] = new float[bins];
-            result.MinimumFirst[c] = new bool[bins];
-            Array.Fill(result.Min[c], float.PositiveInfinity);
-            Array.Fill(result.Max[c], float.NegativeInfinity);
-        }
-
-        long totalFrames = Math.Max(1, reader.Length / (sizeof(float) * channels));
-        var buffer = new float[4096 * channels];
-        long frame = 0;
-        int count;
-        while ((count = reader.Read(buffer, 0, buffer.Length)) > 0)
-        {
-            cancellation.ThrowIfCancellationRequested();
-            for (int i = 0; i < count; i += channels, frame++)
-            {
-                int bin = (int)Math.Min(bins - 1, frame * bins / totalFrames);
-                for (int c = 0; c < channels && i + c < count; c++)
-                {
-                    float sample = buffer[i + c];
-                    if (!float.IsFinite(sample)) continue;
-                    if (sample < result.Min[c][bin])
-                    {
-                        result.Min[c][bin] = sample;
-                        result.MinimumFirst[c][bin] = false;
-                    }
-                    if (sample > result.Max[c][bin])
-                    {
-                        result.Max[c][bin] = sample;
-                        result.MinimumFirst[c][bin] = true;
-                    }
-                }
-            }
-        }
-        // Unpopulated bins represent silence, not infinite extrema.
-        for (int c = 0; c < channels; c++)
-        {
-            for (int bin = 0; bin < bins; bin++)
-            {
-                if (float.IsPositiveInfinity(result.Min[c][bin])) result.Min[c][bin] = 0;
-                if (float.IsNegativeInfinity(result.Max[c][bin])) result.Max[c][bin] = 0;
-            }
-        }
-        result.Duration = (double)frame / reader.WaveFormat.SampleRate;
         return result;
     }
 }
 
 // Both inputs feed one output clock; shorter inputs contribute silence.
+internal sealed class AudioRepeatProvider : ISampleProvider
+{
+    private readonly ISampleProvider source;
+    private readonly Action<double> seek;
+    private readonly object gate = new();
+    private long frame, start, end;
+    internal bool Enabled { get; private set; }
+    public WaveFormat WaveFormat => source.WaveFormat;
+    internal double Position { get { lock (gate) return (double)frame / WaveFormat.SampleRate; } }
+    internal AudioRepeatProvider(ISampleProvider source, Action<double> seek)
+    {
+        this.source = source;
+        this.seek = seek;
+    }
+    internal void SetRange(double? a, double? b)
+    {
+        lock (gate)
+        {
+            start = (long)Math.Round(Math.Min(a ?? 0, b ?? 0) * WaveFormat.SampleRate);
+            end = (long)Math.Round(Math.Max(a ?? 0, b ?? 0) * WaveFormat.SampleRate);
+            Enabled = a.HasValue && b.HasValue && end > start;
+        }
+    }
+    internal void Seek(double seconds)
+    {
+        lock (gate)
+        {
+            frame = (long)Math.Round(seconds * WaveFormat.SampleRate);
+            if (Enabled && (frame < start || frame >= end)) frame = start;
+            seek((double)frame / WaveFormat.SampleRate);
+        }
+    }
+    public int Read(float[] buffer, int offset, int count)
+    {
+        lock (gate)
+        {
+            int written = 0, channels = WaveFormat.Channels;
+            while (written < count)
+            {
+                if (Enabled && (frame < start || frame >= end))
+                {
+                    frame = start;
+                    seek((double)frame / WaveFormat.SampleRate);
+                }
+                int requested = count - written;
+                if (Enabled) requested = (int)Math.Min(requested, (end - frame) * channels);
+                requested -= requested % channels;
+                if (requested == 0) break;
+                int read = source.Read(buffer, offset + written, requested);
+                // A shorter input, or decoder rounding at EOF, contributes silence.
+                if (Enabled && read < requested)
+                {
+                    Array.Clear(buffer, offset + written + read, requested - read);
+                    read = requested;
+                }
+                frame += read / channels;
+                written += read;
+                if (read < requested) break;
+            }
+            return written;
+        }
+    }
+}
+
+// Variable-rate stereo playback. Resampling changes pitch together with speed.
+internal sealed class AudioSpeedProvider : ISampleProvider
+{
+    private readonly ISampleProvider source;
+    private readonly float[] frameA, frameB;
+    private readonly float[] readBuffer;
+    private int buffered, offset;
+    private double fraction;
+    private bool initialized, ended;
+    internal double Speed { get; set; } = 1;
+    public WaveFormat WaveFormat => source.WaveFormat;
+
+    internal AudioSpeedProvider(ISampleProvider source)
+    {
+        this.source = source;
+        frameA = new float[WaveFormat.Channels];
+        frameB = new float[WaveFormat.Channels];
+        readBuffer = new float[4096 * WaveFormat.Channels];
+    }
+
+    internal void Reset()
+    {
+        buffered = offset = 0;
+        fraction = 0;
+        initialized = ended = false;
+    }
+
+    private bool Next(float[] frame)
+    {
+        if (offset >= buffered)
+        {
+            buffered = source.Read(readBuffer, 0, readBuffer.Length);
+            offset = 0;
+            if (buffered == 0) return false;
+        }
+        for (int c = 0; c < frame.Length; c++) frame[c] = readBuffer[offset++];
+        return true;
+    }
+
+    public int Read(float[] buffer, int offset, int count)
+    {
+        if (ended) return 0;
+        if (!initialized)
+        {
+            if (!Next(frameA)) { ended = true; return 0; }
+            if (!Next(frameB)) Array.Copy(frameA, frameB, frameA.Length);
+            initialized = true;
+        }
+        int channels = WaveFormat.Channels;
+        int written = 0;
+        while (written + channels <= count && !ended)
+        {
+            for (int c = 0; c < channels; c++)
+                buffer[offset + written + c] = (float)(frameA[c] + (frameB[c] - frameA[c]) * fraction);
+            written += channels;
+            fraction += Speed;
+            while (fraction >= 1)
+            {
+                fraction -= 1;
+                Array.Copy(frameB, frameA, channels);
+                if (!Next(frameB)) { ended = true; break; }
+            }
+        }
+        return written;
+    }
+}
+
 internal sealed class AudioDiffPlayer : IDisposable
 {
     private readonly object syncLock = new();
     private readonly AudioFileReader[] readers = new AudioFileReader[2];
     private readonly VolumeSampleProvider[] volumes = new VolumeSampleProvider[2];
     private readonly MixingSampleProvider mixer;
-    private readonly IWavePlayer output;
+    private readonly WaveOutEvent output;
+    private readonly AudioRepeatProvider repeat;
+    private readonly AudioSpeedProvider speedProvider;
+    private double playbackSpeed = 1;
+    private readonly System.Diagnostics.Stopwatch playbackClock = new();
+    private double timelineOrigin, repeatStart, repeatEnd;
+
+    internal static double PlaybackPosition(double origin, double elapsed, double start, double end, double duration)
+    {
+        double position = origin + Math.Max(0, elapsed);
+        if (end > start && position >= end)
+            position = start + (position - start) % (end - start);
+        return Math.Clamp(position, 0, duration);
+    }
+
+    private void ResetPositionClock()
+    {
+        playbackClock.Reset();
+        timelineOrigin = repeat.Position;
+        speedProvider?.Reset();
+    }
     private readonly float[] peaks = new float[2];
 
     internal float GetPeak(int side) => Playing && readers[side] != null &&
@@ -323,15 +420,20 @@ internal sealed class AudioDiffPlayer : IDisposable
         {
             lock (syncLock)
             {
-                double pos = 0;
-                for (int i = 0; i < 2; i++)
+                // Use elapsed playback time without depending on the driver's byte
+                // position or output format to determine the display speed.
+                // Stop/Pause/Seek explicitly stop this clock; a running clock with a
+                // stopped output therefore means playback drained naturally (or failed).
+                if (playbackClock.IsRunning && output.PlaybackState == PlaybackState.Stopped)
                 {
-                    if (readers[i] != null)
+                    playbackClock.Stop();
+                    if (repeatEnd <= repeatStart && Volatile.Read(ref PlaybackError) == null)
                     {
-                        pos = Math.Max(pos, readers[i].CurrentTime.TotalSeconds);
+                        timelineOrigin = Duration;
+                        playbackClock.Reset();
                     }
                 }
-                return Math.Clamp(pos, 0, Duration);
+                return PlaybackPosition(timelineOrigin, playbackClock.Elapsed.TotalSeconds * playbackSpeed, repeatStart, repeatEnd, Duration);
             }
         }
     }
@@ -374,10 +476,29 @@ internal sealed class AudioDiffPlayer : IDisposable
         {
             if (e.Exception != null) Volatile.Write(ref PlaybackError, e.Exception);
         };
-        waveOut.Init(new SampleToWaveProvider(mixer));
+        repeat = new AudioRepeatProvider(mixer, ResetInputs);
+        speedProvider = new AudioSpeedProvider(repeat);
+        waveOut.Init(new SampleToWaveProvider(speedProvider));
         output = waveOut;
 
         Seek(0);
+    }
+
+    internal void SetSpeed(double value)
+    {
+        lock (syncLock)
+        {
+            if (Math.Abs(playbackSpeed - value) < 0.00001) return;
+            bool wasPlaying = Playing;
+            double position = Position;
+            playbackClock.Stop();
+            output.Stop();
+            playbackSpeed = value;
+            speedProvider.Speed = value;
+            repeat.Seek(position);
+            ResetPositionClock();
+            if (wasPlaying) StartPlayback();
+        }
     }
 
     internal void SetVolume(int side, double value)
@@ -393,9 +514,34 @@ internal sealed class AudioDiffPlayer : IDisposable
         lock (syncLock)
         {
             bool wasPlaying = Playing;
+            playbackClock.Stop();
             output.Stop(); // Seek時は一度停止してドライバの内部バッファをクリア
 
-            double target = Math.Clamp(seconds, 0, Duration);
+            repeat.Seek(Math.Clamp(seconds, 0, Duration));
+            ResetPositionClock();
+            if (wasPlaying && Position < Duration) StartPlayback();
+        }
+    }
+
+    internal void SetRepeat(double? a, double? b)
+    {
+        lock (syncLock)
+        {
+            bool wasPlaying = Playing;
+            double position = Position;
+            playbackClock.Stop();
+            output.Stop();
+            repeat.SetRange(a, b);
+            repeatStart = repeat.Enabled ? Math.Round(Math.Min(a.Value, b.Value) * WaveFormat.SampleRate) / WaveFormat.SampleRate : 0;
+            repeatEnd = repeat.Enabled ? Math.Round(Math.Max(a.Value, b.Value) * WaveFormat.SampleRate) / WaveFormat.SampleRate : 0;
+            repeat.Seek(position);
+            ResetPositionClock();
+            if (wasPlaying) StartPlayback();
+        }
+    }
+
+    private void ResetInputs(double target)
+    {
             mixer.RemoveAllMixerInputs();
             for (int i = 0; i < 2; i++)
             {
@@ -420,11 +566,6 @@ internal sealed class AudioDiffPlayer : IDisposable
                 if (target < reader.TotalTime.TotalSeconds) mixer.AddMixerInput(Meter(i, volumes[i]));
             }
 
-            if (wasPlaying && target < Duration)
-            {
-                output.Play();
-            }
-        }
     }
 
     internal void Play()
@@ -436,8 +577,14 @@ internal sealed class AudioDiffPlayer : IDisposable
             {
                 Seek(0);
             }
-            output.Play();
+            StartPlayback();
         }
+    }
+
+    private void StartPlayback()
+    {
+        output.Play();
+        playbackClock.Start();
     }
 
     internal void Pause()
@@ -445,6 +592,7 @@ internal sealed class AudioDiffPlayer : IDisposable
         lock (syncLock)
         {
             output?.Pause();
+            playbackClock.Stop();
         }
     }
 
@@ -452,6 +600,7 @@ internal sealed class AudioDiffPlayer : IDisposable
     {
         lock (syncLock)
         {
+            playbackClock.Stop();
             output?.Stop();
             output?.Dispose();
 

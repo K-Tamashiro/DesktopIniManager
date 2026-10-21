@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -16,6 +16,123 @@ using NAudio.Wave;
 
 internal static class AudioDiffTests
 {
+    internal static int RunProgress()
+    {
+        foreach (double duration in new[] { 2.425, 30.0, 300.0 })
+        {
+            Check(Math.Abs(AudioDiffPlayer.PlaybackPosition(0, duration / 2, 0, 0, duration) - duration / 2) < 1e-9,
+                "elapsed playback seconds advance the cursor at real-time speed");
+            Check(AudioDiffPlayer.PlaybackPosition(0, duration, 0, 0, duration) == duration,
+                "cursor reaches the end after the full audio duration");
+        }
+        Check(Math.Abs(AudioDiffPlayer.PlaybackPosition(1.25, 0.5, 0, 0, 3) - 1.75) < 1e-9,
+            "seek origin plus resumed elapsed time preserves synchronization");
+        Check(Math.Abs(AudioDiffPlayer.PlaybackPosition(0.2, 0.017, 0, 0, 2) - 0.217) < 1e-9,
+            "display clock advances between decoder buffer fills");
+        Check(Math.Abs(AudioDiffPlayer.PlaybackPosition(0.4, 0.35, 0.2, 0.5, 2) - 0.45) < 1e-9,
+            "display clock wraps across multiple repeat boundaries");
+        Check(AudioDiffPlayer.PlaybackPosition(1.9, 0.3, 0, 0, 2) == 2,
+            "normal playback display stops at EOF");
+        string fixture = Path.Combine(AppContext.BaseDirectory, "cursor-wave.wav");
+        Write(fixture, 1000, 1, 2, 0.5f);
+        var envelope = AudioEnvelope.Load(fixture, CancellationToken.None);
+        var wave = new AudioWaveform(envelope, 2, null) { Foreground = Brushes.White, Background = Brushes.Black };
+        wave.Measure(new Size(800, 100));
+        wave.Arrange(new Rect(0, 0, 800, 100));
+        wave.UpdateLayout();
+        byte[] RenderWave()
+        {
+            var bitmap = new RenderTargetBitmap(800, 100, 96, 96, PixelFormats.Pbgra32);
+            bitmap.Render(wave);
+            var pixels = new byte[800 * 100 * 4];
+            bitmap.CopyPixels(pixels, 800 * 4, 0);
+            return pixels;
+        }
+        RenderWave();
+        var originalData = wave.Data;
+        wave.Position = 0.5;
+        var first = RenderWave();
+        wave.Position = 1.5;
+        var second = RenderWave();
+        bool Red(byte[] pixels, int x) => pixels[(20 * 800 + x) * 4 + 2] > 200 &&
+            pixels[(20 * 800 + x) * 4 + 1] < 30;
+        Check(Red(first, 200) && !Red(first, 600) && Red(second, 600) && !Red(second, 200),
+            "retained playhead moves without rebuilding the waveform");
+        Check(ReferenceEquals(originalData, wave.Data), "cursor movement retains waveform data");
+        for (int x = 0; x < 800; x++)
+            if (Math.Abs(x - 200) > 2 && Math.Abs(x - 600) > 2)
+                for (int y = 0; y < 100; y++)
+                    for (int c = 0; c < 4; c++)
+                        if (first[(y * 800 + x) * 4 + c] != second[(y * 800 + x) * 4 + c])
+                            throw new Exception("Cursor movement changed waveform pixels");
+        var renderWatch = System.Diagnostics.Stopwatch.StartNew();
+        for (int i = 0; i < 120; i++)
+        {
+            wave.Position = i / 60.0;
+            RenderWave();
+        }
+        Console.WriteLine($"120 fit frames including pixel readback: {renderWatch.Elapsed.TotalMilliseconds:0.0} ms");
+        wave.SetView(2, 0);
+        wave.UpdateLayout();
+        RenderWave();
+        Check(wave.ViewDuration == 2, "short clips stay fitted at maximum zoom");
+        wave.Fit();
+        Check(ReferenceEquals(originalData, wave.Data), "fit and zoom retain waveform data");
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        for (int i = 0; i < 10000; i++) wave.Position = (i % 1000) / 500.0;
+        Console.WriteLine($"10,000 retained position updates: {watch.Elapsed.TotalMilliseconds:0.0} ms");
+
+        var overview = new AudioOverview(new[] { envelope, envelope }, 2)
+        { Foreground = Brushes.White, Background = Brushes.Black };
+        overview.Measure(new Size(900, 64)); overview.Arrange(new Rect(0, 0, 900, 64)); overview.UpdateLayout();
+        void RenderOverview()
+        {
+            var bitmap = new RenderTargetBitmap(900, 64, 96, 96, PixelFormats.Pbgra32);
+            bitmap.Render(overview);
+        }
+        RenderOverview();
+        var cache = (float[][])typeof(AudioOverview).GetField("barPeaks", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(overview);
+        var original = cache[0];
+        overview.Update(1, 0.5f, 0.5f);
+        overview.UpdateLayout();
+        RenderOverview();
+        Check(original != null && ReferenceEquals(original, cache[0]), "overview reuses aggregated peaks during playback");
+        return 0;
+    }
+    private sealed class RepeatSamples : ISampleProvider
+    {
+        public WaveFormat WaveFormat { get; } = WaveFormat.CreateIeeeFloatWaveFormat(10, 2);
+        internal int Frame;
+        public int Read(float[] buffer, int offset, int count)
+        {
+            int read = Math.Min(count, Math.Max(0, (10 - Frame) * 2));
+            for (int i = 0; i < read; i += 2, Frame++)
+                buffer[offset + i] = buffer[offset + i + 1] = Frame;
+            return read;
+        }
+    }
+    internal static int RunRepeat()
+    {
+        var samples = new RepeatSamples();
+        var repeat = new AudioRepeatProvider(samples, seconds => samples.Frame = (int)Math.Round(seconds * 10));
+        var buffer = new float[28];
+        repeat.SetRange(0.5, 0.2);
+        repeat.Seek(0);
+        Check(repeat.Read(buffer, 2, 24) == 24, "repeat fills a buffer across multiple wraps");
+        for (int i = 0; i < 12; i++)
+            Check(buffer[2 + i * 2] == 2 + i % 3 && buffer[3 + i * 2] == 2 + i % 3,
+                "reverse selection loops only A–B and preserves stereo alignment");
+        repeat.SetRange(0.9, 1.0);
+        repeat.Seek(0.9);
+        repeat.Read(buffer, 0, 28);
+        Check(buffer.All(x => x == 9), "one-frame loop at EOF never stops or leaks outside the range");
+        repeat.SetRange(null, null);
+        repeat.Seek(0.8);
+        Check(repeat.Read(buffer, 0, 28) == 4, "disabling repeat restores normal EOF");
+        repeat.SetRange(0.5, 0.5);
+        Check(!repeat.Enabled, "zero-length selection does not loop");
+        return 0;
+    }
     internal static int RunMetadata()
     {
         string root = Path.Combine(AppContext.BaseDirectory, "audio-metadata-fixtures");
@@ -228,7 +345,7 @@ internal static class AudioDiffTests
         { Foreground = Brushes.Black, Background = Brushes.White };
         Render(0.5, 0, 0.5f, 900, "audio-overview-one-sided-light");
         Check(true, "overview handles resize, missing source and light colors");
-        var timeline = new AudioTimeline(new[] { envelope, envelope }, 2, new string[2]);
+        var timeline = new AudioTimeline(new[] { envelope, envelope }, 80, new string[2]);
         void LayoutTimeline(double width)
         {
             timeline.Measure(new Size(width, 400));
@@ -237,21 +354,21 @@ internal static class AudioDiffTests
         }
         LayoutTimeline(900);
         double height = timeline.Waves[0].ActualHeight;
-        Check(Math.Abs(timeline.Waves[0].TimeAt(timeline.Viewport) - 2) < 0.001, "fit shows the full longer timeline");
+        Check(Math.Abs(timeline.Waves[0].TimeAt(timeline.Viewport) - 80) < 0.001, "fit shows the full longer timeline");
         timeline.SetZoom(4);
         LayoutTimeline(900);
         Check(timeline.Offset == 0 && timeline.Waves[0].TimeAt(0) == 0, "zoom starts at time zero");
         Check(timeline.Waves[0].ActualHeight == height, "horizontal zoom preserves waveform height");
-        Check(Math.Abs(timeline.Waves[0].TimeAt(450) - timeline.Waves[0].TimeAt(0) - 450 / timeline.Viewport / 2) < 0.001,
+        Check(Math.Abs(timeline.Waves[0].TimeAt(450) - timeline.Waves[0].TimeAt(0) - 450 / timeline.Viewport * 20) < 0.001,
             "zoom reduces the visible time interval");
         timeline.ScrollBy(120);
         Check(timeline.Waves[0].TimeAt(100) == timeline.Waves[1].TimeAt(100), "both panes scroll on the same time axis");
         timeline.SetZoom(8);
-        Check(timeline.Offset == 0, "zoom after scrolling returns to time zero");
+        Check(timeline.Offset > 0, "zoom preserves the scrolled time");
         timeline.UpdatePosition(0, true);
         Check(timeline.Offset == 0, "seeking to start restores the left viewport");
-        timeline.UpdatePosition(1.8, true);
-        Check(timeline.Offset > 0 && timeline.Waves[0].PixelAt(1.8) - timeline.Offset <= timeline.Viewport,
+        timeline.UpdatePosition(78, true);
+        Check(timeline.Offset > 0 && timeline.Waves[0].PixelAt(78) - timeline.Offset <= timeline.Viewport,
             "playback follow keeps the playhead visible");
         double pausedOffset = timeline.Offset;
         timeline.UpdatePosition(0.2, false);
@@ -259,15 +376,12 @@ internal static class AudioDiffTests
         LayoutTimeline(600);
         Check(timeline.Offset <= timeline.Viewport * (timeline.Zoom - 1), "resize keeps the scroll offset in bounds");
         timeline.Fit(); LayoutTimeline(600);
-        Check(timeline.Zoom == 1 && timeline.Offset == 0 && Math.Abs(timeline.Waves[1].TimeAt(timeline.Viewport) - 2) < 0.001,
+        Check(timeline.Zoom == 1 && timeline.Offset == 0 && Math.Abs(timeline.Waves[1].TimeAt(timeline.Viewport) - 80) < 0.001,
             "fit resets zoom and horizontal scroll");
         foreach (var wave in timeline.Waves) { wave.Foreground = Brushes.White; wave.Background = Brushes.Black; }
         timeline.SetZoom(4); timeline.UpdatePosition(1, true); LayoutTimeline(600);
         var timelineImage = new RenderTargetBitmap(600, 400, 96, 96, PixelFormats.Pbgra32);
         timelineImage.Render(timeline);
-        var waveformGeometry = (Geometry)typeof(AudioWaveform).GetField("geometry", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(timeline.Waves[0]);
-        Check(PathGeometry.CreateFromGeometry(waveformGeometry).Figures.Count == 1,
-            "waveform is a continuous line rather than separate vertical bars");
         var timelineEncoder = new PngBitmapEncoder(); timelineEncoder.Frames.Add(BitmapFrame.Create(timelineImage));
         using (var file = File.Create(Path.Combine(AppContext.BaseDirectory, "audio-timeline-zoom.png"))) timelineEncoder.Save(file);
         return 0;
@@ -292,7 +406,7 @@ internal static class AudioDiffTests
         var one = AudioEnvelope.Load(a, CancellationToken.None);
         var two = AudioEnvelope.Load(b, CancellationToken.None);
         Check(one.Channels == 1 && one.Duration == 1 && two.Channels == 2 && two.Duration == 2, "mono/stereo and unequal durations");
-        Check(one.Max[0].Max() > 0.24 && one.Min[0].Min() < -0.24, "waveform signed peaks");
+        Check(one.Data.Maximum(0, 0) > 0.24 && one.Data.Minimum(0, 0) < -0.24, "waveform signed peaks");
         using (var canceled = new CancellationTokenSource())
         {
             canceled.Cancel(); bool rejected = false;

@@ -4,7 +4,7 @@
     <!-- Keep the existing explicit source/resource lists; exclude nested projects. -->
     <EnableDefaultItems>false</EnableDefaultItems>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <Version>4.5.0</Version>
+    <Version>4.5.1</Version>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <PlatformTarget>x64</PlatformTarget>
@@ -29,8 +29,8 @@
   </PropertyGroup>
   <PropertyGroup>
     <ApplicationIcon>DesktopIniManager.ico</ApplicationIcon>
-    <AssemblyVersion>4.5.0.0</AssemblyVersion>
-    <FileVersion>4.5.0.0</FileVersion>
+    <AssemblyVersion>4.5.1.0</AssemblyVersion>
+    <FileVersion>4.5.1.0</FileVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>x64</PlatformTarget>
@@ -87,6 +87,7 @@
     <Compile Include="Services\LanguageIconService.cs" />
     <Compile Include="Views\Presenter\MainWindowPresentationService.cs" />
     <Compile Include="Views\VirtualizingUniformGrid.cs" />
+    <Compile Include="Views\AboutWindow.cs" />
     <Compile Include="Services\UserDialogService.cs" />
     <Compile Include="Services\ISynchronizationLog.cs" />
     <Compile Include="Services\DiffMedia.cs" />
@@ -259,6 +260,10 @@
   </ItemGroup>
   <ItemGroup>
     <Resource Include="Assets\splash-background.png" />
+    <Resource Include="Assets\Version.png" />
+    <EmbeddedResource Include="docs\licenses\*.txt">
+      <LogicalName>DIM.Licenses.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
     <Content Include="Assets\Flag.icl">

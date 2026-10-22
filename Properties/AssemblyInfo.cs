@@ -4,12 +4,12 @@ using System.Windows;
 using System.Resources;
 [assembly: AssemblyTitle("desktop.ini Manager")]
 [assembly: AssemblyProduct("desktop.ini Manager")]
-[assembly: AssemblyVersion("4.5.0")]
-[assembly: AssemblyFileVersion("4.5.0")]
+[assembly: AssemblyVersion("4.5.1")]
+[assembly: AssemblyFileVersion("4.5.1")]
 [assembly: ComVisible(false)]
 [assembly: ThemeInfo(ResourceDictionaryLocation.None, ResourceDictionaryLocation.SourceAssembly)]
 // The standalone regression harness exercises filesystem safeguards and WPF bindings.
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("DesktopIniManager.DifferencerTests")]
 [assembly: NeutralResourcesLanguage("en", UltimateResourceFallbackLocation.MainAssembly)]
 [assembly: System.Runtime.Versioning.SupportedOSPlatform("windows")]
-[assembly: AssemblyInformationalVersion("4.5.0")]
+[assembly: AssemblyInformationalVersion("4.5.1")]

@@ -43,6 +43,11 @@ public partial class MainWindow : Window
         Closed += (sender, args) => { slotTimer.Stop(); SaveListLayout(); };
     }
 
+    private void AboutTitle_Click(object sender, RoutedEventArgs e)
+    {
+        new AboutWindow { Owner = this, Icon = Icon }.ShowDialog();
+    }
+
     private void LaunchSlot(int slot)
     {
         string state = AppSlot.StateText(slot);

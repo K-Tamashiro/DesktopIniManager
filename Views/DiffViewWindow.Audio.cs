@@ -320,7 +320,7 @@ internal sealed partial class DiffViewWindow
             if (zoom.Value > zoom.Maximum) zoom.Value = zoom.Maximum;
         }
 
-        var label = new TextBlock { Text = "100%", Width = 94, Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        var label = new TextBlock { Text = "100%", Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
         var row = new StackPanel { Orientation = Orientation.Horizontal };
         row.Children.Add(new TextBlock { Text = StringOverlay.Get("Diff_Zoom"), VerticalAlignment = VerticalAlignment.Center });
         row.Children.Add(ImageZoomStepButton("\uE738", "Zoom out", () => zoom.Value = Math.Max(zoom.Minimum, zoom.Value - 100)));
@@ -392,7 +392,7 @@ internal sealed partial class DiffViewWindow
         repeatToggle.Unchecked += (_, _) => UpdateRepeat();
         imageToolbar.Children.Add(repeatToggle);
         // Exclusive speed selection: selected icon is opaque, others are dimmed.
-        var speedGroup = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(6, 0, 0, 8) };
+        var speedGroup = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 8), VerticalAlignment = VerticalAlignment.Top };
         double[] speeds = { 0.5, 0.75, 1.0, 1.5, 1.75, 2.0 };
         for (int i = 0; i < speeds.Length; i++)
         {
@@ -400,7 +400,6 @@ internal sealed partial class DiffViewWindow
             var image = new Image
             {
                 Source = DifferencerStatusIcons.GetCustomIcon(145 + i),
-                Width = 36, Height = 36,
                 Stretch = Stretch.Uniform,
                 Opacity = i == 2 ? 1 : 0.35
             };
@@ -410,21 +409,11 @@ internal sealed partial class DiffViewWindow
                 Content = image,
                 IsChecked = i == 2,
                 ToolTip = $"再生速度 {speed:0.##}倍",
-                Margin = new Thickness(0, 0, 3, 0),
-                Style = TryFindResource("AudioSpeedRadioButton") as Style
+                Margin = new Thickness(0, 0, 2, 0),
+                Style = (Style)FindResource("AudioSpeedRadioButton")
             };
-            // No radio style resource is required: hide the native indicator.
-            if (radio.Style == null)
-            {
-                var template = new ControlTemplate(typeof(RadioButton));
-                var border = new FrameworkElementFactory(typeof(Border));
-                border.SetValue(Border.BackgroundProperty, Brushes.Transparent);
-                var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
-                presenter.SetValue(ContentPresenter.ContentSourceProperty, "Content");
-                border.AppendChild(presenter);
-                template.VisualTree = border;
-                radio.Template = template;
-            }
+            RenderOptions.SetBitmapScalingMode(image, BitmapScalingMode.HighQuality);
+            System.Windows.Automation.AutomationProperties.SetName(radio, $"再生速度 {speed:0.##}倍");
             radio.Checked += (_, _) =>
             {
                 foreach (var item in speedGroup.Children)

@@ -114,6 +114,7 @@ internal static class DifferencerTests
     {
         try
         {
+            if (args.Contains("--gif-viewer")) return V430Tests.RunGifViewer();
             if (args.Contains("--v430")) return V430Tests.Run();
             if (args.Contains("--waveform-control")) return WaveformControlTests.Run();
             if (args.Contains("--audio-repeat")) return AudioDiffTests.RunRepeat();

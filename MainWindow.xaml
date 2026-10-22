@@ -541,11 +541,29 @@
         </Grid.RowDefinitions>
         <Grid>
             <StackPanel>
-                <TextBlock
-                    FontSize="34"
-                    FontWeight="SemiBold"
-                    Foreground="{DynamicResource Accent}"
-                    Text="{loc:L App_Title}" />
+                <Button
+                    x:Name="AboutTitleButton"
+                    HorizontalAlignment="Left"
+                    Padding="0"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Cursor="Hand"
+                    ToolTip="バージョン情報"
+                    AutomationProperties.Name="バージョン情報"
+                    Click="AboutTitle_Click">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="Transparent">
+                                <ContentPresenter />
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                    <TextBlock
+                        FontSize="34"
+                        FontWeight="SemiBold"
+                        Foreground="{DynamicResource Accent}"
+                        Text="{loc:L App_Title}" />
+                </Button>
                 <TextBlock
                     Margin="2,4,0,22"
                     Foreground="{DynamicResource Muted}"

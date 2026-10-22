@@ -1499,8 +1499,7 @@ internal sealed partial class DiffViewWindow : Window
         };
         var zoomLabel = new TextBlock
         {
-            MinWidth = 48,
-            Margin = new Thickness(8, 0, 4, 0),
+            Margin = new Thickness(8, 0, 0, 0),
             VerticalAlignment = VerticalAlignment.Center,
             FontWeight = FontWeights.SemiBold,
             Text = "100%"
@@ -1567,21 +1566,35 @@ internal sealed partial class DiffViewWindow : Window
         if (wrapper != null)
         {
             wrapper.Children.Clear();
+            // Reserve the action buttons first; only the zoom track consumes spare width.
+            // At very narrow window sizes, scale the complete row rather than hiding XOR.
+            var toolbar = new Grid { MinWidth = 420 };
+            toolbar.ColumnDefinitions.Add(new ColumnDefinition());
+            toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var toolbarView = new Viewbox { Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly };
+            toolbarView.SetBinding(FrameworkElement.WidthProperty, new System.Windows.Data.Binding("ActualWidth") { Source = imageControlRow });
+            toolbar.SetBinding(FrameworkElement.WidthProperty, new System.Windows.Data.Binding("ActualWidth") { Source = imageControlRow });
+            toolbarView.Child = toolbar;
+            wrapper.Children.Add(toolbarView);
+            var buttons = new StackPanel { Orientation = Orientation.Horizontal };
+            Grid.SetColumn(buttons, 1);
+            toolbar.Children.Add(buttons);
+            zoom.Width = double.NaN;
+            zoom.HorizontalAlignment = HorizontalAlignment.Stretch;
             var chrome = new Border
             {
                 CornerRadius = new CornerRadius(18),
-                Padding = new Thickness(10, 4, 12, 4),
-                Margin = new Thickness(0, 0, 8, 8),
-                Child = new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    VerticalAlignment = VerticalAlignment.Center
-                }
+                Padding = new Thickness(10, 4, 6, 4),
+                Margin = new Thickness(0, 0, 2, 8),
+                Child = new Grid { VerticalAlignment = VerticalAlignment.Center }
             };
             chrome.SetResourceReference(Border.BackgroundProperty, "CardBackground");
             chrome.SetResourceReference(Border.BorderBrushProperty, "Line");
             chrome.BorderThickness = new Thickness(1);
-            var chromeRow = (StackPanel)chrome.Child;
+            var chromeRow = (Grid)chrome.Child;
+            for (int column = 0; column < 5; column++)
+                chromeRow.ColumnDefinitions.Add(new ColumnDefinition
+                { Width = column == 2 ? new GridLength(1, GridUnitType.Star) : GridLength.Auto });
             var zoomTitle = new TextBlock
             {
                 Text = StringOverlay.Get("Diff_Zoom"),
@@ -1596,18 +1609,18 @@ internal sealed partial class DiffViewWindow : Window
                 fitToWindow = false;
                 zoom.Value = Math.Max(zoom.Minimum, zoom.Value / 1.25);
             }));
-            var zoomControls = new StackPanel();
-            zoomControls.Children.Add(zoom);
-            chromeRow.Children.Add(zoomControls);
+            chromeRow.Children.Add(zoom);
             chromeRow.Children.Add(ImageZoomStepButton("\uE710", "Zoom in", () =>
             {
                 fitToWindow = false;
                 zoom.Value = Math.Min(zoom.Maximum, zoom.Value * 1.25);
             }));
             chromeRow.Children.Add(zoomLabel);
-            wrapper.Children.Add(chrome);
-            AddIconActionButton(wrapper, DifferencerStatusIcons.GetCustomIcon(72), StringOverlay.Get("Diff_Fit"), () => { fitToWindow = true; fit(); });
-            AddIconActionButton(wrapper, DifferencerStatusIcons.GetCustomIcon(73), "100%", () => { fitToWindow = false; zoom.Value = 1; });
+            for (int column = 0; column < chromeRow.Children.Count; column++)
+                Grid.SetColumn(chromeRow.Children[column], column);
+            toolbar.Children.Add(chrome);
+            AddIconActionButton(buttons, DifferencerStatusIcons.GetCustomIcon(72), StringOverlay.Get("Diff_Fit"), () => { fitToWindow = true; fit(); });
+            AddIconActionButton(buttons, DifferencerStatusIcons.GetCustomIcon(73), "100%", () => { fitToWindow = false; zoom.Value = 1; });
             void AddXorButton(bool sourceSide, int iconIndex, string title)
             {
                 var xorIcon = new Image { Source = DifferencerStatusIcons.GetCustomIcon(iconIndex), Stretch = Stretch.Uniform };
@@ -1617,7 +1630,7 @@ internal sealed partial class DiffViewWindow : Window
                     Content = xorIcon,
                     Style = TryFindResource("IconToggleButton") as Style,
                     ToolTip = title,
-                    Margin = new Thickness(0, 0, 8, 8),
+                    Margin = new Thickness(0, 0, 2, 8),
                     IsChecked = sourceSide ? sourceImageXorMode : targetImageXorMode,
                     IsEnabled = left != null && right != null
                 };
@@ -1638,11 +1651,13 @@ internal sealed partial class DiffViewWindow : Window
                 }
                 xorButton.Checked += SaveXorMode;
                 xorButton.Unchecked += SaveXorMode;
-                wrapper.Children.Add(xorButton);
+                buttons.Children.Add(xorButton);
                 ApplyXorMode();
             }
             AddXorButton(true, 137, "Source XOR mode");
             AddXorButton(false, 138, "Target XOR mode");
+            foreach (FrameworkElement button in buttons.Children)
+                button.Margin = new Thickness(0, 0, 2, 8);
             wrapper.Visibility = Visibility.Visible;
             imageControlRow.Visibility = Visibility.Visible;
         }
@@ -1923,8 +1938,7 @@ internal sealed partial class DiffViewWindow : Window
         };
         var zoomLabel = new TextBlock
         {
-            MinWidth = 48,
-            Margin = new Thickness(8, 0, 4, 0),
+            Margin = new Thickness(8, 0, 0, 0),
             VerticalAlignment = VerticalAlignment.Center,
             FontWeight = FontWeights.SemiBold,
             Text = "100%"
@@ -1944,7 +1958,7 @@ internal sealed partial class DiffViewWindow : Window
             var chrome = new Border
             {
                 CornerRadius = new CornerRadius(18),
-                Padding = new Thickness(10, 4, 12, 4),
+                Padding = new Thickness(10, 4, 6, 4),
                 Margin = new Thickness(0, 0, 8, 8),
                 Child = new StackPanel
                 {

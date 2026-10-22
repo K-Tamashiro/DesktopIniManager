@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -59,6 +59,63 @@ internal static class V430Tests
         Check(gif.Compose(4) == null, "shorter GIF has missing frames beyond its range");
         Console.WriteLine("PASS v4.3.0 regression suite"); return 0;
     }
+    internal static int RunGifViewer()
+    {
+        var app = new System.Windows.Application { ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown };
+        System.Threading.SynchronizationContext.SetSynchronizationContext(new System.Windows.Threading.DispatcherSynchronizationContext(app.Dispatcher));
+        var xml = new System.Xml.XmlDocument();
+        xml.Load(Path.Combine(AppContext.BaseDirectory, "TestAssets", "App.xaml"));
+        var ns = new System.Xml.XmlNamespaceManager(xml.NameTable);
+        ns.AddNamespace("p", "http://schemas.microsoft.com/winfx/2006/xaml/presentation");
+        var context = new System.Windows.Markup.ParserContext();
+        context.XmlnsDictionary.Add("x", "http://schemas.microsoft.com/winfx/2006/xaml");
+        app.Resources = (System.Windows.ResourceDictionary)System.Windows.Markup.XamlReader.Parse(
+            xml.SelectSingleNode("p:Application/p:Application.Resources/p:ResourceDictionary", ns).OuterXml
+                .Replace("Source=\"Themes/", "Source=\"/DesktopIniManager;component/Themes/"), context);
+        void Await(Task task)
+        {
+            var frame = new System.Windows.Threading.DispatcherFrame();
+            task.GetAwaiter().OnCompleted(() => frame.Continue = false);
+            if (!task.IsCompleted) System.Windows.Threading.Dispatcher.PushFrame(frame);
+            task.GetAwaiter().GetResult();
+        }
+        string root = Path.Combine(AppContext.BaseDirectory, "gif-viewer-fixtures"); Directory.CreateDirectory(root);
+        string path = Path.Combine(root, "animation.gif");
+        byte[] original = MakeGif();
+        var withoutControl = new System.Collections.Generic.List<byte>();
+        for (int i = 0; i < original.Length; i++)
+        {
+            if (i + 7 < original.Length && original[i] == 0x21 && original[i + 1] == 0xf9 && original[i + 2] == 4) i += 7;
+            else withoutControl.Add(original[i]);
+        }
+        foreach (var bytes in new[] { original, withoutControl.ToArray() })
+        {
+            File.WriteAllBytes(path, bytes);
+            var snapshot = ExternalDiffLaunch.Parse(new[] { "-diff", path, path }).CreateSnapshot();
+            var window = new DesktopIniManager.Views.DiffViewWindow(snapshot, snapshot.Files[0], path, path);
+            try
+            {
+                for (int repeat = 0; repeat < 10; repeat++)
+                {
+                    bool loaded = false;
+                    async Task Load() { loaded = await window.ViewModel.LoadContentAsync(); }
+                    Await(Load());
+                    Check(loaded && window.ViewModel.ImageFrameCount == 4, "GIF reload keeps all frames (" + repeat + ")");
+                    var render = typeof(DesktopIniManager.Views.DiffViewWindow).GetMethod("RenderImages", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    Await((Task)render.Invoke(window, null));
+                    var zoom = (System.Windows.Controls.ScrollViewer)window.FindName("imageControlRow");
+                    var frames = (System.Windows.Controls.StackPanel)window.FindName("gifFrameHost");
+                    Check(zoom.Visibility == System.Windows.Visibility.Visible && frames.Visibility == System.Windows.Visibility.Visible && frames.Children.Count == 1,
+                        "GIF zoom and frame controller remain visible");
+                    for (int index = 3; index >= 0; index--) Await(window.ViewModel.SelectImageFrameAsync(index));
+                }
+            }
+            finally { window.Close(); }
+        }
+        app.Shutdown();
+        return 0;
+    }
+
     internal static byte[] MakeGif()
     {
         using var stream = new MemoryStream(); using var w = new BinaryWriter(stream);

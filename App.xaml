@@ -236,6 +236,10 @@
         </Setter>
       </Style>
       <Style
+        x:Key="AudioSpeedRadioButton"
+        BasedOn="{StaticResource IconToggleButton}"
+        TargetType="RadioButton" />
+      <Style
         x:Key="IconTextButton"
         BasedOn="{StaticResource {x:Type Button}}"
         TargetType="Button">

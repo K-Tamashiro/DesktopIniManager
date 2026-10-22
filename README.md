@@ -1,4 +1,4 @@
-# DesktopIniManager v4.5.0
+# DesktopIniManager v4.5.1 PreRelease
 
 DesktopIniManager (DIM) is a Windows workspace for exploring development folders and Visual Studio solutions, finding files, running scoped searches, comparing folders, viewing differences, and managing folder icons through `desktop.ini`.
 
@@ -8,13 +8,18 @@ DesktopIniManager (DIM) is a Windows workspace for exploring development folders
 
 ## Download and setup
 
-Download **DesktopIniManager-v4.5.0-win-x64.zip** from the v4.5.0 GitHub release assets, not GitHub's source-code archive. The matching `.zip.sha256` contains the SHA-256 checksum.
+Download **DesktopIniManager-v4.5.1-win-x64.zip** from the v4.5.1 PreRelease GitHub release assets, not GitHub's source-code archive. The matching `.zip.sha256` contains the SHA-256 checksum.
 
 - Windows 10 or 11, x64; .NET 10 Desktop Runtime (x64) installed separately.
 - Visual Studio Build Tools / MSBuild or .NET SDK for solution builds.
 - An external editor or diff/merge tool is optional.
 
 Extract into a fresh folder and run **DesktopIniManager.exe**. Keep the DLLs, JSON, Assets and Languages together. ExcelDataReader and PdfPig libraries are required for Document Grep.
+
+## What's new in v4.5.1 PreRelease
+
+- Adjusted layouts across the DIFF VIEW modes.
+- Click the main window title to open the About dialog, which displays the DIM version and information about the libraries and APIs used.
 
 ## Main features
 
@@ -29,6 +34,9 @@ Extract into a fresh folder and run **DesktopIniManager.exe**. Keep the DLLs, JS
 
 ## Main window
 
+Click the main window title to view version information and the libraries and APIs used by DIM.
+
+
 Select a Target root to browse the physical folder tree or Visual Studio Solution structure. Files directly under the selected folder appear first in white; descendants are muted. Folder names participate in search, and checked folders restrict File Search and Scoped Grep to their subtrees. Switch between file-list and two- or three-column icon views.
 
 The tree supports check/uncheck all, inversion, expand/collapse, checked-folder filtering and size adjustment. Use context menus for Explorer, tree/file-list export, builds and Scoped Grep. Choose folder icons from ICO, ICL, DLL or EXE resources, apply/reset them through desktop.ini, and optionally add desktop.ini to .gitignore. Drag folders with immediate files or multiple selected files out of DIM. Batch File Launcher variables: `%d%` directory, `%f%` selected full path, `%n%` file name.
@@ -42,6 +50,9 @@ Enable modification date/time, file size, attributes (including BOM), and XXH128
 Comparison respects `.gitignore` rules under either selected root, including `*`, `?`, character classes, `**`, anchored paths and `!` negation. An ignored path on either side is excluded from both comparison and synchronization. The ignore dialog can disable individual rules without editing `.gitignore` files; choices are retained in comparison history. Filter Same, Different, Source-only, Target-only, obj, bin and checked entries. Up to 20 dated comparison tabs are retained. Refresh, Solution Clean, ZIP export and synchronization are available; review direction and operations before syncing.
 
 ## DIFF VIEW
+
+Layouts have been adjusted across the DIFF VIEW modes in v4.5.1.
+
 
 Launch as a standalone read-only two-file viewer:
 
@@ -74,7 +85,7 @@ Source and Target appear side by side with shared playback, seek and zoom contro
 
 ## Audio DIFF VIEW
 
-![DIM v4.5.0 audio PCM waveform differences](docs/images/2026-10-21_22h48_39.png)
+![DIM audio PCM waveform differences](docs/images/2026-10-21_22h48_39.png)
 
 **Audio-resource difference inspection, before advanced audio analysis.** DIM does more than display two waveform pictures: it compares decoded PCM samples on a common time axis and calculates which intervals differ. Detected differences are highlighted **red** on the yellow Source and blue Target waveforms. This is intended for reviewing voice-guidance files and other audio resources; it is not speech recognition, spectral analysis, or automatic time alignment.
 
@@ -103,7 +114,7 @@ DIM1–DIM5 are independent processes. **In Use** identifies the current slot, *
 
 Freeware by Tamayan / ZEBRASOFT. [Website](http://dim.zebrasoft.co.jp/) · [Repository and issues](https://github.com/K-Tamashiro/DesktopIniManager) · tamayan@zebrasoft.co.jp.
 
-` scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> ` packages prebuilt v4.5.0 binaries; omitting that option runs `dotnet publish`. Archives and checksums are written to `release/`.
+` scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> ` packages prebuilt v4.5.1 binaries; omitting that option runs `dotnet publish`. Archives and checksums are written to `release/`.
 
 ## Keyboard shortcuts and startup options
 

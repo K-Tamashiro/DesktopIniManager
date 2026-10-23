@@ -151,8 +151,7 @@ internal sealed partial class DiffViewWindow
 
         var source = image.Format == PixelFormats.Bgra32
             ? image
-            : new FormatConvertedBitmap(
-                image, PixelFormats.Bgra32, null, 0);
+            : new FormatConvertedBitmap(image, PixelFormats.Bgra32, null, 0);
 
         int stride = checked(source.PixelWidth * 4);
         byte[] pixels = new byte[checked(stride * source.PixelHeight)];

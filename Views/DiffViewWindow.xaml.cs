@@ -502,12 +502,17 @@ internal sealed partial class DiffViewWindow : Window
             header.Inlines.Clear();
             header.Inlines.Add(new Run(source ? ViewModel.SourceHeader : ViewModel.TargetHeader));
             var document = source ? ViewModel.SourceText : ViewModel.TargetText;
-            string label = ViewModel.IsImage ? (source ? ViewModel.SourceImageFormat : ViewModel.TargetImageFormat) : document?.EncodingName;
-            if (label == null) return;
+            string label = (ViewModel.IsAudio || ViewModel.IsVideo)
+                ? System.IO.Path.GetExtension(ViewModel.GetPath(source)).TrimStart('.').ToUpperInvariant()
+                : ViewModel.IsImage ? (source ? ViewModel.SourceImageFormat : ViewModel.TargetImageFormat) : document?.EncodingName;
+            if (string.IsNullOrEmpty(label)) return;
             var color = source ? Color.FromRgb(255, 210, 64) : Color.FromRgb(64, 190, 255);
-            bool differs = ViewModel.IsImage
-                ? ViewModel.SourceImageFormat != null && ViewModel.TargetImageFormat != null && ViewModel.SourceImageFormat != ViewModel.TargetImageFormat
-                : ViewModel.SourceText?.EncodingName != ViewModel.TargetText?.EncodingName;
+            bool differs = (ViewModel.IsAudio || ViewModel.IsVideo)
+                ? !string.Equals(System.IO.Path.GetExtension(ViewModel.GetPath(true)),
+                    System.IO.Path.GetExtension(ViewModel.GetPath(false)), StringComparison.OrdinalIgnoreCase)
+                : ViewModel.IsImage
+                    ? ViewModel.SourceImageFormat != null && ViewModel.TargetImageFormat != null && ViewModel.SourceImageFormat != ViewModel.TargetImageFormat
+                    : ViewModel.SourceText?.EncodingName != ViewModel.TargetText?.EncodingName;
             var brush = new SolidColorBrush(color);
             header.Inlines.Add(new InlineUIContainer(new Border
             {
@@ -601,6 +606,8 @@ internal sealed partial class DiffViewWindow : Window
             if (reload && !await ViewModel.LoadContentAsync()) return;
             if (!IsLoaded) return;
             DetachImageFitHandler();
+            System.Diagnostics.Debug.WriteLine(
+    $"[IMAGE RESET] {DateTime.Now:HH:mm:ss.fff}\n{Environment.StackTrace}");
             ResetImageNavigation();
             ResetMediaController();
             if (imageToolbar is Panel p)
@@ -1466,7 +1473,20 @@ internal sealed partial class DiffViewWindow : Window
         body.Children.Add(rightHost);
         leftScroll.ScrollChanged += ScrollChanged;
         rightScroll.ScrollChanged += ScrollChanged;
-        BuildImageNavigation(width, height);
+        // The navigator is supplementary: a failure to generate its preview must
+        // not prevent the image zoom toolbar from being initialized.
+        try
+        {
+            BuildImageNavigation(width, height);
+        }
+        catch (InvalidOperationException)
+        {
+            imageDetails.Children.Clear();
+            imageNavigator = null;
+            imageViewport = null;
+            sourcePixels = targetPixels = null;
+            sourcePixelDetails = targetPixelDetails = null;
+        }
         var zoom = imageZoom = new Slider
         {
             Minimum = 0.05,
@@ -1552,7 +1572,8 @@ internal sealed partial class DiffViewWindow : Window
             toolbar.ColumnDefinitions.Add(new ColumnDefinition());
             toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             var toolbarView = new Viewbox { Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly };
-            toolbarView.SetBinding(FrameworkElement.WidthProperty, new System.Windows.Data.Binding("ActualWidth") { Source = imageControlRow });
+            // Let the parent measure the Viewbox. Its own ActualWidth may still be
+            // zero after the collapsed toolbar is rebuilt during a reload.
             toolbar.SetBinding(FrameworkElement.WidthProperty, new System.Windows.Data.Binding("ActualWidth") { Source = imageControlRow });
             toolbarView.Child = toolbar;
             wrapper.Children.Add(toolbarView);

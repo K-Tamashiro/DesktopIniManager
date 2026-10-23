@@ -88,26 +88,63 @@ internal static class V430Tests
             if (i + 7 < original.Length && original[i] == 0x21 && original[i + 1] == 0xf9 && original[i + 2] == 4) i += 7;
             else withoutControl.Add(original[i]);
         }
-        foreach (var bytes in new[] { original, withoutControl.ToArray() })
+        var png = new PngBitmapEncoder();
+        png.Frames.Add(BitmapFrame.Create(BitmapSource.Create(3, 1, 96, 96,
+            System.Windows.Media.PixelFormats.Bgra32, null, new byte[12], 12)));
+        using var pngStream = new MemoryStream();
+        png.Save(pngStream);
+        foreach (var fixture in new[] { (original, "gif", 4), (withoutControl.ToArray(), "gif", 4), (pngStream.ToArray(), "png", 1) })
         {
-            File.WriteAllBytes(path, bytes);
+            path = Path.Combine(root, "animation." + fixture.Item2);
+            File.WriteAllBytes(path, fixture.Item1);
             var snapshot = ExternalDiffLaunch.Parse(new[] { "-diff", path, path }).CreateSnapshot();
             var window = new DesktopIniManager.Views.DiffViewWindow(snapshot, snapshot.Files[0], path, path);
+            window.ShowActivated = false;
+            window.ShowInTaskbar = false;
+            window.SourceInitialized += (_, _) =>
+            {
+                window.WindowState = System.Windows.WindowState.Normal;
+                window.Left = -20000; window.Top = -20000;
+                window.Width = 1280; window.Height = 850;
+            };
             try
             {
+                window.Show();
+                async Task WaitForLoad()
+                {
+                    var deadline = DateTime.UtcNow.AddSeconds(30);
+                    var busy = typeof(DesktopIniManager.Views.DiffViewWindow).GetField("renderingContent", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    while ((bool)busy.GetValue(window) && DateTime.UtcNow < deadline) await Task.Delay(10);
+                    Check(!(bool)busy.GetValue(window), "initial image load completes");
+                }
+                Await(WaitForLoad());
                 for (int repeat = 0; repeat < 10; repeat++)
                 {
-                    bool loaded = false;
-                    async Task Load() { loaded = await window.ViewModel.LoadContentAsync(); }
-                    Await(Load());
-                    Check(loaded && window.ViewModel.ImageFrameCount == 4, "GIF reload keeps all frames (" + repeat + ")");
-                    var render = typeof(DesktopIniManager.Views.DiffViewWindow).GetMethod("RenderImages", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                    Await((Task)render.Invoke(window, null));
+                    var reload = typeof(DesktopIniManager.Views.DiffViewWindow).GetMethod("LoadContent", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    Await((Task)reload.Invoke(window, new object[] { true, true }));
+                    Check(window.ViewModel.ImageFrameCount == fixture.Item3, "Image reload keeps all frames (" + repeat + ")");
                     var zoom = (System.Windows.Controls.ScrollViewer)window.FindName("imageControlRow");
                     var frames = (System.Windows.Controls.StackPanel)window.FindName("gifFrameHost");
-                    Check(zoom.Visibility == System.Windows.Visibility.Visible && frames.Visibility == System.Windows.Visibility.Visible && frames.Children.Count == 1,
-                        "GIF zoom and frame controller remain visible");
-                    for (int index = 3; index >= 0; index--) Await(window.ViewModel.SelectImageFrameAsync(index));
+                    Check(zoom.Visibility == System.Windows.Visibility.Visible &&
+                        (fixture.Item3 > 1 ? frames.Visibility == System.Windows.Visibility.Visible && frames.Children.Count == 1
+                            : frames.Visibility == System.Windows.Visibility.Collapsed),
+                        "Image zoom and frame controller visibility");
+                    foreach (double width in new[] { 1300.0, 700.0, 900.0, 1300.0 })
+                    {
+                        var content = (System.Windows.FrameworkElement)window.Content;
+                        window.Width = width;
+                        window.UpdateLayout();
+                        app.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                        content.UpdateLayout();
+                        var slider = (System.Windows.Controls.Slider)typeof(DesktopIniManager.Views.DiffViewWindow)
+                            .GetField("imageZoom", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).GetValue(window);
+                        var bounds = slider.TransformToAncestor(content).TransformBounds(new System.Windows.Rect(slider.RenderSize));
+                        Console.WriteLine($"LAYOUT repeat={repeat} width={width} host={zoom.ActualWidth}x{zoom.ActualHeight} slider={bounds} scroll={zoom.ScrollableWidth}");
+                        Check(zoom.ActualWidth > 0 && bounds.Width >= 20 && bounds.Height > 0 &&
+                            bounds.Left >= 0 && bounds.Right <= width && zoom.ScrollableWidth < 1,
+                            "image zoom retains usable width at " + width);
+                    }
+                    for (int index = fixture.Item3 - 1; index >= 0; index--) Await(window.ViewModel.SelectImageFrameAsync(index));
                 }
             }
             finally { window.Close(); }

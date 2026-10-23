@@ -1,4 +1,4 @@
-# DesktopIniManager v4.5.1 PreRelease
+# DesktopIniManager v4.5.3 PreRelease
 
 DesktopIniManager (DIM) is a Windows workspace for exploring development folders and Visual Studio solutions, finding files, running scoped searches, comparing folders, viewing differences, and managing folder icons through `desktop.ini`.
 
@@ -8,7 +8,7 @@ DesktopIniManager (DIM) is a Windows workspace for exploring development folders
 
 ## Download and setup
 
-Download **DesktopIniManager-v4.5.1-win-x64.zip** from the v4.5.1 PreRelease GitHub release assets, not GitHub's source-code archive. The matching `.zip.sha256` contains the SHA-256 checksum.
+Download **DesktopIniManager-v4.5.3-win-x64.zip** from the v4.5.3 PreRelease GitHub release assets, not GitHub's source-code archive. The matching `.zip.sha256` contains the SHA-256 checksum.
 
 - Windows 10 or 11, x64; .NET 10 Desktop Runtime (x64) installed separately.
 - Visual Studio Build Tools / MSBuild or .NET SDK for solution builds.
@@ -16,7 +16,13 @@ Download **DesktopIniManager-v4.5.1-win-x64.zip** from the v4.5.1 PreRelease Git
 
 Extract into a fresh folder and run **DesktopIniManager.exe**. Keep the DLLs, JSON, Assets and Languages together. ExcelDataReader and PdfPig libraries are required for Document Grep.
 
-## What's new in v4.5.1 PreRelease
+## What's new in v4.5.3 PreRelease
+
+- Removed the one-hour audio duration restriction, including drag-and-drop and clipboard file input. Waveform bins are bounded for longer recordings.
+- Accelerated audio difference analysis with buffered sequential decoding and 10 ms RMS comparison windows; resample only when source rates differ.
+- Calculate audio differences asynchronously on the first toggle, cache the result for subsequent ON/OFF switches, and show a themed busy overlay during analysis.
+- Restored left-edge-anchored horizontal waveform zoom so magnification extends naturally to the right.
+
 
 - Adjusted layouts across the DIFF VIEW modes.
 - Click the main window title to open the About dialog, which displays the DIM version and information about the libraries and APIs used.
@@ -51,7 +57,7 @@ Comparison respects `.gitignore` rules under either selected root, including `*`
 
 ## DIFF VIEW
 
-Layouts have been adjusted across the DIFF VIEW modes in v4.5.1.
+Layouts have been adjusted across the DIFF VIEW modes in v4.5.3.
 
 
 Launch as a standalone read-only two-file viewer:
@@ -91,12 +97,12 @@ Source and Target appear side by side with shared playback, seek and zoom contro
 
 Open WAV (`.wav` / `.wave`) or MP3 files, including mixed WAV/MP3 pairs. Source is above Target. Mono uses one waveform per pane and stereo shows both channels. The common timeline is based on the longer file. Pane headers show duration, channels, sample rate, bit depth and bit rate; mismatching properties appear in red.
 
-- The comparison toggle (icon 143) highlights decoded PCM differences before playback volume adjustment. Channels are compared at corresponding times; missing channels and tails are differences. Different sample rates use linear interpolation on the higher-rate time grid, without loudness normalization or automatic alignment.
-- A contiguous insertion/deletion can be identified from a matching prefix and shifted suffix when sample rate and channel count match. Only the affected interval is highlighted on the longer side, with a dashed red join marker on the shorter side. Other edits use same-time comparison.
+- The comparison toggle (icon 143) highlights decoded PCM differences before playback volume adjustment. Channels are compared at corresponding times; missing channels and tails are differences. Different sample rates are resampled to the higher sample rate, without loudness normalization or automatic alignment.
+- Differences are detected in 10 ms RMS windows with absolute and relative tolerances; consecutive differing windows are grouped into intervals. No automatic time alignment is performed.
 - The top overview shows both complete recordings, playback progress, difference regions and a draggable viewport frame. Click the overview or waveforms to seek; drag the viewport to scroll without changing playback position.
 - A–B repeat allows a selected interval to loop. Source and Target share playback position and speed, while volume and mute are controlled independently.
 - Six mutually exclusive playback-speed buttons select **0.5× / 0.75× / 1.0× / 1.5× / 1.75× / 2.0×**. The default is **1.0×**; the selected icon is bright and the others dim. Speed can be changed during playback. Playback speed adjustment may change pitch.
-- Zoom the horizontal time scale without changing waveform height. Use the shared scrollbar, Shift+wheel or horizontal wheel; Fit restores the whole timeline. Playback follows the playhead.
+- Horizontal zoom is anchored at the left edge of the current view and expands to the right without changing waveform height. Use the shared scrollbar, Shift+wheel or horizontal wheel; Fit restores the whole timeline. Playback follows the playhead.
 - The shorter input contributes silence after it ends. The waveforms themselves are unaffected by playback volume.
 - Clipboard paste can load supported text, images, WAVE audio or copied files via private temporary files, removed when the viewer closes.
 
@@ -114,7 +120,7 @@ DIM1–DIM5 are independent processes. **In Use** identifies the current slot, *
 
 Freeware by Tamayan / ZEBRASOFT. [Website](http://dim.zebrasoft.co.jp/) · [Repository and issues](https://github.com/K-Tamashiro/DesktopIniManager) · tamayan@zebrasoft.co.jp.
 
-` scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> ` packages prebuilt v4.5.1 binaries; omitting that option runs `dotnet publish`. Archives and checksums are written to `release/`.
+` scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> ` packages prebuilt v4.5.3 binaries; omitting that option runs `dotnet publish`. Archives and checksums are written to `release/`.
 
 ## Keyboard shortcuts and startup options
 

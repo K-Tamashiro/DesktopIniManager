@@ -11,11 +11,6 @@ internal sealed class AudioDifferences
 {
     internal readonly System.Collections.Generic.List<(double Start, double End)>[] Channels;
     internal System.Collections.Generic.List<(double Start, double End)>[] TargetChannels;
-    internal double? SourceJoin, TargetJoin;
-    private const float CutSampleTolerance = 1e-5f;
-
-    private static bool NearlyEqual(float a, float b) =>
-        Math.Abs(a - b) <= CutSampleTolerance;
     private AudioDifferences(int channels)
     {
         Channels = new System.Collections.Generic.List<(double, double)>[channels];
@@ -25,60 +20,63 @@ internal sealed class AudioDifferences
 
     internal static AudioDifferences Load(string source, string target, CancellationToken cancellation)
     {
-        var cut = FindSingleCut(source, target, cancellation);
-        if (cut != null) return cut;
-        using var a = new Samples(source);
-        using var b = new Samples(target);
-        int rate = Math.Max(a.Rate, b.Rate);
-        int channels = Math.Max(a.Channels, b.Channels);
+        using var a = !string.IsNullOrEmpty(source) && File.Exists(source) ? new AudioFileReader(source) : null;
+        using var b = !string.IsNullOrEmpty(target) && File.Exists(target) ? new AudioFileReader(target) : null;
+        int rate = Math.Max(a?.WaveFormat.SampleRate ?? 0, b?.WaveFormat.SampleRate ?? 0);
+        int channels = Math.Max(a?.WaveFormat.Channels ?? 0, b?.WaveFormat.Channels ?? 0);
         var result = new AudioDifferences(channels);
         if (rate == 0) return result;
-        double duration = Math.Max(a.Duration, b.Duration);
-        // Compare short-time energy instead of individual decoded float samples.
-        // Lossy codecs change sample values even when the audible waveform is unchanged.
-        const double windowSeconds = 0.01;
+        // Decode sequentially in blocks. Resample only when input rates differ.
+        ISampleProvider streamA = a == null ? null :
+            a.WaveFormat.SampleRate == rate ? a : new WdlResamplingSampleProvider(a, rate);
+        ISampleProvider streamB = b == null ? null :
+            b.WaveFormat.SampleRate == rate ? b : new WdlResamplingSampleProvider(b, rate);
+        var inputA = streamA == null ? null : new FrameStream(streamA);
+        var inputB = streamB == null ? null : new FrameStream(streamB);
         const double absoluteTolerance = 0.012;
         const double relativeTolerance = 0.15;
-        int windowFrames = Math.Max(1, (int)Math.Round(rate * windowSeconds));
-        long count = (long)Math.Ceiling(duration * rate);
+        int windowFrames = Math.Max(1, (int)Math.Round(rate * 0.01));
         var starts = new long[channels];
         Array.Fill(starts, -1L);
         var energyA = new double[channels];
         var energyB = new double[channels];
-        var samplesA = new int[channels];
-        var samplesB = new int[channels];
-        for (long first = 0; first < count; first += windowFrames)
+        var countA = new int[channels];
+        var countB = new int[channels];
+        long frame = 0;
+        while (true)
         {
             cancellation.ThrowIfCancellationRequested();
             Array.Clear(energyA); Array.Clear(energyB);
-            Array.Clear(samplesA); Array.Clear(samplesB);
-            long end = Math.Min(count, first + windowFrames);
-            for (long frame = first; frame < end; frame++)
+            Array.Clear(countA); Array.Clear(countB);
+            long first = frame;
+            for (int i = 0; i < windowFrames; i++, frame++)
             {
-                double time = (double)frame / rate;
-                a.Move(time); b.Move(time);
+                bool hasA = inputA?.NextFrame() == true;
+                bool hasB = inputB?.NextFrame() == true;
+                if (!hasA && !hasB) break;
                 for (int ch = 0; ch < channels; ch++)
                 {
-                    if (a.Has(ch, time))
+                    if (hasA && ch < inputA.Channels)
                     {
-                        double value = a.Value(ch, time);
+                        double value = inputA.Sample(ch);
                         energyA[ch] += value * value;
-                        samplesA[ch]++;
+                        countA[ch]++;
                     }
-                    if (b.Has(ch, time))
+                    if (hasB && ch < inputB.Channels)
                     {
-                        double value = b.Value(ch, time);
+                        double value = inputB.Sample(ch);
                         energyB[ch] += value * value;
-                        samplesB[ch]++;
+                        countB[ch]++;
                     }
                 }
             }
+            if (frame == first) break;
             for (int ch = 0; ch < channels; ch++)
             {
-                double rmsA = samplesA[ch] == 0 ? 0 : Math.Sqrt(energyA[ch] / samplesA[ch]);
-                double rmsB = samplesB[ch] == 0 ? 0 : Math.Sqrt(energyB[ch] / samplesB[ch]);
-                bool different = Math.Abs(rmsA - rmsB) >
-                    Math.Max(absoluteTolerance, Math.Max(rmsA, rmsB) * relativeTolerance);
+                double rmsA = countA[ch] == 0 ? 0 : Math.Sqrt(energyA[ch] / countA[ch]);
+                double rmsB = countB[ch] == 0 ? 0 : Math.Sqrt(energyB[ch] / countB[ch]);
+                bool different = countA[ch] != countB[ch] ||
+                    Math.Abs(rmsA - rmsB) > Math.Max(absoluteTolerance, Math.Max(rmsA, rmsB) * relativeTolerance);
                 if (different && starts[ch] < 0) starts[ch] = first;
                 if (!different && starts[ch] >= 0)
                 {
@@ -89,91 +87,44 @@ internal sealed class AudioDifferences
         }
         for (int ch = 0; ch < channels; ch++)
             if (starts[ch] >= 0)
-                result.Channels[ch].Add(((double)starts[ch] / rate, duration));
+                result.Channels[ch].Add(((double)starts[ch] / rate, (double)frame / rate));
         return result;
     }
 
-    // A contiguous insertion/deletion shifts every later sample. Verify the entire
-    // remaining suffix before classifying it as unchanged, across all channels.
-    private static AudioDifferences FindSingleCut(string source, string target, CancellationToken cancellation)
+    // Buffered, sequential sample reader; no per-frame allocation or copying.
+    private sealed class FrameStream
     {
-        using var a = new Samples(source);
-        using var b = new Samples(target);
-        if (a.Rate == 0 || a.Rate != b.Rate || a.Channels != b.Channels || a.Frames == b.Frames) return null;
-        bool sourceLonger = a.Frames > b.Frames;
-        var longer = sourceLonger ? a : b;
-        var shorter = sourceLonger ? b : a;
-        long removed = longer.Frames - shorter.Frames;
-        long first = -1;
-        for (long frame = 0; frame < shorter.Frames; frame++)
-        {
-            if ((frame & 4095) == 0) cancellation.ThrowIfCancellationRequested();
-            double shortTime = (double)frame / a.Rate;
-            double longTime = (double)(frame + (first >= 0 ? removed : 0)) / a.Rate;
-            shorter.Move(shortTime); longer.Move(longTime);
-            bool equal = true;
-            for (int ch = 0; ch < a.Channels; ch++)
-                equal &= NearlyEqual(shorter.Value(ch, shortTime), longer.Value(ch, longTime));
-            if (equal) continue;
-            if (first >= 0) return null;
-            first = frame;
-            longTime = (double)(frame + removed) / a.Rate;
-            longer.Move(longTime);
-            for (int ch = 0; ch < a.Channels; ch++)
-                if (!NearlyEqual(shorter.Value(ch, shortTime), longer.Value(ch, longTime))) return null;
-        }
-        cancellation.ThrowIfCancellationRequested();
-        if (first < 0) first = shorter.Frames;
-        var result = new AudioDifferences(a.Channels);
-        result.TargetChannels = new AudioDifferences(a.Channels).Channels;
-        var ranges = sourceLonger ? result.Channels : result.TargetChannels;
-        for (int ch = 0; ch < ranges.Length; ch++)
-            ranges[ch].Add(((double)first / a.Rate, (double)(first + removed) / a.Rate));
-        if (sourceLonger) result.TargetJoin = (double)first / a.Rate;
-        else result.SourceJoin = (double)first / a.Rate;
-        return result;
-    }
-
-    // A bounded streaming window. Interpolate only when the sample rates differ.
-    private sealed class Samples : IDisposable
-    {
-        private readonly AudioFileReader reader;
-        private readonly float[] buffer, current, next;
+        private readonly ISampleProvider source;
+        private readonly float[] buffer;
         private int offset, available;
-        private long index;
-        internal int Rate => reader?.WaveFormat.SampleRate ?? 0;
-        internal int Channels => reader?.WaveFormat.Channels ?? 0;
-        internal double Duration { get; }
-        internal long Frames { get; }
-        internal Samples(string path)
+        private bool ended;
+        private int frameOffset;
+        internal int Channels { get; }
+
+        internal FrameStream(ISampleProvider source)
         {
-            if (string.IsNullOrEmpty(path) || !File.Exists(path)) return;
-            reader = new AudioFileReader(path);
-            Frames = reader.Length / reader.WaveFormat.BlockAlign;
-            Duration = (double)Frames / Rate;
-            buffer = new float[4096 * Channels];
-            current = new float[Channels]; next = new float[Channels];
-            Read(current); Read(next);
+            this.source = source;
+            Channels = source.WaveFormat.Channels;
+            buffer = new float[16384 * Channels];
         }
-        private void Read(float[] frame)
+
+        internal bool NextFrame()
         {
-            if (offset >= available) { available = reader.Read(buffer, 0, buffer.Length); offset = 0; }
-            for (int ch = 0; ch < Channels; ch++) frame[ch] = offset < available ? buffer[offset++] : 0;
+            if (ended) return false;
+            if (offset >= available)
+            {
+                available = source.Read(buffer, 0, buffer.Length);
+                offset = 0;
+                if (available == 0) { ended = true; return false; }
+                if (available % Channels != 0)
+                    throw new InvalidDataException("Incomplete audio frame.");
+            }
+            frameOffset = offset;
+            offset += Channels;
+            return true;
         }
-        internal bool Has(int ch, double time) => ch < Channels && time < Duration;
-        internal void Move(double time)
-        {
-            if (reader == null) return;
-            long desired = Math.Min((long)Math.Floor(time * Rate + 1e-7), (long)Math.Ceiling(Duration * Rate));
-            while (index < desired) { Array.Copy(next, current, Channels); Read(next); index++; }
-        }
-        internal float Value(int ch, double time)
-        {
-            double fraction = Math.Clamp(time * Rate - index, 0, 1);
-            if (fraction < 1e-7) return current[ch];
-            return (float)(current[ch] + (next[ch] - current[ch]) * fraction);
-        }
-        public void Dispose() => reader?.Dispose();
+
+        internal float Sample(int channel) => buffer[frameOffset + channel];
     }
 }
 

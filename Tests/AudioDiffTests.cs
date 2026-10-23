@@ -75,7 +75,7 @@ internal static class AudioDiffTests
         wave.SetView(2, 0);
         wave.UpdateLayout();
         RenderWave();
-        Check(wave.ViewDuration == 2, "short clips stay fitted at maximum zoom");
+        Check(wave.ViewDuration == 1, "two-second clip can zoom to one second");
         wave.Fit();
         Check(ReferenceEquals(originalData, wave.Data), "fit and zoom retain waveform data");
         var watch = System.Diagnostics.Stopwatch.StartNew();
@@ -331,9 +331,10 @@ internal static class AudioDiffTests
         differences.TargetJoin = 0.5;
         overview.SetDifferences(differences, true);
         var highlighted = Render(1, 0, 0, 900, "audio-overview-differences");
-        int sourcePixel = (10 * 900 + 220) * 4;
-        int targetPixel = (42 * 900 + 220) * 4;
-        Check(highlighted[sourcePixel + 2] > paused[sourcePixel + 2], "overview marks source difference at its time position");
+        // Current overview colors the waveform bars, not the empty area above them.
+        int sourcePixel = (22 * 900 + 220) * 4;
+        int targetPixel = (54 * 900 + 220) * 4;
+        Check(highlighted[sourcePixel + 2] > highlighted[sourcePixel + 1] && highlighted[sourcePixel + 1] < paused[sourcePixel + 1], "overview marks source difference at its time position");
         Check(highlighted[targetPixel + 2] == paused[targetPixel + 2], "source-only difference does not tint target row");
         Check(highlighted.Skip(800 * 4).Take(100 * 4).SequenceEqual(paused.Skip(800 * 4).Take(100 * 4)),
             "difference overlay leaves the output meter area unchanged");

@@ -304,20 +304,6 @@ internal sealed partial class DiffViewWindow : Window
         await LoadContent();
     }, ViewModel.ReportError);
 
-    private bool ValidateDroppedAudioDuration(IEnumerable<string> paths)
-    {
-        if (!ViewModel.IsAudio) return true;
-        foreach (string path in paths)
-        {
-            // Read only the audio header/metadata; do not decode PCM.
-            using var reader = new NAudio.Wave.AudioFileReader(path);
-            if (reader.TotalTime.TotalSeconds <= 3600) continue;
-            ViewModel.Status = $"1時間を超える音声ファイルは読み込めません: {System.IO.Path.GetFileName(path)}";
-            return false;
-        }
-        return true;
-    }
-
     private void FileDragOver(object sender, DragEventArgs e)
     {
         e.Effects = !renderingContent && ViewModel.CanChangeComparison && e.Data.GetDataPresent(DataFormats.FileDrop)
@@ -332,11 +318,6 @@ internal sealed partial class DiffViewWindow : Window
         var paths = e.Data.GetData(DataFormats.FileDrop) as string[];
         if (paths == null || paths.Length == 0) return;
         if (paths.Length > 2) { ViewModel.Status = StringOverlay.Get("Diff_DropCount"); return; }
-        try
-        {
-            if (!ValidateDroppedAudioDuration(paths)) return;
-        }
-        catch (Exception ex) { ViewModel.ReportError(ex); return; }
         bool sourceSide = ViewModel.IsAudio ? e.GetPosition(body).Y < body.ActualHeight / 2 : e.GetPosition(body).X < body.ActualWidth / 2;
         bool accepted = false;
         SetRendering(true);
@@ -354,7 +335,6 @@ internal sealed partial class DiffViewWindow : Window
         try
         {
             var paths = clipboardInputs.Capture(Clipboard.GetDataObject());
-            if (!ValidateDroppedAudioDuration(paths)) return;
             accepted = await ViewModel.DropFilesAsync(paths, sourceSide);
             clipboardSource = sourceSide;
         }

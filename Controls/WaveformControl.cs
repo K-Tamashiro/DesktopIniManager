@@ -11,7 +11,10 @@ namespace DesktopIniManager.Controls;
 /// <summary>Standalone waveform view. Wheel: time zoom; Ctrl+wheel: amplitude; drag: pan; click: seek.</summary>
 public class WaveformControl : Control
 {
+    public const double MinimumViewSeconds = 0.5;
     private WaveformData data;
+    private Geometry[] cachedGeometry = Array.Empty<Geometry>();
+    private (WaveformData Data, double Start, double Span, double Amplitude, Size Size) geometryKey;
     private readonly DrawingGroup cursorDrawing = new();
     private readonly TranslateTransform cursorTransform = new();
     private double start, span, timelineDuration, amplitude = 1, position;
@@ -58,6 +61,9 @@ public class WaveformControl : Control
         if (!double.IsFinite(totalDuration) || totalDuration < 0) throw new ArgumentOutOfRangeException(nameof(totalDuration));
         loadVersion++;
         data = value; timelineDuration = totalDuration;
+        cachedGeometry = Array.Empty<Geometry>();
+        geometryKey = default;
+        position = 0; highlightStart = highlightDuration = 0;
         Fit();
     }
 
@@ -74,17 +80,17 @@ public class WaveformControl : Control
     {
         VerifyAccess();
         if (!double.IsFinite(seconds) || !double.IsFinite(visibleSeconds)) throw new ArgumentOutOfRangeException();
-        double width = Duration > 0 ? Math.Clamp(visibleSeconds, Math.Min(0.5, Duration), Duration) : 0;
+        double width = Duration > 0 ? Math.Clamp(visibleSeconds, Math.Min(MinimumViewSeconds, Duration), Duration) : 0;
         double left = Math.Clamp(seconds, 0, Math.Max(0, Duration - width));
         if (start == left && span == width) { UpdateCursor(); return; }
         start = left; span = width;
         UpdateCursor(); InvalidateVisual(); ViewChanged?.Invoke();
     }
-    public void ZoomX(double factor, double anchor = 0.5)
+    public void ZoomX(double factor, double anchor = 0)
     {
         if (!double.IsFinite(factor) || factor <= 0 || !double.IsFinite(anchor)) throw new ArgumentOutOfRangeException();
         anchor = Math.Clamp(anchor, 0, 1);
-        double width = Math.Clamp(span / factor, Math.Min(0.5, Duration), Duration);
+        double width = Math.Clamp(span / factor, Math.Min(MinimumViewSeconds, Duration), Duration);
         SetViewRange(start + (span - width) * anchor, width);
     }
     public void ZoomY(double factor)
@@ -137,52 +143,71 @@ public class WaveformControl : Control
             cursor.DrawLine(new Pen(Brushes.Red, 2), new Point(0, 0), new Point(0, ActualHeight));
         UpdateCursor(); dc.DrawDrawing(cursorDrawing);
     }
-    // Only the visible samples are rendered. Zoom/pan never rebuild the audio data.
+    // Normal and difference-colored passes share the same immutable screen geometry.
     protected void DrawWaveform(DrawingContext dc, int channel, Brush stroke = null)
     {
-        int first = Math.Clamp((int)Math.Floor(start * data.BinsPerSecond), 0, data.BinCount - 1);
-        int last = Math.Clamp((int)Math.Ceiling((start + span) * data.BinsPerSecond), first, data.BinCount - 1);
+        var geometry = GetWaveformGeometry(channel);
+        if (geometry.IsEmpty()) return;
+        double right = Math.Clamp(TimeToX(data.Duration), 0, ActualWidth);
+        double lane = ActualHeight / data.Channels;
+        dc.PushClip(new RectangleGeometry(new Rect(0, channel * lane, right, lane)));
+        dc.DrawGeometry(null, new Pen(stroke ?? Foreground, 1), geometry);
+        dc.Pop();
+    }
+
+    internal Geometry GetWaveformGeometry(int channel)
+    {
+        if (data == null || data.BinCount == 0 || span <= 0 || ActualWidth <= 0 || ActualHeight <= 0 || start >= data.Duration)
+            return Geometry.Empty;
+        var key = (data, start, span, amplitude, RenderSize);
+        if (geometryKey != key || cachedGeometry.Length != data.Channels)
+        {
+            geometryKey = key;
+            cachedGeometry = new Geometry[data.Channels];
+        }
+        if (cachedGeometry[channel] != null) return cachedGeometry[channel];
+        int first = Math.Max(0, (int)Math.Floor(start * data.BinsPerSecond) - 1);
+        int last = Math.Min(data.BinCount - 1, (int)Math.Ceiling(Math.Min(start + span, data.Duration) * data.BinsPerSecond));
         double pixelsPerBin = ActualWidth / span / data.BinsPerSecond;
-        var pen = new Pen(stroke ?? Foreground, 1);
-        pen.Freeze();
+        double BinX(int bin) => TimeToX(((double)bin / data.BinsPerSecond +
+            Math.Min((bin + 1.0) / data.BinsPerSecond, data.Duration)) * 0.5);
         var geometry = new StreamGeometry();
         using (var context = geometry.Open())
         {
             if (pixelsPerBin >= 1)
             {
-                // At detailed zoom, connect adjacent samples instead of drawing isolated spikes.
-                // Min/max extrema are retained for each bin.
-                context.BeginFigure(new Point(TimeToX((first + 0.5) / data.BinsPerSecond),
-                    AmplitudeToY((data.Minimum(channel, first) + data.Maximum(channel, first)) * 0.5, channel)), false, false);
+                // Keep the existing detailed trace and all per-bin extrema.
+                context.BeginFigure(new Point(BinX(first),
+                    AmplitudeToY(((double)data.Minimum(channel, first) + data.Maximum(channel, first)) * 0.5, channel)), false, false);
                 for (int bin = first + 1; bin <= last; bin++)
                 {
-                    double mid = (data.Minimum(channel, bin) + data.Maximum(channel, bin)) * 0.5;
-                    context.LineTo(new Point(TimeToX((bin + 0.5) / data.BinsPerSecond),
-                        AmplitudeToY(mid, channel)), true, false);
+                    double mid = ((double)data.Minimum(channel, bin) + data.Maximum(channel, bin)) * 0.5;
+                    context.LineTo(new Point(BinX(bin), AmplitudeToY(mid, channel)), true, false);
+                }
+                if (first == last)
+                {
+                    double mid = ((double)data.Minimum(channel, first) + data.Maximum(channel, first)) * 0.5;
+                    context.BeginFigure(new Point(TimeToX((double)first / data.BinsPerSecond), AmplitudeToY(mid, channel)), false, false);
+                    context.LineTo(new Point(TimeToX(Math.Min((first + 1.0) / data.BinsPerSecond, data.Duration)), AmplitudeToY(mid, channel)), true, false);
                 }
                 for (int bin = first; bin <= last; bin++)
                 {
                     double min = data.Minimum(channel, bin), max = data.Maximum(channel, bin);
                     if (max <= min) continue;
-                    double x = TimeToX((bin + 0.5) / data.BinsPerSecond);
-                    context.BeginFigure(new Point(x, AmplitudeToY(max, channel)), false, false);
-                    context.LineTo(new Point(x, AmplitudeToY(min, channel)), true, false);
+                    context.BeginFigure(new Point(BinX(bin), AmplitudeToY(max, channel)), false, false);
+                    context.LineTo(new Point(BinX(bin), AmplitudeToY(min, channel)), true, false);
                 }
             }
             else
             {
-                // Overview: combine all bins belonging to one screen pixel.
-                int columns = Math.Max(1, (int)Math.Ceiling(ActualWidth));
+                int columns = (int)Math.Ceiling(Math.Min(ActualWidth, TimeToX(data.Duration)));
                 for (int pixel = 0; pixel < columns; pixel++)
                 {
-                    int from = Math.Clamp((int)Math.Floor((start + pixel * span / ActualWidth) * data.BinsPerSecond), 0, data.BinCount - 1);
-                    int to = Math.Clamp((int)Math.Ceiling((start + (pixel + 1) * span / ActualWidth) * data.BinsPerSecond), from + 1, data.BinCount);
-                    float min = float.PositiveInfinity, max = float.NegativeInfinity;
-                    for (int bin = from; bin < to; bin++)
-                    {
-                        min = Math.Min(min, data.Minimum(channel, bin));
-                        max = Math.Max(max, data.Maximum(channel, bin));
-                    }
+                    int from = Math.Max(0, (int)Math.Floor((start + pixel * span / ActualWidth) * data.BinsPerSecond));
+                    int to = Math.Min(data.BinCount, (int)Math.Ceiling(Math.Min(data.Duration,
+                        start + (pixel + 1) * span / ActualWidth) * data.BinsPerSecond));
+                    if (from >= to) continue;
+                    data.GetExtrema(channel, from, to, out float min, out float max);
                     double x = pixel + 0.5;
                     context.BeginFigure(new Point(x, AmplitudeToY(max, channel)), false, false);
                     context.LineTo(new Point(x, AmplitudeToY(min, channel)), true, false);
@@ -190,7 +215,7 @@ public class WaveformControl : Control
             }
         }
         geometry.Freeze();
-        dc.DrawGeometry(null, pen, geometry);
+        return cachedGeometry[channel] = geometry;
     }
 
     protected virtual void DrawOverlay(DrawingContext dc) { }
@@ -200,7 +225,7 @@ public class WaveformControl : Control
         if (!InteractionEnabled) return;
         double factor = Math.Pow(1.2, e.Delta / 120.0);
         if ((Keyboard.Modifiers & ModifierKeys.Control) != 0) ZoomY(factor);
-        else ZoomX(factor, e.GetPosition(this).X / Math.Max(1, ActualWidth));
+        else ZoomX(factor, 0);
         e.Handled = true;
     }
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)

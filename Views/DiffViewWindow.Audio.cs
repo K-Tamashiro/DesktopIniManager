@@ -25,12 +25,15 @@ internal sealed partial class DiffViewWindow
     private AudioOverview audioOverview;
     private bool audioDifferenceEnabled;
     private Task<AudioDifferences> audioDifferenceTask;
+    private Border audioDifferenceBusy;
     private void ResetAudio()
     {
         audioLoading?.Cancel();
         audioLoading?.Dispose();
         audioLoading = null;
         audioDifferenceTask = null;
+        audioDifferenceBusy = null;
+        audioDifferenceEnabled = false;
         audioTimer?.Stop();
         audioTimer = null;
         if (audioRendering != null) CompositionTarget.Rendering -= audioRendering;
@@ -70,9 +73,6 @@ internal sealed partial class DiffViewWindow
         }).Task.ConfigureAwait(false);
         var envelopes = await Task.Run(() =>
         {
-            // Read duration from the audio header before decoding either file.
-            ValidateAudioDuration(request.Source, request.Token);
-            ValidateAudioDuration(request.Target, request.Token);
             return new[]
             {
                 AudioEnvelope.Load(request.Source, request.Token),
@@ -86,15 +86,6 @@ internal sealed partial class DiffViewWindow
         }).Task.ConfigureAwait(false);
     }
 
-    private static void ValidateAudioDuration(string path, CancellationToken cancellation)
-    {
-        cancellation.ThrowIfCancellationRequested();
-        if (string.IsNullOrEmpty(path) || !File.Exists(path)) return;
-        using var reader = new AudioFileReader(path);
-        if (reader.TotalTime > TimeSpan.FromHours(1))
-            throw new InvalidDataException($"1時間を超える音声ファイルは読み込めません: {Path.GetFileName(path)} ({reader.TotalTime:hh\\:mm\\:ss})");
-    }
-
     private async Task ApplyAudioDifferencesAsync()
     {
         if (audioTimeline == null || audioLoading == null || !audioDifferenceEnabled) return;
@@ -104,7 +95,11 @@ internal sealed partial class DiffViewWindow
         try
         {
             // Optional analysis must not hold LoadContent's rendering/drop lock.
-            audioDifferenceTask ??= Task.Run(() => AudioDifferences.Load(source, target, token), token);
+            if (audioDifferenceTask == null)
+            {
+                if (audioDifferenceBusy != null) audioDifferenceBusy.Visibility = Visibility.Visible;
+                audioDifferenceTask = Task.Run(() => AudioDifferences.Load(source, target, token), token);
+            }
             var differences = await audioDifferenceTask;
             if (token.IsCancellationRequested || windowClosed || !ReferenceEquals(timeline, audioTimeline)) return;
             for (int side = 0; side < timeline.Waves.Length; side++)
@@ -119,6 +114,11 @@ internal sealed partial class DiffViewWindow
                 audioDifferenceTask = null;
                 ViewModel.ReportError(ex);
             }
+        }
+        finally
+        {
+            if (ReferenceEquals(timeline, audioTimeline) && audioDifferenceBusy != null)
+                audioDifferenceBusy.Visibility = Visibility.Collapsed;
         }
     }
 
@@ -137,6 +137,39 @@ internal sealed partial class DiffViewWindow
         var layout = audioTimeline = new AudioTimeline(envelopes, duration, new[] { source, target });
         Grid.SetColumnSpan(layout, 3);
         body.Children.Add(layout);
+        // Overlay the waveform while the first difference analysis is running.
+        var busyContent = new StackPanel
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        var busyBar = new ProgressBar
+        {
+            Width = 160,
+            Height = 5,
+            IsIndeterminate = true
+        };
+        busyBar.SetResourceReference(Control.BackgroundProperty, "HeaderBackground");
+        busyBar.SetResourceReference(Control.ForegroundProperty, "Accent");
+        busyContent.Children.Add(busyBar);
+        var busyText = new TextBlock
+        {
+            Text = "Analyzing audio differences...",
+            Margin = new Thickness(0, 10, 0, 0),
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+        busyText.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
+        busyContent.Children.Add(busyText);
+        audioDifferenceBusy = new Border
+        {
+            Child = busyContent,
+            Visibility = Visibility.Collapsed,
+            IsHitTestVisible = true
+        };
+        audioDifferenceBusy.SetResourceReference(Border.BackgroundProperty, "OverlayScrim");
+        Grid.SetColumnSpan(audioDifferenceBusy, 3);
+        Panel.SetZIndex(audioDifferenceBusy, 10);
+        body.Children.Add(audioDifferenceBusy);
         layout.ViewChanged += overview.SetViewport;
         overview.ViewportDragged += layout.SetViewStart;
         BuildAudioZoom(duration, envelopes);
@@ -316,7 +349,7 @@ internal sealed partial class DiffViewWindow
         };
         void UpdateMaximum()
         {
-            zoom.Maximum = Math.Max(100, duration / 0.5 * 100);
+            zoom.Maximum = Math.Max(100, duration / DesktopIniManager.Controls.WaveformControl.MinimumViewSeconds * 100);
             if (zoom.Value > zoom.Maximum) zoom.Value = zoom.Maximum;
         }
 
@@ -366,11 +399,14 @@ internal sealed partial class DiffViewWindow
             if (audioTimeline != null)
                 foreach (var wave in audioTimeline.Waves) wave.ShowDifferences = audioDifferenceEnabled;
             if (audioOverview != null) audioOverview.ShowDifferences = audioDifferenceEnabled;
-            if (audioDifferenceEnabled) _ = ApplyAudioDifferencesAsync();
         }
-        differenceToggle.Checked += (_, _) => UpdateDifferenceMode();
+        differenceToggle.Checked += (_, _) =>
+        {
+            UpdateDifferenceMode();
+            if (audioDifferenceTask == null) _ = ApplyAudioDifferencesAsync();
+        };
         differenceToggle.Unchecked += (_, _) => UpdateDifferenceMode();
-        UpdateDifferenceMode();
+        differenceIcon.Opacity = audioDifferenceEnabled ? 1 : 0.35;
         imageToolbar.Children.Add(differenceToggle);
         var repeatIcon = new Image { Source = DifferencerStatusIcons.GetCustomIcon(144), Stretch = Stretch.Uniform, Opacity = 0.35 };
         var repeatToggle = new ToggleButton
@@ -576,6 +612,8 @@ internal sealed class AudioOverview : Control
     }
     private AudioDifferences differences;
     private bool showDifferences;
+    private bool[][] differenceBars = new bool[2][];
+    private int differenceBarsCount = -1;
     internal bool ShowDifferences
     {
         get => showDifferences;
@@ -585,28 +623,32 @@ internal sealed class AudioOverview : Control
     internal void SetDifferences(AudioDifferences value, bool enabled)
     {
         differences = value;
+        differenceBarsCount = -1;
         ShowDifferences = enabled;
     }
 
-    private bool IsDifferenceAt(int side, double from, double to)
+    private bool[] GetDifferenceBars(int side, int bars)
     {
-        if (!showDifferences || differences == null) return false;
-        var channels = side == 0 ? differences.Channels : differences.TargetChannels;
-        foreach (var ranges in channels)
-            foreach (var range in ranges)
-                if (range.Start < to && range.End > from) return true;
-        return false;
-    }
-
-    private void DrawDifferenceJoin(DrawingContext dc, int side, double width, double rowHeight)
-    {
-        if (!showDifferences || differences == null || duration <= 0) return;
-        double? join = side == 0 ? differences.SourceJoin : differences.TargetJoin;
-        if (!join.HasValue) return;
-        double x = Math.Clamp(join.Value / duration, 0, 1) * width;
-        double top = side * rowHeight + 3, bottom = (side + 1) * rowHeight - 3;
-        dc.DrawLine(new Pen(Brushes.Red, 2) { DashStyle = DashStyles.Dash },
-            new Point(x, top), new Point(x, bottom));
+        if (differenceBarsCount != bars)
+        {
+            differenceBarsCount = bars;
+            differenceBars = new bool[2][];
+        }
+        if (differenceBars[side] != null) return differenceBars[side];
+        var flags = new bool[bars];
+        if (differences != null && envelopes[side] != null && envelopes[side].Duration > 0)
+        {
+            var channels = side == 0 ? differences.Channels : differences.TargetChannels;
+            double seconds = envelopes[side].Duration;
+            foreach (var ranges in channels)
+                foreach (var range in ranges)
+                {
+                    int first = Math.Clamp((int)Math.Floor(range.Start / seconds * bars), 0, bars);
+                    int last = Math.Clamp((int)Math.Ceiling(range.End / seconds * bars), 0, bars);
+                    for (int i = first; i < last; i++) flags[i] = true;
+                }
+        }
+        return differenceBars[side] = flags;
     }
 
     private readonly AudioEnvelope[] envelopes;
@@ -623,11 +665,19 @@ internal sealed class AudioOverview : Control
         if (bins == 0) return result;
         for (int bar = 0; bar < bars; bar++)
         {
-            int first = Math.Min(bins - 1, bar * bins / bars);
-            int last = Math.Min(bins, Math.Max(first + 1, (bar + 1) * bins / bars));
+            int first = Math.Min(bins - 1, (int)((long)bar * bins / bars));
+            int last = Math.Min(bins, Math.Max(first + 1, (int)((long)(bar + 1) * bins / bars)));
             for (int ch = 0; ch < envelope.Channels; ch++)
-                for (int bin = first; bin < last; bin++)
-                    result[bar] = Math.Max(result[bar], Math.Max(Math.Abs(envelope.Data?.Minimum(ch, bin) ?? envelope.Min[ch][bin]), envelope.Data?.Maximum(ch, bin) ?? envelope.Max[ch][bin]));
+            {
+                if (envelope.Data != null)
+                {
+                    envelope.Data.GetExtrema(ch, first, last, out float min, out float max);
+                    result[bar] = Math.Max(result[bar], Math.Max(Math.Abs(min), max));
+                }
+                else
+                    for (int bin = first; bin < last; bin++)
+                        result[bar] = Math.Max(result[bar], Math.Max(Math.Abs(envelope.Min[ch][bin]), envelope.Max[ch][bin]));
+            }
         }
         return barPeaks[side] = result;
     }
@@ -668,20 +718,18 @@ internal sealed class AudioOverview : Control
             {
                 int bars = Math.Max(1, (int)(width * envelope.Duration / duration / 4));
                 var peaks = GetBarPeaks(side, bars);
+                var redBars = showDifferences ? GetDifferenceBars(side, bars) : null;
                 for (int bar = 0; bar < bars; bar++)
                 {
                     float peak = peaks[bar];
                     double height = Math.Max(1, Math.Clamp(peak, 0, 1) * (rowHeight - 6));
                     bool played = (double)bar / bars * envelope.Duration < position;
                     if (!played) dc.PushOpacity(UnplayedOpacity);
-                    double barStart = (double)bar / bars * envelope.Duration;
-                    double barEnd = (double)(bar + 1) / bars * envelope.Duration;
-                    dc.DrawRectangle(IsDifferenceAt(side, barStart, barEnd) ? Brushes.Red : color, null,
+                    dc.DrawRectangle(redBars != null && redBars[bar] ? Brushes.Red : color, null,
                         new Rect(bar * 4, baseline - height, 2, height));
                     if (!played) dc.Pop();
                 }
             }
-            DrawDifferenceJoin(dc, side, width, rowHeight);
             // dBFS scale: -60 dB to 0 dB, including saved volume/mute.
             double level = levels[side] > 0 ? Math.Clamp((20 * Math.Log10(levels[side]) + 60) / 60, 0, 1) : 0;
             for (int segment = 0; segment < 16; segment++)
@@ -829,7 +877,7 @@ internal sealed class AudioTimeline : Grid
     }
     internal void SetZoom(double value)
     {
-        double newZoom = Math.Clamp(value, 1, Math.Max(1, Waves[0].Duration / 0.5));
+        double newZoom = Math.Clamp(value, 1, Math.Max(1, Waves[0].Duration / DesktopIniManager.Controls.WaveformControl.MinimumViewSeconds));
         if (zoom == newZoom) return;
 
         // Keep the time currently at the viewport's left edge at X=0.
@@ -863,54 +911,107 @@ internal sealed class AudioWaveform : DesktopIniManager.Controls.WaveformControl
 {
     private AudioDifferences differences;
     private bool source = true, showDifferences;
+    private DrawingGroup differenceLayer;
+    private (DesktopIniManager.Controls.WaveformData Data, double Start, double Span,
+        double Amplitude, Size Size, AudioDifferences Differences, bool Source) layerKey;
+
     internal bool ShowDifferences
     {
         get => showDifferences;
-        set { showDifferences = value; InvalidateVisual(); }
+        set
+        {
+            if (showDifferences == value) return;
+            showDifferences = value;
+            // Switching only changes the opacity of the retained red layer.
+            if (differenceLayer != null) differenceLayer.Opacity = value ? 1 : 0;
+            InvalidateVisual();
+        }
     }
+
     internal void SetDifferences(AudioDifferences value, bool enabled, bool source = true)
     {
-        differences = value; this.source = source; ShowDifferences = enabled;
+        differences = value;
+        this.source = source;
+        differenceLayer = null;
+        layerKey = default;
+        ShowDifferences = enabled;
+        InvalidateVisual();
     }
+
     internal AudioWaveform(AudioEnvelope envelope, double duration, string path)
     {
         SetData(envelope?.Data, duration);
         ToolTip = "Wheel: time zoom / Ctrl+wheel: amplitude / Drag: pan / Click: seek";
     }
+
     internal void SetView(double zoom, double offset) =>
         SetViewRange(Duration * offset / Math.Max(1, ActualWidth * zoom), Duration / zoom);
     internal double TimeAt(double x) => XToTime(x);
     internal double PixelAt(double seconds) => ViewDuration > 0 ? seconds / ViewDuration * ActualWidth : 0;
     internal double Position { set => SetPosition(TimeSpan.FromSeconds(value)); }
+
     protected override void DrawOverlay(DrawingContext dc)
     {
-        if (!showDifferences || differences == null || Data == null) return;
+        if (!showDifferences || differences == null || Data == null ||
+            ViewDuration <= 0 || ActualWidth <= 0 || ActualHeight <= 0) return;
+
+        var key = (Data, ViewStart, ViewDuration, AmplitudeScale, RenderSize, differences, source);
+        if (differenceLayer == null || layerKey != key)
+        {
+            layerKey = key;
+            differenceLayer = BuildDifferenceLayer();
+        }
+        dc.DrawDrawing(differenceLayer);
+    }
+
+    private DrawingGroup BuildDifferenceLayer()
+    {
+        var layer = new DrawingGroup { Opacity = showDifferences ? 1 : 0 };
         var channels = source ? differences.Channels : differences.TargetChannels;
         double lane = ActualHeight / Data.Channels;
-        for (int ch = 0; ch < Math.Min(channels.Length, Data.Channels); ch++)
+        int pixels = Math.Max(1, (int)Math.Ceiling(ActualWidth));
+        using (var drawing = layer.Open())
         {
-            // Combine visible difference intervals into one clip. Repainting the
-            // entire waveform for each interval made dense differences quadratic.
-            var clip = new GeometryGroup();
-            foreach (var range in channels[ch])
+            for (int ch = 0; ch < Math.Min(channels.Length, Data.Channels); ch++)
             {
-                if (range.End <= ViewStart || range.Start >= ViewStart + ViewDuration) continue;
-                double left = Math.Max(0, TimeToX(range.Start));
-                double right = Math.Min(ActualWidth, TimeToX(range.End));
-                if (right <= left) continue;
-                clip.Children.Add(new RectangleGeometry(new Rect(left, ch * lane, right - left, lane)));
+                // A pixel mask bounds work by viewport width, not recording duration
+                // or the number of difference intervals.
+                var mask = new bool[pixels];
+                foreach (var range in channels[ch])
+                {
+                    if (range.End <= ViewStart) continue;
+                    if (range.Start >= ViewStart + ViewDuration) break;
+                    int first = Math.Clamp((int)Math.Floor(TimeToX(range.Start)), 0, pixels);
+                    int last = Math.Clamp((int)Math.Ceiling(TimeToX(range.End)), 0, pixels);
+                    for (int x = first; x < last; x++) mask[x] = true;
+                }
+                var clip = new StreamGeometry();
+                bool any = false;
+                using (var context = clip.Open())
+                {
+                    for (int x = 0; x < pixels;)
+                    {
+                        if (!mask[x]) { x++; continue; }
+                        int first = x;
+                        while (x < pixels && mask[x]) x++;
+                        double right = Math.Min(ActualWidth, x);
+                        if (right <= first) continue;
+                        any = true;
+                        context.BeginFigure(new Point(first, ch * lane), true, true);
+                        context.LineTo(new Point(right, ch * lane), true, false);
+                        context.LineTo(new Point(right, (ch + 1) * lane), true, false);
+                        context.LineTo(new Point(first, (ch + 1) * lane), true, false);
+                    }
+                }
+                if (!any) continue;
+                clip.Freeze();
+                drawing.PushClip(clip);
+                // Reuse the normal waveform's cached geometry. Only the overlay
+                // color changes; no waveform samples or geometry are recalculated.
+                drawing.DrawGeometry(null, new Pen(Brushes.Red, 1), GetWaveformGeometry(ch));
+                drawing.Pop();
             }
-            if (clip.Children.Count == 0) continue;
-            clip.Freeze();
-            dc.PushClip(clip);
-            DrawWaveform(dc, ch, Brushes.Red);
-            dc.Pop();
         }
-        double? join = source ? differences.SourceJoin : differences.TargetJoin;
-        if (join.HasValue)
-        {
-            double x = TimeToX(join.Value);
-            dc.DrawLine(new Pen(Brushes.Red, 2) { DashStyle = DashStyles.Dash }, new Point(x, 0), new Point(x, ActualHeight));
-        }
+        return layer;
     }
 }

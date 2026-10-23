@@ -1,4 +1,4 @@
-# WaveformControl
+﻿# WaveformControl
 
 DIM Audio DIFF用のWPF波形コントロール。`Controls/WaveformData.cs` と
 `Controls/WaveformControl.cs` は差分解析・プレイヤー・DIMの設定に依存せず、WPFとNAudioだけで使えます。
@@ -16,9 +16,9 @@ waveform.Fit();
 - ホイール：マウス位置を基準に時間ズーム。Ctrl＋ホイール：振幅ズーム。
 - 左ドラッグ：時間方向の移動。左クリック：シーク時刻の通知。
 - DIMではShift＋ホイール／水平ホイールとスクロールバーも利用できます。
-- 最大拡大は10秒幅。10秒未満の音源は全体表示になります。
+- 最大拡大は0.5秒幅。0.5秒未満の音源は全体表示になります。
 - UI操作とSetDataはUIスレッドから呼びます。LoadAsyncはデコードをバックグラウンドで行います。
-- 1秒30区間のMin/Maxをチャンネル別に保存。時間分解能は読み込み時に指定できます。
+- 1秒2048区間のMin/Maxをチャンネル別に保存。時間分解能は読み込み時に指定できます。
 - 1時間を超える音源はエラーとし、途中で切り捨てません。
 - ズーム・移動・再生位置更新ではPCMを読み直しません。カーソルは独立したDrawingGroupです。
 - Min/Maxのためサンプル単位の波形や区間内の振動順序は表現しません。
@@ -47,3 +47,7 @@ Tests/bin/Debug/net10.0-windows/win-x64/DesktopIniManager.DifferencerTests.exe -
 Tests/bin/Debug/net10.0-windows/win-x64/DesktopIniManager.DifferencerTests.exe --audio-metadata
 Tests/bin/Debug/net10.0-windows/win-x64/DesktopIniManager.DifferencerTests.exe --audio-diff
 ```
+
+描画は元のMin/Maxを維持したまま、64区間単位の索引で画面内の各列に必要な正確なピークを取得します。
+表示範囲・サイズ・振幅倍率が同じ間は描画形状を再利用し、差分色の描画でも共有します。
+2048 Hz未満の音源は1サンプル1区間で保持します。音源終了後の比較枠には波形を描きません。

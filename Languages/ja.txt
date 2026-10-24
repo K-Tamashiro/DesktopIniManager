@@ -415,3 +415,7 @@ Diff_DropDuplicate=同じファイルは取り込めません。別のファイ�
 Diff_DropMode=テキスト・画像・動画の同じ種類のファイルをドロップしてください。未対応のバイナリファイルは開けません。
 Diff_DropFilesOnly=存在するファイルをドロップしてください。フォルダーは取り込めません。
 Diff_DropCount=片側に1ファイル、またはSource／Target用に2ファイルをドロップしてください。
+Diff_SourceVolume=Source の音量
+Diff_TargetVolume=Target の音量
+Diff_MuteVolume=ミュート（0%）
+Diff_MaximumVolume=最大音量（100%）

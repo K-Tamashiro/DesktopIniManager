@@ -175,7 +175,10 @@ internal sealed class AudioEnvelope
         if (data.Channels > 2) throw new InvalidDataException("Audio Diff supports mono and stereo audio.");
         var result = new AudioEnvelope
         {
-            Data = data, Channels = data.Channels, SampleRate = data.SampleRate, Duration = data.Duration
+            Data = data,
+            Channels = data.Channels,
+            SampleRate = data.SampleRate,
+            Duration = data.Duration
         };
         result.ReadFormat(path, cancellation);
         return result;
@@ -324,6 +327,32 @@ internal sealed class AudioDiffPlayer : IDisposable
     private readonly AudioRepeatProvider repeat;
     private readonly AudioSpeedProvider speedProvider;
     private double playbackSpeed = 1;
+    private readonly double[] delays = new double[2];
+    internal double GetDelay(int side) => delays[side];
+    internal void SetDelay(int side, double seconds)
+    {
+        if (side < 0 || side >= 2 || !double.IsFinite(seconds)) throw new ArgumentOutOfRangeException();
+        lock (syncLock)
+        {
+            if (delays[side] == seconds) return;
+            double position = Position;
+            bool playing = Playing;
+            playbackClock.Stop();
+            output.Stop();
+            delays[side] = seconds;
+            Duration = Math.Max(0, Math.Max(readers[0] == null ? 0 : readers[0].TotalTime.TotalSeconds + delays[0],
+                readers[1] == null ? 0 : readers[1].TotalTime.TotalSeconds + delays[1]));
+            if (repeatEnd > Duration)
+            {
+                repeatEnd = Duration;
+                if (repeatStart >= repeatEnd) repeatStart = repeatEnd = 0;
+                repeat.SetRange(repeatStart, repeatEnd);
+            }
+            repeat.Seek(Math.Min(position, Duration));
+            ResetPositionClock();
+            if (playing && position < Duration) StartPlayback();
+        }
+    }
     private readonly System.Diagnostics.Stopwatch playbackClock = new();
     private double timelineOrigin, repeatStart, repeatEnd;
 
@@ -359,7 +388,7 @@ internal sealed class AudioDiffPlayer : IDisposable
     }
 
     internal Exception PlaybackError;
-    internal readonly double Duration;
+    internal double Duration { get; private set; }
 
     public WaveFormat WaveFormat { get; } = WaveFormat.CreateIeeeFloatWaveFormat(48000, 2);
 
@@ -493,29 +522,31 @@ internal sealed class AudioDiffPlayer : IDisposable
 
     private void ResetInputs(double target)
     {
-            mixer.RemoveAllMixerInputs();
-            for (int i = 0; i < 2; i++)
-            {
-                Volatile.Write(ref peaks[i], 0);
-                var reader = readers[i];
-                if (reader == null) continue;
+        mixer.RemoveAllMixerInputs();
+        for (int i = 0; i < 2; i++)
+        {
+            Volatile.Write(ref peaks[i], 0);
+            var reader = readers[i];
+            if (reader == null) continue;
 
-                if (target < reader.TotalTime.TotalSeconds)
-                {
-                    reader.CurrentTime = TimeSpan.FromSeconds(target);
-                }
-                else
-                {
-                    reader.CurrentTime = reader.TotalTime;
-                }
-                // Discard resampler history on seek so buffered pre-seek samples cannot leak.
-                float gain = volumes[i]?.Volume ?? 1;
-                ISampleProvider provider = reader;
-                if (reader.WaveFormat.Channels == 1) provider = new MonoToStereoSampleProvider(provider);
-                if (provider.WaveFormat.SampleRate != 48000) provider = new WdlResamplingSampleProvider(provider, 48000);
-                volumes[i] = new VolumeSampleProvider(provider) { Volume = gain };
-                if (target < reader.TotalTime.TotalSeconds) mixer.AddMixerInput(Meter(i, volumes[i]));
+            double local = target - delays[i];
+            if (local < reader.TotalTime.TotalSeconds)
+            {
+                reader.CurrentTime = TimeSpan.FromSeconds(Math.Max(0, local));
             }
+            else
+            {
+                reader.CurrentTime = reader.TotalTime;
+            }
+            // Discard resampler history on seek so buffered pre-seek samples cannot leak.
+            float gain = volumes[i]?.Volume ?? 1;
+            ISampleProvider provider = reader;
+            if (reader.WaveFormat.Channels == 1) provider = new MonoToStereoSampleProvider(provider);
+            if (provider.WaveFormat.SampleRate != 48000) provider = new WdlResamplingSampleProvider(provider, 48000);
+            if (local < 0) provider = new OffsetSampleProvider(provider) { DelayBy = TimeSpan.FromSeconds(-local) };
+            volumes[i] = new VolumeSampleProvider(provider) { Volume = gain };
+            if (local < reader.TotalTime.TotalSeconds) mixer.AddMixerInput(Meter(i, volumes[i]));
+        }
 
     }
 

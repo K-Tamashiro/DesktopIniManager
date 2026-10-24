@@ -396,3 +396,7 @@ Diff_DropDuplicate=이미 불러온 파일입니다. 다른 파일을 선택하�
 Diff_DropMode=텍스트, 이미지 또는 동영상 중 같은 종류의 파일을 놓으세요. 지원하지 않는 바이너리 파일은 열 수 없습니다.
 Diff_DropFilesOnly=존재하는 파일을 놓으세요. 폴더는 불러올 수 없습니다.
 Diff_DropCount=한쪽에 파일 하나를 놓거나 Source / Target용 파일 두 개를 놓으세요.
+Diff_SourceVolume=원본 음량
+Diff_TargetVolume=대상 음량
+Diff_MuteVolume=음소거 (0%)
+Diff_MaximumVolume=최대 음량 (100%)

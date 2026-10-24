@@ -417,18 +417,6 @@ internal sealed partial class DiffViewWindow : Window
         return IntPtr.Zero;
     }
 
-    private Button AddButton(Panel panel, string glyph, string text, Action action)
-    {
-        var content = new StackPanel { Orientation = Orientation.Horizontal };
-        content.Children.Add(new TextBlock { Text = glyph, FontFamily = new FontFamily("Segoe MDL2 Assets"), FontSize = 15, VerticalAlignment = VerticalAlignment.Center });
-        content.Children.Add(new TextBlock { Text = text, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center });
-        var button = new Button { Content = content, Style = TryFindResource("IconTextButton") as Style, ToolTip = text, Margin = new Thickness(0, 0, 8, 8) };
-        System.Windows.Automation.AutomationProperties.SetName(button, text);
-        button.Click += (s, e) => action();
-        panel.Children.Add(button);
-        return button;
-    }
-
     private void DetachImageFitHandler()
     {
         if (imageFitHandler == null) return;
@@ -531,6 +519,36 @@ internal sealed partial class DiffViewWindow : Window
                 }
             })
             { BaselineAlignment = BaselineAlignment.Center });
+            if (ViewModel.IsVideo)
+            {
+                header.Inlines.Add(new InlineUIContainer(CreateVideoDelay(source))
+                { BaselineAlignment = BaselineAlignment.Center });
+                var duration = new TextBlock
+                {
+                    Text = "--:--:--",
+                    Margin = new Thickness(10, 0, 0, 0),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    FontWeight = FontWeights.SemiBold,
+                    ToolTip = source ? "Source video duration" : "Target video duration"
+                };
+                duration.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
+                videoDurationLabels[source ? 0 : 1] = duration;
+                header.Inlines.Add(new InlineUIContainer(duration) { BaselineAlignment = BaselineAlignment.Center });
+                string path = ViewModel.GetPath(source);
+                if (!string.IsNullOrEmpty(path) && System.IO.File.Exists(path))
+                {
+                    long bytes = new System.IO.FileInfo(path).Length;
+                    var sizeLabel = new TextBlock
+                    {
+                        Text = FormatVideoFileSize(bytes),
+                        Margin = new Thickness(10, 0, 0, 0),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        ToolTip = $"{bytes:N0} bytes"
+                    };
+                    sizeLabel.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
+                    header.Inlines.Add(new InlineUIContainer(sizeLabel) { BaselineAlignment = BaselineAlignment.Center });
+                }
+            }
         }
         Update(sourceHeader, true);
         Update(targetHeader, false);
@@ -606,8 +624,6 @@ internal sealed partial class DiffViewWindow : Window
             if (reload && !await ViewModel.LoadContentAsync()) return;
             if (!IsLoaded) return;
             DetachImageFitHandler();
-            System.Diagnostics.Debug.WriteLine(
-    $"[IMAGE RESET] {DateTime.Now:HH:mm:ss.fff}\n{Environment.StackTrace}");
             ResetImageNavigation();
             ResetMediaController();
             if (imageToolbar is Panel p)
@@ -1851,386 +1867,6 @@ internal sealed partial class DiffViewWindow : Window
         body.UpdateLayout();
         UpdateImageNavigation();
         return Task.CompletedTask;
-    }
-
-    private MediaElement leftMedia, rightMedia;
-    private Slider videoSeek;
-    private Button videoPlayPause;
-    private TextBlock videoTimeLabel;
-    private bool videoSeeking;
-    private bool videoIsPlaying;
-    private ScaleTransform leftVideoScale, rightVideoScale;
-    private DispatcherTimer videoPositionTimer;
-
-    private void ResetMediaController()
-    {
-        ResetAudio();
-        gifFrameHost.HorizontalAlignment = HorizontalAlignment.Center;
-        videoPositionTimer?.Stop();
-        videoPositionTimer = null;
-        videoIsPlaying = false;
-        videoSeeking = false;
-        foreach (var media in new[] { leftMedia, rightMedia })
-        {
-            if (media == null) continue;
-            media.MediaOpened -= Video_MediaOpened;
-            try { media.Close(); } catch { }
-        }
-        leftMedia = rightMedia = null;
-        leftVideoScale = rightVideoScale = null;
-        videoSeek = null;
-        videoPlayPause = null;
-        videoTimeLabel = null;
-        if (gifFrameHost.Tag is KeyEventHandler frameKeyHandler)
-            RemoveHandler(Keyboard.PreviewKeyDownEvent, frameKeyHandler);
-        gifFrameHost.Tag = null;
-        gifFrameHost.Children.Clear();
-        gifFrameHost.Visibility = Visibility.Collapsed;
-    }
-
-    private Task RenderVideos()
-    {
-        body.Children.Clear();
-        if (gifFrameHost.Tag is System.Windows.Input.KeyEventHandler previousFrameKeyHandler)
-        {
-            RemoveHandler(System.Windows.Input.Keyboard.PreviewKeyDownEvent, previousFrameKeyHandler);
-            gifFrameHost.Tag = null;
-        }
-        gifFrameHost.Children.Clear();
-        gifFrameHost.Visibility = Visibility.Collapsed;
-        body.ColumnDefinitions[1].Width = new GridLength(12);
-
-        string leftPath = ViewModel.GetPath(true);
-        string rightPath = ViewModel.GetPath(false);
-        bool leftMissing = string.IsNullOrEmpty(leftPath) || !System.IO.File.Exists(leftPath);
-        bool rightMissing = string.IsNullOrEmpty(rightPath) || !System.IO.File.Exists(rightPath);
-
-        leftMedia = CreateVideoElement(leftPath, leftMissing);
-        rightMedia = CreateVideoElement(rightPath, rightMissing);
-
-        leftVideoScale = new ScaleTransform(1, 1);
-        rightVideoScale = new ScaleTransform(1, 1);
-
-        var leftContainer = new Grid { LayoutTransform = leftVideoScale };
-        leftContainer.Children.Add(leftMedia);
-        var rightContainer = new Grid { LayoutTransform = rightVideoScale };
-        rightContainer.Children.Add(rightMedia);
-
-        leftScroll = ThemedViewer(leftContainer, true, leftMissing);
-        rightScroll = ThemedViewer(rightContainer, false, rightMissing);
-        EnableImagePan(leftScroll);
-        EnableImagePan(rightScroll);
-
-        body.Children.Add(ImagePaneHost(leftScroll, true, leftMissing));
-        var rightHost = ImagePaneHost(rightScroll, false, rightMissing);
-        Grid.SetColumn(rightHost, 2);
-        body.Children.Add(rightHost);
-
-        // Shared zoom control (reuse image toolbar area, styled like images)
-        var zoom = imageZoom = new Slider
-        {
-            Minimum = 0.25,
-            Maximum = 4,
-            Value = 1,
-            Width = 120,
-            ToolTip = "Shared zoom for Source and Target",
-            VerticalAlignment = VerticalAlignment.Center,
-            Style = TryFindResource("ZoomSlider") as Style
-        };
-        var zoomLabel = new TextBlock
-        {
-            Margin = new Thickness(8, 0, 0, 0),
-            VerticalAlignment = VerticalAlignment.Center,
-            FontWeight = FontWeights.SemiBold,
-            Text = "100%"
-        };
-        zoomLabel.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
-        zoom.ValueChanged += (s, e) =>
-        {
-            leftVideoScale.ScaleX = leftVideoScale.ScaleY = e.NewValue;
-            rightVideoScale.ScaleX = rightVideoScale.ScaleY = e.NewValue;
-            zoomLabel.Text = string.Format("{0:0}%", e.NewValue * 100);
-        };
-
-        var wrapper = imageToolbar as Panel;
-        if (wrapper != null)
-        {
-            wrapper.Children.Clear();
-            var chrome = new Border
-            {
-                CornerRadius = new CornerRadius(18),
-                Padding = new Thickness(10, 4, 6, 4),
-                Margin = new Thickness(0, 0, 8, 8),
-                Child = new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    VerticalAlignment = VerticalAlignment.Center
-                }
-            };
-            chrome.SetResourceReference(Border.BackgroundProperty, "CardBackground");
-            chrome.SetResourceReference(Border.BorderBrushProperty, "Line");
-            chrome.BorderThickness = new Thickness(1);
-            var chromeRow = (StackPanel)chrome.Child;
-            var zoomTitle = new TextBlock
-            {
-                Text = StringOverlay.Get("Diff_Zoom"),
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(2, 0, 8, 0),
-                FontWeight = FontWeights.SemiBold
-            };
-            zoomTitle.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
-            chromeRow.Children.Add(zoomTitle);
-            chromeRow.Children.Add(ImageZoomStepButton("\uE738", "Zoom out", () =>
-            {
-                zoom.Value = Math.Max(zoom.Minimum, zoom.Value / 1.25);
-            }));
-            chromeRow.Children.Add(zoom);
-            chromeRow.Children.Add(ImageZoomStepButton("\uE710", "Zoom in", () =>
-            {
-                zoom.Value = Math.Min(zoom.Maximum, zoom.Value * 1.25);
-            }));
-            chromeRow.Children.Add(zoomLabel);
-            wrapper.Children.Add(chrome);
-            AddIconActionButton(wrapper, DifferencerStatusIcons.GetCustomIcon(72), StringOverlay.Get("Diff_Fit"), () => FitVideosToViewport());
-            AddIconActionButton(wrapper, DifferencerStatusIcons.GetCustomIcon(73), "100%", () => { zoom.Value = 1; });
-            wrapper.Visibility = Visibility.Visible;
-            imageControlRow.Visibility = Visibility.Visible;
-        }
-
-        // Central video controller (play/pause + seek) in gifFrameHost
-        BuildVideoController();
-
-        // Fit after layout
-        Dispatcher.BeginInvoke(new Action(() =>
-        {
-            body.UpdateLayout();
-            FitVideosToViewport();
-        }), DispatcherPriority.Loaded);
-
-        return Task.CompletedTask;
-    }
-
-    private MediaElement CreateVideoElement(string path, bool missing)
-    {
-        var media = new MediaElement
-        {
-            LoadedBehavior = MediaState.Manual,
-            UnloadedBehavior = MediaState.Manual,
-            Stretch = Stretch.Uniform,
-            IsMuted = true,
-            Volume = 0,
-            ScrubbingEnabled = true
-        };
-        if (!missing && !string.IsNullOrEmpty(path))
-            media.Source = new Uri(path);
-        media.MediaOpened += Video_MediaOpened;
-        media.MediaEnded += (s, e) => { /* shorter side stops naturally */ };
-        return media;
-    }
-
-    private void Video_MediaOpened(object sender, RoutedEventArgs e)
-    {
-        UpdateVideoSeekRange();
-        FitVideosToViewport();
-    }
-
-    private void FitVideosToViewport()
-    {
-        if (imageZoom == null || leftScroll == null || rightScroll == null) return;
-        double vw = leftMedia?.NaturalVideoWidth > 0 ? leftMedia.NaturalVideoWidth : 640;
-        double vh = leftMedia?.NaturalVideoHeight > 0 ? leftMedia.NaturalVideoHeight : 360;
-        if (rightMedia?.NaturalVideoWidth > 0)
-        {
-            vw = Math.Max(vw, rightMedia.NaturalVideoWidth);
-            vh = Math.Max(vh, rightMedia.NaturalVideoHeight);
-        }
-        double viewW = Math.Min(leftScroll.ViewportWidth, rightScroll.ViewportWidth);
-        double viewH = Math.Min(leftScroll.ViewportHeight, rightScroll.ViewportHeight);
-        if (viewW <= 1 || viewH <= 1 || vw <= 0 || vh <= 0) return;
-        double scale = Math.Min(viewW / vw, viewH / vh);
-        scale = Math.Max(imageZoom.Minimum, Math.Min(imageZoom.Maximum, scale));
-        imageZoom.Value = scale;
-    }
-
-    private void UpdateVideoSeekRange()
-    {
-        if (videoSeek == null) return;
-        TimeSpan leftDur = leftMedia?.NaturalDuration.HasTimeSpan == true ? leftMedia.NaturalDuration.TimeSpan : TimeSpan.Zero;
-        TimeSpan rightDur = rightMedia?.NaturalDuration.HasTimeSpan == true ? rightMedia.NaturalDuration.TimeSpan : TimeSpan.Zero;
-        TimeSpan maxDur = leftDur > rightDur ? leftDur : rightDur;
-        if (maxDur > TimeSpan.Zero)
-        {
-            videoSeek.Maximum = maxDur.TotalSeconds;
-            videoSeek.IsEnabled = true;
-            UpdateVideoTimeLabel(TimeSpan.Zero);
-        }
-    }
-
-    private void BuildVideoController()
-    {
-        var playGlyph = new TextBlock
-        {
-            Text = "▶",
-            FontSize = 18,
-            FontWeight = FontWeights.Bold,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            IsHitTestVisible = false
-        };
-        playGlyph.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
-
-        videoPlayPause = new Button
-        {
-            Content = playGlyph,
-            Width = 40,
-            Height = 40,
-            Margin = new Thickness(0, 0, 8, 0),
-            ToolTip = "Play / Pause",
-            Padding = new Thickness(0)
-        };
-        // Ensure content is visible even with app button styles
-        var border = new FrameworkElementFactory(typeof(Border));
-        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(8));
-        border.SetValue(Border.BorderThicknessProperty, new Thickness(1));
-        border.SetResourceReference(Border.BackgroundProperty, "CardBackground");
-        border.SetResourceReference(Border.BorderBrushProperty, "Line");
-        var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
-        presenter.SetValue(ContentPresenter.ContentProperty, new TemplateBindingExtension(ContentControl.ContentProperty));
-        presenter.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Center);
-        presenter.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
-        border.AppendChild(presenter);
-        videoPlayPause.Template = new ControlTemplate(typeof(Button)) { VisualTree = border };
-
-        videoPlayPause.Click += (s, e) => ToggleVideoPlayback();
-
-        videoSeek = new Slider
-        {
-            Minimum = 0,
-            Maximum = 1,
-            Width = 280,
-            IsEnabled = false,
-            VerticalAlignment = VerticalAlignment.Center,
-            Style = TryFindResource("FrameSlider") as Style ?? TryFindResource("ZoomSlider") as Style
-        };
-        videoSeek.ValueChanged += VideoSeek_ValueChanged;
-
-        videoTimeLabel = new TextBlock
-        {
-            Text = "0:00 / 0:00",
-            FontSize = 12,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(10, 0, 0, 0),
-            MinWidth = 80
-        };
-        videoTimeLabel.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
-
-        var controller = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(0, 4, 0, 4)
-        };
-        controller.Children.Add(videoPlayPause);
-        controller.Children.Add(videoSeek);
-        controller.Children.Add(videoTimeLabel);
-
-        var frameBorder = new Border
-        {
-            CornerRadius = new CornerRadius(18),
-            BorderThickness = new Thickness(1),
-            Padding = new Thickness(12, 6, 12, 6),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            Child = controller
-        };
-        frameBorder.SetResourceReference(Border.BackgroundProperty, "CardBackground");
-        frameBorder.SetResourceReference(Border.BorderBrushProperty, "Line");
-
-        gifFrameHost.Children.Add(frameBorder);
-        gifFrameHost.Visibility = Visibility.Visible;
-
-        // 左右キーでシーク、Spaceで再生／一時停止（初回表示時から有効）
-        System.Windows.Input.KeyEventHandler videoKeyHandler = (_, e) =>
-        {
-            if (gifFrameHost.Visibility != Visibility.Visible) return;
-
-            if (e.Key == System.Windows.Input.Key.Space)
-            {
-                ToggleVideoPlayback();
-                e.Handled = true;
-                return;
-            }
-
-            if (videoSeek == null || !videoSeek.IsEnabled) return;
-            double step = 1.0; // 1秒
-            if (e.Key == System.Windows.Input.Key.Left) step = -1.0;
-            else if (e.Key == System.Windows.Input.Key.Right) step = 1.0;
-            else return;
-
-            double next = Math.Max(videoSeek.Minimum, Math.Min(videoSeek.Maximum, videoSeek.Value + step));
-            videoSeek.Value = next;
-            e.Handled = true;
-        };
-        AddHandler(System.Windows.Input.Keyboard.PreviewKeyDownEvent, videoKeyHandler, true);
-        gifFrameHost.Tag = videoKeyHandler;
-
-        videoPositionTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
-        videoPositionTimer.Tick += (s, e) =>
-        {
-            if (!videoIsPlaying || videoSeeking || videoSeek == null) return;
-            TimeSpan pos = leftMedia?.Position ?? rightMedia?.Position ?? TimeSpan.Zero;
-            if (pos.TotalSeconds >= 0 && pos.TotalSeconds <= videoSeek.Maximum)
-            {
-                videoSeeking = true;
-                videoSeek.Value = pos.TotalSeconds;
-                videoSeeking = false;
-                UpdateVideoTimeLabel(pos);
-            }
-        };
-    }
-
-    private void ToggleVideoPlayback()
-    {
-        if (leftMedia == null && rightMedia == null) return;
-        if (videoIsPlaying)
-        {
-            leftMedia?.Pause();
-            rightMedia?.Pause();
-            videoIsPlaying = false;
-            videoPositionTimer?.Stop();
-            if (videoPlayPause?.Content is TextBlock tb) tb.Text = "▶";
-        }
-        else
-        {
-            leftMedia?.Play();
-            rightMedia?.Play();
-            videoIsPlaying = true;
-            videoPositionTimer?.Start();
-            if (videoPlayPause?.Content is TextBlock tb) tb.Text = "⏸";
-        }
-    }
-
-    private void VideoSeek_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-    {
-        if (videoSeeking || videoSeek == null) return;
-        videoSeeking = true;
-        try
-        {
-            var pos = TimeSpan.FromSeconds(e.NewValue);
-            if (leftMedia != null && leftMedia.NaturalDuration.HasTimeSpan)
-                leftMedia.Position = pos > leftMedia.NaturalDuration.TimeSpan ? leftMedia.NaturalDuration.TimeSpan : pos;
-            if (rightMedia != null && rightMedia.NaturalDuration.HasTimeSpan)
-                rightMedia.Position = pos > rightMedia.NaturalDuration.TimeSpan ? rightMedia.NaturalDuration.TimeSpan : pos;
-            UpdateVideoTimeLabel(pos);
-        }
-        finally { videoSeeking = false; }
-    }
-
-    private void UpdateVideoTimeLabel(TimeSpan pos)
-    {
-        if (videoTimeLabel == null || videoSeek == null) return;
-        var total = TimeSpan.FromSeconds(videoSeek.Maximum);
-        videoTimeLabel.Text = $"{pos:m\\:ss} / {total:m\\:ss}";
     }
 
     private static ScrollViewer ThemedViewer(object content, bool sourceSide, bool missing)

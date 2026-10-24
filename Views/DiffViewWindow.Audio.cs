@@ -135,6 +135,26 @@ internal sealed partial class DiffViewWindow
         audioOverviewHost.Visibility = Visibility.Visible;
         body.Children.Clear();
         var layout = audioTimeline = new AudioTimeline(envelopes, duration, new[] { source, target });
+        layout.DelayChanged += (side, value) =>
+        {
+            try
+            {
+                audioPlayer.SetDelay(side, value);
+                layout.SetDelay(side, value);
+                layout.UpdatePosition(audioPlayer.Position, false);
+            }
+            catch (Exception ex) { ViewModel.ReportError(ex); }
+        };
+        bool resumeAfterOffsetDrag = false;
+        foreach (var wave in layout.Waves)
+        {
+            wave.CursorDragStarted += () =>
+            {
+                resumeAfterOffsetDrag = audioPlayer.Playing;
+                audioPlayer.Pause();
+            };
+            wave.CursorDragCompleted += () => { if (resumeAfterOffsetDrag) audioPlayer.Play(); };
+        }
         Grid.SetColumnSpan(layout, 3);
         body.Children.Add(layout);
         // Overlay the waveform while the first difference analysis is running.
@@ -252,10 +272,13 @@ internal sealed partial class DiffViewWindow
         void Refresh(double position, bool updateTimeline = true)
         {
             updating = true;
+            duration = audioPlayer.Duration;
+            seek.Maximum = Math.Max(0.001, duration);
             if (!dragging) seek.Value = position;
             updating = false;
             time.Text = $"{TimeSpan.FromSeconds(position):hh\\:mm\\:ss} / {TimeSpan.FromSeconds(duration):hh\\:mm\\:ss}";
             if (updateTimeline) layout.UpdatePosition(position, audioPlayer?.Playing == true);
+            overview.SetTiming(duration, layout.Delays);
             overview.Update(position, audioPlayer?.GetPeak(0) ?? 0, audioPlayer?.GetPeak(1) ?? 0);
             play.Content = audioPlayer?.Playing == true ? "Ⅱ" : "▶";
         }
@@ -428,6 +451,16 @@ internal sealed partial class DiffViewWindow
         repeatToggle.Unchecked += (_, _) => UpdateRepeat();
         imageToolbar.Children.Add(repeatToggle);
         // Exclusive speed selection: selected icon is opaque, others are dimmed.
+        imageToolbar.Children.Add(CreatePlaybackSpeeds("AudioPlaybackSpeed", speed => audioPlayer?.SetSpeed(speed)));
+        // Recalculate after layout, and whenever the visible waveform width changes.
+        audioTimeline.ZoomChanged += value => zoom.Value = value * 100;
+        audioTimeline!.Waves[0].SizeChanged += (_, _) => UpdateMaximum();
+        UpdateMaximum();
+        imageToolbar.Visibility = imageControlRow.Visibility = Visibility.Visible;
+    }
+
+    private StackPanel CreatePlaybackSpeeds(string group, Action<double> setSpeed)
+    {
         var speedGroup = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 8), VerticalAlignment = VerticalAlignment.Top };
         double[] speeds = { 0.5, 0.75, 1.0, 1.5, 1.75, 2.0 };
         for (int i = 0; i < speeds.Length; i++)
@@ -441,7 +474,7 @@ internal sealed partial class DiffViewWindow
             };
             var radio = new RadioButton
             {
-                GroupName = "AudioPlaybackSpeed",
+                GroupName = group,
                 Content = image,
                 IsChecked = i == 2,
                 ToolTip = $"再生速度 {speed:0.##}倍",
@@ -455,17 +488,82 @@ internal sealed partial class DiffViewWindow
                 foreach (var item in speedGroup.Children)
                     if (item is RadioButton button && button.Content is Image icon)
                         icon.Opacity = ReferenceEquals(button, radio) ? 1 : 0.35;
-                try { audioPlayer?.SetSpeed(speed); }
+                try { setSpeed(speed); }
                 catch (Exception ex) { ViewModel.ReportError(ex); }
             };
             speedGroup.Children.Add(radio);
         }
-        imageToolbar.Children.Add(speedGroup);
-        // Recalculate after layout, and whenever the visible waveform width changes.
-        audioTimeline.ZoomChanged += value => zoom.Value = value * 100;
-        audioTimeline!.Waves[0].SizeChanged += (_, _) => UpdateMaximum();
-        UpdateMaximum();
-        imageToolbar.Visibility = imageControlRow.Visibility = Visibility.Visible;
+        return speedGroup;
+    }
+
+    internal static FrameworkElement CreateDelayPicker(bool source, Func<double> getValue, Action<double> setValue)
+    {
+        var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        var caption = new TextBlock { Text = "Delay", FontSize = 10, Margin = new Thickness(0, 0, 5, 0), VerticalAlignment = VerticalAlignment.Center };
+        caption.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
+        row.Children.Add(caption);
+        var input = new TextBox { Width = 56, Height = 20, FontSize = 11, Padding = new Thickness(0), BorderThickness = new Thickness(0),
+            Background = Brushes.Transparent, TextAlignment = TextAlignment.Right, VerticalContentAlignment = VerticalAlignment.Center,
+            ToolTip = "0.1秒単位。正の値は遅らせ、負の値は先に進めます。" };
+        input.SetResourceReference(Control.ForegroundProperty, "Ink");
+        var textHost = new FrameworkElementFactory(typeof(ScrollViewer));
+        textHost.Name = "PART_ContentHost";
+        input.Template = new ControlTemplate(typeof(TextBox)) { VisualTree = textHost };
+        var frame = new Border { Child = row, Height = 24, CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1),
+            Padding = new Thickness(9, 0, 5, 0), Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        frame.SetResourceReference(Border.BackgroundProperty, "CardBackground");
+        frame.SetResourceReference(Border.BorderBrushProperty, "Line");
+        System.Windows.Automation.AutomationProperties.SetName(input, (source ? "Source" : "Target") + " delay in seconds");
+        void Refresh() => input.Text = getValue().ToString("0.0", System.Globalization.CultureInfo.CurrentCulture);
+        void Commit()
+        {
+            if (double.TryParse(input.Text, out double value) && double.IsFinite(value))
+                setValue(Math.Round(Math.Clamp(value, -86400, 86400), 1));
+            Refresh();
+        }
+        input.LostKeyboardFocus += (_, _) => Commit();
+        input.PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Enter) { Commit(); e.Handled = true; }
+            else if (e.Key == Key.Escape) { Refresh(); e.Handled = true; }
+            else if (e.Key == Key.Up || e.Key == Key.Down)
+            {
+                Commit(); setValue(Math.Round(Math.Clamp(getValue() + (e.Key == Key.Up ? 0.1 : -0.1), -86400, 86400), 1));
+                Refresh(); e.Handled = true;
+            }
+        };
+        frame.Tag = (Action)Refresh;
+        Refresh(); row.Children.Add(input);
+        var arrows = new StackPanel { Margin = new Thickness(4, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        foreach (int direction in new[] { 1, -1 })
+        {
+            var button = new RepeatButton { Content = direction > 0 ? "▴" : "▾", Width = 18, Height = 10, FontSize = 9,
+                Padding = new Thickness(0), Focusable = false, Cursor = Cursors.Hand };
+            button.SetResourceReference(Control.ForegroundProperty, "Muted");
+            var chrome = new FrameworkElementFactory(typeof(Border));
+            chrome.Name = "Chrome";
+            chrome.SetValue(Border.CornerRadiusProperty, new CornerRadius(4));
+            chrome.SetValue(Border.BackgroundProperty, Brushes.Transparent);
+            var glyph = new FrameworkElementFactory(typeof(ContentPresenter));
+            glyph.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+            glyph.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
+            chrome.AppendChild(glyph);
+            var template = new ControlTemplate(typeof(RepeatButton)) { VisualTree = chrome };
+            var hover = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
+            hover.Setters.Add(new Setter(Border.BackgroundProperty, new DynamicResourceExtension("HeaderBackground"), "Chrome"));
+            template.Triggers.Add(hover);
+            button.Template = template;
+            button.Click += (_, _) =>
+            {
+                Commit(); setValue(Math.Round(Math.Clamp(getValue() + direction * 0.1, -86400, 86400), 1)); Refresh();
+            };
+            arrows.Children.Add(button);
+        }
+        row.Children.Add(arrows);
+        var unit = new TextBlock { Text = "s", FontSize = 10, Margin = new Thickness(3, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        unit.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
+        row.Children.Insert(2, unit);
+        return frame;
     }
 }
 
@@ -652,7 +750,13 @@ internal sealed class AudioOverview : Control
     }
 
     private readonly AudioEnvelope[] envelopes;
-    private readonly double duration;
+    private double duration;
+    private readonly double[] delays = new double[2];
+    internal void SetTiming(double total, double[] offsets)
+    {
+        duration = total;
+        Array.Copy(offsets, delays, 2);
+    }
     private double position;
     private readonly float[] levels = new float[2];
     private readonly float[][] barPeaks = new float[2][];
@@ -723,10 +827,13 @@ internal sealed class AudioOverview : Control
                 {
                     float peak = peaks[bar];
                     double height = Math.Max(1, Math.Clamp(peak, 0, 1) * (rowHeight - 6));
-                    bool played = (double)bar / bars * envelope.Duration < position;
+                    double barTime = (double)bar / bars * envelope.Duration + delays[side];
+                    double barX = bar * 4 + delays[side] / duration * width;
+                    if (barX < 0 || barX + 2 > width) continue;
+                    bool played = barTime < position;
                     if (!played) dc.PushOpacity(UnplayedOpacity);
                     dc.DrawRectangle(redBars != null && redBars[bar] ? Brushes.Red : color, null,
-                        new Rect(bar * 4, baseline - height, 2, height));
+                        new Rect(barX, baseline - height, 2, height));
                     if (!played) dc.Pop();
                 }
             }
@@ -793,6 +900,14 @@ internal sealed class AudioTimeline : Grid
     internal double Offset => scroll.Value;
     internal double Viewport => Math.Max(1, Waves[0].ActualWidth);
     internal event Action<double> SeekRequested;
+    internal readonly double[] Delays = new double[2];
+    private readonly FrameworkElement[] delayPickers = new FrameworkElement[2];
+    internal void SetDelay(int side, double seconds)
+    {
+        Delays[side] = seconds;
+        (delayPickers[side]?.Tag as Action)?.Invoke();
+    }
+    internal event Action<int, double> DelayChanged;
     internal event Action<double> ZoomChanged;
     internal event Action<double, double> ViewChanged;
     private bool applyingView;
@@ -805,6 +920,7 @@ internal sealed class AudioTimeline : Grid
         RowDefinitions.Add(new RowDefinition { Height = new GridLength(16) });
         for (int side = 0; side < 2; side++)
         {
+            int index = side;
             var wave = Waves[side] = new AudioWaveform(envelopes[side], duration, paths[side]);
 
             wave.SetResourceReference(Control.ForegroundProperty, side == 0 ? "SourceColor" : "TargetColor");
@@ -813,7 +929,15 @@ internal sealed class AudioTimeline : Grid
             pane.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             pane.RowDefinitions.Add(new RowDefinition());
             var label = CreateHeader(envelopes[side], envelopes[1 - side], side == 0);
-            pane.Children.Add(label);
+            label.FontSize = 11;
+            var header = new DockPanel { Margin = new Thickness(0, 3, 8, 3) };
+            var picker = DiffViewWindow.CreateDelayPicker(side == 0, () => Delays[index], value => DelayChanged?.Invoke(index, value));
+            delayPickers[side] = picker;
+            picker.IsEnabled = envelopes[side] != null;
+            DockPanel.SetDock(picker, Dock.Right);
+            header.Children.Add(picker);
+            header.Children.Add(label);
+            pane.Children.Add(header);
             SetRow(wave, 1); pane.Children.Add(wave);
             var frame = new Border
             {
@@ -824,7 +948,9 @@ internal sealed class AudioTimeline : Grid
             };
             frame.SetResourceReference(Border.BorderBrushProperty, side == 0 ? "SourceColor" : "TargetColor");
             SetRow(frame, side); Children.Add(frame);
-            wave.PositionClicked += seconds => SeekRequested?.Invoke(seconds);
+            wave.PositionClicked += seconds => SeekRequested?.Invoke(Math.Max(0, seconds + Delays[index]));
+            wave.CursorDragged += seconds => DelayChanged?.Invoke(index,
+                Math.Round(Math.Clamp(currentPosition - seconds, -86400, 86400), 1));
             wave.ViewChanged += () =>
             {
                 if (applyingView || wave.ViewDuration <= 0) return;
@@ -895,11 +1021,13 @@ internal sealed class AudioTimeline : Grid
         scroll.Value = Math.Clamp(seconds / duration * Viewport * zoom, 0, LastOffset);
     }
     internal void ScrollBy(double pixels) => scroll.Value = Math.Clamp(Offset + pixels, 0, LastOffset);
+    private double currentPosition;
     internal void UpdatePosition(double seconds, bool follow)
     {
-        foreach (var wave in Waves) wave.Position = seconds;
+        currentPosition = seconds;
+        for (int side = 0; side < Waves.Length; side++) Waves[side].Position = Math.Max(0, seconds - Delays[side]);
         if (!follow || zoom <= 1 || Array.Exists(Waves, w => w.IsPanning)) return;
-        double x = Waves[0].PixelAt(seconds);
+        double x = Waves[0].PixelAt(Math.Max(0, seconds - Delays[0]));
         // Scroll smoothly once the playhead reaches the right-hand safe area.
         if (x > Offset + Viewport * 0.85 || x < Offset)
             scroll.Value = Math.Clamp(x - Viewport * (x < Offset ? 0.15 : 0.85), 0, LastOffset);
@@ -948,7 +1076,46 @@ internal sealed class AudioWaveform : DesktopIniManager.Controls.WaveformControl
         SetViewRange(Duration * offset / Math.Max(1, ActualWidth * zoom), Duration / zoom);
     internal double TimeAt(double x) => XToTime(x);
     internal double PixelAt(double seconds) => ViewDuration > 0 ? seconds / ViewDuration * ActualWidth : 0;
-    internal double Position { set => SetPosition(TimeSpan.FromSeconds(value)); }
+    private double cursorPosition;
+    private bool draggingCursor;
+    internal event Action CursorDragStarted;
+    internal event Action CursorDragCompleted;
+    internal event Action<double> CursorDragged;
+    internal double Position { set { cursorPosition = value; SetPosition(TimeSpan.FromSeconds(value)); } }
+
+    protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
+    {
+        if (Math.Abs(e.GetPosition(this).X - TimeToX(cursorPosition)) <= 7 && CaptureMouse())
+        {
+            draggingCursor = true;
+            CursorDragStarted?.Invoke();
+            e.Handled = true;
+            return;
+        }
+        base.OnMouseLeftButtonDown(e);
+    }
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        if (!draggingCursor) { base.OnMouseMove(e); return; }
+        CursorDragged?.Invoke(XToTime(e.GetPosition(this).X));
+        e.Handled = true;
+    }
+    protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
+    {
+        if (!draggingCursor) { base.OnMouseLeftButtonUp(e); return; }
+        CursorDragged?.Invoke(XToTime(e.GetPosition(this).X));
+        draggingCursor = false;
+        ReleaseMouseCapture();
+        CursorDragCompleted?.Invoke();
+        e.Handled = true;
+    }
+    protected override void OnLostMouseCapture(MouseEventArgs e)
+    {
+        bool wasDragging = draggingCursor;
+        draggingCursor = false;
+        base.OnLostMouseCapture(e);
+        if (wasDragging) CursorDragCompleted?.Invoke();
+    }
 
     protected override void DrawOverlay(DrawingContext dc)
     {

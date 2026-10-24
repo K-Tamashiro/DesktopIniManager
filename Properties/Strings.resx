@@ -1302,4 +1302,8 @@ Cancel: select a different tab without searching</value>
   <data name="Diff_DropCount" xml:space="preserve">
     <value>Drop one file onto a side, or two files for Source and Target.</value>
   </data>
+  <data name="Diff_SourceVolume" xml:space="preserve"><value>Source volume</value></data>
+  <data name="Diff_TargetVolume" xml:space="preserve"><value>Target volume</value></data>
+  <data name="Diff_MuteVolume" xml:space="preserve"><value>Mute (0%)</value></data>
+  <data name="Diff_MaximumVolume" xml:space="preserve"><value>Maximum (100%)</value></data>
 </root>

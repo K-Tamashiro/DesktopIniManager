@@ -396,3 +396,7 @@ Diff_DropDuplicate=该文件已加载，请选择其他文件。
 Diff_DropMode=请拖放相同类型的文件：文本、图像或视频。不支持的二进制文件无法打开。
 Diff_DropFilesOnly=请拖放现有文件，不能拖放文件夹。
 Diff_DropCount=请向一侧拖放一个文件，或同时拖放两个文件作为 Source 和 Target。
+Diff_SourceVolume=源音量
+Diff_TargetVolume=目标音量
+Diff_MuteVolume=静音（0%）
+Diff_MaximumVolume=最大音量（100%）

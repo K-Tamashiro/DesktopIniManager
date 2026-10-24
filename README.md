@@ -1,4 +1,4 @@
-# DesktopIniManager v4.5.3 PreRelease
+﻿# DesktopIniManager v4.5.6 PreRelease
 
 DesktopIniManager (DIM) is a Windows workspace for exploring development folders and Visual Studio solutions, finding files, running scoped searches, comparing folders, viewing differences, and managing folder icons through `desktop.ini`.
 
@@ -8,7 +8,7 @@ DesktopIniManager (DIM) is a Windows workspace for exploring development folders
 
 ## Download and setup
 
-Download **DesktopIniManager-v4.5.3-win-x64.zip** from the v4.5.3 PreRelease GitHub release assets, not GitHub's source-code archive. The matching `.zip.sha256` contains the SHA-256 checksum.
+Download **DesktopIniManager-v4.5.6-win-x64.zip** from the v4.5.6 PreRelease GitHub release assets, not GitHub's source-code archive. The matching `.zip.sha256` contains the SHA-256 checksum.
 
 - Windows 10 or 11, x64; .NET 10 Desktop Runtime (x64) installed separately.
 - Visual Studio Build Tools / MSBuild or .NET SDK for solution builds.
@@ -16,12 +16,13 @@ Download **DesktopIniManager-v4.5.3-win-x64.zip** from the v4.5.3 PreRelease Git
 
 Extract into a fresh folder and run **DesktopIniManager.exe**. Keep the DLLs, JSON, Assets and Languages together. ExcelDataReader and PdfPig libraries are required for Document Grep.
 
-## What's new in v4.5.3 PreRelease
+## What's new in v4.5.6 PreRelease
 
-- Removed the one-hour audio duration restriction, including drag-and-drop and clipboard file input. Waveform bins are bounded for longer recordings.
-- Accelerated audio difference analysis with buffered sequential decoding and 10 ms RMS comparison windows; resample only when source rates differ.
-- Calculate audio differences asynchronously on the first toggle, cache the result for subsequent ON/OFF switches, and show a themed busy overlay during analysis.
-- Restored left-edge-anchored horizontal waveform zoom so magnification extends naturally to the right.
+- Added independent Source and Target delay controls to Video and Audio DIFF VIEW. Adjust timing in 0.1-second steps, including negative offsets, to compare recordings with different starting points.
+- Video DIFF VIEW now provides individual audio volume and mute controls, six playback speeds, and synchronized seeking. Dragging the shared seek slider pauses playback temporarily and resumes from the selected position; each video seek is limited to its own duration.
+- Audio DIFF VIEW allows dragging each waveform's playback cursor to adjust that side's delay directly. The delay field and spinner remain synchronized with cursor dragging.
+- Video volume controls are disabled and visually dimmed when the corresponding video has no available audio track.
+
 
 
 - Adjusted layouts across the DIFF VIEW modes.
@@ -36,7 +37,7 @@ Extract into a fresh folder and run **DesktopIniManager.exe**. Keep the DLLs, JS
 - Developer Differencer with independent modification time, size, attributes/BOM and XXH128 checks.
 - `.gitignore`-aware comparison, filtering, synchronization and relative-path ZIP export.
 - Read-only DIFF VIEW for text, images/animated GIF, video, and WAV/MP3 audio.
-- Audio PCM-sample difference highlighting, A–B repeat, synchronized playback and six selectable playback speeds.
+- Audio PCM-sample difference highlighting, A–B repeat, independent delay adjustment, synchronized playback and six selectable playback speeds.
 
 ## Main window
 
@@ -57,7 +58,7 @@ Comparison respects `.gitignore` rules under either selected root, including `*`
 
 ## DIFF VIEW
 
-Layouts have been adjusted across the DIFF VIEW modes in v4.5.3.
+Layouts have been adjusted across the DIFF VIEW modes in v4.5.6.
 
 
 Launch as a standalone read-only two-file viewer:
@@ -87,11 +88,13 @@ BMP, JPG/JPEG, PNG, GIF and TIFF/TIF are displayed side by side using nearest-ne
 
 ## Video DIFF VIEW
 
-Source and Target appear side by side with shared playback, seek and zoom controls. Video preview is muted. Recognized extensions include MP4, AVI, MKV, MOV, WMV, WebM, M4V, MPG and MPEG; playback depends on Windows codecs.
+![Video DIFF with independent delay and volume controls](docs/images/2026-10-24_21h06_43.png)
+
+Source and Target appear side by side with shared playback, seek and zoom controls. Each video has its own **Delay** field (0.1-second steps, positive or negative) and **volume/mute** controls. Playback speeds are selectable from **0.5× to 2.0×**. Dragging the shared seek slider temporarily pauses playback, seeks both sides, then resumes from the selected position. When one video is shorter, its position is limited to its available duration while the other side continues. Volume controls are disabled for videos without an available audio track. Recognized extensions include MP4, AVI, MKV, MOV, WMV, WebM, M4V, MPG and MPEG; playback and audio decoding depend on Windows codecs.
 
 ## Audio DIFF VIEW
 
-![DIM audio PCM waveform differences](docs/images/2026-10-21_22h48_39.png)
+![Audio DIFF with waveform cursor delay adjustment](docs/images/2026-10-24_21h08_19.png)
 
 **Audio-resource difference inspection, before advanced audio analysis.** DIM does more than display two waveform pictures: it compares decoded PCM samples on a common time axis and calculates which intervals differ. Detected differences are highlighted **red** on the yellow Source and blue Target waveforms. This is intended for reviewing voice-guidance files and other audio resources; it is not speech recognition, spectral analysis, or automatic time alignment.
 
@@ -100,6 +103,7 @@ Open WAV (`.wav` / `.wave`) or MP3 files, including mixed WAV/MP3 pairs. Source 
 - The comparison toggle (icon 143) highlights decoded PCM differences before playback volume adjustment. Channels are compared at corresponding times; missing channels and tails are differences. Different sample rates are resampled to the higher sample rate, without loudness normalization or automatic alignment.
 - Differences are detected in 10 ms RMS windows with absolute and relative tolerances; consecutive differing windows are grouped into intervals. No automatic time alignment is performed.
 - The top overview shows both complete recordings, playback progress, difference regions and a draggable viewport frame. Click the overview or waveforms to seek; drag the viewport to scroll without changing playback position.
+- Drag the Source or Target waveform playback cursor horizontally to adjust that side's delay. The corresponding Delay field and 0.1-second spinner update together; positive values delay that side and negative values advance it.
 - A–B repeat allows a selected interval to loop. Source and Target share playback position and speed, while volume and mute are controlled independently.
 - Six mutually exclusive playback-speed buttons select **0.5× / 0.75× / 1.0× / 1.5× / 1.75× / 2.0×**. The default is **1.0×**; the selected icon is bright and the others dim. Speed can be changed during playback. Playback speed adjustment may change pitch.
 - Horizontal zoom is anchored at the left edge of the current view and expands to the right without changing waveform height. Use the shared scrollbar, Shift+wheel or horizontal wheel; Fit restores the whole timeline. Playback follows the playhead.
@@ -120,7 +124,7 @@ DIM1–DIM5 are independent processes. **In Use** identifies the current slot, *
 
 Freeware by Tamayan / ZEBRASOFT. [Website](http://dim.zebrasoft.co.jp/) · [Repository and issues](https://github.com/K-Tamashiro/DesktopIniManager) · tamayan@zebrasoft.co.jp.
 
-` scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> ` packages prebuilt v4.5.3 binaries; omitting that option runs `dotnet publish`. Archives and checksums are written to `release/`.
+` scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> ` packages prebuilt v4.5.6 binaries; omitting that option runs `dotnet publish`. Archives and checksums are written to `release/`.
 
 ## Keyboard shortcuts and startup options
 

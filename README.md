@@ -1,4 +1,4 @@
-﻿# DesktopIniManager v4.5.6 PreRelease
+# DesktopIniManager v4.5.7 Release
 
 DesktopIniManager (DIM) is a Windows workspace for exploring development folders and Visual Studio solutions, finding files, running scoped searches, comparing folders, viewing differences, and managing folder icons through `desktop.ini`.
 
@@ -8,7 +8,7 @@ DesktopIniManager (DIM) is a Windows workspace for exploring development folders
 
 ## Download and setup
 
-Download **DesktopIniManager-v4.5.6-win-x64.zip** from the v4.5.6 PreRelease GitHub release assets, not GitHub's source-code archive. The matching `.zip.sha256` contains the SHA-256 checksum.
+Download **DesktopIniManager-v4.5.7-win-x64.zip** from the v4.5.7 Release GitHub release assets, not GitHub's source-code archive. The matching `.zip.sha256` contains the SHA-256 checksum.
 
 - Windows 10 or 11, x64; .NET 10 Desktop Runtime (x64) installed separately.
 - Visual Studio Build Tools / MSBuild or .NET SDK for solution builds.
@@ -16,7 +16,13 @@ Download **DesktopIniManager-v4.5.6-win-x64.zip** from the v4.5.6 PreRelease Git
 
 Extract into a fresh folder and run **DesktopIniManager.exe**. Keep the DLLs, JSON, Assets and Languages together. ExcelDataReader and PdfPig libraries are required for Document Grep.
 
-## What's new in v4.5.6 PreRelease
+## What's new in v4.5.7 Release
+
+Added **Explorerメニュー** (Explorer menu) to the main file context menu in both list and icon views. Click it to close DIM's menu and open the classic Windows shell context menu. Available commands include **Open with**, **Create shortcut**, and compatible shell extensions when provided for the selection.
+
+Supports a single file or multiple files in the same folder. The entry is disabled for selections spanning different folders or when no target file is available. This is a click action, not a hover submenu. Menu contents depend on file associations and installed applications and may differ from File Explorer. Selected shell commands can modify files, including shortcut creation, renaming, or deletion when available.
+
+## Previous release: v4.5.6
 
 - Added independent Source and Target delay controls to Video and Audio DIFF VIEW. Adjust timing in 0.1-second steps, including negative offsets, to compare recordings with different starting points.
 - Video DIFF VIEW now provides individual audio volume and mute controls, six playback speeds, and synchronized seeking. Dragging the shared seek slider pauses playback temporarily and resumes from the selected position; each video seek is limited to its own duration.
@@ -47,6 +53,8 @@ Click the main window title to view version information and the libraries and AP
 Select a Target root to browse the physical folder tree or Visual Studio Solution structure. Files directly under the selected folder appear first in white; descendants are muted. Folder names participate in search, and checked folders restrict File Search and Scoped Grep to their subtrees. Switch between file-list and two- or three-column icon views.
 
 The tree supports check/uncheck all, inversion, expand/collapse, checked-folder filtering and size adjustment. Use context menus for Explorer, tree/file-list export, builds and Scoped Grep. Choose folder icons from ICO, ICL, DLL or EXE resources, apply/reset them through desktop.ini, and optionally add desktop.ini to .gitignore. Drag folders with immediate files or multiple selected files out of DIM. Batch File Launcher variables: `%d%` directory, `%f%` selected full path, `%n%` file name.
+
+Right-click a file and click **Explorerメニュー** (Explorer menu) to access Windows shell commands. For multi-file operations, select files in the same folder.
 
 ## Developer Differencer
 
@@ -124,7 +132,7 @@ DIM1–DIM5 are independent processes. **In Use** identifies the current slot, *
 
 Freeware by Tamayan / ZEBRASOFT. [Website](http://dim.zebrasoft.co.jp/) · [Repository and issues](https://github.com/K-Tamashiro/DesktopIniManager) · tamayan@zebrasoft.co.jp.
 
-` scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> ` packages prebuilt v4.5.6 binaries; omitting that option runs `dotnet publish`. Archives and checksums are written to `release/`.
+` scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> ` packages prebuilt v4.5.7 binaries; omitting that option runs `dotnet publish`. Archives and checksums are written to `release/`.
 
 ## Keyboard shortcuts and startup options
 

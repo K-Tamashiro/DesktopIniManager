@@ -1,4 +1,4 @@
-﻿using DesktopIniManager.ViewModels;
+using DesktopIniManager.ViewModels;
 using DesktopIniManager.Models;
 using DesktopIniManager.Services;
 using Microsoft.Win32;
@@ -652,6 +652,26 @@ internal sealed class MainWindowPresentationService
             var menu = new ContextMenu();
             menu.Items.Add(run);
             menu.Items.Add(new MenuItem { Header = "SELECT Compare" });
+            menu.Items.Add(new Separator());
+            var explorer = new MenuItem { Header = "Explorerメニュー" };
+            bool shellMenuPending = false;
+            explorer.Click += (s, args) =>
+            {
+                if (shellMenuPending || !explorer.IsEnabled) return;
+                var paths = explorer.Tag as string[];
+                if (paths == null || paths.Length == 0) return;
+                var position = explorer.PointToScreen(new Point(explorer.ActualWidth, 0));
+                shellMenuPending = true;
+                menu.IsOpen = false;
+                // Let WPF release its popup capture before entering the native menu loop.
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    try { ExplorerContextMenu.Show(_window, paths, position); }
+                    catch (Exception ex) { ViewModel.ShowError("Explorerメニューを開けませんでした。", ex); }
+                    finally { shellMenuPending = false; }
+                }), DispatcherPriority.Input);
+            };
+            menu.Items.Add(explorer);
             list.ContextMenu = menu;
         }
     }
@@ -697,6 +717,19 @@ internal sealed class MainWindowPresentationService
             }
         }
         compare.Visibility = compare.Items.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        var explorer = (MenuItem)list.ContextMenu.Items[3];
+        var shellFiles = source == null ? new List<FileListItem>() :
+            IsFileSelected(list, source)
+                ? list.Items.Cast<FileListItem>().Where(candidate => IsFileSelected(list, candidate)).ToList()
+                : new List<FileListItem> { source };
+        explorer.Tag = shellFiles.Select(candidate => candidate.Path)
+            .Where(path => !string.IsNullOrWhiteSpace(path)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var shellPaths = (string[])explorer.Tag;
+        bool sameFolder = shellPaths.Select(path => Path.GetDirectoryName(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase).Count() <= 1;
+        explorer.IsEnabled = shellPaths.Length > 0 && sameFolder;
+        explorer.ToolTip = sameFolder ? null : "同じフォルダー内のファイルを選択してください。";
+        ToolTipService.SetShowOnDisabled(explorer, true);
     }
 
     private void OpenFileComparison(FileListItem source, FileListItem target)

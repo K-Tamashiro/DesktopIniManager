@@ -1,4 +1,4 @@
-﻿DesktopIniManager v4.5.6
+DesktopIniManager v4.5.7
 =======================
 
 ■ ソフトウェア名・種別
@@ -22,7 +22,7 @@ Scoped Grep、フォルダー比較、読み取り専用DIFF VIEW、desktop.ini�
 ・外部エディター／DIFF・マージツールは任意で設定
 
 ■ インストール
-DesktopIniManager-v4.5.6-win-x64.zipを新しいフォルダーへ展開し、
+Vector配布版のDIM-v4.5.7-win-x64.zipを新しいフォルダーへ展開し、
 DesktopIniManager.exeを起動してください。
 DLL、JSON、Assets、Languagesを含め、同梱ファイルを一緒に配置します。
 ExcelDataReaderとPdfPigのDLLはDocument Grepで使用します。
@@ -33,10 +33,13 @@ ExcelDataReaderとPdfPigのDLLはDocument Grepで使用します。
 http://dim.zebrasoft.co.jp/
 GitHubダウンロード：
 https://github.com/K-Tamashiro/DesktopIniManager/releases
-v4.5.6のAssetsから配布ZIPを選択してください。
+GitHubではv4.5.7のAssetsからDesktopIniManager-v4.5.7-win-x64.zipを選択してください。
 Source codeのZIPは実行用の配布物ではありません。
 
-■ v4.5.6 PreRelease 更新内容
+■ v4.5.7 更新内容
+メイン画面のファイル一覧・アイコン表示の右クリックに「Explorerメニュー」を追加しました。クリックするとDIMのメニューを閉じ、Windowsの従来形式のシェルメニューを表示します。「プログラムから開く」「ショートカットの作成」など、対象ファイルに応じた標準操作や対応する外部アプリの項目を利用できます。
+
+■ 前版 v4.5.6 の更新内容
 ・動画／音声DIFFにSource／Target個別のディレイ調整を追加（0.1秒単位、負値対応）
 ・動画DIFFに左右独立の音量／ミュート、6段階の再生速度切替を追加
 ・動画再生中のシークバードラッグを安定化。操作中は一時停止し、確定位置から再開
@@ -87,6 +90,9 @@ Solutionの右クリックからVisual Studio／.NET SDKによるビルドを実
 ファイルリストで複数の検索結果がある場合、右クリックしたファイルと別のファイルをDIFF VIEWで比較できます。
 検索結果から複数選択した場合も同様にDIFF VIEWで比較可能です。
 ファイル選択は、フォルダーを跨がっていても可能です。
+
+ファイルを右クリックし、「Explorerメニュー」をクリックして操作を選びます。
+マウスを合わせるだけでは開きません。同じフォルダー内の複数選択に対応しますが、異なるフォルダーのファイルが混在する場合や対象がない場合は無効です。表示内容は関連付けやインストール済みアプリによって異なり、Explorerとの完全一致は保証しません。選択した操作に応じて、ショートカット作成や名前変更、削除などが実行されます。
 
 Batch File Launcherの引数には次の置換文字を指定できます。
 %d%：ディレクトリのフルパス

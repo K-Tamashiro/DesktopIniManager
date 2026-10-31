@@ -1,4 +1,6 @@
-﻿using System;
+﻿using DesktopIniManager.Properties;
+using DesktopIniManager.Services;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -7,8 +9,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
-using DesktopIniManager.Properties;
-using DesktopIniManager.Services;
 
 namespace DesktopIniManager.ViewModels;
 
@@ -103,7 +103,7 @@ internal sealed partial class DeveloperDifferencerViewModel
     {
         var now = DateTime.Now;
         var tab = new ComparisonHistoryTab
-            { CreatedAt = now, Title = now.ToString("yyyy.MM.dd HH:mm:ss"), Snapshot = Snapshot };
+        { CreatedAt = now, Title = now.ToString("yyyy.MM.dd HH:mm:ss"), Snapshot = Snapshot };
         HistoryTabs.Insert(0, tab);
         selectedHistoryTab = tab;
         CaptureHistoryTab();
@@ -188,7 +188,7 @@ internal sealed partial class DeveloperDifferencerViewModel
             {
                 token.ThrowIfCancellationRequested();
                 rows.Add(new DiffRow
-                    { File = file, SourceRoot = Snapshot.SourceRoot, TargetRoot = Snapshot.TargetRoot });
+                { File = file, SourceRoot = Snapshot.SourceRoot, TargetRoot = Snapshot.TargetRoot });
                 if (rows.Count % 256 == 0) await Dispatcher.Yield(DispatcherPriority.Background);
             }
 
@@ -329,7 +329,7 @@ internal sealed partial class DeveloperDifferencerViewModel
             CaptureHistoryTab();
             ResultHistoryStore.Save("comparison",
                 new HistoryFile<ComparisonHistoryTab>
-                    { Tabs = HistoryTabs.ToList(), SelectedIndex = HistoryTabs.IndexOf(selectedHistoryTab) });
+                { Tabs = HistoryTabs.ToList(), SelectedIndex = HistoryTabs.IndexOf(selectedHistoryTab) });
         }
         catch (Exception ex)
         {

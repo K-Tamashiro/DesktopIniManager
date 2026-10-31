@@ -1,4 +1,7 @@
-﻿using System;
+﻿using DesktopIniManager.Properties;
+using ExcelDataReader;
+using NAudio.Wave;
+using System;
 using System.IO;
 using System.IO.Hashing;
 using System.Reflection;
@@ -7,9 +10,6 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using DesktopIniManager.Properties;
-using ExcelDataReader;
-using NAudio.Wave;
 using UglyToad.PdfPig;
 using HorizontalAlignment = System.Windows.HorizontalAlignment;
 
@@ -43,7 +43,7 @@ internal sealed class AboutWindow : Window
         var version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
                       ?? assembly.GetName().Version?.ToString() ?? "—";
         details.Children.Add(new TextBlock
-            { Text = "DesktopIniManager", FontSize = 20, FontWeight = FontWeights.SemiBold });
+        { Text = "DesktopIniManager", FontSize = 20, FontWeight = FontWeights.SemiBold });
         details.Children.Add(new TextBlock
         {
             Text = $"Version {version}  ·  {(Environment.Is64BitProcess ? "64" : "32")}-bit",
@@ -54,7 +54,8 @@ internal sealed class AboutWindow : Window
         var versionHeight = details.DesiredSize.Height;
         details.Children.Add(new TextBlock
         {
-            Text = "Libraries / APIs", FontWeight = FontWeights.SemiBold,
+            Text = "Libraries / APIs",
+            FontWeight = FontWeights.SemiBold,
             Margin = new Thickness(0, 14, 0, 6)
         });
         AddComponent(details, ".NET / WPF", Environment.Version.ToString(),
@@ -108,7 +109,8 @@ internal sealed class AboutWindow : Window
         item.Children.Add(new TextBlock
         {
             Text = name + (string.IsNullOrEmpty(version) ? "" : "  " + version),
-            FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap
+            FontWeight = FontWeights.SemiBold,
+            TextWrapping = TextWrapping.Wrap
         });
         item.Children.Add(new TextBlock { Text = description, TextWrapping = TextWrapping.Wrap });
         if (license != null)
@@ -138,8 +140,13 @@ internal sealed class AboutWindow : Window
         using var reader = new StreamReader(stream);
         var dialog = new Window
         {
-            Owner = this, Title = component + " — " + file, Width = 720, Height = 520,
-            MinWidth = 420, MinHeight = 260, ShowInTaskbar = false,
+            Owner = this,
+            Title = component + " — " + file,
+            Width = 720,
+            Height = 520,
+            MinWidth = 420,
+            MinHeight = 260,
+            ShowInTaskbar = false,
             WindowStartupLocation = WindowStartupLocation.CenterOwner
         };
         dialog.SetResourceReference(BackgroundProperty, "WindowBackground");
@@ -149,18 +156,26 @@ internal sealed class AboutWindow : Window
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         var content = new TextBox
         {
-            Text = reader.ReadToEnd(), IsReadOnly = true, TextWrapping = TextWrapping.Wrap,
+            Text = reader.ReadToEnd(),
+            IsReadOnly = true,
+            TextWrapping = TextWrapping.Wrap,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            FontFamily = new FontFamily("Consolas"), FontSize = 13, Padding = new Thickness(10)
+            FontFamily = new FontFamily("Consolas"),
+            FontSize = 13,
+            Padding = new Thickness(10)
         };
         content.SetResourceReference(BackgroundProperty, "CardBackground");
         content.SetResourceReference(ForegroundProperty, "Ink");
         grid.Children.Add(content);
         var close = new Button
         {
-            Content = StringOverlay.Get("Common_Close"), IsCancel = true, IsDefault = true,
-            MinWidth = 96, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0)
+            Content = StringOverlay.Get("Common_Close"),
+            IsCancel = true,
+            IsDefault = true,
+            MinWidth = 96,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 12, 0, 0)
         };
         close.Click += (_, _) => dialog.Close();
         Grid.SetRow(close, 1);

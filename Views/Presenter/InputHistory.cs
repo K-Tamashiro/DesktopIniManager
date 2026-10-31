@@ -1,8 +1,8 @@
-﻿using System.IO;
+﻿using DesktopIniManager.Services;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using DesktopIniManager.Services;
 
 namespace DesktopIniManager.Views;
 

@@ -1,6 +1,6 @@
-﻿using DesktopIniManager.ViewModels;
+﻿using DesktopIniManager.Properties;
 using DesktopIniManager.Services;
-using DesktopIniManager.Properties;
+using DesktopIniManager.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -10,11 +10,11 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Documents;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 
@@ -48,6 +48,7 @@ internal sealed partial class DiffViewWindow : Window
     {
         if (windowClosed) throw new OperationCanceledException();
     }
+
     private List<int> hunks => ViewModel.Hunks;
     private List<DiffLine> lines => ViewModel.Lines;
     private RichTextBox leftList, rightList;
@@ -78,6 +79,7 @@ internal sealed partial class DiffViewWindow : Window
     {
         ViewModel = new DiffViewModel(snapshot, file, new UserDialogService(this), sourcePath, targetPath);
         InitializeComponent();
+        Icon = DifferencerStatusIcons.GetCustomIcon(52) ?? Icon;
         DataContext = ViewModel;
         if (sourcePath != null) selectedFileText.Visibility = Visibility.Collapsed;
         PreviewKeyDown += DiffViewKeyDown;
@@ -99,6 +101,7 @@ internal sealed partial class DiffViewWindow : Window
         ViewModel.JumpRequested += Jump;
         ViewModel.ReloadRequested = () => LoadContent();
         ViewModel.CloseRequested += Close;
+        ViewModel.ConfirmChangesRequested = ConfirmTextChangesAsync;
         if (CloseButtonIcon != null)
             CloseButtonIcon.Source = DifferencerStatusIcons.GetCustomIcon(26);
         if (ExternalDiffLabelIcon != null)
@@ -112,8 +115,20 @@ internal sealed partial class DiffViewWindow : Window
             Owner is DeveloperDifferencerWindow owner
                 ? owner.GetVisibleComparableFiles()
                 : Array.Empty<DiffFile>();
-        Closing += (s, e) =>
+        Closing += async (s, e) =>
         {
+            if (!allowEditedClose && ViewModel.HasEdits)
+            {
+                e.Cancel = true;
+                if (confirmingTextChanges) return;
+                if (await ConfirmTextChangesAsync())
+                {
+                    allowEditedClose = true;
+                    Close();
+                }
+                return;
+            }
+            if (savingText) { e.Cancel = true; return; }
             if (Owner == null)
             {
                 Rect bounds = WindowState == WindowState.Normal ? new Rect(Left, Top, ActualWidth, ActualHeight) : RestoreBounds;
@@ -213,6 +228,7 @@ internal sealed partial class DiffViewWindow : Window
     {
         if (renderingContent) return;
         if (e.Handled || Keyboard.FocusedElement is TextBox) return;
+        if (HandleTextEditKey(e)) return;
         if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.V)
         {
             e.Handled = true;
@@ -241,6 +257,7 @@ internal sealed partial class DiffViewWindow : Window
                     if (ViewModel.IsImage || ViewModel.IsVideo || ViewModel.IsAudio) return;
                     command = ToggleDisplayCommand;
                     break;
+
                 default: return;
             }
             e.Handled = true;
@@ -289,6 +306,7 @@ internal sealed partial class DiffViewWindow : Window
     }
 
     private ICommand toggleDisplayCommand;
+
     private ICommand ToggleDisplayCommand => toggleDisplayCommand ??=
         new AsyncRelayCommand(async () =>
         {
@@ -297,9 +315,11 @@ internal sealed partial class DiffViewWindow : Window
 
     private ICommand reloadCommand;
     private ICommand clearInputsCommand;
+
     private ICommand ClearInputsCommand => clearInputsCommand ??= new AsyncRelayCommand(async () =>
     {
         if (renderingContent || !ViewModel.CanChangeComparison) return;
+        if (!await ConfirmTextChangesAsync()) return;
         ViewModel.ClearInputs();
         await LoadContent();
     }, ViewModel.ReportError);
@@ -318,6 +338,7 @@ internal sealed partial class DiffViewWindow : Window
         var paths = e.Data.GetData(DataFormats.FileDrop) as string[];
         if (paths == null || paths.Length == 0) return;
         if (paths.Length > 2) { ViewModel.Status = StringOverlay.Get("Diff_DropCount"); return; }
+        if (!await ConfirmTextChangesAsync()) return;
         bool sourceSide = ViewModel.IsAudio ? e.GetPosition(body).Y < body.ActualHeight / 2 : e.GetPosition(body).X < body.ActualWidth / 2;
         bool accepted = false;
         SetRendering(true);
@@ -330,6 +351,7 @@ internal sealed partial class DiffViewWindow : Window
     private async Task PasteClipboardAsync(bool sourceSide)
     {
         if (renderingContent || windowClosed || !ViewModel.CanChangeComparison) return;
+        if (!await ConfirmTextChangesAsync()) return;
         bool accepted = false;
         SetRendering(true);
         try
@@ -343,7 +365,7 @@ internal sealed partial class DiffViewWindow : Window
         if (accepted && !windowClosed) await LoadContent();
     }
 
-    private ICommand ReloadCommand => reloadCommand ??= new AsyncRelayCommand(ViewModel.ReloadFromDiskAsync, ViewModel.ReportError);
+    private ICommand ReloadCommand => reloadCommand ??= new AsyncRelayCommand(RecompareWorkingTextAsync, ViewModel.ReportError);
 
     private void BuildToolbar()
     {
@@ -384,7 +406,7 @@ internal sealed partial class DiffViewWindow : Window
             {
                 if (!ViewModel.CanChangeComparison) return;
                 toggle();
-                await LoadContent();
+                await RecompareWorkingTextAsync();
             }, ViewModel.ReportError));
     }
 
@@ -519,6 +541,7 @@ internal sealed partial class DiffViewWindow : Window
                 }
             })
             { BaselineAlignment = BaselineAlignment.Center });
+            if (ViewModel.IsText) AddTextSaveButton(header, source);
             if (ViewModel.IsVideo)
             {
                 header.Inlines.Add(new InlineUIContainer(CreateVideoDelay(source))
@@ -622,6 +645,7 @@ internal sealed partial class DiffViewWindow : Window
             await Dispatcher.Yield(DispatcherPriority.Background);
             CheckWindowOpen();
             if (reload && !await ViewModel.LoadContentAsync()) return;
+            selectedEditHunks.Clear();
             if (!IsLoaded) return;
             DetachImageFitHandler();
             ResetImageNavigation();
@@ -720,6 +744,7 @@ internal sealed partial class DiffViewWindow : Window
         catch (Exception ex) { ViewModel.ReportError(ex); }
         finally { SetRendering(false); }
     }
+
     private double MeasureSharedTextWidth()
     {
         if (lines == null || lines.Count == 0) return 0;
@@ -751,7 +776,7 @@ internal sealed partial class DiffViewWindow : Window
             LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
             TextAlignment = TextAlignment.Right,
             VerticalAlignment = VerticalAlignment.Top,
-            Padding = new Thickness(8, 0, 8, 0),
+            Padding = new Thickness(30, 0, 8, 0),
             IsHitTestVisible = false
         };
         gutter.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
@@ -775,7 +800,7 @@ internal sealed partial class DiffViewWindow : Window
         {
             Width = gutter.DesiredSize.Width,
             ClipToBounds = true,
-            IsHitTestVisible = false,
+            IsHitTestVisible = true,
             VerticalAlignment = VerticalAlignment.Top
         };
         gutterViewport.SetResourceReference(Panel.BackgroundProperty, "CardBackground");
@@ -790,6 +815,7 @@ internal sealed partial class DiffViewWindow : Window
             if (!(e.OriginalSource is ScrollViewer paneScroll)) return;
             gutterViewport.Height = paneScroll.ViewportHeight;
             Canvas.SetTop(gutter, -paneScroll.VerticalOffset);
+            PositionEditArrows(gutterViewport, paneScroll.VerticalOffset);
         }), true);
         var grid = new Grid();
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -800,6 +826,7 @@ internal sealed partial class DiffViewWindow : Window
         var markers = new WhitespaceOverlay(box, ViewModel);
         Grid.SetColumn(markers, 1);
         grid.Children.Add(markers);
+        BuildEditArrows(gutterViewport, sourceSide);
 
         var host = new Border { Child = grid, BorderThickness = new Thickness(5) };
         host.SetResourceReference(Border.BorderBrushProperty, sourceSide ? "SourceColor" : "TargetColor");
@@ -825,6 +852,8 @@ internal sealed partial class DiffViewWindow : Window
         box.SetResourceReference(Control.BackgroundProperty, "CardBackground");
         box.SetResourceReference(Control.ForegroundProperty, "Ink");
         box.SetResourceReference(TextBoxBase.SelectionBrushProperty, "ThemeSelected");
+        box.GotKeyboardFocus += (_, _) => clipboardSource = sourceSide;
+        box.SelectionChanged += (_, _) => UpdateTextHunkSelection(box);
 
         box.SizeChanged += (_, _) =>
         {
@@ -950,6 +979,7 @@ internal sealed partial class DiffViewWindow : Window
         if (box.Parent is Grid paneGrid)
             paneGrid.Children.OfType<WhitespaceOverlay>().Single().SetRows(markerRows);
     }
+
     private async Task MarkInlineDifferencesAsync(Paragraph paragraph, DiffLine line, bool sourceSide, bool responsive)
     {
         var changed = sourceSide ? line.LeftChanges : line.RightChanges;
@@ -1194,7 +1224,9 @@ internal sealed partial class DiffViewWindow : Window
         gutter.Text = numbers.ToString();
         gutter.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         viewport.Width = Math.Max(viewport.Width, gutter.DesiredSize.Width);
+        BuildEditArrows(viewport, source);
     }
+
     private void Jump(int index) => SelectHunk(index, scrollToStart: true);
 
     private void SelectHunk(int index, bool scrollToStart)

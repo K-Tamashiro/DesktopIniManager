@@ -1,12 +1,17 @@
 ﻿using System;
-using System.Reflection;
 using System.IO;
-using System.Windows.Documents;
+using System.IO.Hashing;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using DesktopIniManager.Properties;
+using ExcelDataReader;
+using NAudio.Wave;
+using UglyToad.PdfPig;
+using HorizontalAlignment = System.Windows.HorizontalAlignment;
 
 namespace DesktopIniManager.Views;
 
@@ -35,9 +40,10 @@ internal sealed class AboutWindow : Window
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var details = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         var assembly = typeof(MainWindow).Assembly;
-        string version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-            ?? assembly.GetName().Version?.ToString() ?? "—";
-        details.Children.Add(new TextBlock { Text = "DesktopIniManager", FontSize = 20, FontWeight = FontWeights.SemiBold });
+        var version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                      ?? assembly.GetName().Version?.ToString() ?? "—";
+        details.Children.Add(new TextBlock
+            { Text = "DesktopIniManager", FontSize = 20, FontWeight = FontWeights.SemiBold });
         details.Children.Add(new TextBlock
         {
             Text = $"Version {version}  ·  {(Environment.Is64BitProcess ? "64" : "32")}-bit",
@@ -45,21 +51,22 @@ internal sealed class AboutWindow : Window
         });
         // Keep the original version area's height; the longer contents scroll inside it.
         details.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-        double versionHeight = details.DesiredSize.Height;
+        var versionHeight = details.DesiredSize.Height;
         details.Children.Add(new TextBlock
         {
             Text = "Libraries / APIs", FontWeight = FontWeights.SemiBold,
             Margin = new Thickness(0, 14, 0, 6)
         });
-        AddComponent(details, ".NET / WPF", Environment.Version.ToString(), "UI rendering, image decoding, GIF / video playback");
+        AddComponent(details, ".NET / WPF", Environment.Version.ToString(),
+            "UI rendering, image decoding, GIF / video playback");
         AddComponent(details, "Windows API", null, "Shell / User32 / Kernel32 — file, icon, and window operations");
-        AddComponent(details, "ExcelDataReader", VersionOf(typeof(ExcelDataReader.ExcelReaderFactory).Assembly),
+        AddComponent(details, "ExcelDataReader", VersionOf(typeof(ExcelReaderFactory).Assembly),
             "Excel file reading · MIT", "ExcelDataReader-LICENSE.txt");
-        AddComponent(details, "PdfPig", VersionOf(typeof(UglyToad.PdfPig.PdfDocument).Assembly),
+        AddComponent(details, "PdfPig", VersionOf(typeof(PdfDocument).Assembly),
             "PDF text extraction · Apache-2.0", "PdfPig-LICENSE.txt");
-        AddComponent(details, "NAudio", VersionOf(typeof(NAudio.Wave.AudioFileReader).Assembly),
+        AddComponent(details, "NAudio", VersionOf(typeof(AudioFileReader).Assembly),
             "Audio decoding and playback · MIT", "NAudio-LICENSE.txt");
-        AddComponent(details, "System.IO.Hashing", VersionOf(typeof(System.IO.Hashing.XxHash64).Assembly),
+        AddComponent(details, "System.IO.Hashing", VersionOf(typeof(XxHash64).Assembly),
             "Hashing for file comparison", "System.IO.Hashing-NOTICES.txt", "Bundled notices TXT");
         AddComponent(details, "Mathertel Diff", null,
             "Text diff algorithm (DIM-modified) · BSD-3-Clause", "Mathertel-Diff-LICENSE.txt");
@@ -87,9 +94,12 @@ internal sealed class AboutWindow : Window
         layout.Children.Add(footer);
         Content = layout;
     }
-    private static string VersionOf(Assembly assembly) =>
-        assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0]
-        ?? assembly.GetName().Version?.ToString();
+
+    private static string VersionOf(Assembly assembly)
+    {
+        return assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0]
+               ?? assembly.GetName().Version?.ToString();
+    }
 
     private void AddComponent(Panel panel, string name, string version, string description,
         string license = null, string linkLabel = "License TXT")
@@ -110,6 +120,7 @@ internal sealed class AboutWindow : Window
             text.Inlines.Add(link);
             item.Children.Add(text);
         }
+
         panel.Children.Add(item);
     }
 
@@ -119,9 +130,11 @@ internal sealed class AboutWindow : Window
         using var stream = typeof(AboutWindow).Assembly.GetManifestResourceStream("DIM.Licenses." + file);
         if (stream == null)
         {
-            MessageBox.Show(this, "License document not found: " + file, Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, "License document not found: " + file, Title, MessageBoxButton.OK,
+                MessageBoxImage.Warning);
             return;
         }
+
         using var reader = new StreamReader(stream);
         var dialog = new Window
         {
@@ -141,8 +154,8 @@ internal sealed class AboutWindow : Window
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             FontFamily = new FontFamily("Consolas"), FontSize = 13, Padding = new Thickness(10)
         };
-        content.SetResourceReference(Control.BackgroundProperty, "CardBackground");
-        content.SetResourceReference(Control.ForegroundProperty, "Ink");
+        content.SetResourceReference(BackgroundProperty, "CardBackground");
+        content.SetResourceReference(ForegroundProperty, "Ink");
         grid.Children.Add(content);
         var close = new Button
         {
@@ -150,9 +163,9 @@ internal sealed class AboutWindow : Window
             MinWidth = 96, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0)
         };
         close.Click += (_, _) => dialog.Close();
-        Grid.SetRow(close, 1); grid.Children.Add(close);
+        Grid.SetRow(close, 1);
+        grid.Children.Add(close);
         dialog.Content = grid;
         dialog.ShowDialog();
     }
-
 }

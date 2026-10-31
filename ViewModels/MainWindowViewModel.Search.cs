@@ -1,5 +1,7 @@
 ﻿using DesktopIniManager.Models;
+using DesktopIniManager.Properties;
 using DesktopIniManager.Services;
+using FastVolumeIndex;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -8,14 +10,36 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Media;
 using System.Windows.Threading;
-using FastVolumeIndex;
-using DesktopIniManager.Properties;
 
 namespace DesktopIniManager.ViewModels;
 
 internal sealed partial class MainWindowViewModel
 {
+    private string _solutionAnalysisRoot;
+
+    // These fields belong to the physical acquisition, not ordinary searches.
+    private CancellationTokenSource _solutionCts;
+
+    private Exception _solutionError;
+    private int _solutionGeneration;
+    private VolumePathIndex _solutionPathIndex;
+    private bool _solutionReady;
+    private Task _solutionTask;
     private int _statusEpoch;
+    private int _treeViewGeneration;
+
+    internal bool IsLazyNetworkTreeActive
+    {
+        get
+        {
+            var roots = TreeViewIndex == 0
+                ? _treeRoots
+                : TreeViewIndex == 2
+                    ? _searchRoots
+                    : Enumerable.Empty<FolderMatch>();
+            return roots.Any(item => item.IsLazyLoaded || item.Children.Any(child => child.IsLazyPlaceholder));
+        }
+    }
 
     internal event Action SearchModeRequested;
 
@@ -25,7 +49,7 @@ internal sealed partial class MainWindowViewModel
         _searchRoots.Clear();
         _searchResultCount = 0;
         _searchCurrent = null;
-        _files.Clear();
+        Files.Clear();
         ClearSearchHits();
         FileListCountLabel = string.Format(Strings.Main_NItems, 0);
         FilePanelTitle = Strings.Common_Files;
@@ -38,12 +62,12 @@ internal sealed partial class MainWindowViewModel
         if (string.IsNullOrWhiteSpace(RootPath) || !Directory.Exists(RootPath.Trim()))
             return Task.CompletedTask;
 
-        string root = RootPath.Trim();
+        var root = RootPath.Trim();
         if (IsNetworkPath(root))
             return PrepareLazyNetworkTreeAtStartupAsync(root);
 
         _pendingSearchQuery = ".git";
-        return SearchAsync(quietMissingRoot: true);
+        return SearchAsync(true);
     }
 
     private async Task PrepareLazyNetworkTreeAtStartupAsync(string root)
@@ -63,7 +87,7 @@ internal sealed partial class MainWindowViewModel
         SetSearching(true);
         try
         {
-            await BuildLazyNetworkTreeAsync(root, searchCts.Token, intoSearch: false);
+            await BuildLazyNetworkTreeAsync(root, searchCts.Token, false);
             searchCts.Token.ThrowIfCancellationRequested();
             _pathIndex = null;
             _folderTreeRoot = root;
@@ -89,34 +113,39 @@ internal sealed partial class MainWindowViewModel
                 _searchCts = null;
                 SetSearching(false);
             }
+
             searchCts.Dispose();
         }
     }
 
-    internal Task SearchAsync() => SearchAsync(false);
+    internal Task SearchAsync()
+    {
+        return SearchAsync(false);
+    }
 
     internal void CancelSearch()
     {
         _searchCts?.Cancel();
-        if (_treeView == 1) _solutionCts?.Cancel();
+        if (TreeViewIndex == 1) _solutionCts?.Cancel();
     }
 
     internal async Task SearchAsync(bool quietMissingRoot)
     {
         // Snapshot bindable state before starting background work.
-        int statusEpoch = ++_statusEpoch;
+        var statusEpoch = ++_statusEpoch;
         SearchHistoryRequested?.Invoke();
-        string root = RootPath.Trim();
-        string visibleQuery = Query.Trim();
-        string query = _pendingSearchQuery ?? visibleQuery;
-        bool folderListMode = string.IsNullOrWhiteSpace(query);
-        bool gitSearchRequested = _pendingSearchQuery != null && string.Equals(query, ".git", StringComparison.OrdinalIgnoreCase);
-        IReadOnlyList<string> searchRoots = gitSearchRequested
+        var root = RootPath.Trim();
+        var visibleQuery = Query.Trim();
+        var query = _pendingSearchQuery ?? visibleQuery;
+        var folderListMode = string.IsNullOrWhiteSpace(query);
+        var gitSearchRequested = _pendingSearchQuery != null &&
+                                 string.Equals(query, ".git", StringComparison.OrdinalIgnoreCase);
+        var searchRoots = gitSearchRequested
             ? new[] { root }
             : ResolveSearchScopes(root);
         // Searches own the Search tab. Physical and Solution
         // are populated exclusively by the Git acquisition workflow.
-        bool searchOnly = !gitSearchRequested;
+        var searchOnly = !gitSearchRequested;
         _pendingSearchQuery = null;
         SettingsService.SaveSearchRoot(root);
         SettingsService.SaveSearchQuery(visibleQuery);
@@ -157,8 +186,10 @@ internal sealed partial class MainWindowViewModel
             _searchRoots.Clear();
             _searchResultCount = 0;
         }
+
         if (gitSearchRequested) ShowTreeView(0);
-        CountLabel = Strings.Main_ZeroMatches; SetSearching(true);
+        CountLabel = Strings.Main_ZeroMatches;
+        SetSearching(true);
         try
         {
             if (folderListMode)
@@ -170,7 +201,7 @@ internal sealed partial class MainWindowViewModel
                 }
                 else
                 {
-                    StandardSearchResult standard = await RunStandardIndexedSearch(searchRoots, string.Empty, searchCts.Token);
+                    var standard = await RunStandardIndexedSearch(searchRoots, string.Empty, searchCts.Token);
                     await AddTreeResultsAsync(standard.Matches, searchCts.Token, searchOnly);
                     _pathIndex = standard.Paths;
                     RefreshTreeItemsSource();
@@ -178,12 +209,13 @@ internal sealed partial class MainWindowViewModel
             }
             else
             {
-                StandardSearchResult standard = await RunStandardIndexedSearch(searchRoots, query, searchCts.Token);
+                var standard = await RunStandardIndexedSearch(searchRoots, query, searchCts.Token);
                 await AddTreeResultsAsync(standard.Matches, searchCts.Token, searchOnly);
                 _pathIndex = standard.Paths;
                 RefreshTreeItemsSource();
                 await ApplyStandardDevelopmentAnalysis(gitSearchRequested, standard.Paths, searchCts.Token);
             }
+
             if (!searchOnly)
             {
                 searchCts.Token.ThrowIfCancellationRequested();
@@ -191,6 +223,7 @@ internal sealed partial class MainWindowViewModel
                 _physicalCurrent = _solutionCurrent = null;
                 _rebuildingFolderTrees = false;
             }
+
             if (searchOnly)
             {
                 ShowTreeView(2);
@@ -202,24 +235,25 @@ internal sealed partial class MainWindowViewModel
                 _ = StartSolutionAnalysis(root, _pathIndex);
             }
         }
-        catch (OperationCanceledException) { Status = Strings.Main_SearchCancelled; }
-        catch (Exception ex) { _dialogs.Show(ErrorMessages.English(ex), Strings.App_Title); Status = Strings.Main_SearchFailed; }
+        catch (OperationCanceledException)
+        {
+            Status = Strings.Main_SearchCancelled;
+        }
+        catch (Exception ex)
+        {
+            _dialogs.Show(ErrorMessages.English(ex), Strings.App_Title);
+            Status = Strings.Main_SearchFailed;
+        }
         finally
         {
             _statusEpoch++;
-            if (ReferenceEquals(_searchCts, searchCts)) { _searchCts = null; SetSearching(false); }
-            searchCts.Dispose();
-        }
-    }
+            if (ReferenceEquals(_searchCts, searchCts))
+            {
+                _searchCts = null;
+                SetSearching(false);
+            }
 
-    internal bool IsLazyNetworkTreeActive
-    {
-        get
-        {
-            IEnumerable<FolderMatch> roots = _treeView == 0
-                ? _treeRoots
-                : _treeView == 2 ? _searchRoots : Enumerable.Empty<FolderMatch>();
-            return roots.Any(item => item.IsLazyLoaded || item.Children.Any(child => child.IsLazyPlaceholder));
+            searchCts.Dispose();
         }
     }
 
@@ -231,23 +265,23 @@ internal sealed partial class MainWindowViewModel
         folder.IsLazyLoading = true;
         try
         {
-            CancellationToken token = _searchCts?.Token ?? CancellationToken.None;
-            List<FolderMatch> children = await Task.Run(
+            var token = _searchCts?.Token ?? CancellationToken.None;
+            var children = await Task.Run(
                 () => EnumerateLazyFolders(folder.Path, folder, token), token);
 
             folder.Children.Clear();
-            foreach (FolderMatch child in children)
+            foreach (var child in children)
                 folder.Children.Add(child);
             folder.IsLazyLoaded = true;
 
-            if (_treeView == 0)
+            if (TreeViewIndex == 0)
             {
-                foreach (FolderMatch child in children)
+                foreach (var child in children)
                     if (!_results.Contains(child))
                         _results.Add(child);
                 CountLabel = string.Format(Strings.Main_NFolders, _results.Count);
             }
-            else if (_treeView == 2)
+            else if (TreeViewIndex == 2)
             {
                 _searchResultCount += children.Count;
                 CountLabel = string.Format(Strings.Main_NFolders, _searchResultCount);
@@ -271,10 +305,10 @@ internal sealed partial class MainWindowViewModel
             IsExpanded = true
         };
 
-        List<FolderMatch> children = await Task.Run(
+        var children = await Task.Run(
             () => EnumerateLazyFolders(root, rootNode, token, defaultFolderIcon), token);
 
-        foreach (FolderMatch child in children)
+        foreach (var child in children)
             rootNode.Children.Add(child);
         rootNode.IsLazyLoaded = true;
 
@@ -290,7 +324,7 @@ internal sealed partial class MainWindowViewModel
         {
             _results.Clear();
             _results.Add(rootNode);
-            foreach (FolderMatch child in children)
+            foreach (var child in children)
                 _results.Add(child);
             _treeRoots.Clear();
             _treeRoots.Add(rootNode);
@@ -308,7 +342,7 @@ internal sealed partial class MainWindowViewModel
         defaultFolderIcon ??= FolderIconService.GetDefaultFolderIcon();
         var result = new List<FolderMatch>();
 
-        foreach (VolumePathIndex.NativeDirectoryEntry entry in VolumePathIndex.EnumerateNativeDirectory(folder, token))
+        foreach (var entry in VolumePathIndex.EnumerateNativeDirectory(folder, token))
         {
             token.ThrowIfCancellationRequested();
             if ((entry.Attributes & FileAttributes.Directory) == 0)
@@ -318,7 +352,7 @@ internal sealed partial class MainWindowViewModel
             if (IsDroppedTreeFolder(entry.Name))
                 continue;
 
-            string path = Path.Combine(folder, entry.Name);
+            var path = Path.Combine(folder, entry.Name);
             var child = new FolderMatch
             {
                 Path = path,
@@ -331,7 +365,6 @@ internal sealed partial class MainWindowViewModel
 
             // The placeholder gives WPF an expander without touching the child directory.
             if ((entry.Attributes & FileAttributes.ReparsePoint) == 0)
-            {
                 child.Children.Add(new FolderMatch
                 {
                     Parent = child,
@@ -342,18 +375,15 @@ internal sealed partial class MainWindowViewModel
                     IsLazyPlaceholder = true,
                     IsLazyLoaded = true
                 });
-            }
             else
-            {
                 child.IsLazyLoaded = true;
-            }
 
             result.Add(child);
         }
 
         result.Sort((left, right) =>
         {
-            int name = StringComparer.CurrentCultureIgnoreCase.Compare(left.Name, right.Name);
+            var name = StringComparer.CurrentCultureIgnoreCase.Compare(left.Name, right.Name);
             return name != 0 ? name : StringComparer.CurrentCultureIgnoreCase.Compare(left.Path, right.Path);
         });
         return result;
@@ -361,8 +391,8 @@ internal sealed partial class MainWindowViewModel
 
     private static string GetLazyRootName(string root)
     {
-        string normalized = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        string name = Path.GetFileName(normalized);
+        var normalized = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var name = Path.GetFileName(normalized);
         return string.IsNullOrEmpty(name) ? root : name;
     }
 
@@ -374,7 +404,7 @@ internal sealed partial class MainWindowViewModel
             return true;
         try
         {
-            string root = Path.GetPathRoot(Path.GetFullPath(path));
+            var root = Path.GetPathRoot(Path.GetFullPath(path));
             return !string.IsNullOrEmpty(root) && new DriveInfo(root).DriveType == DriveType.Network;
         }
         catch
@@ -383,10 +413,11 @@ internal sealed partial class MainWindowViewModel
         }
     }
 
-    private Task<StandardSearchResult> RunStandardIndexedSearch(IReadOnlyList<string> roots, string query, CancellationToken token)
+    private Task<StandardSearchResult> RunStandardIndexedSearch(IReadOnlyList<string> roots, string query,
+        CancellationToken token)
     {
         ImageSource defaultFolderIcon = FolderIconService.GetDefaultFolderIcon();
-        IReadOnlyList<string> searchRoots = roots == null || roots.Count == 0
+        var searchRoots = roots == null || roots.Count == 0
             ? new[] { RootPath.Trim() }
             : roots;
         return Task.Run(() =>
@@ -394,33 +425,34 @@ internal sealed partial class MainWindowViewModel
             VolumePathIndex merged = null;
             var matches = new List<FolderMatch>();
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            int lastReport = Environment.TickCount;
-            foreach (string root in searchRoots)
+            var lastReport = Environment.TickCount;
+            foreach (var root in searchRoots)
             {
                 token.ThrowIfCancellationRequested();
                 if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root)) continue;
-                VolumePathIndex paths = VolumePathIndex.BuildFromNativeEnumeration(root,
+                var paths = VolumePathIndex.BuildFromNativeEnumeration(root,
                     count =>
                     {
-                        int now = Environment.TickCount;
+                        var now = Environment.TickCount;
                         if (unchecked(now - lastReport) < 125) return;
                         lastReport = now;
                         Dispatcher.BeginInvoke(new Action(() =>
                         {
                             if (!IsSearching) return;
                             Status = string.Format(Strings.Main_IndexedFoldersEllipsis, count.ToString("N0"));
-                        }), System.Windows.Threading.DispatcherPriority.Background);
+                        }), DispatcherPriority.Background);
                     }, token);
                 token.ThrowIfCancellationRequested();
                 merged = paths;
-                List<FolderMatch> found = new FastFolderSearchService().Search(paths, query, token);
-                foreach (FolderMatch item in found)
+                var found = new FastFolderSearchService().Search(paths, query, token);
+                foreach (var item in found)
                 {
                     if (!seen.Add(item.Path)) continue;
                     item.IconPreview = defaultFolderIcon;
                     matches.Add(item);
                 }
             }
+
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 if (!IsSearching) return;
@@ -434,30 +466,17 @@ internal sealed partial class MainWindowViewModel
     {
         if (!enabled) return;
         Status = string.Format(Strings.Main_FoldersAnalyzing, _results.Count);
-        await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
-        Dictionary<string, string> analysis = await Task.Run(() => new FastFolderSearchService().AnalyzeDevelopment(paths, token), token);
-        int updated = 0;
-        foreach (FolderMatch item in _results)
+        await Dispatcher.Yield(DispatcherPriority.Background);
+        var analysis = await Task.Run(() => new FastFolderSearchService().AnalyzeDevelopment(paths, token), token);
+        var updated = 0;
+        foreach (var item in _results)
         {
             token.ThrowIfCancellationRequested();
             string reason;
             if (analysis.TryGetValue(VolumePathIndex.Normalize(item.Path), out reason)) item.Reason = reason;
-            if ((++updated % 60) == 0)
-            {
-                await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
-            }
+            if (++updated % 60 == 0) await Dispatcher.Yield(DispatcherPriority.Background);
         }
     }
-
-    // These fields belong to the physical acquisition, not ordinary searches.
-    private CancellationTokenSource _solutionCts;
-    private Task _solutionTask;
-    private VolumePathIndex _solutionPathIndex;
-    private string _solutionAnalysisRoot;
-    private Exception _solutionError;
-    private bool _solutionReady;
-    private int _solutionGeneration;
-    private int _treeViewGeneration;
 
     private void InvalidateSolutionAnalysis()
     {
@@ -472,13 +491,14 @@ internal sealed partial class MainWindowViewModel
         _solutionError = null;
         _solutionRoots.Clear();
         _solutionCurrent = null;
-        if (_treeView == 1)
+        if (TreeViewIndex == 1)
         {
             _filterCts?.Cancel();
             _filteredViewItems = null;
             RefreshTreeItemsSource();
             UpdateVisibleCount();
         }
+
         SetTreePanelBusy(false);
     }
 
@@ -499,49 +519,56 @@ internal sealed partial class MainWindowViewModel
         try
         {
             // Let physical rendering and the foreground command finish first.
-            await System.Windows.Threading.Dispatcher.Yield(DispatcherPriority.Background);
-            CancellationToken token = cts.Token;
-            List<FolderMatch> roots = await Task.Run(() =>
+            await Dispatcher.Yield(DispatcherPriority.Background);
+            var token = cts.Token;
+            var roots = await Task.Run(() =>
             {
-                List<string> solutions = (paths?.ProjectFiles ?? (IReadOnlyList<string>)Array.Empty<string>())
+                var solutions = (paths?.ProjectFiles ?? Array.Empty<string>())
                     .Where(path => !string.IsNullOrWhiteSpace(path)
-                        && string.Equals(Path.GetExtension(path), ".sln", StringComparison.OrdinalIgnoreCase))
+                                   && string.Equals(Path.GetExtension(path), ".sln",
+                                       StringComparison.OrdinalIgnoreCase))
                     .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
                 var built = new List<FolderMatch>();
                 if (solutions.Count == 0)
+                {
                     built = SolutionTreeService.Build(root, token);
+                }
                 else
                 {
-                    int lastReport = Environment.TickCount;
-                    foreach (string path in solutions)
+                    var lastReport = Environment.TickCount;
+                    foreach (var path in solutions)
                     {
                         token.ThrowIfCancellationRequested();
                         built.AddRange(SolutionTreeService.BuildFromProjectFiles(new[] { path }, paths, token));
-                        int now = Environment.TickCount;
+                        var now = Environment.TickCount;
                         if (unchecked(now - lastReport) < 120) continue;
                         lastReport = now;
-                        int count = built.Count;
-                        string name = Path.GetFileName(path);
+                        var count = built.Count;
+                        var name = Path.GetFileName(path);
                         Dispatcher.BeginInvoke(new Action(() =>
                         {
                             if (generation != _solutionGeneration || token.IsCancellationRequested
-                                || _solutionReady || _treeView != 1 || !IsTreeBusy) return;
+                                                                  || _solutionReady || TreeViewIndex != 1 ||
+                                                                  !IsTreeBusy) return;
                             CountLabel = string.Format(Strings.Main_NItems, count);
                             Status = string.Format(Strings.Main_SolutionsFound, count)
-                                + " / " + solutions.Count.ToString("N0") + "  " + name;
+                                     + " / " + solutions.Count.ToString("N0") + "  " + name;
                         }), DispatcherPriority.Background);
                     }
                 }
-                foreach (FolderMatch solution in built) AssignParents(solution);
+
+                foreach (var solution in built) AssignParents(solution);
                 return built;
             }, token);
             token.ThrowIfCancellationRequested();
             if (generation != _solutionGeneration) return;
-            foreach (FolderMatch solution in roots) _solutionRoots.Add(solution);
+            foreach (var solution in roots) _solutionRoots.Add(solution);
             ApplySolutionRootIcons(_solutionRoots);
             _solutionReady = true;
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException)
+        {
+        }
         catch (Exception ex)
         {
             // Observe background failures; report them when this view is requested.
@@ -557,15 +584,16 @@ internal sealed partial class MainWindowViewModel
     private async Task EnsureSolutionViewAsync()
     {
         if (_solutionReady || _rebuildingFolderTrees || _folderTreeRoot == null) return;
-        int generation = _solutionGeneration;
-        int viewGeneration = _treeViewGeneration;
-        Task task = StartSolutionAnalysis(_solutionAnalysisRoot ?? _folderTreeRoot, _solutionPathIndex);
+        var generation = _solutionGeneration;
+        var viewGeneration = _treeViewGeneration;
+        var task = StartSolutionAnalysis(_solutionAnalysisRoot ?? _folderTreeRoot, _solutionPathIndex);
         SetTreePanelBusy(true);
         Status = Strings.Main_BuildingTree;
         try
         {
             await task;
-            if (generation != _solutionGeneration || viewGeneration != _treeViewGeneration || _treeView != 1) return;
+            if (generation != _solutionGeneration || viewGeneration != _treeViewGeneration ||
+                TreeViewIndex != 1) return;
             if (_solutionReady) ShowTreeView(1);
             else if (_solutionError != null)
                 ShowError(Strings.Main_SearchFailed, _solutionError);
@@ -573,9 +601,8 @@ internal sealed partial class MainWindowViewModel
         }
         finally
         {
-            if (generation == _solutionGeneration && viewGeneration == _treeViewGeneration && _treeView == 1)
+            if (generation == _solutionGeneration && viewGeneration == _treeViewGeneration && TreeViewIndex == 1)
                 SetTreePanelBusy(false);
         }
     }
-
 }

@@ -1,237 +1,85 @@
-using DesktopIniManager.ViewModels;
 using DesktopIniManager.Models;
+using DesktopIniManager.Properties;
 using DesktopIniManager.Services;
+using DesktopIniManager.ViewModels;
 using Microsoft.Win32;
 using System;
-using System.Collections.ObjectModel;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
-using System.IO;
 using System.Globalization;
-using System.Text;
+using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.Versioning;
+using System.Text;
 using System.Windows;
-using System.Windows.Interop;
-using System.Windows.Media;
-using System.Windows.Media.Animation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Interop;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
-using DesktopIniManager.Properties;
-using System.Runtime.Versioning;
 
 namespace DesktopIniManager.Views;
 
 [SupportedOSPlatform("windows")]
 internal sealed class MainWindowPresentationService
 {
+    private static readonly HashSet<string> ScriptExtensions =
+        new(StringComparer.OrdinalIgnoreCase) { ".ps1", ".bat", ".cmd", ".vbs" };
+
+    private readonly DispatcherTimer _filterTimer;
+    private readonly MsBuildMenuModel _msBuildMenu = new();
 
     // --- MainWindowPresentationService.cs ---
 
     private readonly MainWindow _window;
-    private readonly MsBuildMenuModel _msBuildMenu = new MsBuildMenuModel();
     private bool _analyzeSelectedRoot;
-    private Point _treeDragStart;
-    private FolderMatch _treeDragFolder;
-    private Point _fileDragStart;
-    private FileListItem _fileDragItem;
+
+    private DeveloperDifferencerWindow _differencerWindow;
     private FileListItem _fileContextItem;
-    private bool _internalDragOut;
-    private bool _treeDragPreparing;
-    private Dispatcher Dispatcher => _window.Dispatcher;
-    private string Title { get => _window.Title; set => _window.Title = value; }
-    private object FindResource(object key) => _window.FindResource(key);
-    private ComboBox ThemeBox => _window.ThemeBox;
-    private HistoryTextBox RootBox => _window.RootBox;
-    private HistoryTextBox QueryBox => _window.QueryBox;
-    private HistoryTextBox IconPathBox => _window.IconPathBox;
-    private ToggleButton NodeExpandToggle => _window.NodeExpandToggle;
-    private ToggleButton TreeDensityToggle => _window.TreeDensityToggle;
-    private bool _updatingToggles;
-    private CheckBox AddToGitIgnoreBox => _window.AddToGitIgnoreBox;
-    private HistoryTextBox FolderFilterBox => _window.FolderFilterBox;
-    private HistoryTextBox ScriptBox => _window.ScriptBox;
-    private TreeView ResultsTree => _window.ResultsTree;
-    private Border TreePanelBusy => _window.TreePanelBusy;
-    private Button FileListViewButton => _window.FileListViewButton;
-    private Button FileIconLargeButton => _window.FileIconLargeButton;
-    private Button FileIconSmallButton => _window.FileIconSmallButton;
-    private ListView FileList => _window.FileList;
-    private ListBox FileIconList => _window.FileIconList;
-    private ProgressBar SearchProgress => _window.SearchProgress;
-    private Button ResetButton => _window.ResetButton;
-    private ComboBox LanguageBox => _window.LanguageBox;
-
-    private void ConnectView()
-    {
-        InputManager.Current.PreProcessInput += SwitchWindowShortcut;
-        _window.PreviewKeyDown += MainSearchKeyDown;
-        RootBox.HistoryItemApplied += (sender, args) => StartSelectedRootAnalysis();
-        _window.FolderFilterBox.TextChanged += FolderFilter_TextChanged;
-        _window.ResultsTree.SelectedItemChanged += ResultsTree_SelectedItemChanged;
-        _window.ResultsTree.AddHandler(TreeViewItem.ExpandedEvent, new RoutedEventHandler(ResultsTree_ItemExpanded), true);
-        _window.ResultsTree.PreviewMouseRightButtonDown += ResultsTree_PreviewMouseRightButtonDown;
-        _window.ResultsTree.PreviewMouseLeftButtonDown += ResultsTree_PreviewMouseLeftButtonDown;
-        _window.ResultsTree.PreviewMouseMove += ResultsTree_PreviewMouseMove;
-        _window.FrozenRootTree.SelectedItemChanged += ResultsTree_SelectedItemChanged;
-        _window.FrozenRootTree.AddHandler(TreeViewItem.ExpandedEvent, new RoutedEventHandler(ResultsTree_ItemExpanded), true);
-        _window.FrozenRootTree.PreviewMouseRightButtonDown += ResultsTree_PreviewMouseRightButtonDown;
-        _window.FrozenRootTree.PreviewMouseLeftButtonDown += ResultsTree_PreviewMouseLeftButtonDown;
-        _window.FrozenRootTree.PreviewMouseMove += ResultsTree_PreviewMouseMove;
-        _window.FrozenRootTree.AddHandler(FrameworkElement.ContextMenuOpeningEvent, new ContextMenuEventHandler(ResultsTree_ContextMenuOpening), true);
-        FolderMatch.CheckedFolderIcon = DifferencerStatusIcons.GetCustomIcon(101);
-        _window.ResultsTree.AddHandler(FrameworkElement.ContextMenuOpeningEvent, new ContextMenuEventHandler(ResultsTree_ContextMenuOpening), true);
-        ContextMenu treeMenu = _window.Resources["FolderTreeContextMenu"] as ContextMenu;
-        if (treeMenu != null)
-        {
-            MenuItem buildMenu = FindTaggedMenuItem(treeMenu, "dim-msbuild-build");
-            MenuItem rebuildMenu = FindTaggedMenuItem(treeMenu, "dim-msbuild-rebuild");
-            if (buildMenu != null) buildMenu.ItemsSource = _msBuildMenu.BuildItems;
-            if (rebuildMenu != null) rebuildMenu.ItemsSource = _msBuildMenu.RebuildItems;
-            MenuItem sdkBuildMenu = FindTaggedMenuItem(treeMenu, "dim-sdk-build");
-            MenuItem sdkRebuildMenu = FindTaggedMenuItem(treeMenu, "dim-sdk-rebuild");
-            if (sdkBuildMenu != null) sdkBuildMenu.ItemsSource = _msBuildMenu.SdkBuildItems;
-            if (sdkRebuildMenu != null) sdkRebuildMenu.ItemsSource = _msBuildMenu.SdkRebuildItems;
-        }
-        _window.FileList.SelectionChanged += FileList_SelectionChanged;
-        _window.FileList.PreviewMouseLeftButtonDown += FileList_PreviewMouseLeftButtonDown;
-        _window.FileList.PreviewMouseMove += FileList_PreviewMouseMove;
-        _window.FileIconList.PreviewMouseLeftButtonDown += FileList_PreviewMouseLeftButtonDown;
-        _window.FileIconList.PreviewMouseMove += FileList_PreviewMouseMove;
-        InitializeFileContextMenu(_window.FileList);
-        _window.FileList.ContextMenuOpening += FileList_ContextMenuOpening;
-        _window.FileIconList.SelectionChanged += FileList_SelectionChanged;
-        InitializeFileContextMenu(_window.FileIconList);
-        _window.FileIconList.ContextMenuOpening += FileList_ContextMenuOpening;
-        _window.QueryBox.TextChanged += QueryBox_TextChanged;
-        _window.TreeTabs.SelectionChanged += TreeTabs_SelectionChanged;
-        _window.LanguageBox.SelectionChanged += LanguageBox_SelectionChanged;
-        _window.ThemeBox.SelectionChanged += ThemeBox_SelectionChanged;
-        _window.RunScriptButton.Click += (sender, args) => RunScriptCommand();
-        _window.BrowseScriptButton.Click += (sender, args) => BrowseScriptCommand();
-        _window.ScriptBox.PreviewKeyDown += ScriptBox_PreviewKeyDown;
-        _window.RunScriptButton.ToolTip = ScriptText("Main_RunScript", "Run  \u2014  execute the command (%d folder / %f file / %n name)");
-        _window.BrowseScriptButton.ToolTip = ScriptText("Main_BrowseScript", "Browse  \u2014  pick .bat / .cmd / .ps1 / .vbs");
-        _window.ScriptBox.ToolTip = ScriptText("Main_ScriptTooltip", "Command. %d = folder, %f = file path, %n = file name. Quote as \"%d\" to wrap.");
-        _window.Closing += OnClosing;
-        _window.Closed += OnClosed;
-        ViewModel.InteractionRequested += HandleInteraction;
-        _window.AllowDrop = true;
-        _window.PreviewDragEnter += FolderDropPreview;
-        _window.PreviewDragOver += FolderDropPreview;
-        _window.PreviewDrop += MainWindow_Drop;
-        if (NodeExpandToggle != null)
-        {
-            NodeExpandToggle.Checked += NodeExpandToggle_Changed;
-            NodeExpandToggle.Unchecked += NodeExpandToggle_Changed;
-        }
-        if (TreeDensityToggle != null)
-        {
-            TreeDensityToggle.Checked += TreeDensityToggle_Changed;
-            TreeDensityToggle.Unchecked += TreeDensityToggle_Changed;
-        }
-    }
-
-    private static void FolderDropPreview(object sender, DragEventArgs e)
-    {
-        if (e.Data == null || !e.Data.GetDataPresent(DataFormats.FileDrop))
-            return;
-
-        e.Effects = DragDropEffects.Copy;
-        e.Handled = true;
-    }
-
-    private static List<string> FoldersFromDrop(IDataObject data)
-    {
-        var folders = new List<string>();
-        if (data == null || !data.GetDataPresent(DataFormats.FileDrop))
-            return folders;
-
-        var paths = data.GetData(DataFormats.FileDrop) as string[] ?? Array.Empty<string>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (string path in paths)
-        {
-            if (string.IsNullOrWhiteSpace(path)) continue;
-            string folder = Directory.Exists(path)
-                ? path
-                : File.Exists(path) ? Path.GetDirectoryName(path) : null;
-            if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder)) continue;
-            string normalized = MainWindowViewModel.NormalizeFolderPath(folder);
-            if (seen.Add(normalized))
-                folders.Add(normalized);
-        }
-
-        return folders;
-    }
-
-    private void MainWindow_Drop(object sender, DragEventArgs e)
-    {
-        if (_internalDragOut)
-        {
-            e.Handled = true;
-            return;
-        }
-
-        List<string> folders = FoldersFromDrop(e.Data);
-        if (folders.Count == 0) return;
-
-        ViewModel.RootPath = folders[0];
-        RootBox.CommitHistory();
-        SettingsService.SaveSearchRoot(folders[0]);
-        ShowTextEnd(RootBox);
-        ViewModel.SelectDroppedFolders(folders);
-        e.Handled = true;
-    }
-    private void HandleInteraction(MainWindowAction action, object parameter)
-    {
-        try
-        {
-            switch (action)
-            {
-                case MainWindowAction.ChooseRoot: ChooseRoot(); break;
-                case MainWindowAction.ChooseIconLibrary: ChooseIconLibrary(); break;
-                case MainWindowAction.ChooseIcon: ChooseIcon(); break;
-                case MainWindowAction.UseAsSearchLocation: UseAsSearchLocation(parameter as FolderMatch); break;
-                case MainWindowAction.OpenExplorer: OpenExplorer(parameter as FolderMatch); break;
-                case MainWindowAction.TreeToEditor: TreeToEditor(parameter as FolderMatch, false); break;
-                case MainWindowAction.TreeFilesToEditor: TreeToEditor(parameter as FolderMatch, true); break;
-                case MainWindowAction.FileListToEditor: FileListToEditor(); break;
-                case MainWindowAction.GrepFolder: GrepFolder(parameter as FolderMatch); break;
-                case MainWindowAction.CompactTree: CompactTree(); break;
-                case MainWindowAction.ComfortableTree: ComfortableTree(); break;
-                case MainWindowAction.FileListView: FileListView(); break;
-                case MainWindowAction.FileIconSmall: FileIconSmall(); break;
-                case MainWindowAction.FileIconLarge: FileIconLarge(); break;
-                case MainWindowAction.ClearFolderFilter: ClearFolderFilter(); break;
-                case MainWindowAction.DeveloperDifferencer: DeveloperDifferencer(); break;
-                case MainWindowAction.LightTheme: LightTheme(); break;
-                case MainWindowAction.DarkTheme: DarkTheme(); break;
-                case MainWindowAction.Reset: Reset(); break;
-                case MainWindowAction.Close: Close(); break;
-            }
-        }
-        catch (Exception error) { ViewModel.ShowError(Strings.App_Unhandled, error); }
-    }
-
-    internal MainWindowViewModel ViewModel { get; }
+    private FileListItem _fileDragItem;
+    private Point _fileDragStart;
     private GrepWindow _grepWindow;
-    private readonly System.Windows.Threading.DispatcherTimer _filterTimer;
+    private bool _internalDragOut;
+
+    private bool _languageReady;
     private bool _largeFileIcons;
-    private bool _syncingTreeFromFile;
     private bool _searchModeActive;
+    private bool _syncingTreeFromFile;
+
+    private bool _themeBoxReady;
+    private FolderMatch _treeDragFolder;
+    private bool _treeDragPreparing;
+    private Point _treeDragStart;
+    private bool _updatingToggles;
+    private bool differencerSavedOnClose;
+
+    /// <summary>Opens or activates the developer differencer window.</summary>
+    private bool savingDifferencerOnClose;
 
     internal MainWindowPresentationService(MainWindow window, StartupState startup)
     {
         _window = window;
         ViewModel = new MainWindowViewModel(startup, Dispatcher, new UserDialogService(window));
-        string[] commandLine = Environment.GetCommandLineArgs();
-        bool runGitSearch = commandLine.Any(argument => string.Equals(argument, "--run-git-search", StringComparison.OrdinalIgnoreCase));
-        bool runSearch = commandLine.Any(argument => string.Equals(argument, "--run-search", StringComparison.OrdinalIgnoreCase));
-        string currentTheme = startup?.Theme ?? SettingsService.LoadTheme();
+        var commandLine = Environment.GetCommandLineArgs();
+        var runGitSearch = commandLine.Any(argument =>
+            string.Equals(argument, "--run-git-search", StringComparison.OrdinalIgnoreCase));
+        var runSearch = commandLine.Any(argument =>
+            string.Equals(argument, "--run-search", StringComparison.OrdinalIgnoreCase));
+        var currentTheme = startup?.Theme ?? SettingsService.LoadTheme();
         _window.DataContext = ViewModel;
         ConnectView();
-        ViewModel.SearchHistoryRequested += () => { RootBox.CommitHistory(); QueryBox.CommitHistory(); IconPathBox.CommitHistory(); ScriptBox.CommitHistory(); };
+        ViewModel.SearchHistoryRequested += () =>
+        {
+            RootBox.CommitHistory();
+            QueryBox.CommitHistory();
+            IconPathBox.CommitHistory();
+            ScriptBox.CommitHistory();
+        };
         ViewModel.SearchRootSelectionRequested += SelectSearchRootForFileList;
         ViewModel.SearchModeRequested += EnterSearchMode;
         ViewModel.FolderSearchHitRequested += folder => RevealFolderInCurrentTree(folder.Path);
@@ -263,32 +111,51 @@ internal sealed class MainWindowPresentationService
             }), DispatcherPriority.Loaded);
         };
         ViewModel.OpenGrepRequested += OpenGrep;
-        ViewModel.PropertyChanged += (sender, args) => { if (args.PropertyName == nameof(ViewModel.IsSearching)) SetSearching(ViewModel.IsSearching); };
+        ViewModel.PropertyChanged += (sender, args) =>
+        {
+            if (args.PropertyName == nameof(ViewModel.IsSearching)) SetSearching(ViewModel.IsSearching);
+        };
         SelectThemeBox(currentTheme);
         InitLanguageBox();
-        _filterTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
-        _filterTimer.Tick += (sender, args) => { _filterTimer.Stop(); _ = ViewModel.ApplyFolderFilterAsync(); };
-        string savedRoot = startup != null ? startup.Root : SettingsService.LoadSearchRoot();
+        _filterTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        _filterTimer.Tick += (sender, args) =>
+        {
+            _filterTimer.Stop();
+            _ = ViewModel.ApplyFolderFilterAsync();
+        };
+        var savedRoot = startup != null ? startup.Root : SettingsService.LoadSearchRoot();
         ViewModel.RootPath = savedRoot ?? string.Empty;
-        string defaultLibrary = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "folder_set.icl");
-        string savedLibrary = startup != null ? startup.IconLibrary : SettingsService.LoadIconLibraryPath();
+        var defaultLibrary = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "folder_set.icl");
+        var savedLibrary = startup != null ? startup.IconLibrary : SettingsService.LoadIconLibraryPath();
         ViewModel.IconLibraryPath = !string.IsNullOrWhiteSpace(savedLibrary) ? savedLibrary : defaultLibrary;
-        string savedQuery = startup != null ? startup.Query : SettingsService.LoadSearchQuery();
-        ViewModel.Query = string.Equals(savedQuery, ".git", StringComparison.OrdinalIgnoreCase) ? string.Empty : (savedQuery ?? string.Empty);
+        var savedQuery = startup != null ? startup.Query : SettingsService.LoadSearchQuery();
+        ViewModel.Query = string.Equals(savedQuery, ".git", StringComparison.OrdinalIgnoreCase)
+            ? string.Empty
+            : savedQuery ?? string.Empty;
         RestoreWindowPlacement(commandLine);
         HookPathBox(RootBox);
         HookPathBox(IconPathBox);
         ApplyTreeDensity(startup != null ? startup.TreeCompact : SettingsService.LoadTreeCompact(), false);
         ViewModel.RestoreFolderTrees();
-        if (startup != null) { startup.Tree = null; startup.Physical = null; startup.Solution = null; }
+        if (startup != null)
+        {
+            startup.Tree = null;
+            startup.Physical = null;
+            startup.Solution = null;
+        }
+
         _window.Loaded += (sender, args) =>
         {
-            if (startup == null) RefreshSelectedIconPreview();
+            if (startup == null)
+            {
+                RefreshSelectedIconPreview();
+            }
             else
             {
                 var icon = startup.SelectedIcon;
                 ViewModel.RestoreStartupIcon(icon?.Preview, icon?.ShellIndex ?? 0, icon != null);
             }
+
             ShowTextEnd(RootBox);
             ShowTextEnd(IconPathBox);
             ApplyMainToolbarIcons();
@@ -298,12 +165,216 @@ internal sealed class MainWindowPresentationService
         };
     }
 
+    private Dispatcher Dispatcher => _window.Dispatcher;
+
+    private string Title
+    {
+        get => _window.Title;
+        set => _window.Title = value;
+    }
+
+    private ComboBox ThemeBox => _window.ThemeBox;
+    private HistoryTextBox RootBox => _window.RootBox;
+    private HistoryTextBox QueryBox => _window.QueryBox;
+    private HistoryTextBox IconPathBox => _window.IconPathBox;
+    private ToggleButton NodeExpandToggle => _window.NodeExpandToggle;
+    private ToggleButton TreeDensityToggle => _window.TreeDensityToggle;
+    private CheckBox AddToGitIgnoreBox => _window.AddToGitIgnoreBox;
+    private HistoryTextBox FolderFilterBox => _window.FolderFilterBox;
+    private HistoryTextBox ScriptBox => _window.ScriptBox;
+    private TreeView ResultsTree => _window.ResultsTree;
+    private Border TreePanelBusy => _window.TreePanelBusy;
+    private Button FileListViewButton => _window.FileListViewButton;
+    private Button FileIconLargeButton => _window.FileIconLargeButton;
+    private Button FileIconSmallButton => _window.FileIconSmallButton;
+    private ListView FileList => _window.FileList;
+    private ListBox FileIconList => _window.FileIconList;
+    private ProgressBar SearchProgress => _window.SearchProgress;
+    private Button ResetButton => _window.ResetButton;
+    private ComboBox LanguageBox => _window.LanguageBox;
+
+    internal MainWindowViewModel ViewModel { get; }
+
+    private object FindResource(object key)
+    {
+        return _window.FindResource(key);
+    }
+
+    private void ConnectView()
+    {
+        InputManager.Current.PreProcessInput += SwitchWindowShortcut;
+        _window.PreviewKeyDown += MainSearchKeyDown;
+        RootBox.HistoryItemApplied += (sender, args) => StartSelectedRootAnalysis();
+        _window.FolderFilterBox.TextChanged += FolderFilter_TextChanged;
+        _window.ResultsTree.SelectedItemChanged += ResultsTree_SelectedItemChanged;
+        _window.ResultsTree.AddHandler(TreeViewItem.ExpandedEvent, new RoutedEventHandler(ResultsTree_ItemExpanded),
+            true);
+        _window.ResultsTree.PreviewMouseRightButtonDown += ResultsTree_PreviewMouseRightButtonDown;
+        _window.ResultsTree.PreviewMouseLeftButtonDown += ResultsTree_PreviewMouseLeftButtonDown;
+        _window.ResultsTree.PreviewMouseMove += ResultsTree_PreviewMouseMove;
+        _window.FrozenRootTree.SelectedItemChanged += ResultsTree_SelectedItemChanged;
+        _window.FrozenRootTree.AddHandler(TreeViewItem.ExpandedEvent, new RoutedEventHandler(ResultsTree_ItemExpanded),
+            true);
+        _window.FrozenRootTree.PreviewMouseRightButtonDown += ResultsTree_PreviewMouseRightButtonDown;
+        _window.FrozenRootTree.PreviewMouseLeftButtonDown += ResultsTree_PreviewMouseLeftButtonDown;
+        _window.FrozenRootTree.PreviewMouseMove += ResultsTree_PreviewMouseMove;
+        _window.FrozenRootTree.AddHandler(FrameworkElement.ContextMenuOpeningEvent,
+            new ContextMenuEventHandler(ResultsTree_ContextMenuOpening), true);
+        FolderMatch.CheckedFolderIcon = DifferencerStatusIcons.GetCustomIcon(101);
+        _window.ResultsTree.AddHandler(FrameworkElement.ContextMenuOpeningEvent,
+            new ContextMenuEventHandler(ResultsTree_ContextMenuOpening), true);
+        var treeMenu = _window.Resources["FolderTreeContextMenu"] as ContextMenu;
+        if (treeMenu != null)
+        {
+            var buildMenu = FindTaggedMenuItem(treeMenu, "dim-msbuild-build");
+            var rebuildMenu = FindTaggedMenuItem(treeMenu, "dim-msbuild-rebuild");
+            if (buildMenu != null) buildMenu.ItemsSource = _msBuildMenu.BuildItems;
+            if (rebuildMenu != null) rebuildMenu.ItemsSource = _msBuildMenu.RebuildItems;
+            var sdkBuildMenu = FindTaggedMenuItem(treeMenu, "dim-sdk-build");
+            var sdkRebuildMenu = FindTaggedMenuItem(treeMenu, "dim-sdk-rebuild");
+            if (sdkBuildMenu != null) sdkBuildMenu.ItemsSource = _msBuildMenu.SdkBuildItems;
+            if (sdkRebuildMenu != null) sdkRebuildMenu.ItemsSource = _msBuildMenu.SdkRebuildItems;
+        }
+
+        _window.FileList.SelectionChanged += FileList_SelectionChanged;
+        _window.FileList.PreviewMouseLeftButtonDown += FileList_PreviewMouseLeftButtonDown;
+        _window.FileList.PreviewMouseMove += FileList_PreviewMouseMove;
+        _window.FileIconList.PreviewMouseLeftButtonDown += FileList_PreviewMouseLeftButtonDown;
+        _window.FileIconList.PreviewMouseMove += FileList_PreviewMouseMove;
+        InitializeFileContextMenu(_window.FileList);
+        _window.FileList.ContextMenuOpening += FileList_ContextMenuOpening;
+        _window.FileIconList.SelectionChanged += FileList_SelectionChanged;
+        InitializeFileContextMenu(_window.FileIconList);
+        _window.FileIconList.ContextMenuOpening += FileList_ContextMenuOpening;
+        _window.QueryBox.TextChanged += QueryBox_TextChanged;
+        _window.TreeTabs.SelectionChanged += TreeTabs_SelectionChanged;
+        _window.LanguageBox.SelectionChanged += LanguageBox_SelectionChanged;
+        _window.ThemeBox.SelectionChanged += ThemeBox_SelectionChanged;
+        _window.RunScriptButton.Click += (sender, args) => RunScriptCommand();
+        _window.BrowseScriptButton.Click += (sender, args) => BrowseScriptCommand();
+        _window.ScriptBox.PreviewKeyDown += ScriptBox_PreviewKeyDown;
+        _window.RunScriptButton.ToolTip = ScriptText("Main_RunScript",
+            "Run  \u2014  execute the command (%d folder / %f file / %n name)");
+        _window.BrowseScriptButton.ToolTip =
+            ScriptText("Main_BrowseScript", "Browse  \u2014  pick .bat / .cmd / .ps1 / .vbs");
+        _window.ScriptBox.ToolTip = ScriptText("Main_ScriptTooltip",
+            "Command. %d = folder, %f = file path, %n = file name. Quote as \"%d\" to wrap.");
+        _window.Closing += OnClosing;
+        _window.Closed += OnClosed;
+        ViewModel.InteractionRequested += HandleInteraction;
+        _window.AllowDrop = true;
+        _window.PreviewDragEnter += FolderDropPreview;
+        _window.PreviewDragOver += FolderDropPreview;
+        _window.PreviewDrop += MainWindow_Drop;
+        if (NodeExpandToggle != null)
+        {
+            NodeExpandToggle.Checked += NodeExpandToggle_Changed;
+            NodeExpandToggle.Unchecked += NodeExpandToggle_Changed;
+        }
+
+        if (TreeDensityToggle != null)
+        {
+            TreeDensityToggle.Checked += TreeDensityToggle_Changed;
+            TreeDensityToggle.Unchecked += TreeDensityToggle_Changed;
+        }
+    }
+
+    private static void FolderDropPreview(object sender, DragEventArgs e)
+    {
+        if (e.Data == null || !e.Data.GetDataPresent(DataFormats.FileDrop))
+            return;
+
+        e.Effects = DragDropEffects.Copy;
+        e.Handled = true;
+    }
+
+    private static List<string> FoldersFromDrop(IDataObject data)
+    {
+        var folders = new List<string>();
+        if (data == null || !data.GetDataPresent(DataFormats.FileDrop))
+            return folders;
+
+        var paths = data.GetData(DataFormats.FileDrop) as string[] ?? Array.Empty<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var path in paths)
+        {
+            if (string.IsNullOrWhiteSpace(path)) continue;
+            var folder = Directory.Exists(path)
+                ? path
+                : File.Exists(path)
+                    ? Path.GetDirectoryName(path)
+                    : null;
+            if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder)) continue;
+            var normalized = MainWindowViewModel.NormalizeFolderPath(folder);
+            if (seen.Add(normalized))
+                folders.Add(normalized);
+        }
+
+        return folders;
+    }
+
+    private void MainWindow_Drop(object sender, DragEventArgs e)
+    {
+        if (_internalDragOut)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        var folders = FoldersFromDrop(e.Data);
+        if (folders.Count == 0) return;
+
+        ViewModel.RootPath = folders[0];
+        RootBox.CommitHistory();
+        SettingsService.SaveSearchRoot(folders[0]);
+        ShowTextEnd(RootBox);
+        ViewModel.SelectDroppedFolders(folders);
+        e.Handled = true;
+    }
+
+    private void HandleInteraction(MainWindowAction action, object parameter)
+    {
+        try
+        {
+            switch (action)
+            {
+                case MainWindowAction.ChooseRoot: ChooseRoot(); break;
+                case MainWindowAction.ChooseIconLibrary: ChooseIconLibrary(); break;
+                case MainWindowAction.ChooseIcon: ChooseIcon(); break;
+                case MainWindowAction.UseAsSearchLocation: UseAsSearchLocation(parameter as FolderMatch); break;
+                case MainWindowAction.OpenExplorer: OpenExplorer(parameter as FolderMatch); break;
+                case MainWindowAction.TreeToEditor: TreeToEditor(parameter as FolderMatch, false); break;
+                case MainWindowAction.TreeFilesToEditor: TreeToEditor(parameter as FolderMatch, true); break;
+                case MainWindowAction.FileListToEditor: FileListToEditor(); break;
+                case MainWindowAction.GrepFolder: GrepFolder(parameter as FolderMatch); break;
+                case MainWindowAction.CompactTree: CompactTree(); break;
+                case MainWindowAction.ComfortableTree: ComfortableTree(); break;
+                case MainWindowAction.FileListView: FileListView(); break;
+                case MainWindowAction.FileIconSmall: FileIconSmall(); break;
+                case MainWindowAction.FileIconLarge: FileIconLarge(); break;
+                case MainWindowAction.ClearFolderFilter: ClearFolderFilter(); break;
+                case MainWindowAction.DeveloperDifferencer: DeveloperDifferencer(); break;
+                case MainWindowAction.LightTheme: LightTheme(); break;
+                case MainWindowAction.DarkTheme: DarkTheme(); break;
+                case MainWindowAction.Reset: Reset(); break;
+                case MainWindowAction.Close: Close(); break;
+            }
+        }
+        catch (Exception error)
+        {
+            ViewModel.ShowError(Strings.App_Unhandled, error);
+        }
+    }
+
     private void ChooseRoot()
     {
         try
         {
-            string selectedPath = Directory.Exists(ViewModel.RootPath) ? ViewModel.RootPath : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            string result = NativeFolderPicker.Show(new WindowInteropHelper(_window).Handle, selectedPath, Strings.Main_SelectSearchFolder);
+            var selectedPath = Directory.Exists(ViewModel.RootPath)
+                ? ViewModel.RootPath
+                : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var result = NativeFolderPicker.Show(new WindowInteropHelper(_window).Handle, selectedPath,
+                Strings.Main_SelectSearchFolder);
             if (!string.IsNullOrEmpty(result))
             {
                 ViewModel.RootPath = result;
@@ -313,13 +384,21 @@ internal sealed class MainWindowPresentationService
                 StartSelectedRootAnalysis();
             }
         }
-        catch (Exception ex) { ViewModel.ShowError(Strings.Main_FolderPickerFailed, ex); }
+        catch (Exception ex)
+        {
+            ViewModel.ShowError(Strings.Main_FolderPickerFailed, ex);
+        }
     }
 
     private void StartSelectedRootAnalysis()
     {
         _analyzeSelectedRoot = true;
-        if (ViewModel.IsSearching) { ViewModel.CancelSearch(); return; }
+        if (ViewModel.IsSearching)
+        {
+            ViewModel.CancelSearch();
+            return;
+        }
+
         if (!ViewModel.GitSearchCommand.CanExecute(null)) return;
         _analyzeSelectedRoot = false;
         _searchModeActive = false;
@@ -338,10 +417,11 @@ internal sealed class MainWindowPresentationService
             e.Handled = true;
             return;
         }
+
         if (ViewModel.IsSearching || (e.Key != Key.Up && e.Key != Key.Down)) return;
         if (!QueryBox.IsKeyboardFocusWithin && !FileList.IsKeyboardFocusWithin
-            && !FileIconList.IsKeyboardFocusWithin && !ResultsTree.IsKeyboardFocusWithin
-            && !_window.FrozenRootTree.IsKeyboardFocusWithin) return;
+                                            && !FileIconList.IsKeyboardFocusWithin && !ResultsTree.IsKeyboardFocusWithin
+                                            && !_window.FrozenRootTree.IsKeyboardFocusWithin) return;
         ICommand command = e.Key == Key.Up ? ViewModel.PrevSearchMatchCommand : ViewModel.NextSearchMatchCommand;
         if (!command.CanExecute(null)) return;
         command.Execute(null);
@@ -351,8 +431,8 @@ internal sealed class MainWindowPresentationService
     private void SwitchWindowShortcut(object sender, PreProcessInputEventArgs e)
     {
         if (!(e.StagingItem.Input is KeyEventArgs key) || key.RoutedEvent != Keyboard.PreviewKeyDownEvent
-            || key.Handled) return;
-        Window active = Application.Current.Windows.Cast<Window>().FirstOrDefault(window => window.IsActive);
+                                                       || key.Handled) return;
+        var active = Application.Current.Windows.Cast<Window>().FirstOrDefault(window => window.IsActive);
         if (active == null) return;
         var viewers = Application.Current.Windows.OfType<DiffViewWindow>().Where(window => window.IsVisible).ToList();
         DiffViewWindow selectedViewer = null;
@@ -361,9 +441,10 @@ internal sealed class MainWindowPresentationService
         {
             // Keep DIFF VIEW in the cycle, even when owned by the differencer.
             while (active.Owner != null && active != _window
-                && active != _differencerWindow && active != _grepWindow && active is not DiffViewWindow)
+                                        && active != _differencerWindow && active != _grepWindow &&
+                                        active is not DiffViewWindow)
                 active = active.Owner;
-            int viewerIndex = viewers.IndexOf(active as DiffViewWindow);
+            var viewerIndex = viewers.IndexOf(active as DiffViewWindow);
             if (viewerIndex >= 0)
             {
                 selectedViewer = viewers.Skip(viewerIndex + 1).FirstOrDefault();
@@ -374,7 +455,10 @@ internal sealed class MainWindowPresentationService
                 selectedViewer = viewers.FirstOrDefault();
                 destination = selectedViewer == null ? 1 : 4;
             }
-            else destination = active == _differencerWindow ? 3 : 2;
+            else
+            {
+                destination = active == _differencerWindow ? 3 : 2;
+            }
         }
         else if (Keyboard.Modifiers == ModifierKeys.Control)
         {
@@ -391,10 +475,15 @@ internal sealed class MainWindowPresentationService
                     destination = 4;
                     selectedViewer = viewers.FirstOrDefault(window => window.Owner == null);
                     break;
+
                 default: return;
             }
         }
-        else return;
+        else
+        {
+            return;
+        }
+
         key.Handled = true;
         e.Cancel();
         if (key.IsRepeat) return;
@@ -402,11 +491,14 @@ internal sealed class MainWindowPresentationService
         {
             try
             {
-                if (destination == 1) WindowActivationService.BringToFront(_window, selectWindow: true);
+                if (destination == 1)
+                {
+                    WindowActivationService.BringToFront(_window, true);
+                }
                 else if (destination == 2)
                 {
                     if (_differencerWindow == null) DeveloperDifferencer();
-                    else WindowActivationService.BringToFront(_differencerWindow, selectWindow: true);
+                    else WindowActivationService.BringToFront(_differencerWindow, true);
                 }
                 else if (destination == 4)
                 {
@@ -414,19 +506,30 @@ internal sealed class MainWindowPresentationService
                     {
                         var launch = ExternalDiffLaunch.Parse(new[] { "-diff" });
                         var snapshot = launch.CreateSnapshot();
-                        selectedViewer = new DiffViewWindow(snapshot, snapshot.Files[0], launch.SourcePath, launch.TargetPath)
-                        {
-                            Width = Math.Max(900, _window.ActualWidth),
-                            Height = Math.Max(600, _window.ActualHeight)
-                        };
+                        selectedViewer =
+                            new DiffViewWindow(snapshot, snapshot.Files[0], launch.SourcePath, launch.TargetPath)
+                            {
+                                Width = Math.Max(900, _window.ActualWidth),
+                                Height = Math.Max(600, _window.ActualHeight)
+                            };
                         selectedViewer.Show();
                     }
-                    WindowActivationService.BringToFront(selectedViewer, selectWindow: true);
+
+                    WindowActivationService.BringToFront(selectedViewer, true);
                 }
-                else if (_grepWindow != null) WindowActivationService.BringToFront(_grepWindow, selectWindow: true);
-                else OpenGrep(ViewModel.PrepareGrepScopes());
+                else if (_grepWindow != null)
+                {
+                    WindowActivationService.BringToFront(_grepWindow, true);
+                }
+                else
+                {
+                    OpenGrep(ViewModel.PrepareGrepScopes());
+                }
             }
-            catch (Exception ex) { ViewModel.ShowError(Strings.App_Unhandled, ex); }
+            catch (Exception ex)
+            {
+                ViewModel.ShowError(Strings.App_Unhandled, ex);
+            }
         }));
     }
 
@@ -435,61 +538,93 @@ internal sealed class MainWindowPresentationService
         try
         {
             var dialog = new OpenFileDialog { Filter = Strings.Main_IconFilter, CheckFileExists = true };
-            string currentPath = ViewModel.IconLibraryPath.Trim();
-            if (File.Exists(currentPath)) { dialog.InitialDirectory = Path.GetDirectoryName(currentPath); dialog.FileName = Path.GetFileName(currentPath); }
+            var currentPath = ViewModel.IconLibraryPath.Trim();
+            if (File.Exists(currentPath))
+            {
+                dialog.InitialDirectory = Path.GetDirectoryName(currentPath);
+                dialog.FileName = Path.GetFileName(currentPath);
+            }
+
             if (dialog.ShowDialog(_window) != true) return;
-            ViewModel.IconLibraryPath = dialog.FileName; IconPathBox.CommitHistory();
+            ViewModel.IconLibraryPath = dialog.FileName;
+            IconPathBox.CommitHistory();
             SettingsService.SaveIconLibraryPath(dialog.FileName);
             ShowTextEnd(IconPathBox);
             ViewModel.ClearSelectedIcon();
             RefreshSelectedIconPreview();
             ViewModel.Status = Path.GetFileName(dialog.FileName) + Strings.Main_SelectedSuffix;
         }
-        catch (Exception ex) { ViewModel.ShowError(Strings.Main_LibrarySelectFailed, ex); }
+        catch (Exception ex)
+        {
+            ViewModel.ShowError(Strings.Main_LibrarySelectFailed, ex);
+        }
     }
 
     private void ChooseIcon()
     {
         try
         {
-            string iconPath = ViewModel.IconLibraryPath.Trim();
-            if (!File.Exists(iconPath)) { MessageBox.Show(Strings.Main_ChooseLibraryFirst, Title); return; }
+            var iconPath = ViewModel.IconLibraryPath.Trim();
+            if (!File.Exists(iconPath))
+            {
+                MessageBox.Show(Strings.Main_ChooseLibraryFirst, Title);
+                return;
+            }
+
             ViewModel.Status = Strings.Main_LoadingIcons;
             var groups = IconResourceReader.Read(iconPath);
-            if (groups.Count == 0) { MessageBox.Show(Strings.Main_NoIconGroups, Title); return; }
+            if (groups.Count == 0)
+            {
+                MessageBox.Show(Strings.Main_NoIconGroups, Title);
+                return;
+            }
+
             var browser = new IconGroupBrowserWindow(iconPath, groups, ViewModel.SelectedIconIndex) { Owner = _window };
             if (browser.ShowDialog() == true && browser.SelectedGroup != null)
             {
                 ViewModel.ApplySelectedIcon(browser.SelectedGroup.ShellIndex, browser.SelectedGroup.Preview);
                 ViewModel.Status = string.Format(Strings.Main_IconNSelected, browser.SelectedGroup.ShellIndex);
             }
-            else ViewModel.Status = Strings.Main_IconCancelled;
+            else
+            {
+                ViewModel.Status = Strings.Main_IconCancelled;
+            }
         }
-        catch (Exception ex) { ViewModel.ShowError(Strings.Main_IconBrowserFailed, ex); }
+        catch (Exception ex)
+        {
+            ViewModel.ShowError(Strings.Main_IconBrowserFailed, ex);
+        }
     }
 
     private void RefreshSelectedIconPreview()
     {
         try
         {
-            string iconPath = ViewModel.IconLibraryPath.Trim();
+            var iconPath = ViewModel.IconLibraryPath.Trim();
             if (!File.Exists(iconPath)) return;
-            var group = IconResourceReader.Read(iconPath).FirstOrDefault(item => item.ShellIndex == ViewModel.SelectedIconIndex);
+            var group = IconResourceReader.Read(iconPath)
+                .FirstOrDefault(item => item.ShellIndex == ViewModel.SelectedIconIndex);
             if (group == null) ViewModel.ClearSelectedIcon();
             else ViewModel.ApplySelectedIcon(group.ShellIndex, group.Preview);
         }
-        catch { ViewModel.ClearSelectedIcon(); ViewModel.SelectedIconLabel = Strings.Main_PreviewUnavailable; }
+        catch
+        {
+            ViewModel.ClearSelectedIcon();
+            ViewModel.SelectedIconLabel = Strings.Main_PreviewUnavailable;
+        }
     }
 
     private void UseAsSearchLocation(FolderMatch folder)
     {
-        string path = MainWindowViewModel.ExistingFolderPath(folder?.Path);
+        var path = MainWindowViewModel.ExistingFolderPath(folder?.Path);
         if (path == null)
         {
             MessageBox.Show(Strings.Main_LocationMissing, Title);
             return;
         }
-        ViewModel.RootPath = path; RootBox.CommitHistory();
+
+        ViewModel.RootPath = path;
+        RootBox.CommitHistory();
         SettingsService.SaveSearchRoot(path);
         ShowTextEnd(RootBox);
         StartSelectedRootAnalysis();
@@ -498,24 +633,32 @@ internal sealed class MainWindowPresentationService
     private void OpenExplorer(FolderMatch folder)
     {
         if (folder == null || !Directory.Exists(folder.Path)) return;
-        try { Process.Start(new ProcessStartInfo("explorer.exe", "\"" + folder.Path + "\"") { UseShellExecute = true }); }
-        catch (Exception ex) { ViewModel.ShowError(Strings.Main_ExplorerFailed, ex); }
+        try
+        {
+            Process.Start(new ProcessStartInfo("explorer.exe", "\"" + folder.Path + "\"") { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            ViewModel.ShowError(Strings.Main_ExplorerFailed, ex);
+        }
     }
 
     private void FileListToEditor()
     {
         try
         {
-            ItemsControl list = FileList.Visibility == Visibility.Visible
-                ? (ItemsControl)FileList : FileIconList;
+            var list = FileList.Visibility == Visibility.Visible
+                ? (ItemsControl)FileList
+                : FileIconList;
             var text = new StringBuilder();
             foreach (FileListItem file in list.Items)
                 text.AppendLine(file.Name);
 
-            string outputPath = Path.Combine(Path.GetTempPath(), "DesktopIniManager-" + AppSlot.Name + "-file-list.txt");
+            var outputPath = Path.Combine(Path.GetTempPath(), "DesktopIniManager-" + AppSlot.Name + "-file-list.txt");
             File.WriteAllText(outputPath, text.ToString(), new UTF8Encoding(true));
             OpenTextInEditor(outputPath);
-            ViewModel.Status = string.Format(StringOverlay.Get("Main_TreeOpened"), "File List", ViewModel.FilePanelPath);
+            ViewModel.Status =
+                string.Format(StringOverlay.Get("Main_TreeOpened"), "File List", ViewModel.FilePanelPath);
         }
         catch (Exception ex)
         {
@@ -527,8 +670,8 @@ internal sealed class MainWindowPresentationService
     {
         if (folder == null) return;
 
-        string label = includeFiles ? "Tree /F" : "Tree";
-        string outputPath = Path.Combine(
+        var label = includeFiles ? "Tree /F" : "Tree";
+        var outputPath = Path.Combine(
             Path.GetTempPath(),
             "DesktopIniManager-" + AppSlot.Name + (includeFiles ? "-tree-f.txt" : "-tree.txt"));
 
@@ -555,30 +698,32 @@ internal sealed class MainWindowPresentationService
 
     private void WriteContainedLevel(StringBuilder text, FolderMatch folder, string prefix, bool includeFiles)
     {
-        IReadOnlyList<string> files = includeFiles
+        var files = includeFiles
             ? ViewModel.ContainedFileNames(folder)
             : Array.Empty<string>();
         var dirs = new List<FolderMatch>();
-        foreach (FolderMatch child in folder.Children)
+        foreach (var child in folder.Children)
         {
             if (child.IsHidden || child.IsFilterHidden) continue;
             dirs.Add(child);
         }
 
-        for (int i = 0; i < files.Count; i++)
+        for (var i = 0; i < files.Count; i++)
         {
             text.Append(prefix);
             text.Append(dirs.Count > 0 ? "\u2502  " : "    ");
             text.AppendLine(files[i]);
         }
+
         if (files.Count > 0 && dirs.Count > 0)
         {
             text.Append(prefix);
             text.AppendLine("\u2502");
         }
-        for (int i = 0; i < dirs.Count; i++)
+
+        for (var i = 0; i < dirs.Count; i++)
         {
-            bool last = i == dirs.Count - 1;
+            var last = i == dirs.Count - 1;
             text.Append(prefix);
             text.Append(last ? "\u2514\u2500" : "\u251C\u2500");
             text.AppendLine(dirs[i].Name);
@@ -588,10 +733,10 @@ internal sealed class MainWindowPresentationService
 
     private static void OpenTextInEditor(string path)
     {
-        string editor = GrepWindowViewModel.ExpandEditorPath(SettingsService.LoadEditorPath());
+        var editor = GrepWindowViewModel.ExpandEditorPath(SettingsService.LoadEditorPath());
         if (string.IsNullOrWhiteSpace(editor))
             editor = "code";
-        string arguments = (SettingsService.LoadEditorArguments() ?? string.Empty)
+        var arguments = (SettingsService.LoadEditorArguments() ?? string.Empty)
             .Replace("{file}", path)
             .Replace("{line}", "1")
             .Replace("{column}", "1");
@@ -603,7 +748,7 @@ internal sealed class MainWindowPresentationService
     private void GrepFolder(FolderMatch folder)
     {
         if (folder == null || !Directory.Exists(folder.Path)) return;
-        foreach (FolderMatch item in ViewModel.CurrentItems()) item.IsSelected = ReferenceEquals(item, folder);
+        foreach (var item in ViewModel.CurrentItems()) item.IsSelected = ReferenceEquals(item, folder);
         OpenGrep(new[] { folder.Path });
     }
 
@@ -614,11 +759,11 @@ internal sealed class MainWindowPresentationService
         {
             Process.Start(new ProcessStartInfo(file.Path) { UseShellExecute = true });
         }
-        catch (Exception ex) { ViewModel.ShowError(Strings.Main_OpenFileFailed, ex); }
+        catch (Exception ex)
+        {
+            ViewModel.ShowError(Strings.Main_OpenFileFailed, ex);
+        }
     }
-
-    private static readonly HashSet<string> ScriptExtensions =
-        new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".ps1", ".bat", ".cmd", ".vbs" };
 
     private void InitializeFileContextMenu(Selector list)
     {
@@ -654,7 +799,7 @@ internal sealed class MainWindowPresentationService
             menu.Items.Add(new MenuItem { Header = "SELECT Compare" });
             menu.Items.Add(new Separator());
             var explorer = new MenuItem { Header = "Explorerメニュー" };
-            bool shellMenuPending = false;
+            var shellMenuPending = false;
             explorer.Click += (s, args) =>
             {
                 if (shellMenuPending || !explorer.IsEnabled) return;
@@ -666,9 +811,18 @@ internal sealed class MainWindowPresentationService
                 // Let WPF release its popup capture before entering the native menu loop.
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    try { ExplorerContextMenu.Show(_window, paths, position); }
-                    catch (Exception ex) { ViewModel.ShowError("Explorerメニューを開けませんでした。", ex); }
-                    finally { shellMenuPending = false; }
+                    try
+                    {
+                        ExplorerContextMenu.Show(_window, paths, position);
+                    }
+                    catch (Exception ex)
+                    {
+                        ViewModel.ShowError("Explorerメニューを開けませんでした。", ex);
+                    }
+                    finally
+                    {
+                        shellMenuPending = false;
+                    }
                 }), DispatcherPriority.Input);
             };
             menu.Items.Add(explorer);
@@ -681,7 +835,7 @@ internal sealed class MainWindowPresentationService
         var list = sender as Selector;
         if (list == null) return;
         var file = list.SelectedItem as FileListItem;
-        bool canRun = file != null && ScriptExtensions.Contains(file.Extension ?? string.Empty);
+        var canRun = file != null && ScriptExtensions.Contains(file.Extension ?? string.Empty);
 
         if (list.ContextMenu.Items.Count > 0 && list.ContextMenu.Items[0] is MenuItem item)
         {
@@ -701,11 +855,13 @@ internal sealed class MainWindowPresentationService
             // Files merely shown alongside the hits are not search results.
             var candidates = source.IsSearchMatch
                 ? visibleFiles.Where(candidate => candidate.IsSearchMatch).ToList()
-                : selected.Count > 1 && selected.Contains(source) ? selected : new List<FileListItem>();
+                : selected.Count > 1 && selected.Contains(source)
+                    ? selected
+                    : new List<FileListItem>();
             foreach (var target in candidates.Where(candidate =>
-                !string.Equals(candidate.Path, source.Path, StringComparison.OrdinalIgnoreCase)))
+                         !string.Equals(candidate.Path, source.Path, StringComparison.OrdinalIgnoreCase)))
             {
-                bool duplicateName = candidates.Count(candidate =>
+                var duplicateName = candidates.Count(candidate =>
                     string.Equals(candidate.Name, target.Name, StringComparison.OrdinalIgnoreCase)) > 1;
                 var choice = new MenuItem
                 {
@@ -716,16 +872,18 @@ internal sealed class MainWindowPresentationService
                 compare.Items.Add(choice);
             }
         }
+
         compare.Visibility = compare.Items.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         var explorer = (MenuItem)list.ContextMenu.Items[3];
-        var shellFiles = source == null ? new List<FileListItem>() :
-            IsFileSelected(list, source)
+        var shellFiles = source == null
+            ? new List<FileListItem>()
+            : IsFileSelected(list, source)
                 ? list.Items.Cast<FileListItem>().Where(candidate => IsFileSelected(list, candidate)).ToList()
                 : new List<FileListItem> { source };
         explorer.Tag = shellFiles.Select(candidate => candidate.Path)
             .Where(path => !string.IsNullOrWhiteSpace(path)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         var shellPaths = (string[])explorer.Tag;
-        bool sameFolder = shellPaths.Select(path => Path.GetDirectoryName(path))
+        var sameFolder = shellPaths.Select(path => Path.GetDirectoryName(path))
             .Distinct(StringComparer.OrdinalIgnoreCase).Count() <= 1;
         explorer.IsEnabled = shellPaths.Length > 0 && sameFolder;
         explorer.ToolTip = sameFolder ? null : "同じフォルダー内のファイルを選択してください。";
@@ -736,8 +894,9 @@ internal sealed class MainWindowPresentationService
     {
         try
         {
-            foreach (string path in new[] { source.Path, target.Path })
-                if (!File.Exists(path)) throw new FileNotFoundException(null, path);
+            foreach (var path in new[] { source.Path, target.Path })
+                if (!File.Exists(path))
+                    throw new FileNotFoundException(null, path);
             var file = new DiffFile
             {
                 RelativePath = source.Name,
@@ -754,35 +913,32 @@ internal sealed class MainWindowPresentationService
             diff.MatchOwnerSize();
             diff.Show();
         }
-        catch (Exception ex) { ViewModel.ShowError(Strings.Main_OpenFileFailed, ex); }
+        catch (Exception ex)
+        {
+            ViewModel.ShowError(Strings.Main_OpenFileFailed, ex);
+        }
     }
 
     private void RunSelectedScript(FileListItem file)
     {
         if (file == null || !File.Exists(file.Path)) return;
 
-        string workDir = Path.GetDirectoryName(file.Path);
+        var workDir = Path.GetDirectoryName(file.Path);
         if (string.IsNullOrEmpty(workDir) || !Directory.Exists(workDir))
         {
             ViewModel.ShowError(StringOverlay.Get("Main_RunScriptFailed"), new DirectoryNotFoundException(workDir));
             return;
         }
 
-        string ext = file.Extension ?? string.Empty;
+        var ext = file.Extension ?? string.Empty;
         string command;
         if (ext.Equals(".ps1", StringComparison.OrdinalIgnoreCase))
-        {
             command = "\"" + file.Path + "\"";
-        }
         else if (ext.Equals(".bat", StringComparison.OrdinalIgnoreCase)
-              || ext.Equals(".cmd", StringComparison.OrdinalIgnoreCase))
-        {
+                 || ext.Equals(".cmd", StringComparison.OrdinalIgnoreCase))
             command = "\"" + file.Path + "\"";
-        }
         else if (ext.Equals(".vbs", StringComparison.OrdinalIgnoreCase))
-        {
             command = "cscript.exe //nologo \"" + file.Path + "\"";
-        }
         else return;
 
         try
@@ -798,7 +954,7 @@ internal sealed class MainWindowPresentationService
 
     private static string ScriptText(string key, string fallback)
     {
-        string value = StringOverlay.Get(key);
+        var value = StringOverlay.Get(key);
         return string.IsNullOrEmpty(value) || value == key ? fallback : value;
     }
 
@@ -820,15 +976,16 @@ internal sealed class MainWindowPresentationService
                 Filter = "Scripts (*.bat;*.cmd;*.ps1;*.vbs)|*.bat;*.cmd;*.ps1;*.vbs|All files (*.*)|*.*",
                 CheckFileExists = true
             };
-            string current = (ScriptBox.Text ?? string.Empty).Trim();
-            string first = FirstToken(current);
+            var current = (ScriptBox.Text ?? string.Empty).Trim();
+            var first = FirstToken(current);
             if (File.Exists(first))
             {
                 dialog.InitialDirectory = Path.GetDirectoryName(first);
                 dialog.FileName = Path.GetFileName(first);
             }
+
             if (dialog.ShowDialog(_window) != true) return;
-            string quoted = QuoteIfNeeded(dialog.FileName);
+            var quoted = QuoteIfNeeded(dialog.FileName);
             ScriptBox.Text = quoted + " \"%d\"";
             ScriptBox.CaretIndex = ScriptBox.Text.Length;
             ScriptBox.CommitHistory();
@@ -842,48 +999,52 @@ internal sealed class MainWindowPresentationService
 
     private void RunScriptCommand()
     {
-        string template = (ScriptBox.Text ?? string.Empty).Trim();
+        var template = (ScriptBox.Text ?? string.Empty).Trim();
         if (string.IsNullOrEmpty(template))
         {
             ViewModel.Status = StringOverlay.Get("Main_ScriptEmpty");
             return;
         }
 
-        string dir = ViewModel.FilePanelPath;
+        var dir = ViewModel.FilePanelPath;
         if (string.IsNullOrWhiteSpace(dir))
             dir = ((ResultsTree.SelectedItem ?? _window.FrozenRootTree.SelectedItem) as FolderMatch)?.Path;
-        FileListItem selectedFile = (FileList.SelectedItem as FileListItem)
-            ?? (FileIconList.SelectedItem as FileListItem);
-        string file = selectedFile?.Path;
+        var selectedFile = FileList.SelectedItem as FileListItem
+                           ?? FileIconList.SelectedItem as FileListItem;
+        var file = selectedFile?.Path;
 
-        bool needsDir = ContainsToken(template, "d");
-        bool needsFile = ContainsToken(template, "f") || ContainsToken(template, "n");
+        var needsDir = ContainsToken(template, "d");
+        var needsFile = ContainsToken(template, "f") || ContainsToken(template, "n");
         if (needsDir && (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir)))
         {
-            ViewModel.ShowError(StringOverlay.Get("Main_ScriptMissingDir"), new DirectoryNotFoundException(dir ?? string.Empty));
-            return;
-        }
-        if (needsFile && (string.IsNullOrWhiteSpace(file) || !File.Exists(file)))
-        {
-            ViewModel.ShowError(StringOverlay.Get("Main_ScriptMissingFile"), new FileNotFoundException(file ?? string.Empty));
+            ViewModel.ShowError(StringOverlay.Get("Main_ScriptMissingDir"),
+                new DirectoryNotFoundException(dir ?? string.Empty));
             return;
         }
 
-        string command = ExpandScriptTokens(template, dir, file);
-        MessageBoxResult answer = new UserDialogService(_window).Show(
+        if (needsFile && (string.IsNullOrWhiteSpace(file) || !File.Exists(file)))
+        {
+            ViewModel.ShowError(StringOverlay.Get("Main_ScriptMissingFile"),
+                new FileNotFoundException(file ?? string.Empty));
+            return;
+        }
+
+        var command = ExpandScriptTokens(template, dir, file);
+        var answer = new UserDialogService(_window).Show(
             command + "\n\n" + StringOverlay.Get("Main_ScriptConfirmAsk"),
             StringOverlay.Get("Main_RunScript"),
             MessageBoxButton.OKCancel,
             MessageBoxImage.Question);
         if (answer != MessageBoxResult.OK) return;
 
-        string workDir = dir;
+        var workDir = dir;
         if (string.IsNullOrEmpty(workDir) || !Directory.Exists(workDir))
         {
-            string exe = FirstToken(command);
+            var exe = FirstToken(command);
             if (File.Exists(exe))
                 workDir = Path.GetDirectoryName(exe);
         }
+
         if (string.IsNullOrEmpty(workDir) || !Directory.Exists(workDir))
             workDir = Environment.CurrentDirectory;
 
@@ -902,10 +1063,10 @@ internal sealed class MainWindowPresentationService
     private static void StartKeepOpenConsole(string workDir, string command)
     {
         if (string.IsNullOrWhiteSpace(command)) return;
-        string folder = string.IsNullOrEmpty(workDir) ? Environment.CurrentDirectory : workDir;
-        string exe = FirstToken(command);
-        string args = RestAfterFirstToken(command);
-        string powershell = Path.Combine(
+        var folder = string.IsNullOrEmpty(workDir) ? Environment.CurrentDirectory : workDir;
+        var exe = FirstToken(command);
+        var args = RestAfterFirstToken(command);
+        var powershell = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.System),
             "WindowsPowerShell", "v1.0", "powershell.exe");
 
@@ -919,7 +1080,7 @@ internal sealed class MainWindowPresentationService
         {
             psi.FileName = powershell;
             psi.Arguments = "-NoExit -NoProfile -ExecutionPolicy Bypass -File \"" + exe + "\""
-                + (string.IsNullOrEmpty(args) ? string.Empty : " " + args);
+                            + (string.IsNullOrEmpty(args) ? string.Empty : " " + args);
         }
         else
         {
@@ -933,13 +1094,14 @@ internal sealed class MainWindowPresentationService
     private static string RestAfterFirstToken(string command)
     {
         if (string.IsNullOrWhiteSpace(command)) return string.Empty;
-        string text = command.Trim();
+        var text = command.Trim();
         if (text[0] == '"')
         {
-            int end = text.IndexOf('"', 1);
+            var end = text.IndexOf('"', 1);
             return end < 0 ? string.Empty : text.Substring(end + 1).TrimStart();
         }
-        int space = text.IndexOfAny(new[] { ' ', '\t' });
+
+        var space = text.IndexOfAny(new[] { ' ', '\t' });
         return space < 0 ? string.Empty : text.Substring(space + 1).TrimStart();
     }
 
@@ -951,10 +1113,10 @@ internal sealed class MainWindowPresentationService
 
     private static string ExpandScriptTokens(string template, string dir, string file)
     {
-        string quotedDir = string.IsNullOrEmpty(dir) ? "\"%d\"" : "\"" + dir + "\"";
-        string quotedFile = string.IsNullOrEmpty(file) ? "\"%f\"" : "\"" + file + "\"";
-        string name = string.IsNullOrEmpty(file) ? null : Path.GetFileName(file);
-        string quotedName = string.IsNullOrEmpty(name) ? "\"%n\"" : "\"" + name + "\"";
+        var quotedDir = string.IsNullOrEmpty(dir) ? "\"%d\"" : "\"" + dir + "\"";
+        var quotedFile = string.IsNullOrEmpty(file) ? "\"%f\"" : "\"" + file + "\"";
+        var name = string.IsNullOrEmpty(file) ? null : Path.GetFileName(file);
+        var quotedName = string.IsNullOrEmpty(name) ? "\"%n\"" : "\"" + name + "\"";
         return template
             .Replace("\"%d\"", quotedDir)
             .Replace("\"%D\"", quotedDir)
@@ -973,13 +1135,14 @@ internal sealed class MainWindowPresentationService
     private static string FirstToken(string command)
     {
         if (string.IsNullOrWhiteSpace(command)) return string.Empty;
-        string text = command.Trim();
+        var text = command.Trim();
         if (text[0] == '"')
         {
-            int end = text.IndexOf('"', 1);
+            var end = text.IndexOf('"', 1);
             return end > 0 ? text.Substring(1, end - 1) : text.Trim('"');
         }
-        int space = text.IndexOfAny(new[] { ' ', '\t' });
+
+        var space = text.IndexOfAny(new[] { ' ', '\t' });
         return space < 0 ? text : text.Substring(0, space);
     }
 
@@ -991,13 +1154,7 @@ internal sealed class MainWindowPresentationService
         return path;
     }
 
-    private DeveloperDifferencerWindow _differencerWindow;
-
-    /// <summary>Opens or activates the developer differencer window.</summary>
-
-    private bool savingDifferencerOnClose;
-    private bool differencerSavedOnClose;
-    private async void OnClosing(object sender, System.ComponentModel.CancelEventArgs e)
+    private async void OnClosing(object sender, CancelEventArgs e)
     {
         if (_differencerWindow != null && !differencerSavedOnClose)
         {
@@ -1012,13 +1169,21 @@ internal sealed class MainWindowPresentationService
                     _ = _window.Dispatcher.BeginInvoke(new Action(() => _window.Close()));
                 }
             }
-            finally { savingDifferencerOnClose = false; }
+            finally
+            {
+                savingDifferencerOnClose = false;
+            }
+
             return;
         }
+
         if (!e.Cancel) ViewModel.SaveFolderTrees();
     }
 
-    private void Close() => _window.Close();
+    private void Close()
+    {
+        _window.Close();
+    }
 
     private void OnClosed(object sender, EventArgs e)
     {
@@ -1026,31 +1191,42 @@ internal sealed class MainWindowPresentationService
         FolderMatch.SelectionChanged -= ViewModel.RefreshScopedLabel;
         _filterTimer.Stop();
         ViewModel.CancelOperations();
-        try { _grepWindow?.Close(); } catch { }
-        try { _differencerWindow?.Close(); } catch { }
+        try
+        {
+            _grepWindow?.Close();
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            _differencerWindow?.Close();
+        }
+        catch
+        {
+        }
+
         SettingsService.SaveIconLibraryPath(ViewModel.IconLibraryPath);
         SettingsService.SaveSearchQuery(ViewModel.Query);
         SettingsService.SaveSearchRoot(ViewModel.RootPath);
         SaveMainWindowPlacement();
     }
 
-    private bool _languageReady;
-
     private void InitLanguageBox()
     {
-        ImageSource[] flags = LanguageIconService.LoadFlagIcons();
+        var flags = LanguageIconService.LoadFlagIcons();
         var items = new[]
         {
-                new LanguageChoice("en", flags[0], "English"),
-                new LanguageChoice("ja", flags[1], "Japanese"),
-                new LanguageChoice("zh-Hans", flags[2], "Chinese"),
-                new LanguageChoice("ko", flags[3], "Korean")
-            };
+            new LanguageChoice("en", flags[0], "English"),
+            new LanguageChoice("ja", flags[1], "Japanese"),
+            new LanguageChoice("zh-Hans", flags[2], "Chinese"),
+            new LanguageChoice("ko", flags[3], "Korean")
+        };
         LanguageBox.ItemsSource = items;
-        string current = StringOverlay.ResolveCulture().Name;
-        LanguageChoice selected = items[0];
-        foreach (LanguageChoice item in items)
-        {
+        var current = StringOverlay.ResolveCulture().Name;
+        var selected = items[0];
+        foreach (var item in items)
             if (string.Equals(item.Code, current, StringComparison.OrdinalIgnoreCase) ||
                 (item.Code == "zh-Hans" && current.StartsWith("zh", StringComparison.OrdinalIgnoreCase)) ||
                 (item.Code != "zh-Hans" && current.StartsWith(item.Code, StringComparison.OrdinalIgnoreCase)))
@@ -1058,7 +1234,7 @@ internal sealed class MainWindowPresentationService
                 selected = item;
                 break;
             }
-        }
+
         LanguageBox.SelectedItem = selected;
         _languageReady = true;
         ScheduleResetCaption();
@@ -1082,7 +1258,7 @@ internal sealed class MainWindowPresentationService
     private void UpdateResetCaption()
     {
         if (ResetButton == null) return;
-        string language = StringOverlay.ResolveCulture().TwoLetterISOLanguageName;
+        var language = StringOverlay.ResolveCulture().TwoLetterISOLanguageName;
         string tip;
         if (language == "ja") tip = "設定・履歴・フォルダー一覧を初期化します";
         else if (language == "zh") tip = "清除设置、历史和文件夹列表";
@@ -1093,26 +1269,31 @@ internal sealed class MainWindowPresentationService
 
     private void Reset()
     {
-        string language = StringOverlay.ResolveCulture().TwoLetterISOLanguageName;
-        string title = language == "ja" ? "リセット" : language == "zh" ? "重置" : language == "ko" ? "초기화" : "Reset";
-        string message = language == "ja"
+        var language = StringOverlay.ResolveCulture().TwoLetterISOLanguageName;
+        var title = language == "ja" ? "リセット" : language == "zh" ? "重置" : language == "ko" ? "초기화" : "Reset";
+        var message = language == "ja"
             ? "設定、入力履歴、フォルダー一覧、GREP と差分比較の状態、エディターとアイコンの選択を初期化します。よろしいですか。"
             : language == "zh"
-            ? "将清除设置、输入历史、文件夹列表、GREP 和差异比较器状态以及编辑器和图标选择。确定吗？"
-            : language == "ko"
-            ? "설정, 입력 기록, 폴더 목록, GREP 및 차이 비교 상태, 편집기와 아이콘 선택을 초기화합니다. 계속할까요?"
-            : "This clears settings, input history, folder lists, GREP and differencer state, and editor and icon selections. Continue?";
-        if (MessageBox.Show(_window, message, title, MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
+                ? "将清除设置、输入历史、文件夹列表、GREP 和差异比较器状态以及编辑器和图标选择。确定吗？"
+                : language == "ko"
+                    ? "설정, 입력 기록, 폴더 목록, GREP 및 차이 비교 상태, 편집기와 아이콘 선택을 초기화합니다. 계속할까요?"
+                    : "This clears settings, input history, folder lists, GREP and differencer state, and editor and icon selections. Continue?";
+        if (MessageBox.Show(_window, message, title, MessageBoxButton.OKCancel, MessageBoxImage.Warning) !=
+            MessageBoxResult.OK)
             return;
 
         ViewModel.CancelOperations();
         _grepWindow?.Close();
         _differencerWindow?.Close();
-        foreach (Window window in Application.Current.Windows.Cast<Window>().ToArray())
-        {
+        foreach (var window in Application.Current.Windows.Cast<Window>().ToArray())
             if (!ReferenceEquals(window, _window))
-                try { window.Close(); } catch { }
-        }
+                try
+                {
+                    window.Close();
+                }
+                catch
+                {
+                }
 
         ViewModel.ResetSettings();
         RootBox.ResetField(string.Empty);
@@ -1152,9 +1333,15 @@ internal sealed class MainWindowPresentationService
 
     // --- MainWindowPresentationService.Appearance.cs ---
 
-    private void CompactTree() => ApplyTreeDensity(true, true);
+    private void CompactTree()
+    {
+        ApplyTreeDensity(true, true);
+    }
 
-    private void ComfortableTree() => ApplyTreeDensity(false, true);
+    private void ComfortableTree()
+    {
+        ApplyTreeDensity(false, true);
+    }
 
     private void ApplyTreeDensity(bool compact, bool announce)
     {
@@ -1207,7 +1394,7 @@ internal sealed class MainWindowPresentationService
         // Theme selection is displayed by ThemeBox.
     }
 
-    private static void SetToolbarIcon(System.Windows.Controls.Image image, int index)
+    private static void SetToolbarIcon(Image image, int index)
     {
         if (image != null)
             image.Source = DifferencerStatusIcons.GetCustomIcon(index);
@@ -1217,9 +1404,9 @@ internal sealed class MainWindowPresentationService
     {
         if (_updatingToggles) return;
 
-        bool expanded = NodeExpandToggle.IsChecked == true;
+        var expanded = NodeExpandToggle.IsChecked == true;
 
-        foreach (FolderMatch folder in ViewModel.ScrollingTreeItems)
+        foreach (var folder in ViewModel.ScrollingTreeItems)
             SetTreeExpanded(folder, expanded);
 
         NodeExpandToggle.ToolTip =
@@ -1235,7 +1422,7 @@ internal sealed class MainWindowPresentationService
 
         folder.IsExpanded = expanded;
 
-        foreach (FolderMatch child in folder.Children)
+        foreach (var child in folder.Children)
             SetTreeExpanded(child, expanded);
     }
 
@@ -1249,7 +1436,7 @@ internal sealed class MainWindowPresentationService
     private void UpdateNodeExpandIcon()
     {
         if (_window.NodeExpandIcon == null) return;
-        bool expanded = NodeExpandToggle != null && NodeExpandToggle.IsChecked == true;
+        var expanded = NodeExpandToggle != null && NodeExpandToggle.IsChecked == true;
         _window.NodeExpandIcon.Source = DifferencerStatusIcons.GetCustomIcon(expanded ? 56 : 55);
     }
 
@@ -1257,7 +1444,7 @@ internal sealed class MainWindowPresentationService
     {
         FileList.Visibility = Visibility.Visible;
         FileIconList.Visibility = Visibility.Collapsed;
-        HighlightFileViewButtons(list: true, large: false);
+        HighlightFileViewButtons(true, false);
     }
 
     private void FileIconSmall()
@@ -1278,8 +1465,9 @@ internal sealed class MainWindowPresentationService
         FileList.Visibility = Visibility.Collapsed;
         FileIconList.Visibility = Visibility.Visible;
         FileIconList.ItemsPanel = (ItemsPanelTemplate)FindResource(large ? "FileIconLargePanel" : "FileIconSmallPanel");
-        FileIconList.ItemTemplate = (DataTemplate)FindResource(large ? "FileIconLargeTemplate" : "FileIconSmallTemplate");
-        HighlightFileViewButtons(list: false, large: large);
+        FileIconList.ItemTemplate =
+            (DataTemplate)FindResource(large ? "FileIconLargeTemplate" : "FileIconSmallTemplate");
+        HighlightFileViewButtons(false, large);
         FileIconList.UpdateLayout();
         await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
         ViewModel.IsFileBusy = false;
@@ -1287,18 +1475,23 @@ internal sealed class MainWindowPresentationService
 
     private void HighlightFileViewButtons(bool list, bool large)
     {
-        System.Windows.Media.Brush selected = (System.Windows.Media.Brush)FindResource("ThemeSelected");
-        System.Windows.Media.Brush secondary = (System.Windows.Media.Brush)FindResource("Secondary");
+        var selected = (Brush)FindResource("ThemeSelected");
+        var secondary = (Brush)FindResource("Secondary");
         if (FileListViewButton != null) FileListViewButton.Background = list ? selected : secondary;
         if (FileIconLargeButton != null) FileIconLargeButton.Background = !list && large ? selected : secondary;
         if (FileIconSmallButton != null) FileIconSmallButton.Background = !list && !large ? selected : secondary;
     }
 
     private void FolderFilter_TextChanged(object sender, TextChangedEventArgs e)
-    { _filterTimer?.Stop(); _filterTimer?.Start(); }
+    {
+        _filterTimer?.Stop();
+        _filterTimer?.Start();
+    }
 
     private void ClearFolderFilter()
-    { ViewModel.FolderFilter = string.Empty; }
+    {
+        ViewModel.FolderFilter = string.Empty;
+    }
 
     private void HookPathBox(TextBox box)
     {
@@ -1318,13 +1511,15 @@ internal sealed class MainWindowPresentationService
         {
             box.CaretIndex = (box.Text ?? string.Empty).Length;
             box.ScrollToHorizontalOffset(Math.Max(0, box.ExtentWidth - box.ViewportWidth));
-        }), System.Windows.Threading.DispatcherPriority.Loaded);
+        }), DispatcherPriority.Loaded);
     }
 
     private void SetSearching(bool value)
     {
         if (value)
+        {
             Dispatcher.BeginInvoke(new Action(() => AnimateSearchProgress(true)), DispatcherPriority.Loaded);
+        }
         else
         {
             AnimateSearchProgress(false);
@@ -1341,8 +1536,14 @@ internal sealed class MainWindowPresentationService
         var currentTransform = marquee.RenderTransform as TranslateTransform;
         var transform = currentTransform == null ? new TranslateTransform() : currentTransform.CloneCurrentValue();
         marquee.RenderTransform = transform;
-        if (!value) { transform.BeginAnimation(TranslateTransform.XProperty, null); transform.X = 0; return; }
-        double distance = Math.Max(0, SearchProgress.ActualWidth - (marquee.ActualWidth > 0 ? marquee.ActualWidth : 150));
+        if (!value)
+        {
+            transform.BeginAnimation(TranslateTransform.XProperty, null);
+            transform.X = 0;
+            return;
+        }
+
+        var distance = Math.Max(0, SearchProgress.ActualWidth - (marquee.ActualWidth > 0 ? marquee.ActualWidth : 150));
         var animation = new DoubleAnimation(0, distance, TimeSpan.FromSeconds(1.2))
         { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever };
         transform.BeginAnimation(TranslateTransform.XProperty, animation, HandoffBehavior.SnapshotAndReplace);
@@ -1354,20 +1555,17 @@ internal sealed class MainWindowPresentationService
             ViewModel.IsTreeBusy = busy;
     }
 
-    private bool _themeBoxReady;
-
     private void SelectThemeBox(string theme)
     {
-        string normalized = ThemeService.Normalize(theme);
+        var normalized = ThemeService.Normalize(theme);
         _themeBoxReady = false;
         foreach (ComboBoxItem item in ThemeBox.Items)
-        {
             if (string.Equals(item.Content as string, normalized, StringComparison.OrdinalIgnoreCase))
             {
                 ThemeBox.SelectedItem = item;
                 break;
             }
-        }
+
         _themeBoxReady = true;
     }
 
@@ -1379,12 +1577,19 @@ internal sealed class MainWindowPresentationService
         SetTheme(item.Content as string);
     }
 
-    private void LightTheme() => SetTheme("Light");
-    private void DarkTheme() => SetTheme("Dark");
+    private void LightTheme()
+    {
+        SetTheme("Light");
+    }
+
+    private void DarkTheme()
+    {
+        SetTheme("Dark");
+    }
 
     private void SetTheme(string theme)
     {
-        string normalized = ThemeService.Normalize(theme);
+        var normalized = ThemeService.Normalize(theme);
         ThemeService.Apply(normalized);
         SelectThemeBox(normalized);
         SettingsService.SaveTheme(normalized);
@@ -1425,16 +1630,16 @@ internal sealed class MainWindowPresentationService
 
     private void SelectSearchRootForFileList()
     {
-        FolderMatch root = ViewModel.SearchTabRoot;
+        var root = ViewModel.SearchTabRoot;
         if (root == null) return;
         root.IsExpanded = true;
         Dispatcher.BeginInvoke(new Action(() =>
         {
             if (ViewModel.TreeViewIndex != 2 || ViewModel.SearchTabRoot == null) return;
-            FolderMatch current = ViewModel.SearchTabRoot;
+            var current = ViewModel.SearchTabRoot;
             current.IsExpanded = true;
             current.IsCurrent = true;
-        }), System.Windows.Threading.DispatcherPriority.Loaded);
+        }), DispatcherPriority.Loaded);
     }
 
     private void ResultsTree_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
@@ -1455,7 +1660,7 @@ internal sealed class MainWindowPresentationService
         if (_treeDragPreparing || e.LeftButton != MouseButtonState.Pressed || _treeDragFolder == null) return;
         if (!DropOutService.MovedEnough(_treeDragStart, e.GetPosition(null))) return;
 
-        FolderMatch folder = _treeDragFolder;
+        var folder = _treeDragFolder;
         _treeDragFolder = null;
         _treeDragPreparing = true;
 
@@ -1464,7 +1669,7 @@ internal sealed class MainWindowPresentationService
             // Folder drag-out is a flat temporary package: the selected folder and
             // its immediate files only. Enumerating/copying a cold or remote folder
             // must never run on the WPF UI thread.
-            string staged = await DropOutService.StageFolderWithImmediateFilesAsync(folder.Path);
+            var staged = await DropOutService.StageFolderWithImmediateFilesAsync(folder.Path);
             if (string.IsNullOrEmpty(staged)) return;
 
             _internalDragOut = true;
@@ -1493,12 +1698,13 @@ internal sealed class MainWindowPresentationService
         _fileDragStart = e.GetPosition(null);
         if (e.ClickCount == 2 && _fileDragItem != null)
         {
-            FileListItem file = _fileDragItem;
+            var file = _fileDragItem;
             _fileDragItem = null;
             e.Handled = true;
             OpenAssociatedFile(file);
             return;
         }
+
         // Keep a multi-selection when dragging from an already selected row.
         if (_fileDragItem != null
             && Keyboard.Modifiers == ModifierKeys.None
@@ -1510,25 +1716,20 @@ internal sealed class MainWindowPresentationService
     {
         if (e.LeftButton != MouseButtonState.Pressed || _fileDragItem == null) return;
         if (!DropOutService.MovedEnough(_fileDragStart, e.GetPosition(null))) return;
-        FileListItem file = _fileDragItem;
+        var file = _fileDragItem;
         _fileDragItem = null;
         var paths = new List<string>();
-        ItemsControl list = FileList.Visibility == Visibility.Visible ? (ItemsControl)FileList : FileIconList;
+        var list = FileList.Visibility == Visibility.Visible ? (ItemsControl)FileList : FileIconList;
         var selected = new List<FileListItem>();
         foreach (FileListItem item in list.Items)
-        {
             if (IsFileSelected(list, item))
                 selected.Add(item);
-        }
-        if (selected.Count > 1 && selected.Exists(item => string.Equals(item.Path, file.Path, StringComparison.OrdinalIgnoreCase)))
-        {
-            foreach (FileListItem item in selected)
+        if (selected.Count > 1 &&
+            selected.Exists(item => string.Equals(item.Path, file.Path, StringComparison.OrdinalIgnoreCase)))
+            foreach (var item in selected)
                 paths.Add(item.Path);
-        }
         else
-        {
             paths.Add(file.Path);
-        }
         _internalDragOut = true;
         try
         {
@@ -1545,21 +1746,28 @@ internal sealed class MainWindowPresentationService
         var box = list as ListBox;
         if (box != null)
         {
-            foreach (object selected in box.SelectedItems)
-                if (ReferenceEquals(selected, item)) return true;
+            foreach (var selected in box.SelectedItems)
+                if (ReferenceEquals(selected, item))
+                    return true;
             return false;
         }
-        return ReferenceEquals((list as System.Windows.Controls.Primitives.Selector)?.SelectedItem, item);
+
+        return ReferenceEquals((list as Selector)?.SelectedItem, item);
     }
 
     private static FileListItem FileFromElement(DependencyObject source)
     {
-        for (DependencyObject current = source; current != null; current = current is ContentElement content ? ContentOperations.GetParent(content) ?? (content as FrameworkContentElement)?.Parent : VisualTreeHelper.GetParent(current))
+        for (var current = source;
+             current != null;
+             current = current is ContentElement content
+                 ? ContentOperations.GetParent(content) ?? (content as FrameworkContentElement)?.Parent
+                 : VisualTreeHelper.GetParent(current))
         {
-            FrameworkElement element = current as FrameworkElement;
+            var element = current as FrameworkElement;
             if (element?.DataContext is FileListItem file)
                 return file;
         }
+
         return null;
     }
 
@@ -1571,15 +1779,16 @@ internal sealed class MainWindowPresentationService
             if (match != null) return match;
             current = VisualTreeHelper.GetParent(current);
         }
+
         return null;
     }
 
     private void ResultsTree_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
-        FrameworkElement source = e.OriginalSource as FrameworkElement;
-        FolderMatch folder = FindFolderFromElement(source);
+        var source = e.OriginalSource as FrameworkElement;
+        var folder = FindFolderFromElement(source);
         PrepareMsBuildMenu(folder);
-        ContextMenu menu = FindContextMenu(source);
+        var menu = FindContextMenu(source);
         ApplyMsBuildMenuVisibility(menu);
     }
 
@@ -1591,14 +1800,15 @@ internal sealed class MainWindowPresentationService
         _msBuildMenu.SdkRebuildItems.Clear();
         if (ViewModel.TreeViewIndex != 1 || folder == null) return;
 
-        FolderMatch solution = folder.FindSolutionRoot();
-        string sln = solution?.SolutionFile;
-        IList<string> configs = solution?.BuildConfigurations;
+        var solution = folder.FindSolutionRoot();
+        var sln = solution?.SolutionFile;
+        var configs = solution?.BuildConfigurations;
         if (string.IsNullOrWhiteSpace(sln) || !File.Exists(sln))
         {
             sln = FindSolutionFile(folder.Path);
             if (string.IsNullOrWhiteSpace(sln)) return;
         }
+
         if (configs == null || configs.Count == 0)
             configs = SolutionTreeService.ReadBuildConfigurations(sln);
         if (configs == null || configs.Count == 0) return;
@@ -1609,11 +1819,11 @@ internal sealed class MainWindowPresentationService
             solution.BuildConfigurations = configs;
         }
 
-        foreach (string pair in configs)
+        foreach (var pair in configs)
         {
-            string captured = pair;
-            string file = sln;
-            string glyph = ConfigIconGlyph(captured);
+            var captured = pair;
+            var file = sln;
+            var glyph = ConfigIconGlyph(captured);
             _msBuildMenu.BuildItems.Add(new MsBuildActionItem
             {
                 Header = captured,
@@ -1644,51 +1854,60 @@ internal sealed class MainWindowPresentationService
     private void ApplyMsBuildMenuVisibility(ContextMenu menu)
     {
         if (menu == null) return;
-        bool canBuild = ViewModel.TreeViewIndex == 1 && _msBuildMenu.BuildItems.Count > 0;
-        bool show = ViewModel.TreeViewIndex != 1 || canBuild;
-        Visibility visibility = show ? Visibility.Visible : Visibility.Collapsed;
-        MenuItem rootMenu = FindTaggedMenuItem(menu, "dim-build");
-        if (rootMenu != null) { rootMenu.Visibility = visibility; rootMenu.IsEnabled = canBuild; }
-        MenuItem buildMenu = FindTaggedMenuItem(menu, "dim-msbuild-build");
-        MenuItem rebuildMenu = FindTaggedMenuItem(menu, "dim-msbuild-rebuild");
-        Separator buildSeparator = FindTaggedSeparator(menu, "dim-msbuild");
+        var canBuild = ViewModel.TreeViewIndex == 1 && _msBuildMenu.BuildItems.Count > 0;
+        var show = ViewModel.TreeViewIndex != 1 || canBuild;
+        var visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        var rootMenu = FindTaggedMenuItem(menu, "dim-build");
+        if (rootMenu != null)
+        {
+            rootMenu.Visibility = visibility;
+            rootMenu.IsEnabled = canBuild;
+        }
+
+        var buildMenu = FindTaggedMenuItem(menu, "dim-msbuild-build");
+        var rebuildMenu = FindTaggedMenuItem(menu, "dim-msbuild-rebuild");
+        var buildSeparator = FindTaggedSeparator(menu, "dim-msbuild");
         if (buildMenu != null)
         {
             buildMenu.Visibility = visibility;
             buildMenu.IsEnabled = canBuild;
         }
+
         if (rebuildMenu != null)
         {
             rebuildMenu.Visibility = visibility;
             rebuildMenu.IsEnabled = canBuild;
         }
+
         if (buildSeparator != null) buildSeparator.Visibility = visibility;
     }
 
     private static MenuItem FindTaggedMenuItem(ItemsControl menu, string tag)
     {
-        foreach (object item in menu.Items)
+        foreach (var item in menu.Items)
         {
-            MenuItem menuItem = item as MenuItem;
+            var menuItem = item as MenuItem;
             if (menuItem != null && Equals(menuItem.Tag, tag))
                 return menuItem;
             if (menuItem != null)
             {
-                MenuItem nested = FindTaggedMenuItem(menuItem, tag);
+                var nested = FindTaggedMenuItem(menuItem, tag);
                 if (nested != null) return nested;
             }
         }
+
         return null;
     }
 
     private static Separator FindTaggedSeparator(ItemsControl menu, string tag)
     {
-        foreach (object item in menu.Items)
+        foreach (var item in menu.Items)
         {
-            Separator separator = item as Separator;
+            var separator = item as Separator;
             if (separator != null && Equals(separator.Tag, tag))
                 return separator;
         }
+
         return null;
     }
 
@@ -1709,33 +1928,36 @@ internal sealed class MainWindowPresentationService
         if (ViewModel.TreeViewIndex != 1) return;
         if (string.IsNullOrWhiteSpace(solutionFile) || !File.Exists(solutionFile))
         {
-            ViewModel.ShowError(ScriptText("Main_MsBuildMissingSln", "Solution file was not found."), new FileNotFoundException(solutionFile ?? string.Empty));
+            ViewModel.ShowError(ScriptText("Main_MsBuildMissingSln", "Solution file was not found."),
+                new FileNotFoundException(solutionFile ?? string.Empty));
             return;
         }
 
-        string configuration = configurationPair;
-        string platform = "Any CPU";
-        int bar = configurationPair.LastIndexOf('|');
+        var configuration = configurationPair;
+        var platform = "Any CPU";
+        var bar = configurationPair.LastIndexOf('|');
         if (bar >= 0)
         {
             configuration = configurationPair.Substring(0, bar);
             platform = configurationPair.Substring(bar + 1);
         }
 
-        string msbuild = FindMsBuild();
+        var msbuild = FindMsBuild();
         if (string.IsNullOrEmpty(msbuild))
         {
-            ViewModel.ShowError(ScriptText("Main_MsBuildNotFound", "MSBuild.exe was not found."), new FileNotFoundException("MSBuild.exe"));
+            ViewModel.ShowError(ScriptText("Main_MsBuildNotFound", "MSBuild.exe was not found."),
+                new FileNotFoundException("MSBuild.exe"));
             return;
         }
 
-        string command = "\"" + msbuild + "\" \"" + solutionFile + "\" /t:" + target
-            + " /p:Configuration=\"" + configuration + "\" /p:Platform=\"" + platform + "\" /m";
-        string workDir = Path.GetDirectoryName(solutionFile);
+        var command = "\"" + msbuild + "\" \"" + solutionFile + "\" /t:" + target
+                      + " /p:Configuration=\"" + configuration + "\" /p:Platform=\"" + platform + "\" /m";
+        var workDir = Path.GetDirectoryName(solutionFile);
         try
         {
             StartKeepOpenConsole(workDir, command);
-            ViewModel.Status = string.Format(ScriptText("Main_MsBuildStarted", "Started {0} {1}"), target, configurationPair);
+            ViewModel.Status = string.Format(ScriptText("Main_MsBuildStarted", "Started {0} {1}"), target,
+                configurationPair);
         }
         catch (Exception ex)
         {
@@ -1747,30 +1969,33 @@ internal sealed class MainWindowPresentationService
     {
         try
         {
-            string configuration = configurationPair;
-            string platform = "Any CPU";
-            int bar = configurationPair.LastIndexOf('|');
+            var configuration = configurationPair;
+            var platform = "Any CPU";
+            var bar = configurationPair.LastIndexOf('|');
             if (bar >= 0)
             {
                 configuration = configurationPair.Substring(0, bar);
                 platform = configurationPair.Substring(bar + 1);
             }
-            string command = "dotnet build \"" + solutionFile + "\" --configuration \"" + configuration
-                + "\" -p:Platform=\"" + platform + "\""
-                + (rebuild ? " --no-incremental -t:Rebuild" : string.Empty);
+
+            var command = "dotnet build \"" + solutionFile + "\" --configuration \"" + configuration
+                          + "\" -p:Platform=\"" + platform + "\""
+                          + (rebuild ? " --no-incremental -t:Rebuild" : string.Empty);
             StartKeepOpenConsole(Path.GetDirectoryName(solutionFile), command);
             ViewModel.Status = "Started .NET SDK " + (rebuild ? "Rebuild " : "Build ") + configurationPair;
         }
-        catch (Exception ex) { ViewModel.ShowError(".NET SDK build could not be started.", ex); }
+        catch (Exception ex)
+        {
+            ViewModel.ShowError(".NET SDK build could not be started.", ex);
+        }
     }
 
     private static string FindMsBuild()
     {
-        string vswhere = Path.Combine(
+        var vswhere = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
             "Microsoft Visual Studio", "Installer", "vswhere.exe");
         if (File.Exists(vswhere))
-        {
             try
             {
                 var psi = new ProcessStartInfo
@@ -1781,64 +2006,74 @@ internal sealed class MainWindowPresentationService
                     RedirectStandardOutput = true,
                     CreateNoWindow = true
                 };
-                using (Process process = Process.Start(psi))
+                using (var process = Process.Start(psi))
                 {
                     if (process != null)
                     {
-                        string path = (process.StandardOutput.ReadLine() ?? string.Empty).Trim();
+                        var path = (process.StandardOutput.ReadLine() ?? string.Empty).Trim();
                         process.WaitForExit(4000);
                         if (File.Exists(path)) return path;
                     }
                 }
             }
-            catch (Exception) { }
-        }
+            catch (Exception)
+            {
+            }
 
         string[] editions = { "Enterprise", "Professional", "Community", "BuildTools" };
         string[] years = { "2022", "2019", "2017" };
         string[] roots =
         {
-                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
-                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86)
-            };
-        foreach (string root in roots)
-        {
-            foreach (string year in years)
-            {
-                foreach (string edition in editions)
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86)
+        };
+        foreach (var root in roots)
+            foreach (var year in years)
+                foreach (var edition in editions)
                 {
                     string[] candidates =
                     {
-                            Path.Combine(root, "Microsoft Visual Studio", year, edition, "MSBuild", "Current", "Bin", "amd64", "MSBuild.exe"),
-                            Path.Combine(root, "Microsoft Visual Studio", year, edition, "MSBuild", "Current", "Bin", "MSBuild.exe")
-                        };
-                    foreach (string candidate in candidates)
-                        if (File.Exists(candidate)) return candidate;
+                Path.Combine(root, "Microsoft Visual Studio", year, edition, "MSBuild", "Current", "Bin", "amd64",
+                    "MSBuild.exe"),
+                Path.Combine(root, "Microsoft Visual Studio", year, edition, "MSBuild", "Current", "Bin", "MSBuild.exe")
+            };
+                    foreach (var candidate in candidates)
+                        if (File.Exists(candidate))
+                            return candidate;
                 }
-            }
-        }
+
         return null;
     }
 
     private static FolderMatch FindFolderFromElement(DependencyObject source)
     {
-        for (DependencyObject current = source; current != null; current = current is ContentElement content ? ContentOperations.GetParent(content) ?? (content as FrameworkContentElement)?.Parent : VisualTreeHelper.GetParent(current))
+        for (var current = source;
+             current != null;
+             current = current is ContentElement content
+                 ? ContentOperations.GetParent(content) ?? (content as FrameworkContentElement)?.Parent
+                 : VisualTreeHelper.GetParent(current))
         {
-            FrameworkElement element = current as FrameworkElement;
+            var element = current as FrameworkElement;
             if (element?.DataContext is FolderMatch folder)
                 return folder;
         }
+
         return null;
     }
 
     private static ContextMenu FindContextMenu(DependencyObject source)
     {
-        for (DependencyObject current = source; current != null; current = current is ContentElement content ? ContentOperations.GetParent(content) ?? (content as FrameworkContentElement)?.Parent : VisualTreeHelper.GetParent(current))
+        for (var current = source;
+             current != null;
+             current = current is ContentElement content
+                 ? ContentOperations.GetParent(content) ?? (content as FrameworkContentElement)?.Parent
+                 : VisualTreeHelper.GetParent(current))
         {
-            FrameworkElement element = current as FrameworkElement;
+            var element = current as FrameworkElement;
             if (element?.ContextMenu != null)
                 return element.ContextMenu;
         }
+
         return null;
     }
 
@@ -1850,9 +2085,9 @@ internal sealed class MainWindowPresentationService
     private static void RemoveTaggedMenuItems(ItemsControl menu, string tag)
     {
         if (menu == null) return;
-        for (int i = menu.Items.Count - 1; i >= 0; i--)
+        for (var i = menu.Items.Count - 1; i >= 0; i--)
         {
-            FrameworkElement item = menu.Items[i] as FrameworkElement;
+            var item = menu.Items[i] as FrameworkElement;
             if (item != null && Equals(item.Tag, tag))
                 menu.Items.RemoveAt(i);
         }
@@ -1860,21 +2095,25 @@ internal sealed class MainWindowPresentationService
 
     private static string FindSolutionFile(string directory)
     {
-        string current = directory;
-        for (int depth = 0; depth < 8 && !string.IsNullOrWhiteSpace(current); depth++)
+        var current = directory;
+        for (var depth = 0; depth < 8 && !string.IsNullOrWhiteSpace(current); depth++)
         {
             if (Directory.Exists(current))
-            {
                 try
                 {
-                    string sln = Directory.EnumerateFiles(current, "*.sln").FirstOrDefault();
+                    var sln = Directory.EnumerateFiles(current, "*.sln").FirstOrDefault();
                     if (!string.IsNullOrEmpty(sln)) return sln;
                 }
-                catch (UnauthorizedAccessException) { }
-                catch (IOException) { }
-            }
+                catch (UnauthorizedAccessException)
+                {
+                }
+                catch (IOException)
+                {
+                }
+
             current = Path.GetDirectoryName(current);
         }
+
         return null;
     }
 
@@ -1883,8 +2122,8 @@ internal sealed class MainWindowPresentationService
         if (!ViewModel.IsLazyNetworkTreeActive)
             return;
 
-        TreeViewItem item = e.OriginalSource as TreeViewItem;
-        FolderMatch folder = item?.DataContext as FolderMatch;
+        var item = e.OriginalSource as TreeViewItem;
+        var folder = item?.DataContext as FolderMatch;
         if (folder == null || folder.IsLazyPlaceholder || folder.IsLazyLoaded || folder.IsLazyLoading)
             return;
 
@@ -1892,7 +2131,9 @@ internal sealed class MainWindowPresentationService
         {
             await ViewModel.LoadLazyNetworkChildrenAsync(folder);
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException)
+        {
+        }
         catch (Exception ex)
         {
             ViewModel.ShowError(Strings.App_Unhandled, ex);
@@ -1902,18 +2143,24 @@ internal sealed class MainWindowPresentationService
     private async void ResultsTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
         if (_syncingTreeFromFile || !(e.NewValue is FolderMatch selected)) return;
-        TreeView other = ReferenceEquals(sender, ResultsTree) ? _window.FrozenRootTree : ResultsTree;
+        var other = ReferenceEquals(sender, ResultsTree) ? _window.FrozenRootTree : ResultsTree;
         if (other.SelectedItem is FolderMatch previous && !ReferenceEquals(previous, selected))
             previous.IsCurrent = false;
-        try { await ViewModel.LoadFilesAsync(selected); }
-        catch (Exception ex) { ViewModel.ShowError(Strings.App_Unhandled, ex); }
+        try
+        {
+            await ViewModel.LoadFilesAsync(selected);
+        }
+        catch (Exception ex)
+        {
+            ViewModel.ShowError(Strings.App_Unhandled, ex);
+        }
     }
 
     private void FileList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_syncingTreeFromFile) return;
         if (Mouse.RightButton == MouseButtonState.Pressed) return;
-        FileListItem file = (sender as System.Windows.Controls.Primitives.Selector)?.SelectedItem as FileListItem;
+        var file = (sender as Selector)?.SelectedItem as FileListItem;
         if (file == null) return;
         ViewModel.NoteSelectedSearchMatch(file);
 
@@ -1925,16 +2172,17 @@ internal sealed class MainWindowPresentationService
 
     private void RevealFolderInCurrentTree(string directory)
     {
-        ObservableCollection<FolderMatch> roots = ViewModel.CurrentTreeRoots();
+        var roots = ViewModel.CurrentTreeRoots();
         if (string.IsNullOrEmpty(directory) || roots.Count == 0) return;
-        FolderMatch target = ViewModel.FindClosestFolderInCurrentTree(directory);
+        var target = ViewModel.FindClosestFolderInCurrentTree(directory);
         if (target == null) return;
-        for (FolderMatch ancestor = target.Parent; ancestor != null; ancestor = ancestor.Parent)
+        for (var ancestor = target.Parent; ancestor != null; ancestor = ancestor.Parent)
             ancestor.IsExpanded = true;
         target.IsExpanded = true;
         _syncingTreeFromFile = true;
-        foreach (FolderMatch item in MainWindowViewModel.Flatten(roots))
-            if (item.IsCurrent && item != target) item.IsCurrent = false;
+        foreach (var item in MainWindowViewModel.Flatten(roots))
+            if (item.IsCurrent && item != target)
+                item.IsCurrent = false;
         target.IsCurrent = true;
         ViewModel.RememberCurrentFolder(target);
         ResultsTree.UpdateLayout();
@@ -1950,11 +2198,12 @@ internal sealed class MainWindowPresentationService
         }
 
         var path = new List<FolderMatch>();
-        for (FolderMatch node = target; node != null; node = node.Parent)
+        for (var node = target; node != null; node = node.Parent)
         {
             node.IsExpanded = true;
             path.Add(node);
         }
+
         path.Reverse();
 
         if (path.Count > 0 && ReferenceEquals(path[0], ViewModel.FrozenRoot))
@@ -1972,7 +2221,7 @@ internal sealed class MainWindowPresentationService
 
         Dispatcher.BeginInvoke(
             new Action(() => ExpandPathStep(ResultsTree, path, 0, 0)),
-            System.Windows.Threading.DispatcherPriority.Loaded);
+            DispatcherPriority.Loaded);
     }
 
     private void ExpandPathStep(ItemsControl host, List<FolderMatch> path, int level, int retry)
@@ -1983,14 +2232,14 @@ internal sealed class MainWindowPresentationService
             return;
         }
 
-        FolderMatch node = path[level];
+        var node = path[level];
         host.ApplyTemplate();
         host.UpdateLayout();
 
-        TreeViewItem container = host.ItemContainerGenerator.ContainerFromItem(node) as TreeViewItem;
+        var container = host.ItemContainerGenerator.ContainerFromItem(node) as TreeViewItem;
         if (container == null)
         {
-            int index = host.Items.IndexOf(node);
+            var index = host.Items.IndexOf(node);
             if (index < 0 || retry >= 48)
             {
                 _syncingTreeFromFile = false;
@@ -2000,7 +2249,7 @@ internal sealed class MainWindowPresentationService
             BringSiblingIndexIntoView(host, index);
             Dispatcher.BeginInvoke(
                 new Action(() => ExpandPathStep(host, path, level, retry + 1)),
-                System.Windows.Threading.DispatcherPriority.Loaded);
+                DispatcherPriority.Loaded);
             return;
         }
 
@@ -2019,20 +2268,20 @@ internal sealed class MainWindowPresentationService
         container.BringIntoView();
         Dispatcher.BeginInvoke(
             new Action(() => ExpandPathStep(container, path, level + 1, 0)),
-            System.Windows.Threading.DispatcherPriority.Loaded);
+            DispatcherPriority.Loaded);
     }
 
     private void BringSiblingIndexIntoView(ItemsControl host, int index)
     {
         if (index < 0) return;
 
-        ItemsPresenter presenter = FindVisualChild<ItemsPresenter>(host);
-        VirtualizingPanel panel = presenter != null ? FindVisualChild<VirtualizingPanel>(presenter) : null;
+        var presenter = FindVisualChild<ItemsPresenter>(host);
+        var panel = presenter != null ? FindVisualChild<VirtualizingPanel>(presenter) : null;
         if (panel != null)
         {
-            System.Reflection.MethodInfo method = typeof(VirtualizingPanel).GetMethod(
+            var method = typeof(VirtualizingPanel).GetMethod(
                 "BringIndexIntoView",
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                BindingFlags.Instance | BindingFlags.NonPublic);
             if (method != null)
             {
                 method.Invoke(panel, new object[] { index });
@@ -2040,7 +2289,7 @@ internal sealed class MainWindowPresentationService
             }
         }
 
-        ScrollViewer viewer = FindScrollViewer(ResultsTree);
+        var viewer = FindScrollViewer(ResultsTree);
         if (viewer != null)
             viewer.ScrollToVerticalOffset(Math.Max(0, index - 2));
     }
@@ -2048,18 +2297,19 @@ internal sealed class MainWindowPresentationService
     private static T FindVisualChild<T>(DependencyObject root) where T : DependencyObject
     {
         if (root == null) return null;
-        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
         {
-            DependencyObject child = VisualTreeHelper.GetChild(root, i);
-            T match = child as T ?? FindVisualChild<T>(child);
+            var child = VisualTreeHelper.GetChild(root, i);
+            var match = child as T ?? FindVisualChild<T>(child);
             if (match != null) return match;
         }
+
         return null;
     }
 
-    private static bool TryGetFlatIndex(System.Collections.Generic.IEnumerable<FolderMatch> nodes, FolderMatch target, ref int index)
+    private static bool TryGetFlatIndex(IEnumerable<FolderMatch> nodes, FolderMatch target, ref int index)
     {
-        foreach (FolderMatch node in nodes)
+        foreach (var node in nodes)
         {
             if (node.IsHidden || node.IsFilterHidden)
                 continue;
@@ -2067,9 +2317,10 @@ internal sealed class MainWindowPresentationService
                 return true;
             index++;
             if (node.IsExpanded && node.Children.Count > 0
-                && TryGetFlatIndex(node.Children, target, ref index))
+                                && TryGetFlatIndex(node.Children, target, ref index))
                 return true;
         }
+
         return false;
     }
 
@@ -2078,28 +2329,32 @@ internal sealed class MainWindowPresentationService
         if (tree == null || item == null) return;
         item.IsSelected = true;
         item.BringIntoView();
-        ScrollViewer viewer = FindScrollViewer(tree);
+        var viewer = FindScrollViewer(tree);
         if (viewer == null) return;
         try
         {
-            Point pos = item.TransformToAncestor(viewer).Transform(new Point(0, 0));
-            double top = pos.Y;
-            double bottom = top + Math.Max(item.ActualHeight, 1);
+            var pos = item.TransformToAncestor(viewer).Transform(new Point(0, 0));
+            var top = pos.Y;
+            var bottom = top + Math.Max(item.ActualHeight, 1);
             if (top < 0) viewer.ScrollToVerticalOffset(viewer.VerticalOffset + top - 8);
             else if (bottom > viewer.ViewportHeight)
                 viewer.ScrollToVerticalOffset(viewer.VerticalOffset + bottom - viewer.ViewportHeight + 8);
         }
-        catch (InvalidOperationException) { }
+        catch (InvalidOperationException)
+        {
+        }
     }
 
     private static ScrollViewer FindScrollViewer(DependencyObject root)
     {
-        if (root is ScrollViewer viewer && viewer.VerticalScrollBarVisibility != ScrollBarVisibility.Disabled) return viewer;
-        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        if (root is ScrollViewer viewer && viewer.VerticalScrollBarVisibility != ScrollBarVisibility.Disabled)
+            return viewer;
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
         {
-            ScrollViewer found = FindScrollViewer(VisualTreeHelper.GetChild(root, i));
+            var found = FindScrollViewer(VisualTreeHelper.GetChild(root, i));
             if (found != null) return found;
         }
+
         return null;
     }
 
@@ -2108,28 +2363,31 @@ internal sealed class MainWindowPresentationService
     private void RestoreWindowPlacement(string[] arguments)
     {
         double left = 0, top = 0, width = 0, height = 0;
-        int state = 0;
-        bool fromCommandLine = TryReadArgument(arguments, "--window-left", out left)
-            && TryReadArgument(arguments, "--window-top", out top)
-            && TryReadArgument(arguments, "--window-width", out width)
-            && TryReadArgument(arguments, "--window-height", out height);
+        var state = 0;
+        var fromCommandLine = TryReadArgument(arguments, "--window-left", out left)
+                              && TryReadArgument(arguments, "--window-top", out top)
+                              && TryReadArgument(arguments, "--window-width", out width)
+                              && TryReadArgument(arguments, "--window-height", out height);
         if (fromCommandLine)
         {
-            if (arguments.Any(argument => string.Equals(argument, "--window-maximized", StringComparison.OrdinalIgnoreCase)))
+            if (arguments.Any(argument =>
+                    string.Equals(argument, "--window-maximized", StringComparison.OrdinalIgnoreCase)))
                 state = (int)WindowState.Maximized;
         }
         else if (!SettingsService.TryLoadMainWindowPlacement(out left, out top, out width, out height, out state))
+        {
             return;
+        }
 
         ApplyPlacement(_window, left, top, width, height, state);
     }
 
     private void SaveMainWindowPlacement()
     {
-        Rect bounds = _window.WindowState == WindowState.Normal
+        var bounds = _window.WindowState == WindowState.Normal
             ? new Rect(_window.Left, _window.Top, _window.Width, _window.Height)
             : _window.RestoreBounds;
-        int state = _window.WindowState == WindowState.Minimized
+        var state = _window.WindowState == WindowState.Minimized
             ? (int)WindowState.Normal
             : (int)_window.WindowState;
         SettingsService.SaveMainWindowPlacement(bounds.Left, bounds.Top, bounds.Width, bounds.Height, state);
@@ -2138,7 +2396,7 @@ internal sealed class MainWindowPresentationService
     private void OverlayOnMain(Window child)
     {
         if (child == null) return;
-        Rect bounds = _window.WindowState == WindowState.Normal
+        var bounds = _window.WindowState == WindowState.Normal
             ? new Rect(_window.Left, _window.Top, _window.Width, _window.Height)
             : _window.RestoreBounds;
         ApplyPlacement(child, bounds.Left, bounds.Top, bounds.Width, bounds.Height,
@@ -2172,7 +2430,7 @@ internal sealed class MainWindowPresentationService
     private static bool TryReadArgument(string[] arguments, string name, out double value)
     {
         value = 0;
-        for (int index = 0; index < arguments.Length - 1; index++)
+        for (var index = 0; index < arguments.Length - 1; index++)
             if (string.Equals(arguments[index], name, StringComparison.OrdinalIgnoreCase))
                 return double.TryParse(arguments[index + 1], NumberStyles.Float,
                     CultureInfo.InvariantCulture, out value);
@@ -2195,26 +2453,46 @@ internal sealed class MainWindowPresentationService
         }
     }
 
-    private sealed class MsBuildMenuModel
-    {
-        public ObservableCollection<MsBuildActionItem> BuildItems { get; } = new ObservableCollection<MsBuildActionItem>();
-        public ObservableCollection<MsBuildActionItem> RebuildItems { get; } = new ObservableCollection<MsBuildActionItem>();
-        public ObservableCollection<MsBuildActionItem> SdkBuildItems { get; } = new ObservableCollection<MsBuildActionItem>();
-        public ObservableCollection<MsBuildActionItem> SdkRebuildItems { get; } = new ObservableCollection<MsBuildActionItem>();
-    }
-
     private static string ConfigIconGlyph(string pair)
     {
-        string config = pair ?? string.Empty;
-        int pipe = config.IndexOf('|');
+        var config = pair ?? string.Empty;
+        var pipe = config.IndexOf('|');
         if (pipe >= 0) config = config.Substring(0, pipe);
-        int debugAt = config.IndexOf("Debug", StringComparison.OrdinalIgnoreCase);
-        int releaseAt = config.IndexOf("Release", StringComparison.OrdinalIgnoreCase);
+        var debugAt = config.IndexOf("Debug", StringComparison.OrdinalIgnoreCase);
+        var releaseAt = config.IndexOf("Release", StringComparison.OrdinalIgnoreCase);
         if (debugAt >= 0 && (releaseAt < 0 || debugAt < releaseAt))
             return "\uEBE8";
         if (releaseAt >= 0)
             return "\uE7B8";
         return "\uE74C";
+    }
+
+    private void OpenGrep(IReadOnlyList<string> scopes)
+    {
+        if (scopes == null || scopes.Count == 0)
+            scopes = ViewModel.PrepareGrepScopes();
+        if (scopes.Count == 0) return;
+        if (_grepWindow == null)
+        {
+            _grepWindow = new GrepWindow(ViewModel.GetSelectedGrepScopes, scopes);
+            _grepWindow.Closed += (closedSender, args) => _grepWindow = null;
+            OverlayOnMain(_grepWindow);
+            _grepWindow.Show();
+        }
+        else
+        {
+            _grepWindow.SetExplicitScopes(scopes);
+            OverlayOnMain(_grepWindow);
+            WindowActivationService.BringToFront(_grepWindow);
+        }
+    }
+
+    private sealed class MsBuildMenuModel
+    {
+        public ObservableCollection<MsBuildActionItem> BuildItems { get; } = new();
+        public ObservableCollection<MsBuildActionItem> RebuildItems { get; } = new();
+        public ObservableCollection<MsBuildActionItem> SdkBuildItems { get; } = new();
+        public ObservableCollection<MsBuildActionItem> SdkRebuildItems { get; } = new();
     }
 
     private sealed class MsBuildActionItem
@@ -2240,25 +2518,4 @@ internal sealed class MainWindowPresentationService
             }
         }
     }
-
-    private void OpenGrep(IReadOnlyList<string> scopes)
-    {
-        if (scopes == null || scopes.Count == 0)
-            scopes = ViewModel.PrepareGrepScopes();
-        if (scopes.Count == 0) return;
-        if (_grepWindow == null)
-        {
-            _grepWindow = new GrepWindow(ViewModel.GetSelectedGrepScopes, scopes);
-            _grepWindow.Closed += (closedSender, args) => _grepWindow = null;
-            OverlayOnMain(_grepWindow);
-            _grepWindow.Show();
-        }
-        else
-        {
-            _grepWindow.SetExplicitScopes(scopes);
-            OverlayOnMain(_grepWindow);
-            WindowActivationService.BringToFront(_grepWindow);
-        }
-    }
-
 }

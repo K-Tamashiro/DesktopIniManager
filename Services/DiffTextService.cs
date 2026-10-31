@@ -5,7 +5,13 @@ using System.Linq;
 namespace DesktopIniManager.Services;
 
 /// <summary>Identifies how a line differs between the source and target text.</summary>
-internal enum DiffLineKind { Unchanged, Added, Removed, Modified }
+internal enum DiffLineKind
+{
+    Unchanged,
+    Added,
+    Removed,
+    Modified
+}
 
 /// <summary>Represents one aligned row in a side-by-side text comparison.</summary>
 internal sealed class DiffLine
@@ -16,13 +22,14 @@ internal sealed class DiffLine
     public int LeftNumber { get; set; }
     public int RightNumber { get; set; }
     public int FilteredLineCount { get; set; }
+    internal int EditHunkId { get; set; } = -1;
     internal bool[] LeftChanges { get; set; }
     internal bool[] RightChanges { get; set; }
 }
 
 /// <summary>
-/// Adapter between Matthias Hertel's O(ND) Diff engine and DIM's
-/// side-by-side DiffLine model.
+///     Adapter between Matthias Hertel's O(ND) Diff engine and DIM's
+///     side-by-side DiffLine model.
 /// </summary>
 internal static class DiffTextService
 {
@@ -46,9 +53,9 @@ internal static class DiffTextService
         {
             var keys = new string[lines.Length];
 
-            for (int i = 0; i < lines.Length; i++)
+            for (var i = 0; i < lines.Length; i++)
             {
-                string key = lines[i];
+                var key = lines[i];
 
                 key = key.Replace(" ", "").Replace("\t", "");
 
@@ -61,10 +68,11 @@ internal static class DiffTextService
             return keys;
         }
 
-        Diff.Item[] diffs = Diff.DiffLines(Keys(left), Keys(right));
+        var diffs = Diff.DiffLines(Keys(left), Keys(right));
 
         // 行の対応が確定した後で改行コードを比較する。
-        return BuildRows(left, right, diffs, leftEndings, rightEndings, ignoreCase, ignoreSpaces, calculateInlineDifferences);
+        return BuildRows(left, right, diffs, leftEndings, rightEndings, ignoreCase, ignoreSpaces,
+            calculateInlineDifferences);
     }
 
     private static List<DiffLine> BuildRows(
@@ -78,12 +86,12 @@ internal static class DiffTextService
         bool calculateInlineDifferences)
     {
         var rows = new List<DiffLine>(Math.Max(left.Length, right.Length));
-        int leftIndex = 0;
-        int rightIndex = 0;
+        var leftIndex = 0;
+        var rightIndex = 0;
 
         // 改行比較が有効な場合のみ判定する。
-        bool compareNewlines = leftEndings != null && rightEndings != null;
-        StringComparison comparison = ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        var compareNewlines = leftEndings != null && rightEndings != null;
+        var comparison = ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
         void AddRow(string l, string r, int lNum, int rNum, DiffLineKind kind)
         {
@@ -98,7 +106,8 @@ internal static class DiffTextService
             {
                 if (!ignoreSpaces && !string.Equals(l, r, comparison))
                     kind = DiffLineKind.Modified;
-                else if (compareNewlines && !string.Equals(leftEndings[lNum - 1], rightEndings[rNum - 1], StringComparison.Ordinal))
+                else if (compareNewlines && !string.Equals(leftEndings[lNum - 1], rightEndings[rNum - 1],
+                             StringComparison.Ordinal))
                     kind = DiffLineKind.Modified;
             }
 
@@ -124,8 +133,8 @@ internal static class DiffTextService
                 rightIndex++;
             }
 
-            int deletedEnd = diff.StartA + diff.DeletedA;
-            int insertedEnd = diff.StartB + diff.InsertedB;
+            var deletedEnd = diff.StartA + diff.DeletedA;
+            var insertedEnd = diff.StartB + diff.InsertedB;
 
             leftIndex = diff.StartA;
             rightIndex = diff.StartB;
@@ -168,16 +177,18 @@ internal static class DiffTextService
     {
         left = left.Replace("\t", "    ");
         right = right.Replace("\t", "    ");
-        var changes = Diff.DiffLines(left.Select(c => c.ToString()).ToArray(), right.Select(c => c.ToString()).ToArray());
+        var changes = Diff.DiffLines(left.Select(c => c.ToString()).ToArray(),
+            right.Select(c => c.ToString()).ToArray());
         var a = new bool[left.Length];
         var b = new bool[right.Length];
         foreach (var change in changes)
         {
-            for (int i = change.StartA; i < change.StartA + change.DeletedA; i++)
+            for (var i = change.StartA; i < change.StartA + change.DeletedA; i++)
                 a[i] = !ignoreSpaces || left[i] != '\u0020';
-            for (int i = change.StartB; i < change.StartB + change.InsertedB; i++)
+            for (var i = change.StartB; i < change.StartB + change.InsertedB; i++)
                 b[i] = !ignoreSpaces || right[i] != '\u0020';
         }
+
         return (a, b);
     }
 }

@@ -1,21 +1,21 @@
 ﻿using DesktopIniManager.Models;
-using DesktopIniManager.ViewModels;
+using DesktopIniManager.Properties;
 using DesktopIniManager.Services;
+using DesktopIniManager.ViewModels;
 using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
 using System.Windows.Interop;
+using System.Windows.Media;
 using System.Windows.Threading;
-using System.IO;
-using DesktopIniManager.Properties;
 
 namespace DesktopIniManager.Views;
 
@@ -34,6 +34,7 @@ public partial class GrepWindow : Window
     {
         ViewModel = new GrepWindowViewModel(scopeProvider, Dispatcher, new UserDialogService(this));
         InitializeComponent();
+        Icon = DifferencerStatusIcons.GetCustomIcon(71) ?? Icon;
         ClearQueryButton.Click += (_, _) => Dispatcher.BeginInvoke(new Action(() => QueryBox.Focus()), DispatcherPriority.Input);
         ClearListFilterButton.Click += (_, _) => Dispatcher.BeginInvoke(new Action(() => FilterBox.Focus()), DispatcherPriority.Input);
         DataContext = ViewModel;
@@ -277,7 +278,6 @@ public partial class GrepWindow : Window
         }
     }
 
-
     private void GroupHeader_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         _groupDragPath = ResultGroupKey(FindAncestor<Expander>(sender as DependencyObject) ?? sender as Expander);
@@ -384,7 +384,9 @@ public partial class GrepWindow : Window
     }
 
     public void SetExplicitScopes(IReadOnlyList<string> scopes) => ViewModel.SetExplicitScopes(scopes);
+
     public void ReloadFromMainWindow() => ViewModel.ReloadFromMainWindow();
+
     protected override void OnClosing(CancelEventArgs e)
     {
         if (!ViewModel.Close()) { e.Cancel = true; return; }

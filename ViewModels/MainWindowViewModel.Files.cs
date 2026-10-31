@@ -1,4 +1,6 @@
 ﻿using DesktopIniManager.Models;
+using DesktopIniManager.Properties;
+using FastVolumeIndex;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -6,19 +8,27 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using FastVolumeIndex;
-using DesktopIniManager.Properties;
+using System.Windows.Threading;
 
 namespace DesktopIniManager.ViewModels;
 
 internal sealed partial class MainWindowViewModel
 {
+    private const int FileListBatchSize = 256;
+    private readonly HashSet<string> _displayedPhysicalFiles = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<string> _physicalFileCache = new();
+    private readonly object _physicalFileScanGate = new();
+    private readonly List<object> _searchMatches = new();
+
+    private string _fileListCountLabel = string.Format(Strings.Main_NItems, 0);
+    private RelayCommand _nextSearchMatchCommand;
+    private bool _physicalFileScanComplete;
+    private CancellationTokenSource _physicalFileScanCts;
+    private string _physicalFileScanRoot;
+    private Task _physicalFileScanTask;
+    private RelayCommand _prevSearchMatchCommand;
     private string _searchHitLabel = "0/0";
     private int _searchMatchIndex;
-    private readonly List<object> _searchMatches = new List<object>();
-    public event Action<FolderMatch> FolderSearchHitRequested;
-    private RelayCommand _prevSearchMatchCommand;
-    private RelayCommand _nextSearchMatchCommand;
 
     public string SearchHitLabel
     {
@@ -26,7 +36,6 @@ internal sealed partial class MainWindowViewModel
         set => SetProperty(ref _searchHitLabel, value);
     }
 
-    private string _fileListCountLabel = string.Format(Strings.Main_NItems, 0);
     public string FileListCountLabel
     {
         get => _fileListCountLabel;
@@ -34,10 +43,14 @@ internal sealed partial class MainWindowViewModel
     }
 
     public RelayCommand PrevSearchMatchCommand =>
-        _prevSearchMatchCommand ?? (_prevSearchMatchCommand = new RelayCommand(PrevSearchMatch, () => _searchMatches.Count > 0));
+        _prevSearchMatchCommand ??
+        (_prevSearchMatchCommand = new RelayCommand(PrevSearchMatch, () => _searchMatches.Count > 0));
 
     public RelayCommand NextSearchMatchCommand =>
-        _nextSearchMatchCommand ?? (_nextSearchMatchCommand = new RelayCommand(NextSearchMatch, () => _searchMatches.Count > 0));
+        _nextSearchMatchCommand ??
+        (_nextSearchMatchCommand = new RelayCommand(NextSearchMatch, () => _searchMatches.Count > 0));
+
+    public event Action<FolderMatch> FolderSearchHitRequested;
 
     internal void SetSearchResultCount(int count)
     {
@@ -52,7 +65,7 @@ internal sealed partial class MainWindowViewModel
 
     private void RefreshSearchHitLabel()
     {
-        int total = _searchMatches.Count;
+        var total = _searchMatches.Count;
         SearchHitLabel = total == 0
             ? "0/0"
             : _searchMatchIndex + "/" + total;
@@ -60,10 +73,11 @@ internal sealed partial class MainWindowViewModel
         NextSearchMatchCommand.NotifyCanExecuteChanged();
     }
 
-    private void SyncSearchMatches(IEnumerable<FileListItem> items, FileListItem preferred, bool revealOwningFolder = false, FolderMatch folder = null)
+    private void SyncSearchMatches(IEnumerable<FileListItem> items, FileListItem preferred,
+        bool revealOwningFolder = false, FolderMatch folder = null)
     {
         _searchMatches.Clear();
-        if (folder != null && _treeView == 2)
+        if (folder != null && TreeViewIndex == 2)
             _searchMatches.AddRange(Flatten(new[] { folder }).Where(item => item.IsSearchMatch));
         if (items != null)
             _searchMatches.AddRange(items.Where(item => item.IsSearchMatch));
@@ -74,7 +88,7 @@ internal sealed partial class MainWindowViewModel
             return;
         }
 
-        int index = preferred == null ? 0 : _searchMatches.IndexOf(preferred);
+        var index = preferred == null ? 0 : _searchMatches.IndexOf(preferred);
         _searchMatchIndex = index >= 0 ? index + 1 : 1;
         RefreshSearchHitLabel();
         RevealSearchMatch(revealOwningFolder);
@@ -82,7 +96,7 @@ internal sealed partial class MainWindowViewModel
 
     private void RevealSearchMatch(bool revealOwningFolder)
     {
-        object match = _searchMatches[_searchMatchIndex - 1];
+        var match = _searchMatches[_searchMatchIndex - 1];
         if (match is FileListItem file) FileScrollRequested?.Invoke(file, revealOwningFolder);
         else if (revealOwningFolder && match is FolderMatch folder) FolderSearchHitRequested?.Invoke(folder);
     }
@@ -90,7 +104,7 @@ internal sealed partial class MainWindowViewModel
     internal void NoteSelectedSearchMatch(FileListItem file)
     {
         if (file == null || !file.IsSearchMatch) return;
-        int index = _searchMatches.IndexOf(file);
+        var index = _searchMatches.IndexOf(file);
         if (index < 0) return;
         _searchMatchIndex = index + 1;
         RefreshSearchHitLabel();
@@ -112,15 +126,6 @@ internal sealed partial class MainWindowViewModel
         RevealSearchMatch(true);
     }
 
-    private const int FileListBatchSize = 256;
-    private readonly object _physicalFileScanGate = new object();
-    private readonly List<string> _physicalFileCache = new List<string>();
-    private readonly HashSet<string> _displayedPhysicalFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-    private CancellationTokenSource _physicalFileScanCts;
-    private Task _physicalFileScanTask;
-    private string _physicalFileScanRoot;
-    private bool _physicalFileScanComplete;
-
     internal void ResetPhysicalFileScan()
     {
         CancellationTokenSource cts;
@@ -133,6 +138,7 @@ internal sealed partial class MainWindowViewModel
             _physicalFileScanComplete = false;
             _physicalFileCache.Clear();
         }
+
         cts?.Cancel();
         cts?.Dispose();
         _displayedPhysicalFiles.Clear();
@@ -140,7 +146,7 @@ internal sealed partial class MainWindowViewModel
 
     private void EnsurePhysicalFileScan()
     {
-        string root = RootPath?.Trim();
+        var root = RootPath?.Trim();
         if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root)) return;
 
         lock (_physicalFileScanGate)
@@ -171,16 +177,17 @@ internal sealed partial class MainWindowViewModel
             while (pending.Count > 0)
             {
                 token.ThrowIfCancellationRequested();
-                string directory = pending.Pop();
+                var directory = pending.Pop();
                 try
                 {
-                    foreach (VolumePathIndex.NativeDirectoryEntry entry in VolumePathIndex.EnumerateNativeDirectory(directory, token))
+                    foreach (var entry in VolumePathIndex.EnumerateNativeDirectory(directory, token))
                     {
                         token.ThrowIfCancellationRequested();
-                        string path = Path.Combine(directory, entry.Name);
+                        var path = Path.Combine(directory, entry.Name);
                         if ((entry.Attributes & FileAttributes.Directory) != 0)
                         {
-                            if ((entry.Attributes & FileAttributes.ReparsePoint) != 0 || IsDroppedTreeFolder(entry.Name))
+                            if ((entry.Attributes & FileAttributes.ReparsePoint) != 0 ||
+                                IsDroppedTreeFolder(entry.Name))
                                 continue;
                             pending.Push(path);
                             continue;
@@ -191,47 +198,59 @@ internal sealed partial class MainWindowViewModel
                             PublishPhysicalFileBatch(batch, token);
                     }
                 }
-                catch (UnauthorizedAccessException) { }
-                catch (IOException) { }
+                catch (UnauthorizedAccessException)
+                {
+                }
+                catch (IOException)
+                {
+                }
             }
 
             if (batch.Count > 0)
                 PublishPhysicalFileBatch(batch, token);
 
             lock (_physicalFileScanGate)
+            {
                 _physicalFileScanComplete = true;
+            }
 
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                if (_treeView == 0 && string.Equals(
+                if (TreeViewIndex == 0 && string.Equals(
                         NormalizeComparePath(FilePanelPath),
                         NormalizeComparePath(root),
                         StringComparison.OrdinalIgnoreCase))
                     SetFilePanelBusy(false);
-            }), System.Windows.Threading.DispatcherPriority.Background);
+            }), DispatcherPriority.Background);
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException)
+        {
+        }
     }
 
     private void PublishPhysicalFileBatch(List<string> batch, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
-        string[] published = batch.ToArray();
+        var published = batch.ToArray();
         batch.Clear();
 
         lock (_physicalFileScanGate)
+        {
             _physicalFileCache.AddRange(published);
+        }
 
         Dispatcher.BeginInvoke(new Action(() =>
         {
-            if (token.IsCancellationRequested || _treeView != 0 || string.IsNullOrEmpty(FilePanelPath)) return;
+            if (token.IsCancellationRequested || TreeViewIndex != 0 || string.IsNullOrEmpty(FilePanelPath)) return;
 
             // Streaming root batches belong only to the root view. Subfolder views
             // are either temporary direct scans (while root acquisition is running)
             // or snapshots from the completed root cache. Never mix the two sources.
             string scanRoot;
             lock (_physicalFileScanGate)
+            {
                 scanRoot = _physicalFileScanRoot;
+            }
 
             if (!string.Equals(
                     NormalizeComparePath(FilePanelPath),
@@ -240,54 +259,58 @@ internal sealed partial class MainWindowViewModel
                 return;
 
             AppendPhysicalFiles(published, FilePanelPath);
-        }), System.Windows.Threading.DispatcherPriority.Background);
+        }), DispatcherPriority.Background);
     }
 
     private void AppendPhysicalFiles(IEnumerable<string> paths, string selectedFolder)
     {
         if (string.IsNullOrEmpty(selectedFolder)) return;
-        string[] searchKeys = GetFileSearchKeys();
-        foreach (string path in paths)
+        var searchKeys = GetFileSearchKeys();
+        foreach (var path in paths)
         {
             if (!IsPathUnder(path, selectedFolder) || !_displayedPhysicalFiles.Add(path)) continue;
-            _files.Add(new FileListItem(path, searchKeys, selectedFolder));
+            Files.Add(new FileListItem(path, searchKeys, selectedFolder));
         }
-        FileListCountLabel = string.Format(Strings.Main_NItems, _files.Count);
+
+        FileListCountLabel = string.Format(Strings.Main_NItems, Files.Count);
     }
 
     private static bool IsPathUnder(string path, string folder)
     {
         if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(folder)) return false;
-        string normalizedPath = NormalizeComparePath(path);
-        string normalizedFolder = NormalizeComparePath(folder);
+        var normalizedPath = NormalizeComparePath(path);
+        var normalizedFolder = NormalizeComparePath(folder);
         if (normalizedPath == null || normalizedFolder == null) return false;
         if (string.Equals(normalizedPath, normalizedFolder, StringComparison.OrdinalIgnoreCase)) return true;
-        string prefix = normalizedFolder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-            + Path.DirectorySeparatorChar;
+        var prefix = normalizedFolder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                     + Path.DirectorySeparatorChar;
         return normalizedPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
     }
 
-    private string[] GetFileSearchKeys() => (Query ?? string.Empty)
-        .Split((char[])null, StringSplitOptions.RemoveEmptyEntries)
-        .Select(key => key.Trim().TrimStart('*'))
-        .Where(key => key.Length > 0)
-        .Distinct(StringComparer.CurrentCultureIgnoreCase)
-        .ToArray();
+    private string[] GetFileSearchKeys()
+    {
+        return (Query ?? string.Empty)
+            .Split((char[])null, StringSplitOptions.RemoveEmptyEntries)
+            .Select(key => key.Trim().TrimStart('*'))
+            .Where(key => key.Length > 0)
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .ToArray();
+    }
 
     internal async Task LoadFilesAsync(FolderMatch folder)
     {
         _fileListCts?.Cancel();
         var fileListCts = new CancellationTokenSource();
         _fileListCts = fileListCts;
-        _files.Clear();
+        Files.Clear();
         _displayedPhysicalFiles.Clear();
         FileListCountLabel = string.Format(Strings.Main_NItems, 0);
         SyncSearchMatches(null, null);
 
         if (folder != null)
         {
-            if (_treeView == 0) _physicalCurrent = folder;
-            else if (_treeView == 1) _solutionCurrent = folder;
+            if (TreeViewIndex == 0) _physicalCurrent = folder;
+            else if (TreeViewIndex == 1) _solutionCurrent = folder;
             else _searchCurrent = folder;
         }
 
@@ -300,13 +323,13 @@ internal sealed partial class MainWindowViewModel
         }
 
         SetFilePanelBusy(true);
-        await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Render);
+        await Dispatcher.Yield(DispatcherPriority.Render);
         if (fileListCts.IsCancellationRequested || !ReferenceEquals(_fileListCts, fileListCts)) return;
 
-        string[] searchKeys = GetFileSearchKeys();
-        VolumePathIndex index = _pathIndex;
-        int treeView = _treeView;
-        string folderPath = folder.Path;
+        var searchKeys = GetFileSearchKeys();
+        var index = _pathIndex;
+        var treeView = TreeViewIndex;
+        var folderPath = folder.Path;
 
         try
         {
@@ -317,14 +340,15 @@ internal sealed partial class MainWindowViewModel
                 // alive independently of folder selection and consume its growing cache.
                 if (index != null)
                 {
-                    string[] paths = await Task.Run(
+                    var paths = await Task.Run(
                         () => CollectFilesUnder(index, folderPath, fileListCts.Token), fileListCts.Token);
-                    foreach (string[] chunk in paths.Chunk(FileListBatchSize))
+                    foreach (var chunk in paths.Chunk(FileListBatchSize))
                     {
                         if (fileListCts.IsCancellationRequested || !ReferenceEquals(_fileListCts, fileListCts)) return;
                         AppendPhysicalFiles(chunk, folderPath);
-                        await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
+                        await Dispatcher.Yield(DispatcherPriority.Background);
                     }
+
                     SetFilePanelBusy(false);
                     return;
                 }
@@ -341,7 +365,7 @@ internal sealed partial class MainWindowViewModel
                     cached = _physicalFileCache.Where(path => IsPathUnder(path, folderPath)).ToArray();
                 }
 
-                bool selectedRoot = string.Equals(
+                var selectedRoot = string.Equals(
                     NormalizeComparePath(folderPath),
                     NormalizeComparePath(scanRoot),
                     StringComparison.OrdinalIgnoreCase);
@@ -352,32 +376,35 @@ internal sealed partial class MainWindowViewModel
                     // Until it completes, a subfolder selection gets a disposable direct
                     // scan for responsiveness. Its results are display-only: they are not
                     // merged into _physicalFileCache and do not affect root progress/count.
-                    string[] temporary = await Task.Run(
+                    var temporary = await Task.Run(
                         () => CollectFilesOnDisk(folderPath, true, fileListCts.Token),
                         fileListCts.Token);
 
-                    foreach (string[] chunk in temporary.Chunk(FileListBatchSize))
+                    foreach (var chunk in temporary.Chunk(FileListBatchSize))
                     {
                         if (fileListCts.IsCancellationRequested || !ReferenceEquals(_fileListCts, fileListCts)) return;
                         AppendPhysicalFiles(chunk, folderPath);
-                        await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
+                        await Dispatcher.Yield(DispatcherPriority.Background);
                     }
 
                     SetFilePanelBusy(false);
                     return;
                 }
 
-                string selectedKey = NormalizeComparePath(folderPath);
+                var selectedKey = NormalizeComparePath(folderPath);
                 cached = cached
-                    .OrderBy(path => string.Equals(NormalizeComparePath(Path.GetDirectoryName(path)), selectedKey, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+                    .OrderBy(path => string.Equals(NormalizeComparePath(Path.GetDirectoryName(path)), selectedKey,
+                        StringComparison.OrdinalIgnoreCase)
+                        ? 0
+                        : 1)
                     .ThenBy(path => path, StringComparer.CurrentCultureIgnoreCase)
                     .ToArray();
 
-                foreach (string[] chunk in cached.Chunk(FileListBatchSize))
+                foreach (var chunk in cached.Chunk(FileListBatchSize))
                 {
                     if (fileListCts.IsCancellationRequested || !ReferenceEquals(_fileListCts, fileListCts)) return;
                     AppendPhysicalFiles(chunk, folderPath);
-                    await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
+                    await Dispatcher.Yield(DispatcherPriority.Background);
                 }
 
                 if (complete) SetFilePanelBusy(false);
@@ -392,41 +419,44 @@ internal sealed partial class MainWindowViewModel
                 stack.Push(folder);
                 while (stack.Count > 0)
                 {
-                    FolderMatch node = stack.Pop();
+                    var node = stack.Pop();
                     searchFolderPaths.Add(node.Path);
-                    for (int i = node.Children.Count - 1; i >= 0; i--)
+                    for (var i = node.Children.Count - 1; i >= 0; i--)
                         stack.Push(node.Children[i]);
                 }
             }
 
-            List<FileListItem> loaded = await Task.Run(() =>
+            var loaded = await Task.Run(() =>
             {
-                string[] paths = treeView == 2
+                var paths = treeView == 2
                     ? CollectSearchFiles(searchFolderPaths, folderPath, fileListCts.Token)
                     : CollectImmediateFiles(folderPath, fileListCts.Token);
                 var items = new List<FileListItem>(paths.Length);
-                foreach (string path in paths)
+                foreach (var path in paths)
                 {
                     fileListCts.Token.ThrowIfCancellationRequested();
                     items.Add(new FileListItem(path, searchKeys, folderPath));
                 }
+
                 return items;
             }, fileListCts.Token);
 
             if (fileListCts.IsCancellationRequested || !ReferenceEquals(_fileListCts, fileListCts)) return;
-            foreach (FileListItem item in loaded)
+            foreach (var item in loaded)
             {
-                _files.Add(item);
-                if ((_files.Count % FileListBatchSize) == 0)
-                    await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
+                Files.Add(item);
+                if (Files.Count % FileListBatchSize == 0)
+                    await Dispatcher.Yield(DispatcherPriority.Background);
             }
 
             FileListCountLabel = string.Format(Strings.Main_NItems, loaded.Count);
-            FileListItem preferred = loaded.FirstOrDefault(item => item.IsSearchMatch && item.IsDirectChild)
-                ?? loaded.FirstOrDefault(item => item.IsSearchMatch);
+            var preferred = loaded.FirstOrDefault(item => item.IsSearchMatch && item.IsDirectChild)
+                            ?? loaded.FirstOrDefault(item => item.IsSearchMatch);
             SyncSearchMatches(loaded, preferred, folder: folder);
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException)
+        {
+        }
         finally
         {
             if (treeView != 0 && ReferenceEquals(_fileListCts, fileListCts) && !fileListCts.IsCancellationRequested)
@@ -436,17 +466,17 @@ internal sealed partial class MainWindowViewModel
 
     internal FolderMatch FindBestSearchFolder()
     {
-        List<FolderMatch> nodes = Flatten(_searchRoots).ToList();
-        FolderMatch named = nodes
+        var nodes = Flatten(_searchRoots).ToList();
+        var named = nodes
             .Where(item => !string.IsNullOrEmpty(item.Reason)
-                && item.Reason.StartsWith("Name:", StringComparison.OrdinalIgnoreCase))
+                           && item.Reason.StartsWith("Name:", StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(item => (item.Path ?? string.Empty).Length)
             .FirstOrDefault();
         if (named != null) return named;
 
-        FolderMatch contents = nodes
+        var contents = nodes
             .Where(item => !string.IsNullOrEmpty(item.Reason)
-                && item.Reason.StartsWith("Contents:", StringComparison.OrdinalIgnoreCase))
+                           && item.Reason.StartsWith("Contents:", StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(item => (item.Path ?? string.Empty).Length)
             .FirstOrDefault();
         return contents ?? (_searchRoots.Count > 0 ? _searchRoots[0] : null);
@@ -459,23 +489,23 @@ internal sealed partial class MainWindowViewModel
 
     internal FolderMatch FindFolderForFile(string filePath, out int treeView)
     {
-        treeView = _treeView;
-        string directory = NormalizeComparePath(File.Exists(filePath) && !Directory.Exists(filePath)
+        treeView = TreeViewIndex;
+        var directory = NormalizeComparePath(File.Exists(filePath) && !Directory.Exists(filePath)
             ? Path.GetDirectoryName(filePath)
             : filePath);
         if (string.IsNullOrEmpty(directory)) return null;
 
         var trees = new[]
         {
-                new { View = _treeView, Roots = (IEnumerable<FolderMatch>)CurrentTreeRoots() },
-                new { View = 2, Roots = (IEnumerable<FolderMatch>)_searchRoots },
-                new { View = 0, Roots = (IEnumerable<FolderMatch>)_treeRoots },
-                new { View = 1, Roots = (IEnumerable<FolderMatch>)_solutionRoots }
-            };
+            new { View = TreeViewIndex, Roots = (IEnumerable<FolderMatch>)CurrentTreeRoots() },
+            new { View = 2, Roots = (IEnumerable<FolderMatch>)_searchRoots },
+            new { View = 0, Roots = (IEnumerable<FolderMatch>)_treeRoots },
+            new { View = 1, Roots = (IEnumerable<FolderMatch>)_solutionRoots }
+        };
 
         foreach (var tree in trees)
         {
-            FolderMatch exact = FindExactFolder(tree.Roots, directory);
+            var exact = FindExactFolder(tree.Roots, directory);
             if (exact != null)
             {
                 treeView = tree.View;
@@ -485,7 +515,7 @@ internal sealed partial class MainWindowViewModel
 
         foreach (var tree in trees)
         {
-            FolderMatch closest = FindClosestFolder(tree.Roots, directory);
+            var closest = FindClosestFolder(tree.Roots, directory);
             if (closest != null)
             {
                 treeView = tree.View;
@@ -499,7 +529,7 @@ internal sealed partial class MainWindowViewModel
     internal static FolderMatch FindExactFolder(IEnumerable<FolderMatch> roots, string directory)
     {
         if (roots == null || string.IsNullOrWhiteSpace(directory)) return null;
-        string current = NormalizeComparePath(directory);
+        var current = NormalizeComparePath(directory);
         return Flatten(roots).FirstOrDefault(item =>
             string.Equals(NormalizeComparePath(item.Path), current, StringComparison.OrdinalIgnoreCase));
     }
@@ -508,30 +538,43 @@ internal sealed partial class MainWindowViewModel
     {
         if (roots == null || string.IsNullOrWhiteSpace(path)) return null;
 
-        string current = NormalizeComparePath(File.Exists(path) && !Directory.Exists(path)
+        var current = NormalizeComparePath(File.Exists(path) && !Directory.Exists(path)
             ? Path.GetDirectoryName(path)
             : path);
-        List<FolderMatch> nodes = Flatten(roots).ToList();
+        var nodes = Flatten(roots).ToList();
         while (!string.IsNullOrEmpty(current))
         {
-            FolderMatch exact = nodes.FirstOrDefault(item =>
+            var exact = nodes.FirstOrDefault(item =>
                 string.Equals(NormalizeComparePath(item.Path), current, StringComparison.OrdinalIgnoreCase));
             if (exact != null) return exact;
-            string parent = Path.GetDirectoryName(current);
-            string next = NormalizeComparePath(parent);
+            var parent = Path.GetDirectoryName(current);
+            var next = NormalizeComparePath(parent);
             if (string.Equals(next, current, StringComparison.OrdinalIgnoreCase)) break;
             current = next;
         }
+
         return null;
     }
 
     private static string NormalizeComparePath(string path)
     {
         if (string.IsNullOrWhiteSpace(path)) return null;
-        try { return VolumePathIndex.Normalize(path); }
-        catch (ArgumentException) { return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar); }
-        catch (NotSupportedException) { return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar); }
-        catch (PathTooLongException) { return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar); }
+        try
+        {
+            return VolumePathIndex.Normalize(path);
+        }
+        catch (ArgumentException)
+        {
+            return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+        catch (NotSupportedException)
+        {
+            return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+        catch (PathTooLongException)
+        {
+            return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
     }
 
     private static string[] OrderSelectedFolderFirst(List<string> paths, string selectedFolder)
@@ -539,12 +582,12 @@ internal sealed partial class MainWindowViewModel
         if (paths == null || paths.Count == 0)
             return Array.Empty<string>();
 
-        string selectedKey = NormalizeComparePath(selectedFolder);
+        var selectedKey = NormalizeComparePath(selectedFolder);
         var selected = new List<string>();
         var nested = new List<string>();
-        foreach (string path in paths)
+        foreach (var path in paths)
         {
-            string parent = NormalizeComparePath(Path.GetDirectoryName(path));
+            var parent = NormalizeComparePath(Path.GetDirectoryName(path));
             if (string.Equals(parent, selectedKey, StringComparison.OrdinalIgnoreCase))
                 selected.Add(path);
             else
@@ -562,7 +605,7 @@ internal sealed partial class MainWindowViewModel
         if (index == null || string.IsNullOrEmpty(folderPath))
             return Array.Empty<string>();
 
-        VolumePathNode root = index.Find(folderPath);
+        var root = index.Find(folderPath);
         if (root == null || !root.IsDirectory)
         {
             if (Directory.Exists(folderPath))
@@ -576,19 +619,17 @@ internal sealed partial class MainWindowViewModel
         while (stack.Count > 0)
         {
             token.ThrowIfCancellationRequested();
-            VolumePathNode node = stack.Pop();
-            foreach (VolumePathNode file in node.Files)
+            var node = stack.Pop();
+            foreach (var file in node.Files) paths.Add(file.Path);
+            for (var i = node.Directories.Count - 1; i >= 0; i--)
             {
-                paths.Add(file.Path);
-            }
-            for (int i = node.Directories.Count - 1; i >= 0; i--)
-            {
-                VolumePathNode child = node.Directories[i];
+                var child = node.Directories[i];
                 if (IsDroppedTreeFolder(child.Name))
                     continue;
                 stack.Push(child);
             }
         }
+
         return OrderSelectedFolderFirst(paths, folderPath);
     }
 
@@ -603,33 +644,40 @@ internal sealed partial class MainWindowViewModel
         while (pending.Count > 0)
         {
             token.ThrowIfCancellationRequested();
-            string directory = pending.Pop();
+            var directory = pending.Pop();
             try
             {
-                foreach (string file in Directory.EnumerateFiles(directory))
+                foreach (var file in Directory.EnumerateFiles(directory))
                 {
                     token.ThrowIfCancellationRequested();
                     if (Directory.Exists(file)) continue;
                     paths.Add(file);
                 }
+
                 if (!recursive) continue;
-                foreach (string child in Directory.EnumerateDirectories(directory))
+                foreach (var child in Directory.EnumerateDirectories(directory))
                 {
                     token.ThrowIfCancellationRequested();
                     if (IsDroppedTreeFolder(Path.GetFileName(child))) continue;
                     pending.Push(child);
                 }
             }
-            catch (UnauthorizedAccessException) { }
-            catch (IOException) { }
+            catch (UnauthorizedAccessException)
+            {
+            }
+            catch (IOException)
+            {
+            }
         }
+
         if (recursive)
             return OrderSelectedFolderFirst(paths, folderPath);
         paths.Sort(StringComparer.CurrentCultureIgnoreCase);
         return paths.ToArray();
     }
 
-    internal static string[] CollectSearchFiles(List<string> folderPaths, string selectedFolder, CancellationToken token)
+    internal static string[] CollectSearchFiles(List<string> folderPaths, string selectedFolder,
+        CancellationToken token)
     {
         if (folderPaths == null || folderPaths.Count == 0)
             return Array.Empty<string>();
@@ -637,12 +685,13 @@ internal sealed partial class MainWindowViewModel
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var selected = new List<string>();
         var nested = new List<string>();
-        string selectedKey = NormalizeComparePath(selectedFolder);
-        foreach (string folderPath in folderPaths)
+        var selectedKey = NormalizeComparePath(selectedFolder);
+        foreach (var folderPath in folderPaths)
         {
             token.ThrowIfCancellationRequested();
-            bool direct = string.Equals(NormalizeComparePath(folderPath), selectedKey, StringComparison.OrdinalIgnoreCase);
-            foreach (string file in CollectFilesOnDisk(folderPath, false, token))
+            var direct = string.Equals(NormalizeComparePath(folderPath), selectedKey,
+                StringComparison.OrdinalIgnoreCase);
+            foreach (var file in CollectFilesOnDisk(folderPath, false, token))
             {
                 if (!seen.Add(file)) continue;
                 if (direct) selected.Add(file);
@@ -658,22 +707,26 @@ internal sealed partial class MainWindowViewModel
 
     internal static string[] CollectImmediateFiles(string folderPath, CancellationToken token)
     {
-        string directory = ResolveSolutionDirectory(folderPath);
+        var directory = ResolveSolutionDirectory(folderPath);
         if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
             return Array.Empty<string>();
 
         var paths = new List<string>();
         try
         {
-            foreach (string file in Directory.EnumerateFiles(directory))
+            foreach (var file in Directory.EnumerateFiles(directory))
             {
                 token.ThrowIfCancellationRequested();
                 if (Directory.Exists(file)) continue;
                 paths.Add(file);
             }
         }
-        catch (UnauthorizedAccessException) { }
-        catch (IOException) { }
+        catch (UnauthorizedAccessException)
+        {
+        }
+        catch (IOException)
+        {
+        }
 
         paths.Sort(StringComparer.CurrentCultureIgnoreCase);
         return paths.ToArray();
@@ -693,20 +746,23 @@ internal sealed partial class MainWindowViewModel
         if (Directory.Exists(path)) return path;
         if (File.Exists(path))
         {
-            string parent = Path.GetDirectoryName(path);
+            var parent = Path.GetDirectoryName(path);
             return string.IsNullOrEmpty(parent) ? null : parent;
         }
+
         if (index != null)
         {
-            VolumePathNode node = index.Find(path);
+            var node = index.Find(path);
             if (node != null)
                 return node.IsDirectory ? node.Path : node.Parent?.Path;
         }
-        string fallback = Path.GetDirectoryName(path);
+
+        var fallback = Path.GetDirectoryName(path);
         return string.IsNullOrEmpty(fallback) ? path : fallback;
     }
 
-    internal static string[] CollectFilesFromFolders(VolumePathIndex index, List<string> folderPaths, CancellationToken token)
+    internal static string[] CollectFilesFromFolders(VolumePathIndex index, List<string> folderPaths,
+        CancellationToken token)
     {
         if (folderPaths == null || folderPaths.Count == 0)
             return Array.Empty<string>();
@@ -714,48 +770,50 @@ internal sealed partial class MainWindowViewModel
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var paths = new List<string>();
 
-        foreach (string raw in folderPaths)
+        foreach (var raw in folderPaths)
         {
             token.ThrowIfCancellationRequested();
-            string folderPath = ResolveDirectoryPath(index, raw);
+            var folderPath = ResolveDirectoryPath(index, raw);
             if (string.IsNullOrEmpty(folderPath)) continue;
 
-            int before = paths.Count;
+            var before = paths.Count;
             if (index != null)
             {
-                VolumePathNode node = index.Find(folderPath);
+                var node = index.Find(folderPath);
                 if (node != null && !node.IsDirectory)
                     node = node.Parent;
                 if (node != null && node.IsDirectory)
-                {
-                    foreach (VolumePathNode file in node.Files)
-                        if (seen.Add(file.Path)) paths.Add(file.Path);
-                }
+                    foreach (var file in node.Files)
+                        if (seen.Add(file.Path))
+                            paths.Add(file.Path);
             }
 
             if (paths.Count == before && Directory.Exists(folderPath))
-            {
                 try
                 {
-                    foreach (string file in Directory.EnumerateFiles(folderPath))
-                        if (seen.Add(file)) paths.Add(file);
+                    foreach (var file in Directory.EnumerateFiles(folderPath))
+                        if (seen.Add(file))
+                            paths.Add(file);
                 }
-                catch (UnauthorizedAccessException) { }
-                catch (IOException) { }
-            }
+                catch (UnauthorizedAccessException)
+                {
+                }
+                catch (IOException)
+                {
+                }
         }
 
         paths.Sort(StringComparer.CurrentCultureIgnoreCase);
         return paths.ToArray();
     }
 
-
     internal void Grep()
     {
-        IReadOnlyList<string> scopes = PrepareGrepScopes();
+        var scopes = PrepareGrepScopes();
         if (scopes.Count == 0)
         {
-            _dialogs.Show(Strings.Main_NoGrepFolders, Strings.App_Title, MessageBoxButton.OK, MessageBoxImage.Information);
+            _dialogs.Show(Strings.Main_NoGrepFolders, Strings.App_Title, MessageBoxButton.OK,
+                MessageBoxImage.Information);
             return;
         }
 
@@ -766,12 +824,12 @@ internal sealed partial class MainWindowViewModel
     {
         // Walk the live tree, not the folder-filter flat list.
         // Same-branch children are dropped only when a selected ancestor already covers them.
-        List<string> selected = new List<string>();
-        foreach (FolderMatch item in Flatten(CurrentTreeRoots()))
+        var selected = new List<string>();
+        foreach (var item in Flatten(CurrentTreeRoots()))
         {
             if (!item.IsActionable || !item.IsSelected || string.IsNullOrWhiteSpace(item.Path))
                 continue;
-            string path = TryNormalizeFolderPath(item.Path);
+            var path = TryNormalizeFolderPath(item.Path);
             if (path == null) continue;
             if (requireExists && !Directory.Exists(path)) continue;
             selected.Add(path);
@@ -797,42 +855,43 @@ internal sealed partial class MainWindowViewModel
 
     private IReadOnlyList<string> EnsureScopedFolders(string fallbackRoot)
     {
-        IReadOnlyList<string> selected = CollectSelectedFolderPaths(true);
+        var selected = CollectSelectedFolderPaths();
         if (selected.Count > 0) return selected;
 
-        FolderMatch root = CurrentTreeRoots().FirstOrDefault(item =>
+        var root = CurrentTreeRoots().FirstOrDefault(item =>
             item.IsActionable && ExistingFolderPath(item.Path) != null);
         if (root != null)
         {
             root.SetSelected(true);
             SyncAllFoldersSelectedFlag();
-            return CollectSelectedFolderPaths(true);
+            return CollectSelectedFolderPaths();
         }
 
-        string path = ExistingFolderPath(fallbackRoot);
+        var path = ExistingFolderPath(fallbackRoot);
         return path == null ? Array.Empty<string>() : new[] { path };
     }
 
     internal static string ExistingFolderPath(string path)
     {
-        string normalized = TryNormalizeFolderPath(path);
+        var normalized = TryNormalizeFolderPath(path);
         if (normalized == null) return null;
         return Directory.Exists(normalized) ? normalized : null;
     }
 
     internal void RefreshScopedLabel()
     {
-        int count = CollectSelectedFolderPaths(false).Count;
-        string label = "Scoped " + count;
+        var count = CollectSelectedFolderPaths(false).Count;
+        var label = "Scoped " + count;
         if (!string.Equals(_scopedLabel, label, StringComparison.Ordinal))
             ScopedLabel = label;
     }
 
     internal static string NormalizeFolderPath(string path)
     {
-        string fullPath = Path.GetFullPath(path);
-        string root = Path.GetPathRoot(fullPath);
-        return fullPath.Length == root.Length ? fullPath
+        var fullPath = Path.GetFullPath(path);
+        var root = Path.GetPathRoot(fullPath);
+        return fullPath.Length == root.Length
+            ? fullPath
             : fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
     }
 
@@ -843,17 +902,26 @@ internal sealed partial class MainWindowViewModel
         {
             return NormalizeFolderPath(path);
         }
-        catch (ArgumentException) { return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar); }
-        catch (NotSupportedException) { return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar); }
-        catch (PathTooLongException) { return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar); }
+        catch (ArgumentException)
+        {
+            return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+        catch (NotSupportedException)
+        {
+            return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+        catch (PathTooLongException)
+        {
+            return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
     }
 
     internal static IReadOnlyList<string> ExcludeNestedFolders(IReadOnlyList<string> folders)
     {
         var scopes = new List<string>();
-        foreach (string path in folders
-            .OrderBy(candidate => candidate.Length)
-            .ThenBy(candidate => candidate, StringComparer.OrdinalIgnoreCase))
+        foreach (var path in folders
+                     .OrderBy(candidate => candidate.Length)
+                     .ThenBy(candidate => candidate, StringComparer.OrdinalIgnoreCase))
         {
             if (scopes.Any(parent => IsFolderAncestor(parent, path)))
                 continue;
@@ -871,9 +939,8 @@ internal sealed partial class MainWindowViewModel
         if (string.Equals(parent, child, StringComparison.OrdinalIgnoreCase))
             return false;
 
-        string prefix = parent.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                        + Path.DirectorySeparatorChar;
+        var prefix = parent.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                     + Path.DirectorySeparatorChar;
         return child.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
     }
-
 }

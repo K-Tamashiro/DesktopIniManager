@@ -1,4 +1,5 @@
 ﻿using DesktopIniManager.Models;
+using ExcelDataReader;
 using FastVolumeIndex;
 using System;
 using System.Collections.Concurrent;
@@ -12,7 +13,6 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
-using ExcelDataReader;
 using UglyToad.PdfPig;
 
 namespace DesktopIniManager.Services;
@@ -20,10 +20,17 @@ namespace DesktopIniManager.Services;
 internal sealed class DocumentGrepService
 {
     private static readonly string[] Extensions = { ".xls", ".xlsx", ".xlsm", ".pdf" };
-    internal static bool IsDocumentPath(string path) =>
-        Extensions.Contains(Path.GetExtension(path ?? string.Empty), StringComparer.OrdinalIgnoreCase);
-    private static readonly HashSet<string> IgnoredDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        { ".git", ".vs", ".idea", "bin", "obj", "node_modules", "packages", "vendor", "dist", "build", "target", "coverage" };
+
+    private static readonly HashSet<string> IgnoredDirectories = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".git", ".vs", ".idea", "bin", "obj", "node_modules", "packages", "vendor", "dist", "build", "target",
+        "coverage"
+    };
+
+    internal static bool IsDocumentPath(string path)
+    {
+        return Extensions.Contains(Path.GetExtension(path ?? string.Empty), StringComparer.OrdinalIgnoreCase);
+    }
 
     public GrepSearchResult Search(IReadOnlyList<string> scopes, string[] extensions, string query,
         bool regex, bool matchCase, bool wholeWord, Action<int, int> progress, CancellationToken token,
@@ -37,18 +44,23 @@ internal sealed class DocumentGrepService
             .OrderByDescending(root => root.Length)
             .ToArray();
         var matches = new ConcurrentBag<GrepMatch>();
-        int processed = 0;
-        int skipped = 0;
-        Regex matcher = BuildMatcher(query, regex, matchCase, wholeWord);
+        var processed = 0;
+        var skipped = 0;
+        var matcher = BuildMatcher(query, regex, matchCase, wholeWord);
         var options = new ParallelOptions { CancellationToken = token, MaxDegreeOfParallelism = 2 };
 
         Parallel.ForEach(files, options, file =>
         {
             try
             {
-                if (new FileInfo(file).Length > 64L * 1024 * 1024) { Interlocked.Increment(ref skipped); return; }
-                string scope = FindScope(file, orderedScopes);
-                string extension = Path.GetExtension(file);
+                if (new FileInfo(file).Length > 64L * 1024 * 1024)
+                {
+                    Interlocked.Increment(ref skipped);
+                    return;
+                }
+
+                var scope = FindScope(file, orderedScopes);
+                var extension = Path.GetExtension(file);
                 if (extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
                     SearchPdf(file, scope, matcher, matches, matchFound, token);
                 else if (extension.Equals(".xls", StringComparison.OrdinalIgnoreCase))
@@ -56,13 +68,25 @@ internal sealed class DocumentGrepService
                 else
                     SearchOpenXml(file, scope, matcher, matches, matchFound, token);
             }
-            catch (IOException) { Interlocked.Increment(ref skipped); }
-            catch (UnauthorizedAccessException) { Interlocked.Increment(ref skipped); }
-            catch (InvalidDataException) { Interlocked.Increment(ref skipped); }
-            catch (XmlException) { Interlocked.Increment(ref skipped); }
+            catch (IOException)
+            {
+                Interlocked.Increment(ref skipped);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                Interlocked.Increment(ref skipped);
+            }
+            catch (InvalidDataException)
+            {
+                Interlocked.Increment(ref skipped);
+            }
+            catch (XmlException)
+            {
+                Interlocked.Increment(ref skipped);
+            }
             finally
             {
-                int done = Interlocked.Increment(ref processed);
+                var done = Interlocked.Increment(ref processed);
                 if (((done & 15) == 0 || done == files.Count) && progress != null) progress(done, files.Count);
             }
         });
@@ -74,29 +98,32 @@ internal sealed class DocumentGrepService
             .ThenBy(item => item.ColumnNumber).ToList(), files.Count, skipped);
     }
 
-    private static void SearchPdf(string path, string scope, Regex matcher, ConcurrentBag<GrepMatch> matches, Action<GrepMatch> matchFound, CancellationToken token)
+    private static void SearchPdf(string path, string scope, Regex matcher, ConcurrentBag<GrepMatch> matches,
+        Action<GrepMatch> matchFound, CancellationToken token)
     {
-        using (PdfDocument document = PdfDocument.Open(path))
+        using (var document = PdfDocument.Open(path))
         {
             foreach (var page in document.GetPages())
             {
                 token.ThrowIfCancellationRequested();
-                string text = page.Text ?? string.Empty;
+                var text = page.Text ?? string.Empty;
                 if (text.Length == 0) continue;
-                string[] lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
                 if (lines.Length == 0) lines = new[] { text };
-                for (int i = 0; i < lines.Length; i++)
+                for (var i = 0; i < lines.Length; i++)
                 {
                     token.ThrowIfCancellationRequested();
-                    Match match = matcher.Match(lines[i]);
+                    var match = matcher.Match(lines[i]);
                     if (!match.Success) continue;
-                    Add(matches, matchFound, path, scope, page.Number, 1, "p." + page.Number + " " + lines[i].Trim(), match.Value);
+                    Add(matches, matchFound, path, scope, page.Number, 1, "p." + page.Number + " " + lines[i].Trim(),
+                        match.Value);
                 }
             }
         }
     }
 
-    private static void SearchXls(string path, string scope, Regex matcher, ConcurrentBag<GrepMatch> matches, Action<GrepMatch> matchFound, CancellationToken token)
+    private static void SearchXls(string path, string scope, Regex matcher, ConcurrentBag<GrepMatch> matches,
+        Action<GrepMatch> matchFound, CancellationToken token)
     {
         using (var stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
         using (var reader = ExcelReaderFactory.CreateReader(stream))
@@ -104,28 +131,29 @@ internal sealed class DocumentGrepService
             do
             {
                 token.ThrowIfCancellationRequested();
-                string sheet = string.IsNullOrEmpty(reader.Name) ? "Sheet" : reader.Name;
-                int row = 0;
+                var sheet = string.IsNullOrEmpty(reader.Name) ? "Sheet" : reader.Name;
+                var row = 0;
                 while (reader.Read())
                 {
                     token.ThrowIfCancellationRequested();
                     row++;
-                    for (int column = 0; column < reader.FieldCount; column++)
+                    for (var column = 0; column < reader.FieldCount; column++)
                     {
-                        string value = reader.GetValue(column)?.ToString();
+                        var value = reader.GetValue(column)?.ToString();
                         if (string.IsNullOrEmpty(value)) continue;
-                        Match match = matcher.Match(value);
+                        var match = matcher.Match(value);
                         if (!match.Success) continue;
-                        string cell = ColumnName(column + 1) + row;
-                        Add(matches, matchFound, path, scope, row, column + 1, "[" + sheet + "][" + cell + "] " + value.Trim(), match.Value);
+                        var cell = ColumnName(column + 1) + row;
+                        Add(matches, matchFound, path, scope, row, column + 1,
+                            "[" + sheet + "][" + cell + "] " + value.Trim(), match.Value);
                     }
                 }
-            }
-            while (reader.NextResult());
+            } while (reader.NextResult());
         }
     }
 
-    private static void SearchOpenXml(string path, string scope, Regex matcher, ConcurrentBag<GrepMatch> matches, Action<GrepMatch> matchFound, CancellationToken token)
+    private static void SearchOpenXml(string path, string scope, Regex matcher, ConcurrentBag<GrepMatch> matches,
+        Action<GrepMatch> matchFound, CancellationToken token)
     {
         using (var stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
         using (var zip = new ZipArchive(stream, ZipArchiveMode.Read))
@@ -137,23 +165,25 @@ internal sealed class DocumentGrepService
                 var entry = zip.GetEntry(sheet.Path);
                 if (entry == null) continue;
                 using (var sheetStream = entry.Open())
-                using (var reader = XmlReader.Create(sheetStream, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit }))
+                using (var reader = XmlReader.Create(sheetStream,
+                           new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit }))
                 {
                     while (reader.Read())
                     {
                         token.ThrowIfCancellationRequested();
                         if (reader.NodeType != XmlNodeType.Element || reader.LocalName != "c") continue;
-                        string address = reader.GetAttribute("r");
-                        string type = reader.GetAttribute("t");
-                        string value = ReadCellValue(reader);
+                        var address = reader.GetAttribute("r");
+                        var type = reader.GetAttribute("t");
+                        var value = ReadCellValue(reader);
                         if (string.IsNullOrEmpty(value)) continue;
-                        if (type == "s" && int.TryParse(value, out int index) && index >= 0 && index < strings.Count)
+                        if (type == "s" && int.TryParse(value, out var index) && index >= 0 && index < strings.Count)
                             value = strings[index];
-                        Match match = matcher.Match(value);
+                        var match = matcher.Match(value);
                         if (!match.Success) continue;
-                        int row = RowOf(address);
-                        int column = ColumnOf(address);
-                        Add(matches, matchFound, path, scope, row, column, "[" + sheet.Name + "][" + address + "] " + value.Trim(), match.Value);
+                        var row = RowOf(address);
+                        var column = ColumnOf(address);
+                        Add(matches, matchFound, path, scope, row, column,
+                            "[" + sheet.Name + "][" + address + "] " + value.Trim(), match.Value);
                     }
                 }
             }
@@ -175,6 +205,7 @@ internal sealed class DocumentGrepService
                 result.Add(ReadSharedString(reader));
             }
         }
+
         return result;
     }
 
@@ -185,11 +216,10 @@ internal sealed class DocumentGrepService
         using (var subtree = reader.ReadSubtree())
         {
             while (subtree.Read())
-            {
                 if (subtree.NodeType == XmlNodeType.Element && subtree.LocalName == "t")
                     text.Append(subtree.ReadElementContentAsString());
-            }
         }
+
         return text.ToString();
     }
 
@@ -207,6 +237,7 @@ internal sealed class DocumentGrepService
                 else if (subtree.LocalName == "t") inline.Append(subtree.ReadElementContentAsString());
             }
         }
+
         return inline.Length > 0 ? inline.ToString() : value;
     }
 
@@ -222,14 +253,16 @@ internal sealed class DocumentGrepService
             while (reader.Read())
             {
                 if (reader.NodeType != XmlNodeType.Element || reader.LocalName != "sheet") continue;
-                string name = reader.GetAttribute("name") ?? "Sheet";
-                string id = reader.GetAttribute("id", "http://schemas.openxmlformats.org/officeDocument/2006/relationships")
-                    ?? reader.GetAttribute("id", "http://purl.oclc.org/ooxml/officeDocument/relationships");
+                var name = reader.GetAttribute("name") ?? "Sheet";
+                var id = reader.GetAttribute("id",
+                             "http://schemas.openxmlformats.org/officeDocument/2006/relationships")
+                         ?? reader.GetAttribute("id", "http://purl.oclc.org/ooxml/officeDocument/relationships");
                 string target;
                 if (id != null && targets.TryGetValue(id, out target))
                     names.Add(new SheetRef { Name = name, Path = target });
             }
         }
+
         return names;
     }
 
@@ -244,8 +277,8 @@ internal sealed class DocumentGrepService
             while (reader.Read())
             {
                 if (reader.NodeType != XmlNodeType.Element || reader.LocalName != "Relationship") continue;
-                string id = reader.GetAttribute("Id");
-                string target = reader.GetAttribute("Target");
+                var id = reader.GetAttribute("Id");
+                var target = reader.GetAttribute("Target");
                 if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(target)) continue;
                 if (target.IndexOf("worksheet", StringComparison.OrdinalIgnoreCase) < 0) continue;
                 target = target.Replace('\\', '/').TrimStart('/');
@@ -253,10 +286,12 @@ internal sealed class DocumentGrepService
                 result[id] = target;
             }
         }
+
         return result;
     }
 
-    private static void Add(ConcurrentBag<GrepMatch> matches, Action<GrepMatch> matchFound, string path, string scope, int line, int column, string text, string highlight)
+    private static void Add(ConcurrentBag<GrepMatch> matches, Action<GrepMatch> matchFound, string path, string scope,
+        int line, int column, string text, string highlight)
     {
         var found = new GrepMatch
         {
@@ -274,9 +309,9 @@ internal sealed class DocumentGrepService
 
     private static Regex BuildMatcher(string query, bool regex, bool matchCase, bool wholeWord)
     {
-        string pattern = regex ? query : Regex.Escape(query);
+        var pattern = regex ? query : Regex.Escape(query);
         if (wholeWord) pattern = @"\b(?:" + pattern + @")\b";
-        RegexOptions options = RegexOptions.Compiled;
+        var options = RegexOptions.Compiled;
         if (!matchCase) options |= RegexOptions.IgnoreCase;
         return new Regex(pattern, options, TimeSpan.FromSeconds(2));
     }
@@ -289,7 +324,7 @@ internal sealed class DocumentGrepService
             (extensions ?? Extensions).Select(NormalizeExtension).Where(allowed.Contains),
             StringComparer.OrdinalIgnoreCase);
         if (extensionSet.Count == 0) return new List<string>();
-        foreach (string scope in scopes)
+        foreach (var scope in scopes)
         {
             token.ThrowIfCancellationRequested();
             if (string.IsNullOrWhiteSpace(scope) || !Directory.Exists(scope)) continue;
@@ -298,13 +333,13 @@ internal sealed class DocumentGrepService
             while (pending.Count > 0)
             {
                 token.ThrowIfCancellationRequested();
-                string folder = pending.Pop();
+                var folder = pending.Pop();
                 try
                 {
                     foreach (var entry in VolumePathIndex.EnumerateNativeDirectory(folder, token))
                     {
                         token.ThrowIfCancellationRequested();
-                        string path = Path.Combine(folder, entry.Name);
+                        var path = Path.Combine(folder, entry.Name);
                         if ((entry.Attributes & FileAttributes.Directory) != 0)
                         {
                             if (IgnoredDirectories.Contains(entry.Name)) continue;
@@ -312,14 +347,23 @@ internal sealed class DocumentGrepService
                             pending.Push(path);
                         }
                         else if (extensionSet.Contains(Path.GetExtension(entry.Name)))
+                        {
                             files.Add(path);
+                        }
                     }
                 }
-                catch (Win32Exception) { }
-                catch (IOException) { }
-                catch (UnauthorizedAccessException) { }
+                catch (Win32Exception)
+                {
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
             }
         }
+
         return files.ToList();
     }
 
@@ -332,42 +376,47 @@ internal sealed class DocumentGrepService
 
     private static string FindScope(string path, IReadOnlyList<string> orderedScopes)
     {
-        for (int i = 0; i < orderedScopes.Count; i++)
-            if (IsUnderPath(path, orderedScopes[i])) return orderedScopes[i];
+        for (var i = 0; i < orderedScopes.Count; i++)
+            if (IsUnderPath(path, orderedScopes[i]))
+                return orderedScopes[i];
         return null;
     }
 
     private static bool IsUnderPath(string path, string root)
     {
-        string normalizedRoot = root.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var normalizedRoot = root.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
         return path.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string MakeRelativePath(string root, string path)
     {
-        string normalizedRoot = root.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-        return path.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase) ? path.Substring(normalizedRoot.Length) : path;
+        var normalizedRoot = root.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        return path.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase)
+            ? path.Substring(normalizedRoot.Length)
+            : path;
     }
 
     private static int RowOf(string address)
     {
         if (string.IsNullOrEmpty(address)) return 0;
-        int value = 0;
-        for (int i = 0; i < address.Length; i++)
-            if (char.IsDigit(address[i])) value = value * 10 + (address[i] - '0');
+        var value = 0;
+        for (var i = 0; i < address.Length; i++)
+            if (char.IsDigit(address[i]))
+                value = value * 10 + (address[i] - '0');
         return value;
     }
 
     private static int ColumnOf(string address)
     {
         if (string.IsNullOrEmpty(address)) return 0;
-        int value = 0;
-        for (int i = 0; i < address.Length; i++)
+        var value = 0;
+        for (var i = 0; i < address.Length; i++)
         {
-            char c = address[i];
+            var c = address[i];
             if (!char.IsLetter(c)) break;
-            value = value * 26 + (char.ToUpperInvariant(c) - 'A' + 1);
+            value = value * 26 + (char.ToUpperInvariant(c) - 'A') + 1;
         }
+
         return value;
     }
 
@@ -380,6 +429,7 @@ internal sealed class DocumentGrepService
             chars.Push((char)('A' + index % 26));
             index /= 26;
         }
+
         return new string(chars.ToArray());
     }
 

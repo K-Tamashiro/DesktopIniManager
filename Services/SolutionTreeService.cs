@@ -3,7 +3,10 @@ using DesktopIniManager.ViewModels;
 using FastVolumeIndex;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
+using System.IO.Enumeration;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -14,21 +17,23 @@ internal static class SolutionTreeService
 {
     private const string SolutionFolderType = "{66A26720-8FB5-11D2-AA7E-00C04F688DDE}";
 
-    private static readonly Regex ProjectLine = new Regex(
+    private static readonly Regex ProjectLine = new(
         "^Project\\(\"(?<type>[^\"]+)\"\\) = \"(?<name>[^\"]+)\", \"(?<path>[^\"]+)\", \"(?<id>[^\"]+)\"",
         RegexOptions.Compiled);
 
-    private static readonly Regex NestedLine = new Regex(
+    private static readonly Regex NestedLine = new(
         "^\\s*(?<child>\\{[^}]+\\})\\s*=\\s*(?<parent>\\{[^}]+\\})",
         RegexOptions.Compiled);
-    private static readonly Regex ProjectConfigLine = new Regex(
+
+    private static readonly Regex ProjectConfigLine = new(
         "^\\s*\\{[^}]+\\}\\.(?<pair>[^=]+?)\\.(ActiveCfg|Build\\.0)\\s*=",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly HashSet<string> Ignored = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ".git", ".vs", ".vscode", "bin", "obj", "node_modules",
-            "packages", "vendor", "dist", "build", "target"
-        };
+
+    private static readonly HashSet<string> Ignored = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".git", ".vs", ".vscode", "bin", "obj", "node_modules",
+        "packages", "vendor", "dist", "build", "target"
+    };
 
     public static List<FolderMatch> Build(string root, CancellationToken token)
     {
@@ -39,15 +44,15 @@ internal static class SolutionTreeService
         while (pending.Count > 0)
         {
             token.ThrowIfCancellationRequested();
-            string folder = pending.Pop();
+            var folder = pending.Pop();
 
             try
             {
-                foreach (VolumePathIndex.NativeDirectoryEntry entry in VolumePathIndex.EnumerateNativeDirectory(folder, token))
+                foreach (var entry in VolumePathIndex.EnumerateNativeDirectory(folder, token))
                 {
                     token.ThrowIfCancellationRequested();
-                    string path = Path.Combine(folder, entry.Name);
-                    bool directory = (entry.Attributes & FileAttributes.Directory) != 0;
+                    var path = Path.Combine(folder, entry.Name);
+                    var directory = (entry.Attributes & FileAttributes.Directory) != 0;
 
                     if (!directory)
                     {
@@ -64,9 +69,15 @@ internal static class SolutionTreeService
                     pending.Push(path);
                 }
             }
-            catch (UnauthorizedAccessException) { }
-            catch (IOException) { }
-            catch (System.ComponentModel.Win32Exception) { }
+            catch (UnauthorizedAccessException)
+            {
+            }
+            catch (IOException)
+            {
+            }
+            catch (Win32Exception)
+            {
+            }
         }
 
         solutions.Sort((x, y) => StringComparer.CurrentCultureIgnoreCase.Compare(x.Name, y.Name));
@@ -81,7 +92,7 @@ internal static class SolutionTreeService
         var solutions = new List<FolderMatch>();
         if (projectFiles == null) return solutions;
 
-        foreach (string path in projectFiles)
+        foreach (var path in projectFiles)
         {
             token.ThrowIfCancellationRequested();
             if (string.IsNullOrWhiteSpace(path)) continue;
@@ -89,9 +100,16 @@ internal static class SolutionTreeService
                 continue;
             if (!File.Exists(path)) continue;
 
-            try { solutions.Add(Parse(path, token, pathIndex)); }
-            catch (UnauthorizedAccessException) { }
-            catch (IOException) { }
+            try
+            {
+                solutions.Add(Parse(path, token, pathIndex));
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+            catch (IOException)
+            {
+            }
         }
 
         solutions.Sort((x, y) => StringComparer.CurrentCultureIgnoreCase.Compare(x.Name, y.Name));
@@ -104,9 +122,9 @@ internal static class SolutionTreeService
             return new string[0];
 
         var configurations = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
-        bool inSolutionConfigs = false;
-        bool inProjectConfigs = false;
-        foreach (string line in File.ReadLines(solutionPath))
+        var inSolutionConfigs = false;
+        var inProjectConfigs = false;
+        foreach (var line in File.ReadLines(solutionPath))
         {
             if (line.IndexOf("GlobalSection(SolutionConfigurationPlatforms)", StringComparison.OrdinalIgnoreCase) >= 0)
             {
@@ -114,12 +132,14 @@ internal static class SolutionTreeService
                 inProjectConfigs = false;
                 continue;
             }
+
             if (line.IndexOf("GlobalSection(ProjectConfigurationPlatforms)", StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 inProjectConfigs = true;
                 inSolutionConfigs = false;
                 continue;
             }
+
             if ((inSolutionConfigs || inProjectConfigs)
                 && line.TrimStart().StartsWith("EndGlobalSection", StringComparison.OrdinalIgnoreCase))
             {
@@ -127,45 +147,49 @@ internal static class SolutionTreeService
                 inProjectConfigs = false;
                 continue;
             }
+
             if (inSolutionConfigs)
             {
-                int equals = line.IndexOf('=');
+                var equals = line.IndexOf('=');
                 if (equals > 0)
                 {
-                    string pair = line.Substring(0, equals).Trim();
+                    var pair = line.Substring(0, equals).Trim();
                     if (pair.IndexOf('|') >= 0)
                         configurations.Add(pair);
                 }
+
                 continue;
             }
+
             if (inProjectConfigs)
             {
-                Match config = ProjectConfigLine.Match(line);
+                var config = ProjectConfigLine.Match(line);
                 if (config.Success)
                     configurations.Add(config.Groups["pair"].Value.Trim());
             }
         }
+
         return configurations.ToList();
     }
 
     private static FolderMatch Parse(string solutionPath, CancellationToken token, VolumePathIndex pathIndex)
     {
-        string solutionDirectory = Path.GetDirectoryName(solutionPath);
+        var solutionDirectory = Path.GetDirectoryName(solutionPath);
         var entries = new Dictionary<string, Entry>(StringComparer.OrdinalIgnoreCase);
         var nested = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var configurations = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
-        bool inNested = false;
-        bool inSolutionConfigs = false;
-        bool inProjectConfigs = false;
+        var inNested = false;
+        var inSolutionConfigs = false;
+        var inProjectConfigs = false;
 
-        foreach (string line in File.ReadLines(solutionPath))
+        foreach (var line in File.ReadLines(solutionPath))
         {
             token.ThrowIfCancellationRequested();
 
-            Match project = ProjectLine.Match(line);
+            var project = ProjectLine.Match(line);
             if (project.Success)
             {
-                string id = project.Groups["id"].Value;
+                var id = project.Groups["id"].Value;
                 entries[id] = new Entry
                 {
                     Id = id,
@@ -211,7 +235,7 @@ internal static class SolutionTreeService
 
             if (inNested)
             {
-                Match relation = NestedLine.Match(line);
+                var relation = NestedLine.Match(line);
                 if (relation.Success)
                     nested[relation.Groups["child"].Value] = relation.Groups["parent"].Value;
                 continue;
@@ -219,19 +243,20 @@ internal static class SolutionTreeService
 
             if (inSolutionConfigs)
             {
-                int equals = line.IndexOf('=');
+                var equals = line.IndexOf('=');
                 if (equals > 0)
                 {
-                    string pair = line.Substring(0, equals).Trim();
+                    var pair = line.Substring(0, equals).Trim();
                     if (pair.IndexOf('|') >= 0)
                         configurations.Add(pair);
                 }
+
                 continue;
             }
 
             if (inProjectConfigs)
             {
-                Match config = ProjectConfigLine.Match(line);
+                var config = ProjectConfigLine.Match(line);
                 if (config.Success)
                     configurations.Add(config.Groups["pair"].Value.Trim());
             }
@@ -256,17 +281,11 @@ internal static class SolutionTreeService
         };
 
         foreach (var pair in nodes)
-        {
-            if (nested.TryGetValue(pair.Key, out string parentId) &&
-                nodes.TryGetValue(parentId, out FolderMatch parent))
-            {
+            if (nested.TryGetValue(pair.Key, out var parentId) &&
+                nodes.TryGetValue(parentId, out var parent))
                 parent.Children.Add(pair.Value);
-            }
             else
-            {
                 root.Children.Add(pair.Value);
-            }
-        }
 
         SortProjectChildren(root.Children);
         return root;
@@ -278,8 +297,8 @@ internal static class SolutionTreeService
         VolumePathIndex pathIndex,
         CancellationToken token)
     {
-        bool folder = IsSolutionFolder(entry);
-        string projectFile = folder
+        var folder = IsSolutionFolder(entry);
+        var projectFile = folder
             ? null
             : Path.GetFullPath(Path.Combine(
                 solutionDirectory,
@@ -288,13 +307,15 @@ internal static class SolutionTreeService
         if (!folder)
             projectFile = ResolveProjectFile(projectFile, pathIndex);
 
-        bool projectExists = !folder && PathExistsAsFile(projectFile, pathIndex);
-        string physicalPath = folder
+        var projectExists = !folder && PathExistsAsFile(projectFile, pathIndex);
+        var physicalPath = folder
             ? solutionDirectory
             : projectExists
                 ? Path.GetDirectoryName(projectFile)
-                : (PathExistsAsDirectory(projectFile, pathIndex) ? projectFile : Path.GetDirectoryName(projectFile));
-        bool physicalDirectoryExists = !folder && PathExistsAsDirectory(physicalPath, pathIndex);
+                : PathExistsAsDirectory(projectFile, pathIndex)
+                    ? projectFile
+                    : Path.GetDirectoryName(projectFile);
+        var physicalDirectoryExists = !folder && PathExistsAsDirectory(physicalPath, pathIndex);
 
         var node = new FolderMatch
         {
@@ -317,98 +338,98 @@ internal static class SolutionTreeService
         VolumePathIndex pathIndex,
         CancellationToken token)
     {
-        string directory = Path.GetDirectoryName(projectFile);
+        var directory = Path.GetDirectoryName(projectFile);
         var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var removed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        bool sdk = false;
-        bool defaultItems = true;
+        var sdk = false;
+        var defaultItems = true;
 
         try
         {
-            foreach (string raw in File.ReadLines(projectFile))
+            foreach (var raw in File.ReadLines(projectFile))
             {
                 token.ThrowIfCancellationRequested();
 
-                string line = raw.Trim();
+                var line = raw.Trim();
                 if (line.Length == 0)
                     continue;
 
                 if (!sdk
                     && line.IndexOf("<Project", StringComparison.OrdinalIgnoreCase) >= 0
                     && line.IndexOf("Sdk=", StringComparison.OrdinalIgnoreCase) >= 0)
-                {
                     sdk = true;
-                }
 
                 if (line.IndexOf("<EnableDefaultItems", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    int valueStart = line.IndexOf('>');
-                    int valueEnd = valueStart >= 0 ? line.IndexOf('<', valueStart + 1) : -1;
+                    var valueStart = line.IndexOf('>');
+                    var valueEnd = valueStart >= 0 ? line.IndexOf('<', valueStart + 1) : -1;
                     if (valueStart >= 0 && valueEnd > valueStart)
                     {
-                        string value = line.Substring(valueStart + 1, valueEnd - valueStart - 1).Trim();
+                        var value = line.Substring(valueStart + 1, valueEnd - valueStart - 1).Trim();
                         defaultItems = !string.Equals(value, "false", StringComparison.OrdinalIgnoreCase);
                     }
                 }
 
-                bool projectReference = line.IndexOf("<ProjectReference", StringComparison.OrdinalIgnoreCase) >= 0;
-                bool projectItem = projectReference
-                    || line.IndexOf("<Compile", StringComparison.OrdinalIgnoreCase) >= 0
-                    || line.IndexOf("<None", StringComparison.OrdinalIgnoreCase) >= 0
-                    || line.IndexOf("<Content", StringComparison.OrdinalIgnoreCase) >= 0
-                    || line.IndexOf("<EmbeddedResource", StringComparison.OrdinalIgnoreCase) >= 0
-                    || line.IndexOf("<ClCompile", StringComparison.OrdinalIgnoreCase) >= 0
-                    || line.IndexOf("<ClInclude", StringComparison.OrdinalIgnoreCase) >= 0
-                    || line.IndexOf("<Page", StringComparison.OrdinalIgnoreCase) >= 0
-                    || line.IndexOf("<Resource", StringComparison.OrdinalIgnoreCase) >= 0;
+                var projectReference = line.IndexOf("<ProjectReference", StringComparison.OrdinalIgnoreCase) >= 0;
+                var projectItem = projectReference
+                                  || line.IndexOf("<Compile", StringComparison.OrdinalIgnoreCase) >= 0
+                                  || line.IndexOf("<None", StringComparison.OrdinalIgnoreCase) >= 0
+                                  || line.IndexOf("<Content", StringComparison.OrdinalIgnoreCase) >= 0
+                                  || line.IndexOf("<EmbeddedResource", StringComparison.OrdinalIgnoreCase) >= 0
+                                  || line.IndexOf("<ClCompile", StringComparison.OrdinalIgnoreCase) >= 0
+                                  || line.IndexOf("<ClInclude", StringComparison.OrdinalIgnoreCase) >= 0
+                                  || line.IndexOf("<Page", StringComparison.OrdinalIgnoreCase) >= 0
+                                  || line.IndexOf("<Resource", StringComparison.OrdinalIgnoreCase) >= 0;
 
                 if (!projectItem)
                     continue;
 
-                string removeValue = GetAttributeValue(line, "Remove");
+                var removeValue = GetAttributeValue(line, "Remove");
                 if (!string.IsNullOrWhiteSpace(removeValue))
-                {
-                    foreach (string value in removeValue.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
+                    foreach (var value in removeValue.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
                         removed.Add(NormalizeProjectPath(value.Trim()));
-                }
 
                 if (projectReference)
                     continue;
 
-                string includeValue = GetAttributeValue(line, "Include");
+                var includeValue = GetAttributeValue(line, "Include");
                 if (string.IsNullOrWhiteSpace(includeValue))
                     continue;
 
-                foreach (string pattern in includeValue.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
-                    foreach (string file in ExpandProjectInclude(directory, pattern.Trim(), pathIndex, token))
+                foreach (var pattern in includeValue.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
+                    foreach (var file in ExpandProjectInclude(directory, pattern.Trim(), pathIndex, token))
                         files.Add(file);
             }
         }
-        catch (IOException) { return; }
-        catch (UnauthorizedAccessException) { return; }
+        catch (IOException)
+        {
+            return;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return;
+        }
 
         if (sdk && defaultItems)
-        {
-            foreach (string file in EnumerateProjectFiles(directory, pathIndex, token))
+            foreach (var file in EnumerateProjectFiles(directory, pathIndex, token))
             {
-                string relative = NormalizeProjectPath(
+                var relative = NormalizeProjectPath(
                     file.Substring(directory.Length).TrimStart(Path.DirectorySeparatorChar));
                 if (removed.Contains(relative))
                     continue;
                 files.Add(file);
             }
-        }
 
         var folderNodes = new Dictionary<string, FolderMatch>(StringComparer.OrdinalIgnoreCase)
         {
             [string.Empty] = project
         };
 
-        foreach (string file in files)
+        foreach (var file in files)
         {
             token.ThrowIfCancellationRequested();
 
-            string relative = file.StartsWith(directory, StringComparison.OrdinalIgnoreCase)
+            var relative = file.StartsWith(directory, StringComparison.OrdinalIgnoreCase)
                 ? file.Substring(directory.Length).TrimStart(Path.DirectorySeparatorChar)
                 : Path.GetFileName(file);
 
@@ -421,10 +442,10 @@ internal static class SolutionTreeService
 
     private static string GetAttributeValue(string line, string attributeName)
     {
-        int name = line.IndexOf(attributeName, StringComparison.OrdinalIgnoreCase);
+        var name = line.IndexOf(attributeName, StringComparison.OrdinalIgnoreCase);
         while (name >= 0)
         {
-            int p = name + attributeName.Length;
+            var p = name + attributeName.Length;
             while (p < line.Length && char.IsWhiteSpace(line[p]))
                 p++;
 
@@ -436,8 +457,8 @@ internal static class SolutionTreeService
 
                 if (p < line.Length && (line[p] == '"' || line[p] == '\''))
                 {
-                    char quote = line[p++];
-                    int end = line.IndexOf(quote, p);
+                    var quote = line[p++];
+                    var end = line.IndexOf(quote, p);
                     if (end >= 0)
                         return line.Substring(p, end - p);
                 }
@@ -458,8 +479,8 @@ internal static class SolutionTreeService
         if (string.IsNullOrWhiteSpace(pattern) || pattern.Contains("$(") || pattern.Contains("@("))
             yield break;
 
-        string normalizedPattern = NormalizeProjectPath(pattern);
-        string full = Path.GetFullPath(Path.Combine(directory, normalizedPattern));
+        var normalizedPattern = NormalizeProjectPath(pattern);
+        var full = Path.GetFullPath(Path.Combine(directory, normalizedPattern));
 
         if (full.IndexOfAny(new[] { '*', '?' }) < 0)
         {
@@ -468,26 +489,27 @@ internal static class SolutionTreeService
             yield break;
         }
 
-        VolumePathNode indexedRoot = pathIndex?.Find(directory);
+        var indexedRoot = pathIndex?.Find(directory);
         if (indexedRoot != null && indexedRoot.IsDirectory)
         {
-            foreach (string file in EnumerateProjectFiles(directory, pathIndex, token))
+            foreach (var file in EnumerateProjectFiles(directory, pathIndex, token))
             {
                 token.ThrowIfCancellationRequested();
 
-                string relative = file.Substring(directory.Length)
+                var relative = file.Substring(directory.Length)
                     .TrimStart(Path.DirectorySeparatorChar);
 
                 if (MatchesProjectPath(normalizedPattern, relative))
                     yield return file;
             }
+
             yield break;
         }
 
-        int wildcard = full.IndexOfAny(new[] { '*', '?' });
-        int separator = full.LastIndexOf(Path.DirectorySeparatorChar, wildcard);
-        string root = full.Substring(0, separator + 1);
-        string[] parts = full.Substring(root.Length).Split(Path.DirectorySeparatorChar);
+        var wildcard = full.IndexOfAny(new[] { '*', '?' });
+        var separator = full.LastIndexOf(Path.DirectorySeparatorChar, wildcard);
+        var root = full.Substring(0, separator + 1);
+        var parts = full.Substring(root.Length).Split(Path.DirectorySeparatorChar);
         var pending = new Stack<Tuple<string, int>>();
         pending.Push(Tuple.Create(root, 0));
 
@@ -495,20 +517,20 @@ internal static class SolutionTreeService
         {
             token.ThrowIfCancellationRequested();
             var current = pending.Pop();
-            string part = parts[current.Item2];
-            bool last = current.Item2 == parts.Length - 1;
+            var part = parts[current.Item2];
+            var last = current.Item2 == parts.Length - 1;
 
-            using (IEnumerator<VolumePathIndex.NativeDirectoryEntry> enumerator =
-                VolumePathIndex.EnumerateNativeDirectory(current.Item1, token).GetEnumerator())
+            using (var enumerator =
+                   VolumePathIndex.EnumerateNativeDirectory(current.Item1, token).GetEnumerator())
             {
-                while (TryMoveNext(enumerator, out VolumePathIndex.NativeDirectoryEntry entry))
+                while (TryMoveNext(enumerator, out var entry))
                 {
                     token.ThrowIfCancellationRequested();
-                    bool isDirectory = (entry.Attributes & FileAttributes.Directory) != 0;
+                    var isDirectory = (entry.Attributes & FileAttributes.Directory) != 0;
 
                     if (last)
                     {
-                        if (!isDirectory && System.IO.Enumeration.FileSystemName.MatchesSimpleExpression(part, entry.Name, true))
+                        if (!isDirectory && FileSystemName.MatchesSimpleExpression(part, entry.Name))
                             yield return Path.Combine(current.Item1, entry.Name);
                         continue;
                     }
@@ -520,15 +542,11 @@ internal static class SolutionTreeService
                     if ((entry.Attributes & FileAttributes.ReparsePoint) != 0)
                         continue;
 
-                    string child = Path.Combine(current.Item1, entry.Name);
+                    var child = Path.Combine(current.Item1, entry.Name);
                     if (part == "**")
-                    {
                         pending.Push(Tuple.Create(child, current.Item2));
-                    }
-                    else if (System.IO.Enumeration.FileSystemName.MatchesSimpleExpression(part, entry.Name, true))
-                    {
+                    else if (FileSystemName.MatchesSimpleExpression(part, entry.Name))
                         pending.Push(Tuple.Create(child, current.Item2 + 1));
-                    }
                 }
             }
 
@@ -538,15 +556,15 @@ internal static class SolutionTreeService
     }
 
     /// <summary>
-    /// Enumerates SDK default items from the already-built volume index.
-    /// Falls back to native enumeration only when the project directory is outside the index.
+    ///     Enumerates SDK default items from the already-built volume index.
+    ///     Falls back to native enumeration only when the project directory is outside the index.
     /// </summary>
     private static bool MatchesProjectPath(string pattern, string relativePath)
     {
-        string[] patternParts = pattern.Split(
+        var patternParts = pattern.Split(
             new[] { Path.DirectorySeparatorChar },
             StringSplitOptions.RemoveEmptyEntries);
-        string[] pathParts = relativePath.Split(
+        var pathParts = relativePath.Split(
             new[] { Path.DirectorySeparatorChar },
             StringSplitOptions.RemoveEmptyEntries);
 
@@ -561,7 +579,7 @@ internal static class SolutionTreeService
     {
         while (patternIndex < patternParts.Length)
         {
-            string part = patternParts[patternIndex];
+            var part = patternParts[patternIndex];
 
             if (part == "**")
             {
@@ -574,12 +592,13 @@ internal static class SolutionTreeService
                         return true;
                     pathIndex++;
                 }
+
                 return false;
             }
 
             if (pathIndex >= pathParts.Length
-                || !System.IO.Enumeration.FileSystemName.MatchesSimpleExpression(
-                    part, pathParts[pathIndex], true))
+                || !FileSystemName.MatchesSimpleExpression(
+                    part, pathParts[pathIndex]))
                 return false;
 
             patternIndex++;
@@ -594,7 +613,7 @@ internal static class SolutionTreeService
         VolumePathIndex pathIndex,
         CancellationToken token)
     {
-        VolumePathNode indexedRoot = pathIndex?.Find(root);
+        var indexedRoot = pathIndex?.Find(root);
         if (indexedRoot != null && indexedRoot.IsDirectory)
         {
             var pending = new Stack<VolumePathNode>();
@@ -603,12 +622,12 @@ internal static class SolutionTreeService
             while (pending.Count > 0)
             {
                 token.ThrowIfCancellationRequested();
-                VolumePathNode directory = pending.Pop();
+                var directory = pending.Pop();
 
-                foreach (VolumePathNode file in directory.Files)
+                foreach (var file in directory.Files)
                     yield return file.Path;
 
-                foreach (VolumePathNode child in directory.Directories)
+                foreach (var child in directory.Directories)
                 {
                     if (ShouldSkipDirectory(child.Name, child.Attributes))
                         continue;
@@ -617,6 +636,7 @@ internal static class SolutionTreeService
                     pending.Push(child);
                 }
             }
+
             yield break;
         }
 
@@ -626,16 +646,16 @@ internal static class SolutionTreeService
         while (nativePending.Count > 0)
         {
             token.ThrowIfCancellationRequested();
-            string directory = nativePending.Pop();
+            var directory = nativePending.Pop();
 
-            using (IEnumerator<VolumePathIndex.NativeDirectoryEntry> enumerator =
-                VolumePathIndex.EnumerateNativeDirectory(directory, token).GetEnumerator())
+            using (var enumerator =
+                   VolumePathIndex.EnumerateNativeDirectory(directory, token).GetEnumerator())
             {
-                while (TryMoveNext(enumerator, out VolumePathIndex.NativeDirectoryEntry entry))
+                while (TryMoveNext(enumerator, out var entry))
                 {
                     token.ThrowIfCancellationRequested();
-                    string path = Path.Combine(directory, entry.Name);
-                    bool isDirectory = (entry.Attributes & FileAttributes.Directory) != 0;
+                    var path = Path.Combine(directory, entry.Name);
+                    var isDirectory = (entry.Attributes & FileAttributes.Directory) != 0;
 
                     if (!isDirectory)
                     {
@@ -666,9 +686,15 @@ internal static class SolutionTreeService
                 return true;
             }
         }
-        catch (UnauthorizedAccessException) { }
-        catch (IOException) { }
-        catch (System.ComponentModel.Win32Exception) { }
+        catch (UnauthorizedAccessException)
+        {
+        }
+        catch (IOException)
+        {
+        }
+        catch (Win32Exception)
+        {
+        }
 
         entry = null;
         return false;
@@ -688,13 +714,13 @@ internal static class SolutionTreeService
         if (PathExistsAsFile(projectFile, pathIndex))
             return projectFile;
 
-        string directory = Path.GetDirectoryName(projectFile);
-        string fileName = Path.GetFileName(projectFile);
-        string projectName = Path.GetFileNameWithoutExtension(projectFile);
+        var directory = Path.GetDirectoryName(projectFile);
+        var fileName = Path.GetFileName(projectFile);
+        var projectName = Path.GetFileNameWithoutExtension(projectFile);
         if (string.IsNullOrEmpty(directory) || string.IsNullOrEmpty(fileName) || string.IsNullOrEmpty(projectName))
             return projectFile;
 
-        string nested = Path.Combine(directory, projectName, fileName);
+        var nested = Path.Combine(directory, projectName, fileName);
         return PathExistsAsFile(nested, pathIndex) ? nested : projectFile;
     }
 
@@ -703,7 +729,7 @@ internal static class SolutionTreeService
         if (string.IsNullOrWhiteSpace(path))
             return false;
 
-        VolumePathNode node = pathIndex?.Find(path);
+        var node = pathIndex?.Find(path);
         if (node != null)
             return !node.IsDirectory;
 
@@ -715,16 +741,18 @@ internal static class SolutionTreeService
         if (string.IsNullOrWhiteSpace(path))
             return false;
 
-        VolumePathNode node = pathIndex?.Find(path);
+        var node = pathIndex?.Find(path);
         if (node != null)
             return node.IsDirectory;
 
         return Directory.Exists(path);
     }
 
-    private static string NormalizeProjectPath(string value) =>
-        value.Replace('/', Path.DirectorySeparatorChar)
-             .Replace('\\', Path.DirectorySeparatorChar);
+    private static string NormalizeProjectPath(string value)
+    {
+        return value.Replace('/', Path.DirectorySeparatorChar)
+            .Replace('\\', Path.DirectorySeparatorChar);
+    }
 
     private static void AddProjectFile(
         FolderMatch root,
@@ -732,26 +760,26 @@ internal static class SolutionTreeService
         string relative,
         Dictionary<string, FolderMatch> folderNodes)
     {
-        string[] parts = relative.Split(
+        var parts = relative.Split(
             new[] { Path.DirectorySeparatorChar },
             StringSplitOptions.RemoveEmptyEntries);
 
         if (parts.Length <= 1)
             return;
 
-        FolderMatch parent = root;
-        string currentPhysicalPath = directory;
-        string currentLogicalPath = string.Empty;
+        var parent = root;
+        var currentPhysicalPath = directory;
+        var currentLogicalPath = string.Empty;
 
-        for (int i = 0; i < parts.Length - 1; i++)
+        for (var i = 0; i < parts.Length - 1; i++)
         {
-            string part = parts[i];
+            var part = parts[i];
             currentPhysicalPath = Path.Combine(currentPhysicalPath, part);
             currentLogicalPath = currentLogicalPath.Length == 0
                 ? part
                 : Path.Combine(currentLogicalPath, part);
 
-            if (!folderNodes.TryGetValue(currentLogicalPath, out FolderMatch child))
+            if (!folderNodes.TryGetValue(currentLogicalPath, out var child))
             {
                 child = new FolderMatch
                 {
@@ -776,33 +804,35 @@ internal static class SolutionTreeService
     }
 
     private static void SortProjectChildren(
-        System.Collections.ObjectModel.ObservableCollection<FolderMatch> items)
+        ObservableCollection<FolderMatch> items)
     {
-        foreach (FolderMatch item in items)
+        foreach (var item in items)
             SortProjectChildren(item.Children);
 
         if (items.Count <= 1)
             return;
 
-        FolderMatch[] ordered = items
+        var ordered = items
             .OrderBy(item => item.Name == "Properties" ? 0 : item.Name == "Dependencies" ? 1 : 2)
             .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
             .ToArray();
 
         // Rebuild the collection to avoid repeated O(n) IndexOf and Move operations.
         items.Clear();
-        foreach (FolderMatch item in ordered)
+        foreach (var item in ordered)
             items.Add(item);
     }
 
-    private static bool IsSolutionFolder(Entry entry) =>
-        string.Equals(entry.Type, SolutionFolderType, StringComparison.OrdinalIgnoreCase);
+    private static bool IsSolutionFolder(Entry entry)
+    {
+        return string.Equals(entry.Type, SolutionFolderType, StringComparison.OrdinalIgnoreCase);
+    }
 
     private sealed class Entry
     {
         public string Id;
-        public string Type;
         public string Name;
         public string RelativePath;
+        public string Type;
     }
 }

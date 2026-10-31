@@ -9,6 +9,7 @@ namespace DesktopIniManager.Views;
 public partial class IconGroupBrowserWindow : Window
 {
     internal IconGroupBrowserViewModel ViewModel { get; }
+
     internal IconGroupBrowserWindow(string filePath, IEnumerable<IconGroupResource> groups, int currentIndex)
     {
         ViewModel = new IconGroupBrowserViewModel(filePath, groups, currentIndex);
@@ -23,6 +24,9 @@ public partial class IconGroupBrowserWindow : Window
     }
 
     internal IconGroupResource SelectedGroup => ViewModel.SelectedGroup;
-    private void GroupList_MouseDoubleClick(object sender, MouseButtonEventArgs e) { if (SelectedGroup != null) ConfirmSelection(); }
+
+    private void GroupList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    { if (SelectedGroup != null) ConfirmSelection(); }
+
     private void ConfirmSelection() => ViewModel.SelectCommand.Execute(null);
 }

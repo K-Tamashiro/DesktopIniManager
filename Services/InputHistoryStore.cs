@@ -10,7 +10,11 @@ internal sealed class InputHistoryStore
 {
     internal const int Capacity = 20;
     private readonly string directory;
-    internal InputHistoryStore(string directory) { this.directory = directory; }
+
+    internal InputHistoryStore(string directory)
+    {
+        this.directory = directory;
+    }
 
     private string FilePath(string key)
     {
@@ -24,20 +28,26 @@ internal sealed class InputHistoryStore
         var result = new List<string>();
         try
         {
-            foreach (string line in File.ReadLines(FilePath(key)))
-            {
+            foreach (var line in File.ReadLines(FilePath(key)))
                 try
                 {
-                    string value = Encoding.UTF8.GetString(Convert.FromBase64String(line));
+                    var value = Encoding.UTF8.GetString(Convert.FromBase64String(line));
                     if (IsFolderHistoryKey(key)) value = NormalizeFolderPath(value);
-                    if (!string.IsNullOrWhiteSpace(value) && !result.Exists(entry => FolderHistoryEquals(key, entry, value))) result.Add(value);
+                    if (!string.IsNullOrWhiteSpace(value) &&
+                        !result.Exists(entry => FolderHistoryEquals(key, entry, value))) result.Add(value);
                     if (result.Count == Capacity) break;
                 }
-                catch (FormatException) { }
-            }
+                catch (FormatException)
+                {
+                }
         }
-        catch (IOException) { }
-        catch (UnauthorizedAccessException) { }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+
         return result;
     }
 
@@ -56,23 +66,29 @@ internal sealed class InputHistoryStore
 
     internal void Clear(string key)
     {
-        try { File.Delete(FilePath(key)); }
-        catch (IOException) { }
-        catch (UnauthorizedAccessException) { }
+        try
+        {
+            File.Delete(FilePath(key));
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
     }
 
     internal List<string> Replace(string key, IEnumerable<string> values)
     {
         var entries = new List<string>();
         if (values != null)
-        {
-            foreach (string value in values)
+            foreach (var value in values)
             {
                 if (string.IsNullOrWhiteSpace(value) || entries.Contains(value)) continue;
                 entries.Add(value);
                 if (entries.Count == Capacity) break;
             }
-        }
+
         return Save(key, entries);
     }
 
@@ -90,23 +106,29 @@ internal sealed class InputHistoryStore
         try
         {
             Directory.CreateDirectory(directory);
-            File.WriteAllLines(FilePath(key), entries.Select(s => Convert.ToBase64String(Encoding.UTF8.GetBytes(s))), new UTF8Encoding(false));
+            File.WriteAllLines(FilePath(key), entries.Select(s => Convert.ToBase64String(Encoding.UTF8.GetBytes(s))),
+                new UTF8Encoding(false));
         }
-        catch (IOException) { }
-        catch (UnauthorizedAccessException) { }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+
         return entries;
     }
 
     private static bool IsFolderHistoryKey(string key)
     {
         return string.Equals(key, "Differencer-Source", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(key, "Differencer-Target", StringComparison.OrdinalIgnoreCase);
+               || string.Equals(key, "Differencer-Target", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeFolderPath(string path)
     {
         if (string.IsNullOrWhiteSpace(path)) return path ?? "";
-        string trimmed = path.TrimEnd('\\', '/');
+        var trimmed = path.TrimEnd('\\', '/');
         if (trimmed.Length == 2 && trimmed[1] == ':') return trimmed + "\\";
         return trimmed;
     }

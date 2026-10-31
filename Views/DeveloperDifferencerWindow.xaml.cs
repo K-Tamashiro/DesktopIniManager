@@ -1,9 +1,10 @@
-﻿using DesktopIniManager.ViewModels;
+﻿using DesktopIniManager.Properties;
 using DesktopIniManager.Services;
-using DesktopIniManager.Properties;
+using DesktopIniManager.ViewModels;
 using System;
-using System.Runtime.Versioning;
 using System.Collections.Generic;
+using System.IO;
+using System.Runtime.Versioning;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -12,7 +13,6 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
-using System.IO;
 
 namespace DesktopIniManager.Views;
 
@@ -20,7 +20,8 @@ namespace DesktopIniManager.Views;
 public partial class DeveloperDifferencerWindow : Window
 {
     internal DeveloperDifferencerViewModel ViewModel { get; }
-    internal bool IsWorking { get { return ViewModel.IsBusy; } }
+    internal bool IsWorking
+    { get { return ViewModel.IsBusy; } }
     private Point _zipDragStart;
     private bool _zipDragFromSource;
     private bool _zipDragging;
@@ -28,12 +29,14 @@ public partial class DeveloperDifferencerWindow : Window
     private Task historyLoad = Task.CompletedTask;
     private Task<bool> closePreparation;
     private bool closeReady;
+
     /// <summary>Initializes a new developer differencer window.</summary>
     public DeveloperDifferencerWindow()
     {
         ViewModel = new DeveloperDifferencerViewModel(new UserDialogService(this), Dispatcher,
             ShowSyncConfirmation, (direction, currentSnapshot) => new SynchronizationLogWindow(this, direction, currentSnapshot));
         InitializeComponent();
+        Icon = DifferencerStatusIcons.GetCustomIcon(51) ?? Icon;
         RestoreGridLayout();
         DataContext = ViewModel;
         SourceBox.HistoryItemApplied += (_, _) => ViewModel.MatchTargetHistory();
@@ -133,6 +136,7 @@ public partial class DeveloperDifferencerWindow : Window
     }
 
     private DiffRow pendingProgressRow;
+
     private async void IgnoreListButton_Click(object sender, RoutedEventArgs e)
     {
         if (!ViewModel.CanConfigureIgnore) return;
@@ -147,6 +151,7 @@ public partial class DeveloperDifferencerWindow : Window
             catch (Exception ex) { ViewModel.ShowError(ex); }
         }
     }
+
     private bool progressScrollPending;
 
     private void ScrollToProgressFile(DiffRow row)
@@ -254,6 +259,7 @@ public partial class DeveloperDifferencerWindow : Window
             ViewModel.ProgressIndeterminate = true;
         }
     }
+
     private void FileRowLoaded(object sender, RoutedEventArgs e)
     {
         var item = (ListViewItem)sender;
@@ -261,14 +267,17 @@ public partial class DeveloperDifferencerWindow : Window
         item.DataContextChanged += FileRowContextChanged;
         LoadFileRow(item);
     }
+
     private void FileRowUnloaded(object sender, RoutedEventArgs e)
     {
         var item = (ListViewItem)sender;
         item.DataContextChanged -= FileRowContextChanged;
         (item.Tag as DiffRow)?.ReleasePreview(); item.Tag = null;
     }
+
     private void FileRowContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     { if (((ListViewItem)sender).IsLoaded) LoadFileRow((ListViewItem)sender); }
+
     private async void LoadFileRow(ListViewItem item)
     {
         if (ReferenceEquals(item.Tag, item.DataContext)) return;
@@ -278,6 +287,7 @@ public partial class DeveloperDifferencerWindow : Window
     }
 
     private bool changingFolderSelection;
+
     private void FolderChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
         var folder = e.NewValue as DiffFolder;
@@ -291,6 +301,7 @@ public partial class DeveloperDifferencerWindow : Window
         }
         finally { changingFolderSelection = false; }
     }
+
     private void ScheduleFolderIntoView(IReadOnlyList<DiffFolder> path)
     {
         Action bring = () => ScrollTreeItemIntoView(FolderTree, ContainerAlongPath(FolderTree, path));
@@ -327,6 +338,7 @@ public partial class DeveloperDifferencerWindow : Window
         }
         return current;
     }
+
     private static void ScrollTreeItemIntoView(TreeView tree, TreeViewItem item)
     {
         if (tree == null || item == null) return;
@@ -344,6 +356,7 @@ public partial class DeveloperDifferencerWindow : Window
         }
         catch (InvalidOperationException) { }
     }
+
     private static ScrollViewer FindScrollViewer(DependencyObject root)
     {
         if (root is ScrollViewer viewer) return viewer;
@@ -398,7 +411,9 @@ public partial class DeveloperDifferencerWindow : Window
     }
 
     internal Task<bool> RefreshFileAsync(DiffFile file) => ViewModel.RefreshFileAsync(file);
+
     internal IReadOnlyList<DiffFile> GetVisibleComparableFiles() => ViewModel.GetVisibleComparableFiles();
+
     internal void SelectLastViewedFile(DiffFile file)
     {
         DiffRow row = ViewModel.SelectDisplayedFile(file);
@@ -412,6 +427,7 @@ public partial class DeveloperDifferencerWindow : Window
             FilesGrid.ScrollIntoView(row);
         }), DispatcherPriority.Loaded);
     }
+
     internal void SaveState()
     {
         ViewModel.SaveState();
@@ -466,6 +482,7 @@ public partial class DeveloperDifferencerWindow : Window
         }
         SettingsService.SaveDifferencerLayout(values);
     }
+
     private void FolderCheckBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (!(sender is CheckBox checkBox) || !(checkBox.DataContext is DiffFolder folder) || folder.CanSelect)

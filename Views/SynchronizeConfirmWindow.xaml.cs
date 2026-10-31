@@ -1,14 +1,14 @@
-﻿using System;
+﻿using DesktopIniManager.Properties;
+using DesktopIniManager.Services;
+using DesktopIniManager.ViewModels;
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
-using System.Collections.Generic;
-using DesktopIniManager.Properties;
-using DesktopIniManager.Services;
-using DesktopIniManager.ViewModels;
 
 namespace DesktopIniManager.Views;
 
@@ -197,5 +197,6 @@ internal partial class SynchronizeConfirmWindow : Window
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
+
     private void Sync_Click(object sender, RoutedEventArgs e) => DialogResult = true;
 }

@@ -1,7 +1,7 @@
-﻿using System;
-using System.Windows;
-using DesktopIniManager.Services;
+﻿using DesktopIniManager.Services;
 using DesktopIniManager.ViewModels;
+using System;
+using System.Windows;
 
 namespace DesktopIniManager.Views;
 

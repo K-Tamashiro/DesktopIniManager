@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Windows;
 using System.Windows.Markup;
 using System.Windows.Threading;
@@ -9,17 +10,24 @@ namespace DesktopIniManager.Properties;
 [MarkupExtensionReturnType(typeof(string))]
 public sealed class L : MarkupExtension
 {
-    private static readonly List<Target> Targets = new List<Target>();
-    private static readonly object Gate = new object();
-    private static DispatcherOperation pending;
+    private static readonly List<Target> Targets = new();
+    private static readonly Lock Gate = new();
+    private static DispatcherOperation _pending;
 
     static L()
     {
-        StringOverlay.CultureChanged += (s, e) => Refresh();
+        StringOverlay.CultureChanged += (_, _) => Refresh();
     }
 
-    public L() { }
-    public L(string key) { Key = key; }
+    public L()
+    {
+    }
+
+    public L(string key)
+    {
+        Key = key;
+    }
+
     public string Key { get; set; }
 
     public override object ProvideValue(IServiceProvider serviceProvider)
@@ -27,27 +35,28 @@ public sealed class L : MarkupExtension
         var provide = serviceProvider.GetService(typeof(IProvideValueTarget)) as IProvideValueTarget;
         if (provide != null)
         {
-            object targetObject = provide.TargetObject;
+            var targetObject = provide.TargetObject;
             if (targetObject != null && targetObject.GetType().FullName == "System.Windows.SharedDp")
                 return this;
             var target = targetObject as DependencyObject;
             var property = provide.TargetProperty as DependencyProperty;
             if (target != null && property != null)
-            {
                 lock (Gate)
+                {
                     Targets.Add(new Target(target, property, Key));
-            }
+                }
         }
+
         return StringOverlay.Get(Key);
     }
 
     private static void Refresh()
     {
-        Dispatcher dispatcher = Application.Current?.Dispatcher;
+        var dispatcher = Application.Current?.Dispatcher;
         if (dispatcher == null) return;
-        if (pending != null && pending.Status == DispatcherOperationStatus.Pending)
+        if (_pending != null && _pending.Status == DispatcherOperationStatus.Pending)
             return;
-        pending = dispatcher.BeginInvoke(DispatcherPriority.DataBind, new Action(Apply));
+        _pending = dispatcher.BeginInvoke(DispatcherPriority.DataBind, new Action(Apply));
     }
 
     private static void Apply()
@@ -56,23 +65,25 @@ public sealed class L : MarkupExtension
         lock (Gate)
         {
             live = new List<Target>(Targets.Count);
-            for (int i = Targets.Count - 1; i >= 0; i--)
+            for (var i = Targets.Count - 1; i >= 0; i--)
             {
-                Target item = Targets[i];
+                var item = Targets[i];
                 if (item.Object == null)
                 {
                     Targets.RemoveAt(i);
                     continue;
                 }
+
                 live.Add(item);
             }
         }
-        foreach (Target item in live)
+
+        foreach (var item in live)
         {
-            DependencyObject obj = item.Object;
+            var obj = item.Object;
             if (obj == null) continue;
-            string value = StringOverlay.Get(item.Key);
-            object current = obj.GetValue(item.Property);
+            var value = StringOverlay.Get(item.Key);
+            var current = obj.GetValue(item.Property);
             if (Equals(current, value)) continue;
             obj.SetValue(item.Property, value);
         }
@@ -80,14 +91,16 @@ public sealed class L : MarkupExtension
 
     private sealed class Target
     {
-        private readonly WeakReference reference;
+        private readonly WeakReference _reference;
+
         internal Target(DependencyObject obj, DependencyProperty property, string key)
         {
-            reference = new WeakReference(obj);
+            _reference = new WeakReference(obj);
             Property = property;
             Key = key;
         }
-        internal DependencyObject Object { get { return reference.Target as DependencyObject; } }
+
+        internal DependencyObject Object => _reference.Target as DependencyObject;
         internal DependencyProperty Property { get; }
         internal string Key { get; }
     }

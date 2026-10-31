@@ -159,6 +159,7 @@
     </Compile>
     <Compile Include="Views\DiffViewWindow.ImageNavigation.cs" />
     <Compile Include="Views\DiffViewWindow.Whitespace.cs" />
+    <Compile Include="Views\DiffViewWindow.Editing.cs" />
     <Compile Include="Views\DeveloperDifferencerWindow.xaml.cs">
       <DependentUpon>DeveloperDifferencerWindow.xaml</DependentUpon>
     </Compile>

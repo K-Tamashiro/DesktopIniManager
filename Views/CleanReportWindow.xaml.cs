@@ -1,6 +1,6 @@
-﻿using System.Windows;
-using DesktopIniManager.Properties;
+﻿using DesktopIniManager.Properties;
 using DesktopIniManager.ViewModels;
+using System.Windows;
 
 namespace DesktopIniManager.Views;
 

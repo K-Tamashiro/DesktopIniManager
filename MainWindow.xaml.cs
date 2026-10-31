@@ -1,15 +1,15 @@
-﻿using System;
-using System.Windows;
-using System.Windows.Threading;
-using System.Windows.Media;
-using System.Linq;
-using System.Windows.Controls;
-using System.Threading;
-using System.Threading.Tasks;
-using DesktopIniManager.Models;
+﻿using DesktopIniManager.Models;
 using DesktopIniManager.Services;
 using DesktopIniManager.ViewModels;
 using DesktopIniManager.Views;
+using System;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace DesktopIniManager;
 
@@ -19,7 +19,9 @@ public partial class MainWindow : Window
     private readonly SemaphoreSlim folderIconWorkers = new SemaphoreSlim(4);
     internal MainWindowViewModel ViewModel => presentation.ViewModel;
 
-    public MainWindow() : this(null) { }
+    public MainWindow() : this(null)
+    {
+    }
 
     internal MainWindow(StartupState startup)
     {

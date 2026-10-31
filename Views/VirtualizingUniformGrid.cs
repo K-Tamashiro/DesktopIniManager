@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace DesktopIniManager.Views;
 
@@ -13,16 +14,21 @@ internal sealed class VirtualizingUniformGrid : VirtualizingPanel, IScrollInfo
         nameof(Columns), typeof(int), typeof(VirtualizingUniformGrid),
         new FrameworkPropertyMetadata(3, FrameworkPropertyMetadataOptions.AffectsMeasure));
 
+    private Size _extent = new(0, 0);
+    private bool _measuring;
+    private Point _offset = new(0, 0);
+    private Size _viewport = new(0, 0);
+
+    public VirtualizingUniformGrid()
+    {
+        Loaded += (s, e) => Dispatcher.BeginInvoke(new Action(InvalidateMeasure), DispatcherPriority.Loaded);
+    }
+
     public int Columns
     {
         get => (int)GetValue(ColumnsProperty);
         set => SetValue(ColumnsProperty, value);
     }
-
-    private Size _extent = new Size(0, 0);
-    private Size _viewport = new Size(0, 0);
-    private Point _offset = new Point(0, 0);
-    private bool _measuring;
 
     public bool CanVerticallyScroll { get; set; } = true;
     public bool CanHorizontallyScroll { get; set; }
@@ -34,9 +40,76 @@ internal sealed class VirtualizingUniformGrid : VirtualizingPanel, IScrollInfo
     public double VerticalOffset => _offset.Y;
     public ScrollViewer ScrollOwner { get; set; }
 
-    public VirtualizingUniformGrid()
+    public void LineUp()
     {
-        Loaded += (s, e) => Dispatcher.BeginInvoke(new Action(InvalidateMeasure), System.Windows.Threading.DispatcherPriority.Loaded);
+        SetVerticalOffset(_offset.Y - 16);
+    }
+
+    public void LineDown()
+    {
+        SetVerticalOffset(_offset.Y + 16);
+    }
+
+    public void LineLeft()
+    {
+    }
+
+    public void LineRight()
+    {
+    }
+
+    public void PageUp()
+    {
+        SetVerticalOffset(_offset.Y - Math.Max(16, _viewport.Height));
+    }
+
+    public void PageDown()
+    {
+        SetVerticalOffset(_offset.Y + Math.Max(16, _viewport.Height));
+    }
+
+    public void PageLeft()
+    {
+    }
+
+    public void PageRight()
+    {
+    }
+
+    public void MouseWheelUp()
+    {
+        SetVerticalOffset(_offset.Y - 48);
+    }
+
+    public void MouseWheelDown()
+    {
+        SetVerticalOffset(_offset.Y + 48);
+    }
+
+    public void MouseWheelLeft()
+    {
+    }
+
+    public void MouseWheelRight()
+    {
+    }
+
+    public void SetHorizontalOffset(double offset)
+    {
+    }
+
+    public void SetVerticalOffset(double offset)
+    {
+        if (_measuring) return;
+        _offset.Y = offset;
+        ClampOffset();
+        InvalidateMeasure();
+        ScrollOwner?.InvalidateScrollInfo();
+    }
+
+    public Rect MakeVisible(Visual visual, Rect rectangle)
+    {
+        return rectangle;
     }
 
     protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)
@@ -47,38 +120,39 @@ internal sealed class VirtualizingUniformGrid : VirtualizingPanel, IScrollInfo
 
     protected override Size MeasureOverride(Size availableSize)
     {
-        if (_measuring) return availableSize.Width > 0 && !double.IsInfinity(availableSize.Width)
-            ? new Size(availableSize.Width, double.IsInfinity(availableSize.Height) ? 0 : availableSize.Height)
-            : new Size(0, 0);
+        if (_measuring)
+            return availableSize.Width > 0 && !double.IsInfinity(availableSize.Width)
+                ? new Size(availableSize.Width, double.IsInfinity(availableSize.Height) ? 0 : availableSize.Height)
+                : new Size(0, 0);
         _measuring = true;
         try
         {
-            int columns = Math.Max(1, Columns);
-            int count = ItemCount();
-            double width = double.IsInfinity(availableSize.Width) ? 240 : Math.Max(1, availableSize.Width);
-            double height = double.IsInfinity(availableSize.Height) ? 240 : Math.Max(1, availableSize.Height);
-            Size slot = SlotSize(width, columns);
-            int rows = count == 0 ? 0 : (count + columns - 1) / columns;
+            var columns = Math.Max(1, Columns);
+            var count = ItemCount();
+            var width = double.IsInfinity(availableSize.Width) ? 240 : Math.Max(1, availableSize.Width);
+            var height = double.IsInfinity(availableSize.Height) ? 240 : Math.Max(1, availableSize.Height);
+            var slot = SlotSize(width, columns);
+            var rows = count == 0 ? 0 : (count + columns - 1) / columns;
             _extent = new Size(width, rows * slot.Height);
             _viewport = new Size(width, height);
             ClampOffset();
 
-            int firstRow = (int)(_offset.Y / Math.Max(1, slot.Height));
-            int visibleRows = (int)Math.Ceiling(height / Math.Max(1, slot.Height)) + 1;
+            var firstRow = (int)(_offset.Y / Math.Max(1, slot.Height));
+            var visibleRows = (int)Math.Ceiling(height / Math.Max(1, slot.Height)) + 1;
             if (visibleRows < 1) visibleRows = 1;
             if (visibleRows > 40) visibleRows = 40;
-            int start = Math.Max(0, firstRow * columns);
-            int end = Math.Min(count, start + visibleRows * columns);
+            var start = Math.Max(0, firstRow * columns);
+            var end = Math.Min(count, start + visibleRows * columns);
 
-            IItemContainerGenerator generator = ItemContainerGenerator;
+            var generator = ItemContainerGenerator;
             if (generator == null || count == 0) return _viewport;
 
-            GeneratorPosition position = generator.GeneratorPositionFromIndex(start);
+            var position = generator.GeneratorPositionFromIndex(start);
             using (generator.StartAt(position, GeneratorDirection.Forward, true))
             {
-                int childIndex = (position.Offset == 0) ? position.Index : position.Index + 1;
+                var childIndex = position.Offset == 0 ? position.Index : position.Index + 1;
                 if (childIndex < 0) childIndex = 0;
-                for (int itemIndex = start; itemIndex < end; itemIndex++, childIndex++)
+                for (var itemIndex = start; itemIndex < end; itemIndex++, childIndex++)
                 {
                     bool newly;
                     var child = generator.GenerateNext(out newly) as UIElement;
@@ -89,9 +163,11 @@ internal sealed class VirtualizingUniformGrid : VirtualizingPanel, IScrollInfo
                         else InsertInternalChild(Math.Min(childIndex, InternalChildren.Count), child);
                         generator.PrepareItemContainer(child);
                     }
+
                     child.Measure(slot);
                 }
             }
+
             return _viewport;
         }
         catch
@@ -108,22 +184,33 @@ internal sealed class VirtualizingUniformGrid : VirtualizingPanel, IScrollInfo
     {
         try
         {
-            int columns = Math.Max(1, Columns);
-            Size slot = SlotSize(finalSize.Width, columns);
-            IItemContainerGenerator generator = ItemContainerGenerator;
-            int n = InternalChildren.Count;
-            for (int i = 0; i < n; i++)
+            var columns = Math.Max(1, Columns);
+            var slot = SlotSize(finalSize.Width, columns);
+            var generator = ItemContainerGenerator;
+            var n = InternalChildren.Count;
+            for (var i = 0; i < n; i++)
             {
-                UIElement child = InternalChildren[i];
-                int itemIndex = generator == null ? i : generator.IndexFromGeneratorPosition(new GeneratorPosition(i, 0));
-                if (itemIndex < 0) { child.Arrange(new Rect()); continue; }
-                int row = itemIndex / columns;
-                int column = itemIndex % columns;
+                var child = InternalChildren[i];
+                var itemIndex = generator == null
+                    ? i
+                    : generator.IndexFromGeneratorPosition(new GeneratorPosition(i, 0));
+                if (itemIndex < 0)
+                {
+                    child.Arrange(new Rect());
+                    continue;
+                }
+
+                var row = itemIndex / columns;
+                var column = itemIndex % columns;
                 child.Arrange(new Rect(column * slot.Width, row * slot.Height - _offset.Y, slot.Width, slot.Height));
             }
+
             _viewport = finalSize;
         }
-        catch { }
+        catch
+        {
+        }
+
         return finalSize;
     }
 
@@ -134,7 +221,10 @@ internal sealed class VirtualizingUniformGrid : VirtualizingPanel, IScrollInfo
             if (args.Action == NotifyCollectionChangedAction.Reset)
                 RemoveInternalChildRange(0, InternalChildren.Count);
         }
-        catch { }
+        catch
+        {
+        }
+
         InvalidateMeasure();
     }
 
@@ -151,33 +241,8 @@ internal sealed class VirtualizingUniformGrid : VirtualizingPanel, IScrollInfo
 
     private void ClampOffset()
     {
-        double maxY = Math.Max(0, _extent.Height - _viewport.Height);
+        var maxY = Math.Max(0, _extent.Height - _viewport.Height);
         if (_offset.Y < 0) _offset.Y = 0;
         if (_offset.Y > maxY) _offset.Y = maxY;
     }
-
-    public void LineUp() => SetVerticalOffset(_offset.Y - 16);
-    public void LineDown() => SetVerticalOffset(_offset.Y + 16);
-    public void LineLeft() { }
-    public void LineRight() { }
-    public void PageUp() => SetVerticalOffset(_offset.Y - Math.Max(16, _viewport.Height));
-    public void PageDown() => SetVerticalOffset(_offset.Y + Math.Max(16, _viewport.Height));
-    public void PageLeft() { }
-    public void PageRight() { }
-    public void MouseWheelUp() => SetVerticalOffset(_offset.Y - 48);
-    public void MouseWheelDown() => SetVerticalOffset(_offset.Y + 48);
-    public void MouseWheelLeft() { }
-    public void MouseWheelRight() { }
-    public void SetHorizontalOffset(double offset) { }
-
-    public void SetVerticalOffset(double offset)
-    {
-        if (_measuring) return;
-        _offset.Y = offset;
-        ClampOffset();
-        InvalidateMeasure();
-        ScrollOwner?.InvalidateScrollInfo();
-    }
-
-    public Rect MakeVisible(Visual visual, Rect rectangle) => rectangle;
 }

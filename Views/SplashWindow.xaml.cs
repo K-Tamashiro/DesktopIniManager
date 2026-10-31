@@ -1,13 +1,14 @@
-﻿using System;
+﻿using DesktopIniManager.Properties;
+using System;
 using System.Windows;
 using System.Windows.Input;
-using DesktopIniManager.Properties;
 
 namespace DesktopIniManager.Views;
 
 internal partial class SplashWindow : Window
 {
     internal event EventHandler SkipStartupAnalysisRequested;
+
     internal SplashWindow()
     {
         InitializeComponent();

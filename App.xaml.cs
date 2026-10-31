@@ -1,13 +1,13 @@
-﻿using System;
+﻿using DesktopIniManager.Properties;
+using DesktopIniManager.Services;
+using DesktopIniManager.Views;
+using System;
 using System.Globalization;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
-using System.Threading.Tasks;
-using DesktopIniManager.Services;
-using DesktopIniManager.Views;
-using DesktopIniManager.Properties;
 
 namespace DesktopIniManager;
 

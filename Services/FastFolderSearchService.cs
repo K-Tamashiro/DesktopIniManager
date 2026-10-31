@@ -14,45 +14,44 @@ internal sealed class FastFolderSearchService
     public List<FolderMatch> Search(VolumePathIndex paths, string query, CancellationToken token)
     {
         var matches = new Dictionary<string, FolderMatch>(StringComparer.OrdinalIgnoreCase);
-        string[] keys = (query ?? string.Empty).Split((char[])null, StringSplitOptions.RemoveEmptyEntries)
+        var keys = (query ?? string.Empty).Split((char[])null, StringSplitOptions.RemoveEmptyEntries)
             .Select(value => value.Trim().TrimStart('*')).Where(value => value.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-        bool gitMode = keys.Any(key => string.Equals(key.TrimStart('.'), "git", StringComparison.OrdinalIgnoreCase));
+        var gitMode = keys.Any(key => string.Equals(key.TrimStart('.'), "git", StringComparison.OrdinalIgnoreCase));
         if (keys.Length == 0 || gitMode)
-        {
-            foreach (VolumePathNode node in paths.Directories)
-            { token.ThrowIfCancellationRequested(); if (IsDisplayable(node)) Add(matches, node.Path, "Folder"); }
-        }
-        else
-        {
-            foreach (string key in keys)
+            foreach (var node in paths.Directories)
             {
                 token.ThrowIfCancellationRequested();
-                bool extensionQuery = IsExtensionQuery(key);
-                bool fileNameQuery = !extensionQuery && IsFileNameQuery(key);
+                if (IsDisplayable(node)) Add(matches, node.Path, "Folder");
+            }
+        else
+            foreach (var key in keys)
+            {
+                token.ThrowIfCancellationRequested();
+                var extensionQuery = IsExtensionQuery(key);
+                var fileNameQuery = !extensionQuery && IsFileNameQuery(key);
                 if (!extensionQuery)
-                {
-                    foreach (VolumePathNode entry in paths.Files.Concat(paths.Directories))
+                    foreach (var entry in paths.Files.Concat(paths.Directories))
                     {
                         if (!NameMatches(entry.Name, key, fileNameQuery)) continue;
-                        string folder = FolderPathOf(entry);
-                        VolumePathNode folderNode = !string.IsNullOrEmpty(folder) ? paths.Find(folder) : null;
+                        var folder = FolderPathOf(entry);
+                        var folderNode = !string.IsNullOrEmpty(folder) ? paths.Find(folder) : null;
                         if (folderNode != null && IsDisplayable(folderNode))
                         {
                             Add(matches, folder, "Name: " + key);
                             if (entry.IsDirectory) matches[folder].IsSearchMatch = true;
                         }
                     }
-                }
+
                 if (fileNameQuery) continue;
-                string extension = "." + key.TrimStart('.');
+                var extension = "." + key.TrimStart('.');
                 foreach (var group in paths.FindFiles(new[] { extension })
-                    .GroupBy(FolderPathOf, StringComparer.OrdinalIgnoreCase))
+                             .GroupBy(FolderPathOf, StringComparer.OrdinalIgnoreCase))
                     if (!string.IsNullOrEmpty(group.Key) && IsDisplayable(paths.Find(group.Key)))
                         Add(matches, group.Key, "Contents: " + extension + " \u00D7 " + group.Count());
             }
-        }
-        foreach (string path in matches.Keys.ToArray())
+
+        foreach (var path in matches.Keys.ToArray())
             AddAncestors(matches, paths, path);
         return matches.Values.OrderBy(item => item.Path, StringComparer.OrdinalIgnoreCase).ToList();
     }
@@ -67,7 +66,7 @@ internal sealed class FastFolderSearchService
     private static bool IsFileNameQuery(string key)
     {
         if (string.IsNullOrWhiteSpace(key) || key[0] == '.') return false;
-        string extension = Path.GetExtension(key);
+        var extension = Path.GetExtension(key);
         return extension.Length > 1 && key.Length > extension.Length;
     }
 
@@ -96,24 +95,24 @@ internal sealed class FastFolderSearchService
         if (entry == null) return null;
         if (entry.IsDirectory) return entry.Path;
         if (entry.Parent != null) return entry.Parent.Path;
-        string parent = Path.GetDirectoryName(entry.Path);
+        var parent = Path.GetDirectoryName(entry.Path);
         return string.IsNullOrEmpty(parent) ? null : VolumePathIndex.Normalize(parent);
     }
 
     private static void AddAncestors(
         Dictionary<string, FolderMatch> matches, VolumePathIndex paths, string path)
     {
-        string current = path;
+        var current = path;
         while (!string.IsNullOrEmpty(current)
-            && !string.Equals(current, paths.RootPath, StringComparison.OrdinalIgnoreCase))
+               && !string.Equals(current, paths.RootPath, StringComparison.OrdinalIgnoreCase))
         {
-            string parentPath = Path.GetDirectoryName(current);
+            var parentPath = Path.GetDirectoryName(current);
             if (string.IsNullOrEmpty(parentPath)) break;
             parentPath = VolumePathIndex.Normalize(parentPath);
             if (!VolumePathIndex.IsWithin(parentPath, paths.RootPath)
                 && !string.Equals(parentPath, paths.RootPath, StringComparison.OrdinalIgnoreCase))
                 break;
-            VolumePathNode node = paths.Find(parentPath);
+            var node = paths.Find(parentPath);
             if (node != null && IsDisplayable(node)) Add(matches, parentPath, "Folder");
             current = parentPath;
         }
@@ -129,6 +128,7 @@ internal sealed class FastFolderSearchService
                 string.Equals(node.Name, ".vscode", StringComparison.OrdinalIgnoreCase)) return false;
             node = node.Parent;
         }
+
         return true;
     }
 
@@ -140,33 +140,31 @@ internal sealed class FastFolderSearchService
             new[] { ".csproj", ".vbproj", ".vcxproj", ".fsproj", ".vbp", ".dproj" },
             StringComparer.OrdinalIgnoreCase);
 
-        int inspected = 0;
-        foreach (VolumePathNode folder in paths.Directories)
+        var inspected = 0;
+        foreach (var folder in paths.Directories)
         {
             if ((++inspected & 2047) == 0) token.ThrowIfCancellationRequested();
 
             var parts = new List<string>();
-            bool repository = false;
-            int solutions = 0;
-            int projects = 0;
+            var repository = false;
+            var solutions = 0;
+            var projects = 0;
             var extensionCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
-            foreach (VolumePathNode child in folder.Directories)
-            {
+            foreach (var child in folder.Directories)
                 if (string.Equals(child.Name, ".git", StringComparison.OrdinalIgnoreCase))
                 {
                     repository = true;
                     break;
                 }
-            }
 
-            foreach (VolumePathNode file in folder.Files)
+            foreach (var file in folder.Files)
             {
-                string name = file.Name;
+                var name = file.Name;
                 if (string.Equals(name, ".git", StringComparison.OrdinalIgnoreCase))
                     repository = true;
 
-                string extensionWithDot = Path.GetExtension(name);
+                var extensionWithDot = Path.GetExtension(name);
                 if (string.Equals(extensionWithDot, ".sln", StringComparison.OrdinalIgnoreCase))
                     solutions++;
                 if (projectExtensions.Contains(extensionWithDot))
@@ -175,8 +173,8 @@ internal sealed class FastFolderSearchService
                 if (string.Equals(name, "desktop.ini", StringComparison.OrdinalIgnoreCase))
                     continue;
 
-                string extension = extensionWithDot.TrimStart('.');
-                extensionCounts.TryGetValue(extension, out int count);
+                var extension = extensionWithDot.TrimStart('.');
+                extensionCounts.TryGetValue(extension, out var count);
                 extensionCounts[extension] = count + 1;
             }
 
@@ -185,11 +183,11 @@ internal sealed class FastFolderSearchService
             if (projects > 0) parts.Add("Project \u00D7" + projects);
 
             foreach (var extension in extensionCounts
-                .OrderByDescending(pair => pair.Value)
-                .ThenBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
-                .Take(12))
+                         .OrderByDescending(pair => pair.Value)
+                         .ThenBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+                         .Take(12))
             {
-                string name = string.IsNullOrEmpty(extension.Key)
+                var name = string.IsNullOrEmpty(extension.Key)
                     ? "(no extension)"
                     : extension.Key.ToLowerInvariant();
                 parts.Add(name + " \u00D7" + extension.Value);

@@ -1,34 +1,44 @@
-﻿using System;
+﻿using DesktopIniManager.Services;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
-using System.Windows.Input;
 using System.Windows.Documents;
+using System.Windows.Input;
 using System.Windows.Media;
-using DesktopIniManager.Services;
 
 namespace DesktopIniManager.Views;
+
 // Retain TextBox behavior (TextChanged, caret, scrolling and IME) while adding history.
 public class HistoryTextBox : TextBox
 {
     private static InputHistoryStore DefaultStore => new InputHistoryStore(Path.Combine(AppSlot.Directory, "input-history"));
     private readonly InputHistoryStore store;
+
     public static readonly DependencyProperty HistoryKeyProperty = DependencyProperty.Register(
         nameof(HistoryKey), typeof(string), typeof(HistoryTextBox), new PropertyMetadata(null));
+
     public static readonly DependencyProperty PreserveOrderProperty = DependencyProperty.Register(
         nameof(PreserveOrder), typeof(bool), typeof(HistoryTextBox), new PropertyMetadata(false));
-    public string HistoryKey { get { return (string)GetValue(HistoryKeyProperty); } set { SetValue(HistoryKeyProperty, value); } }
-    public bool PreserveOrder { get { return (bool)GetValue(PreserveOrderProperty); } set { SetValue(PreserveOrderProperty, value); } }
+
+    public string HistoryKey
+    { get { return (string)GetValue(HistoryKeyProperty); } set { SetValue(HistoryKeyProperty, value); } }
+    public bool PreserveOrder
+    { get { return (bool)GetValue(PreserveOrderProperty); } set { SetValue(PreserveOrderProperty, value); } }
+
     public event EventHandler HistoryItemApplied;
+
     public bool IsHistoryOpen => popup?.IsOpen == true;
     private Popup popup;
     private ListBox list;
     private Button button;
     private Window owner;
 
-    public HistoryTextBox() : this(DefaultStore) { }
+    public HistoryTextBox() : this(DefaultStore)
+    {
+    }
 
     internal HistoryTextBox(InputHistoryStore store)
     {
@@ -52,7 +62,8 @@ public class HistoryTextBox : TextBox
         SelectionChanged += (s, e) => ApplyThinCaret();
     }
 
-    private void OwnerClosed(object sender, EventArgs e) { CommitHistory(); }
+    private void OwnerClosed(object sender, EventArgs e)
+    { CommitHistory(); }
 
     public override void OnApplyTemplate()
     {

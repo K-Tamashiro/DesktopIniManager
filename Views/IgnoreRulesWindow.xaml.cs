@@ -1,10 +1,10 @@
+using DesktopIniManager.Properties;
+using DesktopIniManager.Services;
+using DesktopIniManager.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
-using DesktopIniManager.Properties;
-using DesktopIniManager.Services;
-using DesktopIniManager.ViewModels;
 
 namespace DesktopIniManager.Views;
 
@@ -32,6 +32,7 @@ internal partial class IgnoreRulesWindow : Window
     {
         foreach (var row in Rules) row.Exclude = !row.Exclude;
     }
+
     private void Apply_Click(object sender, RoutedEventArgs e) => DialogResult = true;
 }
 
@@ -42,6 +43,7 @@ internal sealed class IgnoreRuleRow : ObservableObject
     public string Key { get; }
     public string Pattern { get; }
     public string Location { get; }
+
     internal IgnoreRuleRow(GitIgnoreRuleInfo rule, bool exclude)
     {
         Key = rule.Key; Pattern = rule.Pattern; this.exclude = exclude;

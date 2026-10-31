@@ -3,9 +3,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Xml.Serialization;
+using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Xml.Serialization;
 
 namespace DesktopIniManager.Services;
 
@@ -13,9 +14,9 @@ public sealed class FolderTreeState
 {
     public string Root { get; set; }
     public int View { get; set; }
-    public List<byte[]> Icons { get; set; } = new List<byte[]>();
-    public List<FolderTreeNodeState> Physical { get; set; } = new List<FolderTreeNodeState>();
-    public List<FolderTreeNodeState> Solution { get; set; } = new List<FolderTreeNodeState>();
+    public List<byte[]> Icons { get; set; } = new();
+    public List<FolderTreeNodeState> Physical { get; set; } = new();
+    public List<FolderTreeNodeState> Solution { get; set; } = new();
 }
 
 public sealed class FolderTreeNodeState
@@ -28,12 +29,12 @@ public sealed class FolderTreeNodeState
     public bool Hidden { get; set; }
     public bool Current { get; set; }
     public int Icon { get; set; } = -1;
-    public List<FolderTreeNodeState> Children { get; set; } = new List<FolderTreeNodeState>();
+    public List<FolderTreeNodeState> Children { get; set; } = new();
 }
 
 internal static class FolderTreeStateService
 {
-    internal static string StatePath { get; set; } = System.IO.Path.Combine(AppSlot.Directory, "folder-trees.xml");
+    internal static string StatePath { get; set; } = Path.Combine(AppSlot.Directory, "folder-trees.xml");
 
     internal static List<FolderTreeNodeState> Capture(IEnumerable<FolderMatch> roots, FolderMatch current,
         List<byte[]> icons = null, Dictionary<ImageSource, int> iconIds = null)
@@ -61,12 +62,12 @@ internal static class FolderTreeStateService
         if (ids.TryGetValue(image, out var index)) return index;
 
         BitmapSource frozenCopy = null;
-        var dispatcher = (bitmap as System.Windows.Threading.DispatcherObject)?.Dispatcher
-                         ?? System.Windows.Application.Current?.Dispatcher;
+        var dispatcher = bitmap?.Dispatcher
+                         ?? Application.Current?.Dispatcher;
 
-        Action createAndFreeze = () =>
+        var createAndFreeze = () =>
         {
-            var temp = new System.Windows.Media.Imaging.WriteableBitmap(bitmap);
+            var temp = new WriteableBitmap(bitmap);
             temp.Freeze();
             frozenCopy = temp;
         };
@@ -76,9 +77,9 @@ internal static class FolderTreeStateService
         else
             createAndFreeze();
 
-        var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
-        encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(frozenCopy));
-        using (var stream = new System.IO.MemoryStream())
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(frozenCopy));
+        using (var stream = new MemoryStream())
         {
             encoder.Save(stream);
             var data = stream.ToArray();
@@ -93,13 +94,13 @@ internal static class FolderTreeStateService
     {
         var result = new List<ImageSource>();
         foreach (var bytes in icons)
-        {
             using (var stream = new MemoryStream(bytes))
             {
                 var image = BitmapFrame.Create(stream, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
-                image.Freeze(); result.Add(image);
+                image.Freeze();
+                result.Add(image);
             }
-        }
+
         return result;
     }
 
@@ -120,37 +121,53 @@ internal static class FolderTreeStateService
                 IsCurrent = saved.Current,
                 Parent = parent,
                 IconPreview = icons != null && saved.Icon >= 0 && saved.Icon < icons.Count
-                    ? icons[saved.Icon] : FolderIconService.GetDefaultFolderIcon()
+                    ? icons[saved.Icon]
+                    : FolderIconService.GetDefaultFolderIcon()
             };
             foreach (var child in Restore(saved.Children, node, icons)) node.Children.Add(child);
             result.Add(node);
         }
+
         return result;
     }
 
     internal static void Clear()
     {
-        try { if (File.Exists(StatePath)) File.Delete(StatePath); } catch { }
+        try
+        {
+            if (File.Exists(StatePath)) File.Delete(StatePath);
+        }
+        catch
+        {
+        }
     }
 
     internal static FolderTreeState Load()
     {
         if (!File.Exists(StatePath)) return null;
         using (var stream = File.OpenRead(StatePath))
+        {
             return (FolderTreeState)new XmlSerializer(typeof(FolderTreeState)).Deserialize(stream);
+        }
     }
 
     internal static void Save(FolderTreeState state)
     {
-        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(StatePath));
-        string temporary = StatePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        Directory.CreateDirectory(Path.GetDirectoryName(StatePath));
+        var temporary = StatePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
             using (var stream = File.Create(temporary))
+            {
                 new XmlSerializer(typeof(FolderTreeState)).Serialize(stream, state);
+            }
+
             if (File.Exists(StatePath)) File.Replace(temporary, StatePath, null);
             else File.Move(temporary, StatePath);
         }
-        finally { if (File.Exists(temporary)) File.Delete(temporary); }
+        finally
+        {
+            if (File.Exists(temporary)) File.Delete(temporary);
+        }
     }
 }

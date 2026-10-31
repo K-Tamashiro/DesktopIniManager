@@ -1,21 +1,28 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using DesktopIniManager.Services;
 
 namespace DesktopIniManager.Views;
+
 // Adds persisted history without replacing the native TextBox template or input handling.
 public static class InputHistory
 {
-    private static readonly InputHistoryStore Store = new InputHistoryStore(Path.Combine(AppSlot.Directory, "input-history"));
+    private static readonly InputHistoryStore Store = new(Path.Combine(AppSlot.Directory, "input-history"));
 
     public static readonly DependencyProperty KeyProperty = DependencyProperty.RegisterAttached(
         "Key", typeof(string), typeof(InputHistory), new PropertyMetadata(null, KeyChanged));
 
-    public static string GetKey(DependencyObject target) { return (string)target.GetValue(KeyProperty); }
-    public static void SetKey(DependencyObject target, string value) { target.SetValue(KeyProperty, value); }
+    public static string GetKey(DependencyObject target)
+    {
+        return (string)target.GetValue(KeyProperty);
+    }
+
+    public static void SetKey(DependencyObject target, string value)
+    {
+        target.SetValue(KeyProperty, value);
+    }
 
     private static void KeyChanged(DependencyObject target, DependencyPropertyChangedEventArgs e)
     {
@@ -36,12 +43,19 @@ public static class InputHistory
     public static void Commit(TextBox box)
     {
         if (box == null || box.IsReadOnly) return;
-        string key = GetKey(box);
+        var key = GetKey(box);
         if (!string.IsNullOrEmpty(key)) Store.Remember(key, box.Text);
     }
 
-    private static void LostFocus(object sender, KeyboardFocusChangedEventArgs e) { Commit((TextBox)sender); }
-    private static void Unloaded(object sender, RoutedEventArgs e) { Commit((TextBox)sender); }
+    private static void LostFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        Commit((TextBox)sender);
+    }
+
+    private static void Unloaded(object sender, RoutedEventArgs e)
+    {
+        Commit((TextBox)sender);
+    }
 
     private static void KeyDown(object sender, KeyEventArgs e)
     {
@@ -55,14 +69,17 @@ public static class InputHistory
         }
     }
 
-    private static void Opening(object sender, ContextMenuEventArgs e) { Populate((TextBox)sender); }
+    private static void Opening(object sender, ContextMenuEventArgs e)
+    {
+        Populate((TextBox)sender);
+    }
 
     private static void Populate(TextBox box)
     {
         Commit(box);
         var menu = box.ContextMenu ?? (box.ContextMenu = new ContextMenu());
         menu.Items.Clear();
-        foreach (string value in Store.Load(GetKey(box)))
+        foreach (var value in Store.Load(GetKey(box)))
         {
             var item = new MenuItem { Header = value, ToolTip = value };
             item.Click += (s, e) =>
@@ -79,5 +96,8 @@ public static class InputHistory
 
 internal static class InputHistoryExtensions
 {
-    internal static void CommitHistory(this TextBox box) { InputHistory.Commit(box); }
+    internal static void CommitHistory(this TextBox box)
+    {
+        InputHistory.Commit(box);
+    }
 }

@@ -11,11 +11,10 @@ namespace DesktopIniManager.Services;
 
 internal static class FileIconService
 {
-    private static readonly Dictionary<string, ImageSource> TypeIcons =
-        new Dictionary<string, ImageSource>(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, ImageSource> TypeIcons = new(StringComparer.OrdinalIgnoreCase);
 
     private static readonly string[] ImageExtensions =
-    { ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tif", ".tiff", ".ico" };
+        { ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tif", ".tiff", ".ico" };
 
     public static ImageSource GetTypeIcon(string extension)
     {
@@ -25,9 +24,9 @@ internal static class FileIconService
             if (TypeIcons.TryGetValue(extension ?? "", out cached)) return cached;
 
             var info = new ShellFileInfo();
-            SHGetFileInfo("file" + extension, 0x80, ref info, (uint)Marshal.SizeOf(typeof(ShellFileInfo)), 0x100 | 0x10);
+            SHGetFileInfo("file" + extension, 0x80, ref info, (uint)Marshal.SizeOf(typeof(ShellFileInfo)),
+                0x100 | 0x10);
             if (info.Icon != IntPtr.Zero)
-            {
                 try
                 {
                     var bitmap = Imaging.CreateBitmapSourceFromHIcon(
@@ -35,8 +34,10 @@ internal static class FileIconService
                     bitmap.Freeze();
                     cached = bitmap;
                 }
-                finally { DestroyIcon(info.Icon); }
-            }
+                finally
+                {
+                    DestroyIcon(info.Icon);
+                }
 
             if (TypeIcons.Count >= 512) TypeIcons.Clear();
             TypeIcons[extension ?? ""] = cached;
@@ -46,10 +47,9 @@ internal static class FileIconService
 
     public static ImageSource GetIcon(string path)
     {
-        string extension = Path.GetExtension(path);
+        var extension = Path.GetExtension(path);
         if (Array.Exists(ImageExtensions, item => string.Equals(item, extension, StringComparison.OrdinalIgnoreCase))
             && IsLocallyAvailable(path))
-        {
             try
             {
                 var preview = new BitmapImage();
@@ -62,8 +62,9 @@ internal static class FileIconService
                 preview.Freeze();
                 return preview;
             }
-            catch { }
-        }
+            catch
+            {
+            }
 
         return GetTypeIcon(extension);
     }
@@ -72,7 +73,7 @@ internal static class FileIconService
     {
         try
         {
-            FileAttributes attributes = File.GetAttributes(path);
+            var attributes = File.GetAttributes(path);
             if ((attributes & FileAttributes.Offline) != 0) return false;
             const FileAttributes RecallOnDataAccess = (FileAttributes)0x00400000;
             const FileAttributes RecallOnOpen = (FileAttributes)0x00040000;
@@ -86,19 +87,24 @@ internal static class FileIconService
         }
     }
 
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr SHGetFileInfo(string path, uint attributes, ref ShellFileInfo info, uint size,
+        uint flags);
+
+    [DllImport("user32.dll")]
+    private static extern bool DestroyIcon(IntPtr icon);
+
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct ShellFileInfo
     {
         public IntPtr Icon;
         public int Index;
         public uint Attributes;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string DisplayName;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)] public string TypeName;
+
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+        public string DisplayName;
+
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)]
+        public string TypeName;
     }
-
-    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
-    private static extern IntPtr SHGetFileInfo(string path, uint attributes, ref ShellFileInfo info, uint size, uint flags);
-
-    [DllImport("user32.dll")]
-    private static extern bool DestroyIcon(IntPtr icon);
 }

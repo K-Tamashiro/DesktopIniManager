@@ -1,10 +1,10 @@
-﻿using System;
+﻿using DesktopIniManager.Properties;
+using DesktopIniManager.Services;
+using DesktopIniManager.ViewModels;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
-using DesktopIniManager.Properties;
-using DesktopIniManager.Services;
-using DesktopIniManager.ViewModels;
 
 namespace DesktopIniManager.Views;
 

@@ -10,8 +10,11 @@ internal sealed class ExternalDiffLaunch
     internal string SourcePath { get; private set; }
     internal string TargetPath { get; private set; }
 
-    internal static bool IsRequested(string[] args) => args != null &&
-        args.Any(arg => string.Equals(arg, "-diff", StringComparison.OrdinalIgnoreCase));
+    internal static bool IsRequested(string[] args)
+    {
+        return args != null &&
+               args.Any(arg => string.Equals(arg, "-diff", StringComparison.OrdinalIgnoreCase));
+    }
 
     internal static ExternalDiffLaunch Parse(string[] args)
     {
@@ -26,8 +29,9 @@ internal sealed class ExternalDiffLaunch
             SourcePath = Path.GetFullPath(args[1]),
             TargetPath = Path.GetFullPath(args[2])
         };
-        foreach (string path in new[] { launch.SourcePath, launch.TargetPath })
-            if (Directory.Exists(path)) throw new ArgumentException("Comparison paths must be files.");
+        foreach (var path in new[] { launch.SourcePath, launch.TargetPath })
+            if (Directory.Exists(path))
+                throw new ArgumentException("Comparison paths must be files.");
         if (!File.Exists(launch.SourcePath) && !File.Exists(launch.TargetPath))
             throw new FileNotFoundException("Neither comparison file exists.");
         return launch;

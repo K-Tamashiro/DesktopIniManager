@@ -17,5 +17,7 @@ public abstract class ObservableObject : INotifyPropertyChanged
     }
 
     protected void OnPropertyChanged([CallerMemberName] string name = null)
-        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    }
 }

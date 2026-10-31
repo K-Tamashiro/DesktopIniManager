@@ -4,7 +4,6 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:history="clr-namespace:DesktopIniManager.Views"
     xmlns:loc="clr-namespace:DesktopIniManager.Properties"
-    xmlns:res="clr-namespace:DesktopIniManager.Properties"
     xmlns:views="clr-namespace:DesktopIniManager.Views"
     Title="{loc:L App_Title}"
     Width="1280"
@@ -74,7 +73,9 @@
                         Text="&#xE8A5;" />
                 </MenuItem.Icon>
             </MenuItem>
-            <MenuItem Command="{Binding PlacementTarget.Tag.FileListToEditorCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" Header="{loc:L Main_FileListToEditor}">
+            <MenuItem
+                Command="{Binding PlacementTarget.Tag.FileListToEditorCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+                Header="{loc:L Main_FileListToEditor}">
                 <MenuItem.Icon>
                     <TextBlock
                         HorizontalAlignment="Center"
@@ -203,14 +204,18 @@
                             BorderBrush="Transparent"
                             BorderThickness="2,0,0,0"
                             TextElement.Foreground="{TemplateBinding Foreground}">
-                            <GridViewRowPresenter Columns="{Binding View.Columns, RelativeSource={RelativeSource AncestorType={x:Type ListView}}}" Content="{TemplateBinding Content}" />
+                            <GridViewRowPresenter
+                                Columns="{Binding View.Columns, RelativeSource={RelativeSource AncestorType={x:Type ListView}}}"
+                                Content="{TemplateBinding Content}" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource AccentSoft}" />
+                                <Setter TargetName="RowBorder" Property="Background"
+                                        Value="{DynamicResource AccentSoft}" />
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource ThemeSelected}" />
+                                <Setter TargetName="RowBorder" Property="Background"
+                                        Value="{DynamicResource ThemeSelected}" />
                                 <Setter TargetName="RowBorder" Property="BorderBrush" Value="#FFD400" />
                                 <Setter TargetName="RowBorder" Property="BorderThickness" Value="2" />
                             </Trigger>
@@ -251,7 +256,8 @@
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 TextElement.Foreground="{TemplateBinding Foreground}">
-                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" />
+                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalAlignment="Center" />
                             </Border>
                             <Thumb
                                 x:Name="PART_HeaderGripper"
@@ -267,10 +273,12 @@
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource AccentSoft}" />
+                                <Setter TargetName="HeaderBorder" Property="Background"
+                                        Value="{DynamicResource AccentSoft}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource ThemeSelected}" />
+                                <Setter TargetName="HeaderBorder" Property="Background"
+                                        Value="{DynamicResource ThemeSelected}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -297,10 +305,12 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="TileBorder" Property="Background" Value="{DynamicResource HeaderBackground}" />
+                                <Setter TargetName="TileBorder" Property="Background"
+                                        Value="{DynamicResource HeaderBackground}" />
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="TileBorder" Property="Background" Value="{DynamicResource ThemeSelected}" />
+                                <Setter TargetName="TileBorder" Property="Background"
+                                        Value="{DynamicResource ThemeSelected}" />
                                 <Setter TargetName="TileBorder" Property="BorderBrush" Value="#FFD400" />
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -322,69 +332,6 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
-        <ItemsPanelTemplate x:Key="FileIconSmallPanel">
-            <views:VirtualizingUniformGrid Columns="3" IsItemsHost="True" />
-        </ItemsPanelTemplate>
-        <ItemsPanelTemplate x:Key="FileIconLargePanel">
-            <views:VirtualizingUniformGrid Columns="2" IsItemsHost="True" />
-        </ItemsPanelTemplate>
-        <DataTemplate x:Key="FileIconSmallTemplate">
-            <StackPanel Margin="2,4" HorizontalAlignment="Stretch">
-                <Border
-                    Width="40"
-                    Height="40"
-                    Padding="3"
-                    HorizontalAlignment="Center"
-                    Background="{DynamicResource HeaderBackground}"
-                    BorderBrush="{DynamicResource Line}"
-                    BorderThickness="1">
-                    <Image
-                        Width="32"
-                        Height="32"
-                        RenderOptions.BitmapScalingMode="HighQuality"
-                        RenderOptions.EdgeMode="Unspecified"
-                        Source="{Binding Icon}"
-                        Stretch="Uniform" />
-                </Border>
-                <TextBlock
-                    Margin="1,4,1,0"
-                    FontSize="11"
-                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
-                    Text="{Binding Name}"
-                    TextAlignment="Center"
-                    TextTrimming="CharacterEllipsis"
-                    TextWrapping="NoWrap"
-                    ToolTip="{Binding Path}" />
-            </StackPanel>
-        </DataTemplate>
-        <DataTemplate x:Key="FileIconLargeTemplate">
-            <StackPanel Margin="4,6" HorizontalAlignment="Stretch">
-                <Border
-                    Width="72"
-                    Height="72"
-                    Padding="6"
-                    HorizontalAlignment="Center"
-                    Background="{DynamicResource HeaderBackground}"
-                    BorderBrush="{DynamicResource Line}"
-                    BorderThickness="1">
-                    <Image
-                        Width="48"
-                        Height="48"
-                        RenderOptions.BitmapScalingMode="HighQuality"
-                        Source="{Binding Icon}"
-                        Stretch="Uniform" />
-                </Border>
-                <TextBlock
-                    Margin="2,6,2,0"
-                    FontSize="12"
-                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
-                    Text="{Binding Name}"
-                    TextAlignment="Center"
-                    TextTrimming="CharacterEllipsis"
-                    TextWrapping="NoWrap"
-                    ToolTip="{Binding Path}" />
-            </StackPanel>
-        </DataTemplate>
         <ControlTemplate x:Key="VerticalScrollBarTemplate" TargetType="{x:Type ScrollBar}">
             <Border
                 Margin="2,0"
@@ -569,13 +516,8 @@
                     Foreground="{DynamicResource Muted}"
                     Text="{loc:L Main_Subtitle}" />
             </StackPanel>
-            <Viewbox
-                MaxHeight="46"
-                Margin="360,0,150,0"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Top"
-                Stretch="Uniform"
-                StretchDirection="DownOnly">
+            <Viewbox Margin="360,0,150,0" HorizontalAlignment="Center" VerticalAlignment="Top"
+                     Stretch="Uniform" StretchDirection="DownOnly" MaxHeight="46">
                 <StackPanel Orientation="Horizontal">
                     <Button
                         x:Name="SlotButton1"
@@ -619,7 +561,6 @@
                     Height="32"
                     MinWidth="64"
                     Margin="0,0,12,0"
-                    VerticalContentAlignment="Center"
                     Style="{StaticResource LanguageComboStyle}">
                     <ComboBoxItem Content="Dark" />
                     <ComboBoxItem Content="Light" />
@@ -631,7 +572,6 @@
                 </ComboBox>
                 <Button
                     x:Name="CloseWindowButton"
-                    Background="Transparent"
                     Command="{Binding CloseCommand}"
                     Style="{StaticResource IconButton}"
                     ToolTip="{loc:L Common_Close}">
@@ -667,7 +607,6 @@
                             <Button
                                 x:Name="ChooseRootButton"
                                 Margin="8,0,0,0"
-                                Background="Transparent"
                                 Command="{Binding ChooseRootCommand}"
                                 DockPanel.Dock="Right"
                                 Style="{StaticResource IconButton}"
@@ -709,10 +648,7 @@
                         <DockPanel>
                             <Button
                                 x:Name="ClearQueryButton"
-                                Height="36"
-                                MinWidth="36"
                                 Margin="8,0,0,0"
-                                Background="Transparent"
                                 Command="{Binding ClearQueryCommand}"
                                 DockPanel.Dock="Right"
                                 Style="{StaticResource IconButton}"
@@ -731,7 +667,6 @@
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                                 <Button
                                     x:Name="PrevSearchMatchButton"
-                                    Background="Transparent"
                                     Command="{Binding PrevSearchMatchCommand}"
                                     Style="{StaticResource IconButton}"
                                     ToolTip="{loc:L Main_PrevMatch}">
@@ -743,7 +678,6 @@
                                 <Button
                                     x:Name="NextSearchMatchButton"
                                     Margin="8,0,0,0"
-                                    Background="Transparent"
                                     Command="{Binding NextSearchMatchCommand}"
                                     Style="{StaticResource IconButton}"
                                     ToolTip="{loc:L Main_NextMatch}">
@@ -756,7 +690,6 @@
                             <StackPanel Orientation="Horizontal">
                                 <Button
                                     x:Name="GitSearchButton"
-                                    Background="Transparent"
                                     Command="{Binding GitSearchCommand}"
                                     Style="{StaticResource IconButton}"
                                     ToolTip="{loc:L Main_GitSearch}">
@@ -768,7 +701,6 @@
                                 <Button
                                     x:Name="SearchButton"
                                     Margin="8,0,0,0"
-                                    Background="Transparent"
                                     Command="{Binding SearchCommand}"
                                     Style="{StaticResource IconButton}"
                                     ToolTip="{loc:L Common_Search}">
@@ -780,7 +712,6 @@
                                 <Button
                                     x:Name="CancelButton"
                                     Margin="8,0,0,0"
-                                    Background="Transparent"
                                     Command="{Binding CancelCommand}"
                                     Style="{StaticResource IconButton}"
                                     ToolTip="{loc:L Common_Cancel}">
@@ -805,7 +736,6 @@
                             <Button
                                 x:Name="ChooseIconLibraryButton"
                                 Margin="8,0,0,0"
-                                Background="Transparent"
                                 Command="{Binding ChooseIconLibraryCommand}"
                                 DockPanel.Dock="Right"
                                 Style="{StaticResource IconButton}"
@@ -826,7 +756,6 @@
                         <StackPanel Margin="0,10,0,0" Orientation="Horizontal">
                             <Button
                                 x:Name="ChooseIconButton"
-                                Background="Transparent"
                                 Command="{Binding ChooseIconCommand}"
                                 Style="{StaticResource IconButton}"
                                 ToolTip="{loc:L Main_ChooseIcon}">
@@ -908,7 +837,6 @@
                                     IsChecked="{Binding AllFoldersSelected, Mode=TwoWay}" />
                                 <Button
                                     x:Name="InvertSelectionButton"
-                                    Background="Transparent"
                                     Command="{Binding InvertSelectionCommand}"
                                     Style="{StaticResource IconButton}"
                                     ToolTip="{loc:L Main_InvertSelection}">
@@ -933,7 +861,6 @@
                                 x:Name="HideSelectedButton"
                                 Grid.Column="3"
                                 Margin="10,0,0,0"
-                                Background="Transparent"
                                 Command="{Binding HideSelectedCommand}"
                                 Style="{StaticResource IconButton}"
                                 ToolTip="{loc:L Main_HideUnchecked}">
@@ -946,7 +873,6 @@
                                 x:Name="UnhideButton"
                                 Grid.Column="4"
                                 Margin="5,0,0,0"
-                                Background="Transparent"
                                 Command="{Binding UnhideCommand}"
                                 Style="{StaticResource IconButton}"
                                 ToolTip="{loc:L Main_ShowHidden}">
@@ -1005,7 +931,6 @@
                                 x:Name="ClearFolderFilterButton"
                                 Grid.Column="2"
                                 Margin="8,0,0,0"
-                                Background="Transparent"
                                 Command="{Binding ClearFolderFilterCommand}"
                                 Style="{StaticResource IconButton}"
                                 ToolTip="{loc:L Common_Clear}">
@@ -1054,7 +979,8 @@
                                     <Style TargetType="TreeViewItem">
                                         <Setter Property="IsSelected" Value="{Binding IsCurrent, Mode=TwoWay}" />
                                         <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
-                                        <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                        <Setter Property="Tag"
+                                                Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}" />
                                         <Setter Property="ContextMenu" Value="{StaticResource FolderTreeContextMenu}" />
                                         <Setter Property="Visibility" Value="{Binding ItemVisibility}" />
                                         <Setter Property="Foreground" Value="{DynamicResource Ink}" />
@@ -1088,10 +1014,12 @@
                                                     </Grid>
                                                     <ControlTemplate.Triggers>
                                                         <Trigger Property="IsExpanded" Value="True">
-                                                            <Setter TargetName="RootExpander" Property="Content" Value="▼" />
+                                                            <Setter TargetName="RootExpander" Property="Content"
+                                                                    Value="▼" />
                                                         </Trigger>
                                                         <Trigger Property="HasItems" Value="False">
-                                                            <Setter TargetName="RootExpander" Property="Visibility" Value="Hidden" />
+                                                            <Setter TargetName="RootExpander" Property="Visibility"
+                                                                    Value="Hidden" />
                                                         </Trigger>
                                                     </ControlTemplate.Triggers>
                                                 </ControlTemplate>
@@ -1128,7 +1056,8 @@
                                             <DataTrigger Binding="{Binding FrozenRoot}" Value="{x:Null}">
                                                 <Setter Property="Margin" Value="0" />
                                             </DataTrigger>
-                                            <DataTrigger Binding="{Binding FrozenRoot.ItemVisibility}" Value="Collapsed">
+                                            <DataTrigger Binding="{Binding FrozenRoot.ItemVisibility}"
+                                                         Value="Collapsed">
                                                 <Setter Property="Visibility" Value="Collapsed" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding FrozenRoot.IsExpanded}" Value="False">
@@ -1169,7 +1098,9 @@
                                                         <Setter Property="Height" Value="48" />
                                                         <Setter Property="Margin" Value="5,3" />
                                                         <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                            <DataTrigger
+                                                                Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                Value="True">
                                                                 <Setter Property="Width" Value="22" />
                                                                 <Setter Property="Height" Value="22" />
                                                                 <Setter Property="Margin" Value="3,1" />
@@ -1183,7 +1114,9 @@
                                                     <Style TargetType="StackPanel">
                                                         <Setter Property="Margin" Value="0,5,5,5" />
                                                         <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                            <DataTrigger
+                                                                Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                Value="True">
                                                                 <Setter Property="Margin" Value="0,1,4,1" />
                                                             </DataTrigger>
                                                         </Style.Triggers>
@@ -1197,7 +1130,9 @@
                                                         <Style TargetType="TextBlock">
                                                             <Setter Property="FontSize" Value="15" />
                                                             <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                                <DataTrigger
+                                                                    Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    Value="True">
                                                                     <Setter Property="FontSize" Value="12" />
                                                                 </DataTrigger>
                                                             </Style.Triggers>
@@ -1212,7 +1147,9 @@
                                                         <Style TargetType="TextBlock">
                                                             <Setter Property="FontSize" Value="12" />
                                                             <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                                <DataTrigger
+                                                                    Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    Value="True">
                                                                     <Setter Property="FontSize" Value="10.5" />
                                                                 </DataTrigger>
                                                             </Style.Triggers>
@@ -1228,7 +1165,9 @@
                                                         <Style TargetType="TextBlock">
                                                             <Setter Property="FontSize" Value="11" />
                                                             <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                                <DataTrigger
+                                                                    Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    Value="True">
                                                                     <Setter Property="FontSize" Value="10" />
                                                                 </DataTrigger>
                                                             </Style.Triggers>
@@ -1243,7 +1182,8 @@
                                     <Style TargetType="TreeViewItem">
                                         <Setter Property="IsSelected" Value="{Binding IsCurrent, Mode=TwoWay}" />
                                         <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
-                                        <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                        <Setter Property="Tag"
+                                                Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}" />
                                         <Setter Property="ContextMenu" Value="{StaticResource FolderTreeContextMenu}" />
                                         <Setter Property="Visibility" Value="{Binding ItemVisibility}" />
                                         <Setter Property="Foreground" Value="{DynamicResource Ink}" />
@@ -1291,7 +1231,8 @@
                                                             Grid.Column="1"
                                                             HorizontalAlignment="Stretch"
                                                             Background="{TemplateBinding Background}">
-                                                            <ContentPresenter HorizontalAlignment="Stretch" ContentSource="Header" />
+                                                            <ContentPresenter HorizontalAlignment="Stretch"
+                                                                              ContentSource="Header" />
                                                         </Border>
                                                         <ItemsPresenter
                                                             x:Name="ItemsHost"
@@ -1300,13 +1241,15 @@
                                                     </Grid>
                                                     <ControlTemplate.Triggers>
                                                         <Trigger Property="HasItems" Value="False">
-                                                            <Setter TargetName="Expander" Property="Visibility" Value="Hidden" />
+                                                            <Setter TargetName="Expander" Property="Visibility"
+                                                                    Value="Hidden" />
                                                         </Trigger>
                                                         <Trigger Property="IsExpanded" Value="True">
                                                             <Setter TargetName="Expander" Property="Content" Value="▼" />
                                                         </Trigger>
                                                         <Trigger Property="IsExpanded" Value="False">
-                                                            <Setter TargetName="ItemsHost" Property="Visibility" Value="Collapsed" />
+                                                            <Setter TargetName="ItemsHost" Property="Visibility"
+                                                                    Value="Collapsed" />
                                                         </Trigger>
                                                     </ControlTemplate.Triggers>
                                                 </ControlTemplate>
@@ -1423,70 +1366,6 @@
                                     VirtualizingPanel.IsVirtualizing="True"
                                     VirtualizingPanel.VirtualizationMode="Recycling">
                                     <ListView.Resources>
-                                        <Style x:Key="{x:Static GridView.GridViewScrollViewerStyleKey}" TargetType="{x:Type ScrollViewer}">
-                                            <Setter Property="Focusable" Value="False" />
-                                            <Setter Property="Template">
-                                                <Setter.Value>
-                                                    <ControlTemplate TargetType="{x:Type ScrollViewer}">
-                                                        <Grid Background="{TemplateBinding Background}">
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*" />
-                                                                <ColumnDefinition Width="Auto" />
-                                                            </Grid.ColumnDefinitions>
-                                                            <Grid.RowDefinitions>
-                                                                <RowDefinition Height="*" />
-                                                                <RowDefinition Height="Auto" />
-                                                            </Grid.RowDefinitions>
-                                                            <DockPanel Grid.Row="0" Grid.Column="0">
-                                                                <ScrollViewer
-                                                                    DockPanel.Dock="Top"
-                                                                    Focusable="False"
-                                                                    HorizontalScrollBarVisibility="Hidden"
-                                                                    VerticalScrollBarVisibility="Hidden">
-                                                                    <GridViewHeaderRowPresenter
-                                                                        AllowsColumnReorder="{Binding TemplatedParent.View.AllowsColumnReorder, RelativeSource={RelativeSource TemplatedParent}}"
-                                                                        ColumnHeaderContainerStyle="{Binding TemplatedParent.View.ColumnHeaderContainerStyle, RelativeSource={RelativeSource TemplatedParent}}"
-                                                                        ColumnHeaderContextMenu="{Binding TemplatedParent.View.ColumnHeaderContextMenu, RelativeSource={RelativeSource TemplatedParent}}"
-                                                                        ColumnHeaderStringFormat="{Binding TemplatedParent.View.ColumnHeaderStringFormat, RelativeSource={RelativeSource TemplatedParent}}"
-                                                                        ColumnHeaderTemplate="{Binding TemplatedParent.View.ColumnHeaderTemplate, RelativeSource={RelativeSource TemplatedParent}}"
-                                                                        ColumnHeaderTemplateSelector="{Binding TemplatedParent.View.ColumnHeaderTemplateSelector, RelativeSource={RelativeSource TemplatedParent}}"
-                                                                        ColumnHeaderToolTip="{Binding TemplatedParent.View.ColumnHeaderToolTip, RelativeSource={RelativeSource TemplatedParent}}"
-                                                                        Columns="{Binding TemplatedParent.View.Columns, RelativeSource={RelativeSource TemplatedParent}}" />
-                                                                </ScrollViewer>
-                                                                <ScrollContentPresenter
-                                                                    x:Name="PART_ScrollContentPresenter"
-                                                                    CanContentScroll="{TemplateBinding CanContentScroll}"
-                                                                    Content="{TemplateBinding Content}"
-                                                                    ContentTemplate="{TemplateBinding ContentTemplate}"
-                                                                    KeyboardNavigation.DirectionalNavigation="Local" />
-                                                            </DockPanel>
-                                                            <ScrollBar
-                                                                x:Name="PART_VerticalScrollBar"
-                                                                Grid.Row="0"
-                                                                Grid.Column="1"
-                                                                Maximum="{TemplateBinding ScrollableHeight}"
-                                                                Orientation="Vertical"
-                                                                ViewportSize="{TemplateBinding ViewportHeight}"
-                                                                Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"
-                                                                Value="{Binding VerticalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" />
-                                                            <ScrollBar
-                                                                x:Name="PART_HorizontalScrollBar"
-                                                                Grid.Row="1"
-                                                                Grid.Column="0"
-                                                                Maximum="{TemplateBinding ScrollableWidth}"
-                                                                Orientation="Horizontal"
-                                                                ViewportSize="{TemplateBinding ViewportWidth}"
-                                                                Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}"
-                                                                Value="{Binding HorizontalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" />
-                                                            <Border
-                                                                Grid.Row="1"
-                                                                Grid.Column="1"
-                                                                Background="{DynamicResource CardBackground}" />
-                                                        </Grid>
-                                                    </ControlTemplate>
-                                                </Setter.Value>
-                                            </Setter>
-                                        </Style>
                                     </ListView.Resources>
                                     <ListView.View>
                                         <GridView>
@@ -1719,7 +1598,6 @@
                 Orientation="Horizontal">
                 <Button
                     x:Name="ResetButton"
-                    Background="Transparent"
                     Command="{Binding ResetCommand}"
                     Style="{StaticResource IconButton}"
                     ToolTip="Clear settings, history, and folder lists">
@@ -1766,7 +1644,6 @@
                     </ComboBox>
                     <Button
                         AutomationProperties.Name="{loc:L Main_Differencer}"
-                        Background="Transparent"
                         Command="{Binding DeveloperDifferencerCommand}"
                         Style="{StaticResource IconButton}"
                         ToolTip="{loc:L Main_DifferencerTooltip}">
@@ -1778,7 +1655,6 @@
                     <Button
                         x:Name="GrepButton"
                         Margin="8,0,0,0"
-                        Background="Transparent"
                         Command="{Binding GrepCommand}"
                         Style="{StaticResource IconButton}"
                         ToolTip="{loc:L Main_GrepTooltip}">
@@ -1790,7 +1666,6 @@
                     <Button
                         x:Name="RemoveButton"
                         Margin="8,0,0,0"
-                        Background="Transparent"
                         Command="{Binding RemoveCommand}"
                         Style="{StaticResource IconButton}"
                         ToolTip="{loc:L Main_RemoveSettings}">
@@ -1802,7 +1677,6 @@
                     <Button
                         x:Name="ApplyButton"
                         Margin="8,0,0,0"
-                        Background="Transparent"
                         Command="{Binding ApplyCommand}"
                         Style="{StaticResource IconButton}"
                         ToolTip="{loc:L Main_ApplyTooltip}">
@@ -1819,10 +1693,7 @@
                     VerticalAlignment="Center">
                     <Button
                         x:Name="BrowseScriptButton"
-                        Width="36"
-                        Height="36"
                         Margin="8,0,0,0"
-                        Background="Transparent"
                         DockPanel.Dock="Right"
                         Style="{StaticResource IconButton}"
                         ToolTip="Browse — pick script">
@@ -1833,10 +1704,7 @@
                     </Button>
                     <Button
                         x:Name="RunScriptButton"
-                        Width="36"
-                        Height="36"
                         Margin="8,0,0,0"
-                        Background="Transparent"
                         DockPanel.Dock="Right"
                         Style="{StaticResource IconButton}"
                         ToolTip="Run — execute command">

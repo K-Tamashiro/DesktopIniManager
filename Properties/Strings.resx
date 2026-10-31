@@ -724,7 +724,7 @@
     <value>All folders</value>
   </data>
   <data name="Differencer_FilesAllLevels" xml:space="preserve">
-    <value>Files &#x2014; all levels</value>
+    <value>Files — all levels</value>
   </data>
   <data name="Differencer_SyncTitle" xml:space="preserve">
     <value>Synchronize files</value>
@@ -766,13 +766,13 @@
     <value>An existing ZIP with the same name will be overwritten.</value>
   </data>
   <data name="Differencer_ZipSourceToZip" xml:space="preserve">
-    <value>Source &#x2192; ZIP</value>
+    <value>Source → ZIP</value>
   </data>
   <data name="Differencer_ZipTargetToZip" xml:space="preserve">
-    <value>ZIP &#x2190; Target</value>
+    <value>ZIP ← Target</value>
   </data>
   <data name="Differencer_Zipping" xml:space="preserve">
-    <value>Packing ZIP &#x2014; {0}</value>
+    <value>Packing ZIP — {0}</value>
   </data>
   <data name="Differencer_ZipFolders" xml:space="preserve">
     <value>folders</value>
@@ -808,7 +808,7 @@
     <value>files</value>
   </data>
   <data name="Differencer_Synchronizing" xml:space="preserve">
-    <value>Synchronizing &#x2014; {0}</value>
+    <value>Synchronizing — {0}</value>
   </data>
   <data name="Differencer_SourceLabel" xml:space="preserve">
     <value>Source: {0}</value>
@@ -817,7 +817,7 @@
     <value>Target: {0}</value>
   </data>
   <data name="Differencer_Syncing" xml:space="preserve">
-    <value>{0} &#x2014; syncing&#x2026;</value>
+    <value>{0} — syncing…</value>
   </data>
   <data name="Differencer_FailPrefix" xml:space="preserve">
     <value>FAIL {0}</value>
@@ -832,7 +832,7 @@
     <value>Complete  OK {0} / FAIL {1} / LOCKED {2}</value>
   </data>
   <data name="Differencer_SyncResultTitle" xml:space="preserve">
-    <value>Sync result &#x2014; OK {0} / FAIL {1} / LOCKED {2}</value>
+    <value>Sync result — OK {0} / FAIL {1} / LOCKED {2}</value>
   </data>
   <data name="Differencer_DiffView" xml:space="preserve">
     <value>Diff View</value>
@@ -850,16 +850,16 @@
     <value>{0} differences / {1} identical. Check items to synchronize.</value>
   </data>
   <data name="Differencer_ProgressItems" xml:space="preserve">
-    <value>{0} &#x2014; {1} / {2} items</value>
+    <value>{0} — {1} / {2} items</value>
   </data>
   <data name="Differencer_UpdatingTree" xml:space="preserve">
-    <value>Updating the difference tree&#x2026;</value>
+    <value>Updating the difference tree…</value>
   </data>
   <data name="Differencer_ReadingMeta" xml:space="preserve">
-    <value>Reading timestamps and sizes&#x2026;</value>
+    <value>Reading timestamps and sizes…</value>
   </data>
   <data name="Differencer_Classifying" xml:space="preserve">
-    <value>Classifying differences by relative path&#x2026;</value>
+    <value>Classifying differences by relative path…</value>
   </data>
   <data name="Differencer_ScanComplete" xml:space="preserve">
     <value>File-system scan complete.</value>
@@ -1019,7 +1019,7 @@
     <value>Binary and cache files are not supported in Diff View. Only text files and supported images can be displayed.</value>
   </data>
   <data name="Diff_TitleFile" xml:space="preserve">
-    <value>Diff view — {0} — read only</value>
+    <value>Diff View — {0}</value>
   </data>
   <data name="Diff_Heading" xml:space="preserve">
     <value>Diff view</value>
@@ -1088,7 +1088,7 @@
     <value>Visible range — drag to scroll</value>
   </data>
   <data name="Differencer_FindingSolutions" xml:space="preserve">
-    <value>Finding solutions&#x2026;</value>
+    <value>Finding solutions…</value>
   </data>
   <data name="Differencer_NoSolutions" xml:space="preserve">
     <value>No solutions found under Source or Target.</value>
@@ -1149,7 +1149,7 @@ Solutions containing this running DIM are disabled. To clean them, start DIM fro
     <value>Target folder</value>
   </data>
   <data name="Differencer_CancellingCompare" xml:space="preserve">
-    <value>Cancelling comparison&#x2026;</value>
+    <value>Cancelling comparison…</value>
   </data>
   <data name="Clean_VswhereMissing" xml:space="preserve">
     <value>Visual Studio Installer / vswhere.exe was not found. Install Visual Studio or Build Tools with MSBuild.</value>
@@ -1192,7 +1192,7 @@ No: do not compare. Use × to reduce the tabs to 19 or fewer, then try again.</v
     <value>Comparison history</value>
   </data>
   <data name="History_DeleteConfirm" xml:space="preserve">
-    <value>Delete tab &quot;{0}&quot;?</value>
+    <value>Delete tab "{0}"?</value>
   </data>
   <data name="History_DeleteTab" xml:space="preserve">
     <value>Delete this tab</value>
@@ -1207,16 +1207,16 @@ No: do not compare. Use × to reduce the tabs to 19 or fewer, then try again.</v
     <value>Delete all tabs?</value>
   </data>
   <data name="History_DeleteOthersConfirm" xml:space="preserve">
-    <value>Delete all tabs except &quot;{0}&quot;?</value>
+    <value>Delete all tabs except "{0}"?</value>
   </data>
   <data name="History_GrepAppend" xml:space="preserve">
-    <value>Append to the selected tab &quot;{0}&quot;?
+    <value>Append to the selected tab "{0}"?
 Yes: append
 No: search in a new tab
 Cancel: do not search</value>
   </data>
   <data name="History_GrepAppendAtLimit" xml:space="preserve">
-    <value>All 20 tabs are in use. Use the selected tab &quot;{0}&quot;?
+    <value>All 20 tabs are in use. Use the selected tab "{0}"?
 Yes: append
 No: clear this tab and search
 Cancel: select a different tab without searching</value>
@@ -1302,8 +1302,67 @@ Cancel: select a different tab without searching</value>
   <data name="Diff_DropCount" xml:space="preserve">
     <value>Drop one file onto a side, or two files for Source and Target.</value>
   </data>
-  <data name="Diff_SourceVolume" xml:space="preserve"><value>Source volume</value></data>
-  <data name="Diff_TargetVolume" xml:space="preserve"><value>Target volume</value></data>
-  <data name="Diff_MuteVolume" xml:space="preserve"><value>Mute (0%)</value></data>
-  <data name="Diff_MaximumVolume" xml:space="preserve"><value>Maximum (100%)</value></data>
+  <data name="Diff_SourceVolume" xml:space="preserve">
+    <value>Source volume</value>
+  </data>
+  <data name="Diff_TargetVolume" xml:space="preserve">
+    <value>Target volume</value>
+  </data>
+  <data name="Diff_MuteVolume" xml:space="preserve">
+    <value>Mute (0%)</value>
+  </data>
+  <data name="Diff_MaximumVolume" xml:space="preserve">
+    <value>Maximum (100%)</value>
+  </data>
+  <data name="Diff_SaveSource" xml:space="preserve">
+    <value>Save Source (Ctrl+S when Source is active)</value>
+  </data>
+  <data name="Diff_SaveTarget" xml:space="preserve">
+    <value>Save Target (Ctrl+S when Target is active)</value>
+  </data>
+  <data name="Diff_CopyToTarget" xml:space="preserve">
+    <value>Copy hunk(s) to Target</value>
+  </data>
+  <data name="Diff_CopyToSource" xml:space="preserve">
+    <value>Copy hunk(s) to Source</value>
+  </data>
+  <data name="Diff_UndoHunk" xml:space="preserve">
+    <value>Undo this hunk</value>
+  </data>
+  <data name="Diff_SaveError" xml:space="preserve">
+    <value>Unable to save</value>
+  </data>
+  <data name="Diff_EncodingError" xml:space="preserve">
+    <value>{0}: A character at line {2}, column {3} cannot be saved as {1}. No file was written. Jumping to that character.</value>
+  </data>
+  <data name="Diff_SaveNoPath" xml:space="preserve">
+    <value>This pane has no file path.</value>
+  </data>
+  <data name="Diff_SaveExternalChange" xml:space="preserve">
+    <value>The file has changed outside Diff View. Save was cancelled to avoid overwriting it.</value>
+  </data>
+  <data name="Diff_SaveReadOnly" xml:space="preserve">
+    <value>The file is read-only. Its attributes have not been changed.</value>
+  </data>
+  <data name="Diff_UnsavedTitle" xml:space="preserve">
+    <value>Unsaved changes</value>
+  </data>
+  <data name="Diff_UnsavedPrompt" xml:space="preserve">
+    <value>Save changes before continuing?</value>
+  </data>
+  <data name="Diff_Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="Diff_Discard" xml:space="preserve">
+    <value>Discard</value>
+  </data>
+  <data name="Diff_Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Diff_Identical" xml:space="preserve">
+    <value>Identical content</value>
+  </data>
+  <data name="InvalidAudioFormat" xml:space="preserve">
+    <value>Invalid audio format.</value>
+  </data>
 </root>

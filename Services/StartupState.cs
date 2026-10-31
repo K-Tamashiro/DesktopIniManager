@@ -1,19 +1,19 @@
 ﻿using DesktopIniManager.Models;
+using DesktopIniManager.Properties;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using DesktopIniManager.Properties;
 
 namespace DesktopIniManager.Services;
 
 internal sealed class StartupState
 {
-    internal bool TreeCompact;
-    internal string Theme, Root, Query, IconLibrary, TreeError;
-    internal FolderTreeState Tree;
     internal List<FolderMatch> Physical, Solution;
     internal IconGroupResource SelectedIcon;
+    internal string Theme, Root, Query, IconLibrary, TreeError;
+    internal FolderTreeState Tree;
+    internal bool TreeCompact;
 
     internal static StartupState Load(Action<string, int> report)
     {
@@ -39,14 +39,25 @@ internal sealed class StartupState
                 state.Solution = FolderTreeStateService.Restore(state.Tree.Solution, icons: icons);
             }
         }
-        catch (Exception ex) { state.Tree = null; state.TreeError = ex.Message; }
+        catch (Exception ex)
+        {
+            state.Tree = null;
+            state.TreeError = ex.Message;
+        }
+
         report(Strings.Splash_PreparingIcons, 2);
         FolderIconService.GetDefaultFolderIcon();
         try
         {
-            if (File.Exists(state.IconLibrary)) state.SelectedIcon = IconResourceReader.Read(state.IconLibrary).FirstOrDefault(icon => icon.ShellIndex == 0);
+            if (File.Exists(state.IconLibrary))
+                state.SelectedIcon = IconResourceReader.Read(state.IconLibrary)
+                    .FirstOrDefault(icon => icon.ShellIndex == 0);
         }
-        catch { /* A missing/custom icon library must not prevent startup. */ }
+        catch
+        {
+            /* A missing/custom icon library must not prevent startup. */
+        }
+
         return state;
     }
 }

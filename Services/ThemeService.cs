@@ -8,18 +8,21 @@ internal static class ThemeService
 {
     private static readonly string[] ThemePaths =
     {
-            "Themes/DarkTheme.xaml", "Themes/LightTheme.xaml",
-            "Themes/DIM1_BlueTheme.xaml", "Themes/DIM2_AmberTheme.xaml",
-            "Themes/DIM3_VioletTheme.xaml", "Themes/DIM4_RedTheme.xaml",
-            "Themes/DIM5_GreenTheme.xaml"
-        };
+        "Themes/DarkTheme.xaml", "Themes/LightTheme.xaml",
+        "Themes/DIM1_BlueTheme.xaml", "Themes/DIM2_AmberTheme.xaml",
+        "Themes/DIM3_VioletTheme.xaml", "Themes/DIM4_RedTheme.xaml",
+        "Themes/DIM5_GreenTheme.xaml"
+    };
 
-    public static void Apply(bool dark) => Apply(dark ? "Dark" : "Light");
+    public static void Apply(bool dark)
+    {
+        Apply(dark ? "Dark" : "Light");
+    }
 
     public static void Apply(string theme)
     {
-        string name = Normalize(theme);
-        int index = name == "Light" ? 1 : name == "Dark" ? 0 : name[3] - '0' + 1;
+        var name = Normalize(theme);
+        var index = name == "Light" ? 1 : name == "Dark" ? 0 : name[3] - '0' + 1;
         var replacement = new ResourceDictionary
         {
             Source = new Uri(ThemePaths[index], UriKind.Relative)
@@ -33,7 +36,9 @@ internal static class ThemeService
 
         var dictionaries = Application.Current.Resources.MergedDictionaries;
         var current = dictionaries.FirstOrDefault(item => item.Source != null &&
-            ThemePaths.Any(path => item.Source.OriginalString.EndsWith(path, StringComparison.OrdinalIgnoreCase)));
+                                                          ThemePaths.Any(path =>
+                                                              item.Source.OriginalString.EndsWith(path,
+                                                                  StringComparison.OrdinalIgnoreCase)));
         if (current == null) dictionaries.Insert(0, replacement);
         else dictionaries[dictionaries.IndexOf(current)] = replacement;
     }

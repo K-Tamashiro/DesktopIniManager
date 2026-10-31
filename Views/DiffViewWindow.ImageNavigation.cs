@@ -2,6 +2,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -13,8 +14,8 @@ internal sealed partial class DiffViewWindow
     private const double NavigatorWidth = 100, NavigatorHeight = 60;
     private Canvas imageNavigator;
     private Thumb imageViewport;
-    private double navigationScale, navigationLeft, navigationTop, imageWidth, imageHeight;
     private Point navigationDrag;
+    private double navigationScale, navigationLeft, navigationTop, imageWidth, imageHeight;
     private TextBlock sourcePixelDetails, targetPixelDetails;
     private BitmapSource sourcePixels, targetPixels;
 
@@ -32,7 +33,8 @@ internal sealed partial class DiffViewWindow
 
     private void BuildImageNavigation(double width, double height)
     {
-        imageWidth = width; imageHeight = height;
+        imageWidth = width;
+        imageHeight = height;
         navigationScale = Math.Min(NavigatorWidth / Math.Max(1, width), NavigatorHeight / Math.Max(1, height));
         navigationLeft = (NavigatorWidth - width * navigationScale) / 2;
         navigationTop = (NavigatorHeight - height * navigationScale) / 2;
@@ -46,8 +48,9 @@ internal sealed partial class DiffViewWindow
             TextAlignment = TextAlignment.Right,
             Margin = new Thickness(0, 0, 8, 0)
         };
-        sizes.SetBinding(TextBlock.FontSizeProperty, new System.Windows.Data.Binding(nameof(TextBlock.FontSize)) { Source = targetHeader });
-        sizes.SetBinding(TextBlock.FontFamilyProperty, new System.Windows.Data.Binding(nameof(TextBlock.FontFamily)) { Source = targetHeader });
+        sizes.SetBinding(TextBlock.FontSizeProperty, new Binding(nameof(TextBlock.FontSize)) { Source = targetHeader });
+        sizes.SetBinding(TextBlock.FontFamilyProperty,
+            new Binding(nameof(TextBlock.FontFamily)) { Source = targetHeader });
         sizes.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
         imageDetails.Children.Add(sizes);
         imageNavigator = new Canvas
@@ -72,10 +75,11 @@ internal sealed partial class DiffViewWindow
         border.SetValue(Border.BorderBrushProperty, Brushes.Cyan);
         border.SetValue(Border.BackgroundProperty, new SolidColorBrush(Color.FromArgb(25, 0, 255, 255)));
         imageViewport.Template = new ControlTemplate(typeof(Thumb)) { VisualTree = border };
-        imageViewport.DragStarted += (_, _) => navigationDrag = new Point(leftScroll.HorizontalOffset, leftScroll.VerticalOffset);
+        imageViewport.DragStarted += (_, _) =>
+            navigationDrag = new Point(leftScroll.HorizontalOffset, leftScroll.VerticalOffset);
         imageViewport.DragDelta += (_, e) =>
         {
-            double scale = (imageZoom?.Value ?? 1) / navigationScale;
+            var scale = (imageZoom?.Value ?? 1) / navigationScale;
             navigationDrag.X += e.HorizontalChange * scale;
             navigationDrag.Y += e.VerticalChange * scale;
             navigationDrag = ScrollImagesTo(navigationDrag.X, navigationDrag.Y);
@@ -91,7 +95,7 @@ internal sealed partial class DiffViewWindow
         {
             if (e.OriginalSource is DependencyObject d && FindAncestor<Thumb>(d) != null) return;
             var point = e.GetPosition(imageNavigator);
-            double zoom = imageZoom?.Value ?? 1;
+            var zoom = imageZoom?.Value ?? 1;
             ScrollImagesTo((point.X - navigationLeft) / navigationScale * zoom - leftScroll.ViewportWidth / 2,
                 (point.Y - navigationTop) / navigationScale * zoom - leftScroll.ViewportHeight / 2);
             e.Handled = true;
@@ -104,7 +108,14 @@ internal sealed partial class DiffViewWindow
 
     private TextBlock AddPixelCard(string name, string color)
     {
-        var text = new TextBlock { FontSize = 11, Width = 108, Height = 42, LineHeight = 14, LineStackingStrategy = LineStackingStrategy.BlockLineHeight };
+        var text = new TextBlock
+        {
+            FontSize = 11,
+            Width = 108,
+            Height = 42,
+            LineHeight = 14,
+            LineStackingStrategy = LineStackingStrategy.BlockLineHeight
+        };
         text.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
         var card = new Border
         {
@@ -122,7 +133,10 @@ internal sealed partial class DiffViewWindow
         return text;
     }
 
-    private static string Dimensions(BitmapSource image) => image == null ? "\u2014" : $"{image.PixelWidth} \u00D7 {image.PixelHeight} px";
+    private static string Dimensions(BitmapSource image)
+    {
+        return image == null ? "\u2014" : $"{image.PixelWidth} \u00D7 {image.PixelHeight} px";
+    }
 
     private void SetImagePointDetails(Point point, bool rememberOrigin)
     {
@@ -132,10 +146,12 @@ internal sealed partial class DiffViewWindow
         sourcePixelDetails.Text = DescribePixel(sourcePixels, point);
         targetPixelDetails.Text = DescribePixel(targetPixels, point);
     }
+
     internal static string DescribePixel(BitmapSource pixels, Point point)
     {
         int x = (int)Math.Floor(point.X), y = (int)Math.Floor(point.Y);
-        if (pixels == null || x < 0 || y < 0 || x >= pixels.PixelWidth || y >= pixels.PixelHeight) return "X:\u2014 Y:\u2014\nRGB:\u2014\nA:\u2014";
+        if (pixels == null || x < 0 || y < 0 || x >= pixels.PixelWidth || y >= pixels.PixelHeight)
+            return "X:\u2014 Y:\u2014\nRGB:\u2014\nA:\u2014";
         var pixel = new byte[4];
         PixelImage(pixels).CopyPixels(new Int32Rect(x, y, 1, 1), pixel, 4, 0);
         return $"X:{x} Y:{y}\nRGB:{pixel[2]},{pixel[1]},{pixel[0]}\nA:{pixel[3]}";
@@ -153,8 +169,8 @@ internal sealed partial class DiffViewWindow
             ? image
             : new FormatConvertedBitmap(image, PixelFormats.Bgra32, null, 0);
 
-        int stride = checked(source.PixelWidth * 4);
-        byte[] pixels = new byte[checked(stride * source.PixelHeight)];
+        var stride = checked(source.PixelWidth * 4);
+        var pixels = new byte[checked(stride * source.PixelHeight)];
 
         source.CopyPixels(pixels, stride, 0);
 
@@ -175,21 +191,25 @@ internal sealed partial class DiffViewWindow
     internal Point ScrollImagesTo(double x, double y)
     {
         if (leftScroll == null || rightScroll == null) return new Point();
-        double maxX = Math.Min(leftScroll.ScrollableWidth, rightScroll.ScrollableWidth);
-        double maxY = Math.Min(leftScroll.ScrollableHeight, rightScroll.ScrollableHeight);
-        x = Math.Clamp(x, 0, Math.Max(0, maxX)); y = Math.Clamp(y, 0, Math.Max(0, maxY));
-        leftScroll.ScrollToHorizontalOffset(x); rightScroll.ScrollToHorizontalOffset(x);
-        leftScroll.ScrollToVerticalOffset(y); rightScroll.ScrollToVerticalOffset(y);
+        var maxX = Math.Min(leftScroll.ScrollableWidth, rightScroll.ScrollableWidth);
+        var maxY = Math.Min(leftScroll.ScrollableHeight, rightScroll.ScrollableHeight);
+        x = Math.Clamp(x, 0, Math.Max(0, maxX));
+        y = Math.Clamp(y, 0, Math.Max(0, maxY));
+        leftScroll.ScrollToHorizontalOffset(x);
+        rightScroll.ScrollToHorizontalOffset(x);
+        leftScroll.ScrollToVerticalOffset(y);
+        rightScroll.ScrollToVerticalOffset(y);
         return new Point(x, y);
     }
 
     private void UpdateImageNavigation()
     {
         if (imageViewport == null || leftScroll == null || imageZoom == null) return;
-        double zoom = imageZoom.Value;
-        double width = Math.Min(imageWidth, leftScroll.ViewportWidth / zoom) * navigationScale;
-        double height = Math.Min(imageHeight, leftScroll.ViewportHeight / zoom) * navigationScale;
-        imageViewport.Width = Math.Max(0, width); imageViewport.Height = Math.Max(0, height);
+        var zoom = imageZoom.Value;
+        var width = Math.Min(imageWidth, leftScroll.ViewportWidth / zoom) * navigationScale;
+        var height = Math.Min(imageHeight, leftScroll.ViewportHeight / zoom) * navigationScale;
+        imageViewport.Width = Math.Max(0, width);
+        imageViewport.Height = Math.Max(0, height);
         Canvas.SetLeft(imageViewport, navigationLeft + leftScroll.HorizontalOffset / zoom * navigationScale);
         Canvas.SetTop(imageViewport, navigationTop + leftScroll.VerticalOffset / zoom * navigationScale);
     }
@@ -198,13 +218,13 @@ internal sealed partial class DiffViewWindow
     {
         var front = PixelImage(foreground);
         var back = PixelImage(background);
-        int width = Math.Max(front.PixelWidth, back.PixelWidth);
-        int height = Math.Max(front.PixelHeight, back.PixelHeight);
-        int stride = checked(width * 4);
+        var width = Math.Max(front.PixelWidth, back.PixelWidth);
+        var height = Math.Max(front.PixelHeight, back.PixelHeight);
+        var stride = checked(width * 4);
         var result = new byte[checked(stride * height)];
         var frontRow = new byte[stride];
         var backRow = new byte[stride];
-        for (int y = 0; y < height; y++)
+        for (var y = 0; y < height; y++)
         {
             Array.Clear(frontRow, 0, stride);
             Array.Clear(backRow, 0, stride);
@@ -212,16 +232,17 @@ internal sealed partial class DiffViewWindow
                 front.CopyPixels(new Int32Rect(0, y, front.PixelWidth, 1), frontRow, stride, 0);
             if (y < back.PixelHeight)
                 back.CopyPixels(new Int32Rect(0, y, back.PixelWidth, 1), backRow, stride, 0);
-            for (int x = 0; x < width; x++)
+            for (var x = 0; x < width; x++)
             {
                 int p = x * 4, output = y * stride + p;
                 // Include alpha-only differences, but keep the result opaque so equal pixels are black.
-                int alpha = frontRow[p + 3] ^ backRow[p + 3];
-                for (int c = 0; c < 3; c++)
+                var alpha = frontRow[p + 3] ^ backRow[p + 3];
+                for (var c = 0; c < 3; c++)
                     result[output + c] = (byte)((frontRow[p + c] ^ backRow[p + c]) | alpha);
                 result[output + 3] = 255;
             }
         }
+
         var bitmap = BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgra32, null, result, stride);
         bitmap.Freeze();
         return bitmap;
@@ -232,35 +253,46 @@ internal sealed partial class DiffViewWindow
         int width = (int)NavigatorWidth, height = (int)NavigatorHeight;
         double fullWidth = Math.Max(source?.PixelWidth ?? 0, target?.PixelWidth ?? 0);
         double fullHeight = Math.Max(source?.PixelHeight ?? 0, target?.PixelHeight ?? 0);
-        double scale = Math.Min(width / Math.Max(1, fullWidth), height / Math.Max(1, fullHeight));
+        var scale = Math.Min(width / Math.Max(1, fullWidth), height / Math.Max(1, fullHeight));
         double x = (width - fullWidth * scale) / 2, y = (height - fullHeight * scale) / 2;
+
         byte[] Sample(BitmapSource image)
         {
             var drawing = new DrawingVisual();
             using (var dc = drawing.RenderOpen())
-                if (image != null) dc.DrawImage(image, new Rect(x, y, image.PixelWidth * scale, image.PixelHeight * scale));
+            {
+                if (image != null)
+                    dc.DrawImage(image, new Rect(x, y, image.PixelWidth * scale, image.PixelHeight * scale));
+            }
+
             var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
             bitmap.Render(drawing);
             var bytes = new byte[width * height * 4];
             PixelImage(bitmap).CopyPixels(bytes, width * 4, 0);
             return bytes;
         }
-        var left = Sample(source); var right = Sample(target);
+
+        var left = Sample(source);
+        var right = Sample(target);
         var result = new byte[left.Length];
-        for (int i = 0; i < result.Length; i += 4)
+        for (var i = 0; i < result.Length; i += 4)
         {
             double a = left[i + 3] / 255.0, b = right[i + 3] / 255.0;
-            bool different = source != null && target != null && (left[i + 3] != right[i + 3] ||
-                (a > 0 && b > 0 && (left[i] != right[i] || left[i + 1] != right[i + 1] || left[i + 2] != right[i + 2])));
-            for (int c = 0; c < 3; c++)
+            var different = source != null && target != null && (left[i + 3] != right[i + 3] ||
+                                                                 (a > 0 && b > 0 && (left[i] != right[i] ||
+                                                                     left[i + 1] != right[i + 1] ||
+                                                                     left[i + 2] != right[i + 2])));
+            for (var c = 0; c < 3; c++)
             {
                 double l = left[i + c] * a + 24 * (1 - a), r = right[i + c] * b + 24 * (1 - b);
-                double value = source == null ? r : target == null ? l : (l + r) / 2;
+                var value = source == null ? r : target == null ? l : (l + r) / 2;
                 if (different) value = value * 0.4 + (c == 1 ? 48 : 255) * 0.6;
                 result[i + c] = (byte)Math.Round(value);
             }
+
             result[i + 3] = 255;
         }
+
         var output = BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgra32, null, result, width * 4);
         output.Freeze();
         return output;

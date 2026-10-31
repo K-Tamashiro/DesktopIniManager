@@ -1,52 +1,68 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 using DesktopIniManager.Properties;
+using DesktopIniManager.Services;
 
 namespace DesktopIniManager.ViewModels;
 
 internal sealed partial class DeveloperDifferencerViewModel
 {
-    public ObservableCollection<ComparisonHistoryTab> HistoryTabs { get; } = new ObservableCollection<ComparisonHistoryTab>();
-    private ComparisonHistoryTab selectedHistoryTab;
     private bool changingHistoryTabs;
-    private System.Collections.Generic.Dictionary<string, HistoryFolderState> restoringFolders;
+    private Dictionary<string, HistoryFolderState> restoringFolders;
+    private ComparisonHistoryTab selectedHistoryTab;
+    public ObservableCollection<ComparisonHistoryTab> HistoryTabs { get; } = new();
+
     public ComparisonHistoryTab SelectedHistoryTab
     {
         get => selectedHistoryTab;
-        set { if (!changingHistoryTabs && !IsBusy && value != null && value != selectedHistoryTab) SelectHistoryTab(value); }
+        set
+        {
+            if (!changingHistoryTabs && !IsBusy && value != null && value != selectedHistoryTab)
+                SelectHistoryTab(value);
+        }
     }
-    public ParameterCommand DeleteHistoryTabCommand { get; private set; }
-    public RelayCommand DeleteAllHistoryTabsCommand { get; private set; }
-    public ParameterCommand DeleteOtherHistoryTabsCommand { get; private set; }
-    public string HistoryRoots => snapshot == null ? "" : HistorySourceRoot + "   " + HistoryTargetRoot;
-    public string HistorySourceRoot => snapshot == null ? "" : "Source: \u2026" + RootName(snapshot.SourceRoot);
-    public string HistoryTargetRoot => snapshot == null ? "" : "Target: \u2026" + RootName(snapshot.TargetRoot);
-    public string HistoryRootsTooltip => snapshot == null ? "" : "Source: " + snapshot.SourceRoot + "\nTarget: " + snapshot.TargetRoot;
-    private static string RootName(string path) => System.IO.Path.GetFileName(DisplayRoot(path));
+
+    public ParameterCommand DeleteHistoryTabCommand { get; }
+    public RelayCommand DeleteAllHistoryTabsCommand { get; }
+    public ParameterCommand DeleteOtherHistoryTabsCommand { get; }
+    public string HistoryRoots => Snapshot == null ? "" : HistorySourceRoot + "   " + HistoryTargetRoot;
+    public string HistorySourceRoot => Snapshot == null ? "" : "Source: \u2026" + RootName(Snapshot.SourceRoot);
+    public string HistoryTargetRoot => Snapshot == null ? "" : "Target: \u2026" + RootName(Snapshot.TargetRoot);
+
+    public string HistoryRootsTooltip =>
+        Snapshot == null ? "" : "Source: " + Snapshot.SourceRoot + "\nTarget: " + Snapshot.TargetRoot;
+
+    private static string RootName(string path)
+    {
+        return Path.GetFileName(DisplayRoot(path));
+    }
 
     // Snapshot roots keep a trailing separator for SafePath; the input boxes and
     // path history must not, or "C:\foo" and "C:\foo\" become two history entries.
     internal static string DisplayRoot(string path)
     {
         if (string.IsNullOrWhiteSpace(path)) return path ?? "";
-        string trimmed = path.TrimEnd('\\', '/');
+        var trimmed = path.TrimEnd('\\', '/');
         if (trimmed.Length == 2 && trimmed[1] == ':') return trimmed + "\\";
         return trimmed;
     }
 
     private void CaptureHistoryTab()
     {
-        if (selectedHistoryTab == null || snapshot == null) return;
-        selectedHistoryTab.Snapshot = snapshot;
+        if (selectedHistoryTab == null || Snapshot == null) return;
+        selectedHistoryTab.Snapshot = Snapshot;
         selectedHistoryTab.Expanded = folders.Values.Where(f => f.Expanded).Select(f => f.Path).ToList();
         selectedHistoryTab.SelectedFolder = selectedFolder;
         selectedHistoryTab.KindMask = kindMask;
-        selectedHistoryTab.ShowObj = showObj; selectedHistoryTab.ShowBin = showBin;
+        selectedHistoryTab.ShowObj = showObj;
+        selectedHistoryTab.ShowBin = showBin;
         selectedHistoryTab.Status = Status;
         selectedHistoryTab.FolderStates = folders.Values.Select(f => new HistoryFolderState
         {
@@ -57,26 +73,43 @@ internal sealed partial class DeveloperDifferencerViewModel
             TargetEmpty = f.TargetEmpty
         }).ToList();
     }
+
     private bool PrepareComparisonTab()
     {
         if (HistoryTabs.Count < ResultHistoryStore.Limit) return true;
-        if (dialogs.Show(StringOverlay.Get("History_ComparisonLimit"), StringOverlay.Get("History_ComparisonTitle"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return false;
+        if (dialogs.Show(StringOverlay.Get("History_ComparisonLimit"), StringOverlay.Get("History_ComparisonTitle"),
+                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return false;
         var oldest = HistoryTabs.OrderBy(t => t.CreatedAt).First();
         changingHistoryTabs = true;
-        try { HistoryTabs.Remove(oldest); }
-        finally { changingHistoryTabs = false; }
-        if (oldest == selectedHistoryTab) { selectedHistoryTab = null; OnPropertyChanged(nameof(SelectedHistoryTab)); }
+        try
+        {
+            HistoryTabs.Remove(oldest);
+        }
+        finally
+        {
+            changingHistoryTabs = false;
+        }
+
+        if (oldest == selectedHistoryTab)
+        {
+            selectedHistoryTab = null;
+            OnPropertyChanged(nameof(SelectedHistoryTab));
+        }
+
         return true;
     }
+
     private void AddComparisonTab()
     {
         var now = DateTime.Now;
-        var tab = new ComparisonHistoryTab { CreatedAt = now, Title = now.ToString("yyyy.MM.dd HH:mm:ss"), Snapshot = snapshot };
+        var tab = new ComparisonHistoryTab
+            { CreatedAt = now, Title = now.ToString("yyyy.MM.dd HH:mm:ss"), Snapshot = Snapshot };
         HistoryTabs.Insert(0, tab);
         selectedHistoryTab = tab;
         CaptureHistoryTab();
         NotifyHistory();
     }
+
     private void NotifyHistory()
     {
         OnPropertyChanged(nameof(SelectedHistoryTab));
@@ -85,11 +118,19 @@ internal sealed partial class DeveloperDifferencerViewModel
         OnPropertyChanged(nameof(HistoryTargetRoot));
         OnPropertyChanged(nameof(HistoryRootsTooltip));
     }
+
     private async void SelectHistoryTab(ComparisonHistoryTab tab)
     {
-        try { await SelectHistoryTabAsync(tab); }
-        catch (Exception ex) { ShowError(ex); }
+        try
+        {
+            await SelectHistoryTabAsync(tab);
+        }
+        catch (Exception ex)
+        {
+            ShowError(ex);
+        }
     }
+
     internal async Task SelectHistoryTabAsync(ComparisonHistoryTab tab, bool resetView = false)
     {
         if (IsBusy || tab == null) return;
@@ -106,47 +147,60 @@ internal sealed partial class DeveloperDifferencerViewModel
             await Dispatcher.Yield(DispatcherPriority.Background);
             token.ThrowIfCancellationRequested();
             // Assign backing fields so restoring roots does not clear the selected snapshot.
-            _sourcePath = DisplayRoot(tab.Snapshot.SourceRoot); _targetPath = DisplayRoot(tab.Snapshot.TargetRoot);
+            _sourcePath = DisplayRoot(tab.Snapshot.SourceRoot);
+            _targetPath = DisplayRoot(tab.Snapshot.TargetRoot);
             rootLinkVersion++;
             // A historical snapshot does not need a filesystem scan. Compare refreshes indexes.
-            OnPropertyChanged(nameof(SourcePath)); OnPropertyChanged(nameof(TargetPath));
-            snapshot = tab.Snapshot; treeSource = SourcePath; treeTarget = TargetPath;
-            disabledIgnoreRules = new System.Collections.Generic.HashSet<string>(snapshot.DisabledIgnoreRules ?? new(), StringComparer.Ordinal);
+            OnPropertyChanged(nameof(SourcePath));
+            OnPropertyChanged(nameof(TargetPath));
+            Snapshot = tab.Snapshot;
+            treeSource = SourcePath;
+            treeTarget = TargetPath;
+            disabledIgnoreRules =
+                new HashSet<string>(Snapshot.DisabledIgnoreRules ?? new List<string>(), StringComparer.Ordinal);
             InvalidateIndexes();
-            if (snapshot.IgnoreRules == null)
+            if (Snapshot.IgnoreRules == null)
             {
-                var savedSnapshot = snapshot;
-                var rules = await Task.Run(() => Services.GitIgnoreMatcher.Merge(
-                    Services.GitIgnoreMatcher.Discover(savedSnapshot.SourceRoot, savedSnapshot.DisabledIgnoreRules, token),
-                    Services.GitIgnoreMatcher.Discover(savedSnapshot.TargetRoot, savedSnapshot.DisabledIgnoreRules, token)), token);
+                var savedSnapshot = Snapshot;
+                var rules = await Task.Run(() => GitIgnoreMatcher.Merge(
+                        GitIgnoreMatcher.Discover(savedSnapshot.SourceRoot, savedSnapshot.DisabledIgnoreRules, token),
+                        GitIgnoreMatcher.Discover(savedSnapshot.TargetRoot, savedSnapshot.DisabledIgnoreRules, token)),
+                    token);
                 token.ThrowIfCancellationRequested();
                 savedSnapshot.IgnoreRules = rules;
             }
-            CompareTimestamp = snapshot.CompareTimestamp;
-            CompareSize = snapshot.CompareSize;
-            CompareAttributes = snapshot.CompareAttributes;
-            PreciseCompare = snapshot.PreciseCompare;
-            kindMask = tab.KindMask; showObj = tab.ShowObj; showBin = tab.ShowBin;
-            ShowObj = showObj; ShowBin = showBin;
-            ShowSame = (kindMask & Services.DiffKind.Same) != 0;
-            ShowDifferent = (kindMask & Services.DiffKind.Different) != 0;
-            ShowSourceOnly = (kindMask & Services.DiffKind.SourceOnly) != 0;
-            ShowTargetOnly = (kindMask & Services.DiffKind.TargetOnly) != 0;
-            rows = new System.Collections.Generic.List<DiffRow>(snapshot.Files.Count);
-            foreach (var file in snapshot.Files)
+
+            CompareTimestamp = Snapshot.CompareTimestamp;
+            CompareSize = Snapshot.CompareSize;
+            CompareAttributes = Snapshot.CompareAttributes;
+            PreciseCompare = Snapshot.PreciseCompare;
+            kindMask = tab.KindMask;
+            showObj = tab.ShowObj;
+            showBin = tab.ShowBin;
+            ShowObj = showObj;
+            ShowBin = showBin;
+            ShowSame = (kindMask & DiffKind.Same) != 0;
+            ShowDifferent = (kindMask & DiffKind.Different) != 0;
+            ShowSourceOnly = (kindMask & DiffKind.SourceOnly) != 0;
+            ShowTargetOnly = (kindMask & DiffKind.TargetOnly) != 0;
+            rows = new List<DiffRow>(Snapshot.Files.Count);
+            foreach (var file in Snapshot.Files)
             {
                 token.ThrowIfCancellationRequested();
-                rows.Add(new DiffRow { File = file, SourceRoot = snapshot.SourceRoot, TargetRoot = snapshot.TargetRoot });
+                rows.Add(new DiffRow
+                    { File = file, SourceRoot = Snapshot.SourceRoot, TargetRoot = Snapshot.TargetRoot });
                 if (rows.Count % 256 == 0) await Dispatcher.Yield(DispatcherPriority.Background);
             }
-            restoringFolders = new System.Collections.Generic.Dictionary<string, HistoryFolderState>(StringComparer.OrdinalIgnoreCase);
+
+            restoringFolders = new Dictionary<string, HistoryFolderState>(StringComparer.OrdinalIgnoreCase);
             foreach (var folder in tab.FolderStates)
             {
                 token.ThrowIfCancellationRequested();
                 restoringFolders.Add(folder.Path, folder);
                 if (restoringFolders.Count % 256 == 0) await Dispatcher.Yield(DispatcherPriority.Background);
             }
-            await BuildTreeAsync(snapshot.Folders, resetView ? Array.Empty<string>() : tab.Expanded,
+
+            await BuildTreeAsync(Snapshot.Folders, resetView ? Array.Empty<string>() : tab.Expanded,
                 resetView ? "" : tab.SelectedFolder, token);
             token.ThrowIfCancellationRequested();
             if (resetView)
@@ -154,6 +208,7 @@ internal sealed partial class DeveloperDifferencerViewModel
                 ResetAfterComparison();
                 ComparisonCompleted?.Invoke();
             }
+
             Status = tab.Status;
             NotifyHistory();
         }
@@ -183,38 +238,61 @@ internal sealed partial class DeveloperDifferencerViewModel
             SetBusy(false);
         }
     }
+
     private async void DeleteHistoryTab(object item)
     {
         var tab = item as ComparisonHistoryTab;
         if (IsBusy || tab == null || !HistoryTabs.Contains(tab)) return;
-        bool active = tab == selectedHistoryTab;
+        var active = tab == selectedHistoryTab;
         changingHistoryTabs = true;
-        try { HistoryTabs.Remove(tab); }
-        finally { changingHistoryTabs = false; }
+        try
+        {
+            HistoryTabs.Remove(tab);
+        }
+        finally
+        {
+            changingHistoryTabs = false;
+        }
+
         if (active)
         {
             selectedHistoryTab = null;
             ClearComparisonView();
             if (HistoryTabs.Count > 0)
-            {
-                try { await SelectHistoryTabAsync(HistoryTabs.First()); }
-                catch (Exception ex) { ShowError(ex); }
-            }
+                try
+                {
+                    await SelectHistoryTabAsync(HistoryTabs.First());
+                }
+                catch (Exception ex)
+                {
+                    ShowError(ex);
+                }
+
             NotifyHistory();
         }
+
         SaveHistory();
     }
+
     private void DeleteAllHistoryTabs()
     {
         if (IsBusy || HistoryTabs.Count == 0) return;
         changingHistoryTabs = true;
-        try { HistoryTabs.Clear(); }
-        finally { changingHistoryTabs = false; }
+        try
+        {
+            HistoryTabs.Clear();
+        }
+        finally
+        {
+            changingHistoryTabs = false;
+        }
+
         selectedHistoryTab = null;
         ClearComparisonView();
         NotifyHistory();
         SaveHistory();
     }
+
     private async void DeleteOtherHistoryTabs(object item)
     {
         var tab = item as ComparisonHistoryTab;
@@ -222,26 +300,43 @@ internal sealed partial class DeveloperDifferencerViewModel
         changingHistoryTabs = true;
         try
         {
-            for (int i = HistoryTabs.Count - 1; i >= 0; i--)
-                if (!ReferenceEquals(HistoryTabs[i], tab)) HistoryTabs.RemoveAt(i);
+            for (var i = HistoryTabs.Count - 1; i >= 0; i--)
+                if (!ReferenceEquals(HistoryTabs[i], tab))
+                    HistoryTabs.RemoveAt(i);
         }
-        finally { changingHistoryTabs = false; }
-        if (selectedHistoryTab != tab)
+        finally
         {
-            try { await SelectHistoryTabAsync(tab); }
-            catch (Exception ex) { ShowError(ex); }
+            changingHistoryTabs = false;
         }
+
+        if (selectedHistoryTab != tab)
+            try
+            {
+                await SelectHistoryTabAsync(tab);
+            }
+            catch (Exception ex)
+            {
+                ShowError(ex);
+            }
+
         SaveHistory();
     }
+
     internal void SaveHistory()
     {
         try
         {
             CaptureHistoryTab();
-            ResultHistoryStore.Save("comparison", new HistoryFile<ComparisonHistoryTab> { Tabs = HistoryTabs.ToList(), SelectedIndex = HistoryTabs.IndexOf(selectedHistoryTab) });
+            ResultHistoryStore.Save("comparison",
+                new HistoryFile<ComparisonHistoryTab>
+                    { Tabs = HistoryTabs.ToList(), SelectedIndex = HistoryTabs.IndexOf(selectedHistoryTab) });
         }
-        catch (Exception ex) { ShowError(ex); }
+        catch (Exception ex)
+        {
+            ShowError(ex);
+        }
     }
+
     internal async Task RestoreHistoryAsync()
     {
         try
@@ -251,13 +346,21 @@ internal sealed partial class DeveloperDifferencerViewModel
             changingHistoryTabs = true;
             try
             {
-                foreach (var tab in saved.Tabs.Where(t => t.Snapshot != null).OrderByDescending(t => t.CreatedAt).Take(ResultHistoryStore.Limit)) HistoryTabs.Add(tab);
+                foreach (var tab in saved.Tabs.Where(t => t.Snapshot != null).OrderByDescending(t => t.CreatedAt)
+                             .Take(ResultHistoryStore.Limit)) HistoryTabs.Add(tab);
             }
-            finally { changingHistoryTabs = false; }
+            finally
+            {
+                changingHistoryTabs = false;
+            }
+
             // Opening the window only restores tab labels. Select a tab to display its snapshot.
             selectedHistoryTab = null;
             NotifyHistory();
         }
-        catch (Exception ex) { ShowError(ex); }
+        catch (Exception ex)
+        {
+            ShowError(ex);
+        }
     }
 }

@@ -1,6 +1,6 @@
 ﻿using System;
-using System.IO;
 using System.Globalization;
+using System.IO;
 using System.Text;
 
 namespace DesktopIniManager.Services;
@@ -25,49 +25,61 @@ internal static class SettingsService
 
     public static double[] LoadMainListLayout()
     {
-        string text = ReadSetting(MainListLayoutPath, null);
+        var text = ReadSetting(MainListLayoutPath, null);
         if (string.IsNullOrWhiteSpace(text)) return null;
-        string[] parts = text.Split(',');
+        var parts = text.Split(',');
         var values = new double[parts.Length];
-        for (int i = 0; i < parts.Length; i++)
+        for (var i = 0; i < parts.Length; i++)
             if (!double.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out values[i]) ||
                 double.IsNaN(values[i]) || double.IsInfinity(values[i]) || values[i] < 0)
                 return null;
         return values;
     }
 
-    public static void SaveMainListLayout(double[] values) => WriteSetting(MainListLayoutPath,
-        string.Join(",", Array.ConvertAll(values, value => value.ToString("R", CultureInfo.InvariantCulture))));
+    public static void SaveMainListLayout(double[] values)
+    {
+        WriteSetting(MainListLayoutPath,
+            string.Join(",", Array.ConvertAll(values, value => value.ToString("R", CultureInfo.InvariantCulture))));
+    }
 
     internal static double[] LoadDifferencerLayout()
     {
-        string text = ReadSetting(Path.Combine(SettingsDirectory, "differencer-layout.txt"), null);
+        var text = ReadSetting(Path.Combine(SettingsDirectory, "differencer-layout.txt"), null);
         if (string.IsNullOrWhiteSpace(text)) return null;
-        string[] parts = text.Split(',');
+        var parts = text.Split(',');
         var values = new double[parts.Length];
-        for (int i = 0; i < parts.Length; i++)
+        for (var i = 0; i < parts.Length; i++)
             if (!double.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out values[i]) ||
-                !double.IsFinite(values[i]) || values[i] < 0) return null;
+                !double.IsFinite(values[i]) || values[i] < 0)
+                return null;
         return values;
     }
 
-    internal static void SaveDifferencerLayout(double[] values) => WriteSetting(
-        Path.Combine(SettingsDirectory, "differencer-layout.txt"),
-        string.Join(",", Array.ConvertAll(values, value => value.ToString("R", CultureInfo.InvariantCulture))));
+    internal static void SaveDifferencerLayout(double[] values)
+    {
+        WriteSetting(
+            Path.Combine(SettingsDirectory, "differencer-layout.txt"),
+            string.Join(",", Array.ConvertAll(values, value => value.ToString("R", CultureInfo.InvariantCulture))));
+    }
 
     public static string LoadIconLibraryPath()
     {
         try
         {
-            string path = File.Exists(SettingsPath) ? File.ReadAllText(SettingsPath, Encoding.UTF8).Trim() : null;
+            var path = File.Exists(SettingsPath) ? File.ReadAllText(SettingsPath, Encoding.UTF8).Trim() : null;
             if (string.IsNullOrWhiteSpace(path)) return null;
             // Older settings stored the bundled library's absolute installation path.
-            string normalized = path.Replace('/', '\\');
+            var normalized = path.Replace('/', '\\');
             if (normalized.EndsWith("\\Assets\\folder_set.icl", StringComparison.OrdinalIgnoreCase))
                 return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "folder_set.icl");
-            return Path.IsPathRooted(path) ? path : Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, path));
+            return Path.IsPathRooted(path)
+                ? path
+                : Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, path));
         }
-        catch { return null; }
+        catch
+        {
+            return null;
+        }
     }
 
     public static void SaveIconLibraryPath(string path)
@@ -75,21 +87,31 @@ internal static class SettingsService
         try
         {
             if (string.IsNullOrWhiteSpace(path)) return;
-            string baseDirectory = Path.GetFullPath(AppDomain.CurrentDomain.BaseDirectory)
+            var baseDirectory = Path.GetFullPath(AppDomain.CurrentDomain.BaseDirectory)
                 .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
-            string fullPath = Path.GetFullPath(Path.Combine(baseDirectory, path.Trim()));
-            string savedPath = fullPath.StartsWith(baseDirectory, StringComparison.OrdinalIgnoreCase)
-                ? fullPath.Substring(baseDirectory.Length) : fullPath;
+            var fullPath = Path.GetFullPath(Path.Combine(baseDirectory, path.Trim()));
+            var savedPath = fullPath.StartsWith(baseDirectory, StringComparison.OrdinalIgnoreCase)
+                ? fullPath.Substring(baseDirectory.Length)
+                : fullPath;
             Directory.CreateDirectory(SettingsDirectory);
             File.WriteAllText(SettingsPath, savedPath, new UTF8Encoding(false));
         }
-        catch { /* Settings persistence must never prevent the app from closing. */ }
+        catch
+        {
+            /* Settings persistence must never prevent the app from closing. */
+        }
     }
 
     public static string LoadSearchQuery()
     {
-        try { return File.Exists(SearchQueryPath) ? File.ReadAllText(SearchQueryPath, Encoding.UTF8).Trim() : null; }
-        catch { return null; }
+        try
+        {
+            return File.Exists(SearchQueryPath) ? File.ReadAllText(SearchQueryPath, Encoding.UTF8).Trim() : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public static void SaveSearchQuery(string query)
@@ -99,13 +121,21 @@ internal static class SettingsService
             Directory.CreateDirectory(SettingsDirectory);
             File.WriteAllText(SearchQueryPath, (query ?? string.Empty).Trim(), new UTF8Encoding(false));
         }
-        catch { }
+        catch
+        {
+        }
     }
 
     public static string LoadSearchRoot()
     {
-        try { return File.Exists(SearchRootPath) ? File.ReadAllText(SearchRootPath, Encoding.UTF8).Trim() : null; }
-        catch { return null; }
+        try
+        {
+            return File.Exists(SearchRootPath) ? File.ReadAllText(SearchRootPath, Encoding.UTF8).Trim() : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public static void SaveSearchRoot(string path)
@@ -116,87 +146,153 @@ internal static class SettingsService
             Directory.CreateDirectory(SettingsDirectory);
             File.WriteAllText(SearchRootPath, path.Trim(), new UTF8Encoding(false));
         }
-        catch { }
+        catch
+        {
+        }
     }
 
     public static bool LoadTreeCompact()
     {
-        try { return File.Exists(TreeDensityPath) && string.Equals(File.ReadAllText(TreeDensityPath).Trim(), "compact", StringComparison.OrdinalIgnoreCase); }
-        catch { return false; }
+        try
+        {
+            return File.Exists(TreeDensityPath) && string.Equals(File.ReadAllText(TreeDensityPath).Trim(), "compact",
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     public static void SaveTreeCompact(bool compact)
     {
-        try { Directory.CreateDirectory(SettingsDirectory); File.WriteAllText(TreeDensityPath, compact ? "compact" : "comfortable", new UTF8Encoding(false)); }
-        catch { }
+        try
+        {
+            Directory.CreateDirectory(SettingsDirectory);
+            File.WriteAllText(TreeDensityPath, compact ? "compact" : "comfortable", new UTF8Encoding(false));
+        }
+        catch
+        {
+        }
     }
 
     public static string LoadTheme()
     {
-        string saved = ReadSetting(ThemePath, "Dark");
+        var saved = ReadSetting(ThemePath, "Dark");
         return ThemeService.Normalize(saved);
     }
 
-    public static void SaveTheme(string theme) => WriteSetting(ThemePath, ThemeService.Normalize(theme));
-
-    // Kept for existing callers/startup state compatibility.
-    public static bool LoadDarkMode() => !string.Equals(LoadTheme(), "Light", StringComparison.OrdinalIgnoreCase);
-    public static void SaveDarkMode(bool dark) => SaveTheme(dark ? "Dark" : "Light");
-
-    public static string LoadEditorPath() => ReadSetting(EditorPath, "code");
-    public static string LoadExternalDiff() => ReadSetting(ExternalDiffPath, null);
-    internal static double LoadDiffAudioVolume(bool source)
+    public static void SaveTheme(string theme)
     {
-        string text = ReadSetting(DiffAudioVolumePath(source), null);
-        return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double value) &&
-            double.IsFinite(value) ? Math.Clamp(value, 0, 1) : 1;
+        WriteSetting(ThemePath, ThemeService.Normalize(theme));
     }
 
-    internal static void SaveDiffAudioVolume(bool source, double value) =>
+    // Kept for existing callers/startup state compatibility.
+    public static bool LoadDarkMode()
+    {
+        return !string.Equals(LoadTheme(), "Light", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static void SaveDarkMode(bool dark)
+    {
+        SaveTheme(dark ? "Dark" : "Light");
+    }
+
+    public static string LoadEditorPath()
+    {
+        return ReadSetting(EditorPath, "code");
+    }
+
+    public static string LoadExternalDiff()
+    {
+        return ReadSetting(ExternalDiffPath, null);
+    }
+
+    internal static double LoadDiffAudioVolume(bool source)
+    {
+        var text = ReadSetting(DiffAudioVolumePath(source), null);
+        return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) &&
+               double.IsFinite(value)
+            ? Math.Clamp(value, 0, 1)
+            : 1;
+    }
+
+    internal static void SaveDiffAudioVolume(bool source, double value)
+    {
         WriteSetting(DiffAudioVolumePath(source),
             (double.IsFinite(value) ? Math.Clamp(value, 0, 1) : 1).ToString("R", CultureInfo.InvariantCulture));
+    }
 
-    private static string DiffAudioVolumePath(bool source) =>
-        Path.Combine(SettingsDirectory, source ? "diff-audio-source-volume.txt" : "diff-audio-target-volume.txt");
+    private static string DiffAudioVolumePath(bool source)
+    {
+        return Path.Combine(SettingsDirectory,
+            source ? "diff-audio-source-volume.txt" : "diff-audio-target-volume.txt");
+    }
 
-    public static bool LoadDiffDifferencesOnly() => string.Equals(
-        ReadSetting(DiffDisplayModePath, "all"), "differences", StringComparison.OrdinalIgnoreCase);
-    public static void SaveDiffDifferencesOnly(bool differencesOnly) =>
+    public static bool LoadDiffDifferencesOnly()
+    {
+        return string.Equals(
+            ReadSetting(DiffDisplayModePath, "all"), "differences", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static void SaveDiffDifferencesOnly(bool differencesOnly)
+    {
         WriteSetting(DiffDisplayModePath, differencesOnly ? "differences" : "all");
+    }
 
-    public static void SaveExternalDiff(string command) =>
+    public static void SaveExternalDiff(string command)
+    {
         WriteSetting(ExternalDiffPath, command);
+    }
+
     public static string LoadEditorArguments()
     {
-        string saved = ReadSetting(EditorArgumentsPath, null);
+        var saved = ReadSetting(EditorArgumentsPath, null);
         if (!string.IsNullOrWhiteSpace(saved)) return saved;
         return DefaultEditorArguments(LoadEditorPath());
     }
+
     public static void SaveEditor(string executable, string arguments)
     {
-        string command = (executable ?? string.Empty).Trim();
+        var command = (executable ?? string.Empty).Trim();
         if (command.IndexOf("sakura", StringComparison.OrdinalIgnoreCase) >= 0)
             command = "code";
         WriteSetting(EditorPath, command);
-        string args = (arguments ?? string.Empty).Trim();
+        var args = (arguments ?? string.Empty).Trim();
         if (string.IsNullOrEmpty(args))
             args = DefaultEditorArguments(command);
         WriteSetting(EditorArgumentsPath, args);
     }
 
-    public static string LoadGrepProfile() => ReadSetting(GrepProfilePath, null);
-    public static void SaveGrepProfile(string profile) => WriteSetting(GrepProfilePath, profile);
-    public static string LoadGrepFreeExtensions() => ReadSetting(GrepFreeExtensionsPath, ".txt .log .ini .json .xml .html .htm .eml");
-    public static void SaveGrepFreeExtensions(string extensions) => WriteSetting(GrepFreeExtensionsPath, extensions);
+    public static string LoadGrepProfile()
+    {
+        return ReadSetting(GrepProfilePath, null);
+    }
+
+    public static void SaveGrepProfile(string profile)
+    {
+        WriteSetting(GrepProfilePath, profile);
+    }
+
+    public static string LoadGrepFreeExtensions()
+    {
+        return ReadSetting(GrepFreeExtensionsPath, ".txt .log .ini .json .xml .html .htm .eml");
+    }
+
+    public static void SaveGrepFreeExtensions(string extensions)
+    {
+        WriteSetting(GrepFreeExtensionsPath, extensions);
+    }
 
     public static double[] LoadGrepColumnWidths()
     {
-        string value = ReadSetting(GrepColumnWidthsPath, null);
+        var value = ReadSetting(GrepColumnWidthsPath, null);
         if (string.IsNullOrWhiteSpace(value)) return null;
-        string[] parts = value.Split(',');
+        var parts = value.Split(',');
         var result = new double[parts.Length];
-        for (int index = 0; index < parts.Length; index++)
-            if (!double.TryParse(parts[index], NumberStyles.Float, CultureInfo.InvariantCulture, out result[index])) return null;
+        for (var index = 0; index < parts.Length; index++)
+            if (!double.TryParse(parts[index], NumberStyles.Float, CultureInfo.InvariantCulture, out result[index]))
+                return null;
         return result;
     }
 
@@ -221,13 +317,14 @@ internal static class SettingsService
         return "--goto \"{file}:{line}:{column}\"";
     }
 
-    public static bool TryLoadMainWindowPlacement(out double left, out double top, out double width, out double height, out int state)
+    public static bool TryLoadMainWindowPlacement(out double left, out double top, out double width, out double height,
+        out int state)
     {
         left = top = width = height = 0;
         state = 0;
-        string text = ReadSetting(MainWindowPlacementPath, null);
+        var text = ReadSetting(MainWindowPlacementPath, null);
         if (string.IsNullOrWhiteSpace(text)) return false;
-        string[] parts = text.Split(',');
+        var parts = text.Split(',');
         if (parts.Length < 4) return false;
         if (!double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out left)) return false;
         if (!double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out top)) return false;
@@ -248,13 +345,14 @@ internal static class SettingsService
             state.ToString(CultureInfo.InvariantCulture)));
     }
 
-    public static bool TryLoadDiffWindowPlacement(out double left, out double top, out double width, out double height, out int state)
+    public static bool TryLoadDiffWindowPlacement(out double left, out double top, out double width, out double height,
+        out int state)
     {
         left = top = width = height = 0;
         state = 0;
-        string text = ReadSetting(Path.Combine(SettingsDirectory, "diff-window.txt"), null);
+        var text = ReadSetting(Path.Combine(SettingsDirectory, "diff-window.txt"), null);
         if (string.IsNullOrWhiteSpace(text)) return false;
-        string[] parts = text.Split(',');
+        var parts = text.Split(',');
         if (parts.Length < 4) return false;
         if (!double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out left)) return false;
         if (!double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out top)) return false;
@@ -275,20 +373,41 @@ internal static class SettingsService
             state.ToString(CultureInfo.InvariantCulture)));
     }
 
-    internal static bool LoadDiffFlag(string name, bool fallback) =>
-        bool.TryParse(ReadSetting(Path.Combine(SettingsDirectory, "diff-" + name + ".txt"), null), out bool value) ? value : fallback;
-    internal static void SaveDiffFlag(string name, bool value) =>
+    internal static bool LoadDiffFlag(string name, bool fallback)
+    {
+        return bool.TryParse(ReadSetting(Path.Combine(SettingsDirectory, "diff-" + name + ".txt"), null),
+            out var value)
+            ? value
+            : fallback;
+    }
+
+    internal static void SaveDiffFlag(string name, bool value)
+    {
         WriteSetting(Path.Combine(SettingsDirectory, "diff-" + name + ".txt"), value.ToString());
+    }
+
     private static string ReadSetting(string path, string fallback)
     {
-        try { return File.Exists(path) ? File.ReadAllText(path, Encoding.UTF8).Trim() : fallback; }
-        catch { return fallback; }
+        try
+        {
+            return File.Exists(path) ? File.ReadAllText(path, Encoding.UTF8).Trim() : fallback;
+        }
+        catch
+        {
+            return fallback;
+        }
     }
 
     private static void WriteSetting(string path, string value)
     {
-        try { Directory.CreateDirectory(SettingsDirectory); File.WriteAllText(path, value ?? string.Empty, new UTF8Encoding(false)); }
-        catch { }
+        try
+        {
+            Directory.CreateDirectory(SettingsDirectory);
+            File.WriteAllText(path, value ?? string.Empty, new UTF8Encoding(false));
+        }
+        catch
+        {
+        }
     }
 
     public static void ClearAll()
@@ -296,15 +415,26 @@ internal static class SettingsService
         try
         {
             if (!Directory.Exists(SettingsDirectory)) return;
-            foreach (string file in Directory.GetFiles(SettingsDirectory, "*", SearchOption.AllDirectories))
-            {
-                try { File.Delete(file); } catch { }
-            }
-            foreach (string dir in Directory.GetDirectories(SettingsDirectory))
-            {
-                try { Directory.Delete(dir, true); } catch { }
-            }
+            foreach (var file in Directory.GetFiles(SettingsDirectory, "*", SearchOption.AllDirectories))
+                try
+                {
+                    File.Delete(file);
+                }
+                catch
+                {
+                }
+
+            foreach (var dir in Directory.GetDirectories(SettingsDirectory))
+                try
+                {
+                    Directory.Delete(dir, true);
+                }
+                catch
+                {
+                }
         }
-        catch { }
+        catch
+        {
+        }
     }
 }

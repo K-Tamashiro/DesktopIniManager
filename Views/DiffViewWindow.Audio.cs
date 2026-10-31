@@ -1,31 +1,34 @@
-﻿using System;
+﻿using DesktopIniManager.Controls;
+using DesktopIniManager.Properties;
+using DesktopIniManager.Services;
+using DesktopIniManager.ViewModels;
+using System;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
-using System.Windows.Media;
+using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
-using DesktopIniManager.Services;
-using NAudio.Wave;
-using System.IO;
-using DesktopIniManager.ViewModels;
-using DesktopIniManager.Properties;
 
 namespace DesktopIniManager.Views;
 
 internal sealed partial class DiffViewWindow
 {
-    private AudioDiffPlayer audioPlayer;
-    private CancellationTokenSource audioLoading;
-    private DispatcherTimer audioTimer;
-    private EventHandler audioRendering;
-    private AudioTimeline audioTimeline;
-    private AudioOverview audioOverview;
+    private Border audioDifferenceBusy;
     private bool audioDifferenceEnabled;
     private Task<AudioDifferences> audioDifferenceTask;
-    private Border audioDifferenceBusy;
+    private CancellationTokenSource audioLoading;
+    private AudioOverview audioOverview;
+    private AudioDiffPlayer audioPlayer;
+    private EventHandler audioRendering;
+    private AudioTimeline audioTimeline;
+    private DispatcherTimer audioTimer;
+
     private void ResetAudio()
     {
         audioLoading?.Cancel();
@@ -45,6 +48,7 @@ internal sealed partial class DiffViewWindow
         audioOverviewHost.Children.Clear();
         audioOverviewHost.Visibility = Visibility.Collapsed;
     }
+
     private void ToggleAudioPlayback()
     {
         if (audioPlayer == null) return;
@@ -61,6 +65,7 @@ internal sealed partial class DiffViewWindow
             ViewModel.ReportError(ex);
         }
     }
+
     private async Task RenderAudio()
     {
         // Do not depend on the caller having a DispatcherSynchronizationContext.
@@ -69,7 +74,7 @@ internal sealed partial class DiffViewWindow
             CheckWindowOpen();
             ResetAudio();
             audioLoading = new CancellationTokenSource();
-            return (Source: ViewModel.GetPath(true), Target: ViewModel.GetPath(false), Token: audioLoading.Token);
+            return (Source: ViewModel.GetPath(true), Target: ViewModel.GetPath(false), audioLoading.Token);
         }).Task.ConfigureAwait(false);
         var envelopes = await Task.Run(() =>
         {
@@ -100,13 +105,16 @@ internal sealed partial class DiffViewWindow
                 if (audioDifferenceBusy != null) audioDifferenceBusy.Visibility = Visibility.Visible;
                 audioDifferenceTask = Task.Run(() => AudioDifferences.Load(source, target, token), token);
             }
+
             var differences = await audioDifferenceTask;
             if (token.IsCancellationRequested || windowClosed || !ReferenceEquals(timeline, audioTimeline)) return;
-            for (int side = 0; side < timeline.Waves.Length; side++)
+            for (var side = 0; side < timeline.Waves.Length; side++)
                 timeline.Waves[side].SetDifferences(differences, audioDifferenceEnabled, side == 0);
             audioOverview?.SetDifferences(differences, audioDifferenceEnabled);
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException)
+        {
+        }
         catch (Exception ex)
         {
             if (!token.IsCancellationRequested && !windowClosed && ReferenceEquals(timeline, audioTimeline))
@@ -126,11 +134,11 @@ internal sealed partial class DiffViewWindow
     {
         Dispatcher.VerifyAccess();
         CheckWindowOpen();
-        double duration = Math.Max(envelopes[0]?.Duration ?? 0, envelopes[1]?.Duration ?? 0);
+        var duration = Math.Max(envelopes[0]?.Duration ?? 0, envelopes[1]?.Duration ?? 0);
         audioPlayer = new AudioDiffPlayer(source, target, duration);
         var overview = audioOverview = new AudioOverview(envelopes, duration);
-        overview.SetResourceReference(Control.ForegroundProperty, "AudioWaveformInk");
-        overview.SetResourceReference(Control.BackgroundProperty, "CardBackground");
+        overview.SetResourceReference(ForegroundProperty, "AudioWaveformInk");
+        overview.SetResourceReference(BackgroundProperty, "CardBackground");
         audioOverviewHost.Children.Add(overview);
         audioOverviewHost.Visibility = Visibility.Visible;
         body.Children.Clear();
@@ -143,9 +151,12 @@ internal sealed partial class DiffViewWindow
                 layout.SetDelay(side, value);
                 layout.UpdatePosition(audioPlayer.Position, false);
             }
-            catch (Exception ex) { ViewModel.ReportError(ex); }
+            catch (Exception ex)
+            {
+                ViewModel.ReportError(ex);
+            }
         };
-        bool resumeAfterOffsetDrag = false;
+        var resumeAfterOffsetDrag = false;
         foreach (var wave in layout.Waves)
         {
             wave.CursorDragStarted += () =>
@@ -153,8 +164,12 @@ internal sealed partial class DiffViewWindow
                 resumeAfterOffsetDrag = audioPlayer.Playing;
                 audioPlayer.Pause();
             };
-            wave.CursorDragCompleted += () => { if (resumeAfterOffsetDrag) audioPlayer.Play(); };
+            wave.CursorDragCompleted += () =>
+            {
+                if (resumeAfterOffsetDrag) audioPlayer.Play();
+            };
         }
+
         Grid.SetColumnSpan(layout, 3);
         body.Children.Add(layout);
         // Overlay the waveform while the first difference analysis is running.
@@ -169,8 +184,8 @@ internal sealed partial class DiffViewWindow
             Height = 5,
             IsIndeterminate = true
         };
-        busyBar.SetResourceReference(Control.BackgroundProperty, "HeaderBackground");
-        busyBar.SetResourceReference(Control.ForegroundProperty, "Accent");
+        busyBar.SetResourceReference(BackgroundProperty, "HeaderBackground");
+        busyBar.SetResourceReference(ForegroundProperty, "Accent");
         busyContent.Children.Add(busyBar);
         var busyText = new TextBlock
         {
@@ -198,9 +213,9 @@ internal sealed partial class DiffViewWindow
         controls.ColumnDefinitions.Add(new ColumnDefinition());
         controls.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.6, GridUnitType.Star) });
         controls.ColumnDefinitions.Add(new ColumnDefinition());
-        for (int side = 0; side < 2; side++)
+        for (var side = 0; side < 2; side++)
         {
-            int index = side;
+            var index = side;
             var volumePanel = new Grid { Margin = new Thickness(side == 0 ? 0 : 10, 0, side == 0 ? 10 : 0, 0) };
             volumePanel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             volumePanel.ColumnDefinitions.Add(new ColumnDefinition());
@@ -215,7 +230,7 @@ internal sealed partial class DiffViewWindow
                 IsMoveToPointEnabled = true
             };
             volume.Style = TryFindResource("AudioVolumeSlider") as Style;
-            volume.SetResourceReference(Control.ForegroundProperty, side == 0 ? "SourceColor" : "TargetColor");
+            volume.SetResourceReference(ForegroundProperty, side == 0 ? "SourceColor" : "TargetColor");
             audioPlayer.SetVolume(index, volume.Value);
             volume.ValueChanged += (_, e) =>
             {
@@ -224,6 +239,7 @@ internal sealed partial class DiffViewWindow
             };
             Grid.SetColumn(volume, 1);
             volumePanel.Children.Add(volume);
+
             Button Icon(int number, string hint, double value)
             {
                 var button = new Button
@@ -232,12 +248,14 @@ internal sealed partial class DiffViewWindow
                     Height = 36,
                     Padding = new Thickness(2),
                     ToolTip = hint,
-                    Content = new Image { Source = DifferencerStatusIcons.GetCustomIcon(number), Width = 28, Height = 28 },
+                    Content = new Image
+                    { Source = DifferencerStatusIcons.GetCustomIcon(number), Width = 28, Height = 28 },
                     Style = TryFindResource("IconButton") as Style
                 };
                 button.Click += (_, _) => volume.Value = value;
                 return button;
             }
+
             volumePanel.Children.Add(Icon(142, "Mute (0%)", 0));
             var maximum = Icon(141, "Maximum (100%)", 1);
             Grid.SetColumn(maximum, 2);
@@ -245,6 +263,7 @@ internal sealed partial class DiffViewWindow
             Grid.SetColumn(volumePanel, side == 0 ? 0 : 2);
             controls.Children.Add(volumePanel);
         }
+
         var transport = new Grid();
         transport.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         transport.ColumnDefinitions.Add(new ColumnDefinition());
@@ -255,7 +274,8 @@ internal sealed partial class DiffViewWindow
             ToolTip = "Play / Pause",
             IsEnabled = duration > 0,
             Style = (Style)FindResource("AudioPlayButton")
-        }; var seek = new Slider
+        };
+        var seek = new Slider
         {
             Minimum = 0,
             Maximum = Math.Max(duration, 0.001),
@@ -269,6 +289,7 @@ internal sealed partial class DiffViewWindow
         var time = new TextBlock { VerticalAlignment = VerticalAlignment.Center, FontSize = 11 };
         time.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
         bool updating = false, dragging = false;
+
         void Refresh(double position, bool updateTimeline = true)
         {
             updating = true;
@@ -276,28 +297,44 @@ internal sealed partial class DiffViewWindow
             seek.Maximum = Math.Max(0.001, duration);
             if (!dragging) seek.Value = position;
             updating = false;
-            time.Text = $"{TimeSpan.FromSeconds(position):hh\\:mm\\:ss} / {TimeSpan.FromSeconds(duration):hh\\:mm\\:ss}";
+            time.Text =
+                $"{TimeSpan.FromSeconds(position):hh\\:mm\\:ss} / {TimeSpan.FromSeconds(duration):hh\\:mm\\:ss}";
             if (updateTimeline) layout.UpdatePosition(position, audioPlayer?.Playing == true);
             overview.SetTiming(duration, layout.Delays);
             overview.Update(position, audioPlayer?.GetPeak(0) ?? 0, audioPlayer?.GetPeak(1) ?? 0);
             play.Content = audioPlayer?.Playing == true ? "Ⅱ" : "▶";
         }
+
         void Seek(double position)
         {
-            try { audioPlayer?.Seek(position); layout.UpdatePosition(position, true); Refresh(position); }
-            catch (Exception ex) { ViewModel.ReportError(ex); }
+            try
+            {
+                audioPlayer?.Seek(position);
+                layout.UpdatePosition(position, true);
+                Refresh(position);
+            }
+            catch (Exception ex)
+            {
+                ViewModel.ReportError(ex);
+            }
         }
+
         play.Click += (_, _) =>
         {
             ToggleAudioPlayback();
             Refresh(audioPlayer?.Position ?? 0);
         };
         seek.AddHandler(Thumb.DragStartedEvent, new DragStartedEventHandler((_, _) => dragging = true));
-        seek.AddHandler(Thumb.DragCompletedEvent, new DragCompletedEventHandler((_, _) => { dragging = false; Seek(seek.Value); }));
+        seek.AddHandler(Thumb.DragCompletedEvent, new DragCompletedEventHandler((_, _) =>
+        {
+            dragging = false;
+            Seek(seek.Value);
+        }));
         seek.ValueChanged += (_, e) =>
         {
             if (updating) return;
-            if (dragging) Refresh(e.NewValue); else Seek(e.NewValue);
+            if (dragging) Refresh(e.NewValue);
+            else Seek(e.NewValue);
         };
         layout.SeekRequested += Seek;
         overview.ViewportClicked += Seek;
@@ -309,12 +346,21 @@ internal sealed partial class DiffViewWindow
         };
         overview.RepeatChanged += (a, b) =>
         {
-            try { audioPlayer?.SetRepeat(a, b); Refresh(audioPlayer?.Position ?? 0); }
-            catch (Exception ex) { ViewModel.ReportError(ex); }
+            try
+            {
+                audioPlayer?.SetRepeat(a, b);
+                Refresh(audioPlayer?.Position ?? 0);
+            }
+            catch (Exception ex)
+            {
+                ViewModel.ReportError(ex);
+            }
         };
         transport.Children.Add(play);
-        Grid.SetColumn(seek, 1); transport.Children.Add(seek);
-        Grid.SetColumn(time, 2); transport.Children.Add(time);
+        Grid.SetColumn(seek, 1);
+        transport.Children.Add(seek);
+        Grid.SetColumn(time, 2);
+        transport.Children.Add(time);
         var transportFrame = new Border
         {
             CornerRadius = new CornerRadius(10),
@@ -325,24 +371,26 @@ internal sealed partial class DiffViewWindow
         };
         transportFrame.SetResourceReference(Border.BackgroundProperty, "CardBackground");
         transportFrame.SetResourceReference(Border.BorderBrushProperty, "Line");
-        Grid.SetColumn(transportFrame, 1); controls.Children.Add(transportFrame);
+        Grid.SetColumn(transportFrame, 1);
+        controls.Children.Add(transportFrame);
         gifFrameHost.HorizontalAlignment = HorizontalAlignment.Stretch;
         gifFrameHost.Children.Add(controls);
         gifFrameHost.Visibility = Visibility.Visible;
         // Match display refresh; the transport text and overview meters need fewer updates.
-        double lastOverviewUpdate = double.NegativeInfinity;
+        var lastOverviewUpdate = double.NegativeInfinity;
         audioRendering = (_, e) =>
         {
             if (audioPlayer == null || dragging || !audioPlayer.Playing) return;
-            double position = audioPlayer.Position;
+            var position = audioPlayer.Position;
             layout.UpdatePosition(position, true);
-            double now = ((RenderingEventArgs)e).RenderingTime.TotalSeconds;
+            var now = ((RenderingEventArgs)e).RenderingTime.TotalSeconds;
             if (now - lastOverviewUpdate < 1.0 / 30) return;
             lastOverviewUpdate = now;
             Refresh(position, false);
         };
         CompositionTarget.Rendering += audioRendering;
-        audioTimer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher) { Interval = TimeSpan.FromMilliseconds(100) };
+        audioTimer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher)
+        { Interval = TimeSpan.FromMilliseconds(100) };
         audioTimer.Tick += (_, _) =>
         {
             if (audioPlayer == null) return;
@@ -370,18 +418,23 @@ internal sealed partial class DiffViewWindow
             Style = TryFindResource("ZoomSlider") as Style,
             ToolTip = "Horizontal waveform zoom"
         };
+
         void UpdateMaximum()
         {
-            zoom.Maximum = Math.Max(100, duration / DesktopIniManager.Controls.WaveformControl.MinimumViewSeconds * 100);
+            zoom.Maximum = Math.Max(100, duration / WaveformControl.MinimumViewSeconds * 100);
             if (zoom.Value > zoom.Maximum) zoom.Value = zoom.Maximum;
         }
 
-        var label = new TextBlock { Text = "100%", Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        var label = new TextBlock
+        { Text = "100%", Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
         var row = new StackPanel { Orientation = Orientation.Horizontal };
-        row.Children.Add(new TextBlock { Text = StringOverlay.Get("Diff_Zoom"), VerticalAlignment = VerticalAlignment.Center });
-        row.Children.Add(ImageZoomStepButton("\uE738", "Zoom out", () => zoom.Value = Math.Max(zoom.Minimum, zoom.Value - 100)));
+        row.Children.Add(new TextBlock
+        { Text = StringOverlay.Get("Diff_Zoom"), VerticalAlignment = VerticalAlignment.Center });
+        row.Children.Add(ImageZoomStepButton("\uE738", "Zoom out",
+            () => zoom.Value = Math.Max(zoom.Minimum, zoom.Value - 100)));
         row.Children.Add(zoom);
-        row.Children.Add(ImageZoomStepButton("\uE710", "Zoom in", () => zoom.Value = Math.Min(zoom.Maximum, zoom.Value + 100)));
+        row.Children.Add(ImageZoomStepButton("\uE710", "Zoom in",
+            () => zoom.Value = Math.Min(zoom.Maximum, zoom.Value + 100)));
         row.Children.Add(label);
         var chrome = new Border
         {
@@ -405,7 +458,8 @@ internal sealed partial class DiffViewWindow
             zoom.Value = 100;
             audioTimeline?.Fit();
         });
-        var differenceIcon = new Image { Source = DifferencerStatusIcons.GetCustomIcon(143), Stretch = Stretch.Uniform };
+        var differenceIcon = new Image
+        { Source = DifferencerStatusIcons.GetCustomIcon(143), Stretch = Stretch.Uniform };
         var differenceToggle = new ToggleButton
         {
             Content = differenceIcon,
@@ -414,15 +468,18 @@ internal sealed partial class DiffViewWindow
             ToolTip = "Highlight audio differences (decoded samples, before volume adjustment)",
             IsChecked = audioDifferenceEnabled
         };
-        System.Windows.Automation.AutomationProperties.SetName(differenceToggle, "Highlight audio differences");
+        AutomationProperties.SetName(differenceToggle, "Highlight audio differences");
+
         void UpdateDifferenceMode()
         {
             audioDifferenceEnabled = differenceToggle.IsChecked == true;
             differenceIcon.Opacity = audioDifferenceEnabled ? 1 : 0.35;
             if (audioTimeline != null)
-                foreach (var wave in audioTimeline.Waves) wave.ShowDifferences = audioDifferenceEnabled;
+                foreach (var wave in audioTimeline.Waves)
+                    wave.ShowDifferences = audioDifferenceEnabled;
             if (audioOverview != null) audioOverview.ShowDifferences = audioDifferenceEnabled;
         }
+
         differenceToggle.Checked += (_, _) =>
         {
             UpdateDifferenceMode();
@@ -431,7 +488,8 @@ internal sealed partial class DiffViewWindow
         differenceToggle.Unchecked += (_, _) => UpdateDifferenceMode();
         differenceIcon.Opacity = audioDifferenceEnabled ? 1 : 0.35;
         imageToolbar.Children.Add(differenceToggle);
-        var repeatIcon = new Image { Source = DifferencerStatusIcons.GetCustomIcon(144), Stretch = Stretch.Uniform, Opacity = 0.35 };
+        var repeatIcon = new Image
+        { Source = DifferencerStatusIcons.GetCustomIcon(144), Stretch = Stretch.Uniform, Opacity = 0.35 };
         var repeatToggle = new ToggleButton
         {
             Content = repeatIcon,
@@ -440,13 +498,15 @@ internal sealed partial class DiffViewWindow
             ToolTip = "リピート：波形マップをドラッグしてA–B範囲を選択",
             IsEnabled = duration > 0
         };
-        System.Windows.Automation.AutomationProperties.SetName(repeatToggle, "A–Bリピート");
+        AutomationProperties.SetName(repeatToggle, "A–Bリピート");
+
         void UpdateRepeat()
         {
-            bool enabled = repeatToggle.IsChecked == true;
+            var enabled = repeatToggle.IsChecked == true;
             repeatIcon.Opacity = enabled ? 1 : 0.35;
             audioOverview?.SetRepeatEnabled(enabled);
         }
+
         repeatToggle.Checked += (_, _) => UpdateRepeat();
         repeatToggle.Unchecked += (_, _) => UpdateRepeat();
         imageToolbar.Children.Add(repeatToggle);
@@ -461,11 +521,16 @@ internal sealed partial class DiffViewWindow
 
     private StackPanel CreatePlaybackSpeeds(string group, Action<double> setSpeed)
     {
-        var speedGroup = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 8), VerticalAlignment = VerticalAlignment.Top };
-        double[] speeds = { 0.5, 0.75, 1.0, 1.5, 1.75, 2.0 };
-        for (int i = 0; i < speeds.Length; i++)
+        var speedGroup = new StackPanel
         {
-            double speed = speeds[i];
+            Orientation = Orientation.Horizontal,
+            Margin = new Thickness(0, 0, 0, 8),
+            VerticalAlignment = VerticalAlignment.Top
+        };
+        double[] speeds = { 0.5, 0.75, 1.0, 1.5, 1.75, 2.0 };
+        for (var i = 0; i < speeds.Length; i++)
+        {
+            var speed = speeds[i];
             var image = new Image
             {
                 Source = DifferencerStatusIcons.GetCustomIcon(145 + i),
@@ -482,85 +547,151 @@ internal sealed partial class DiffViewWindow
                 Style = (Style)FindResource("AudioSpeedRadioButton")
             };
             RenderOptions.SetBitmapScalingMode(image, BitmapScalingMode.HighQuality);
-            System.Windows.Automation.AutomationProperties.SetName(radio, $"再生速度 {speed:0.##}倍");
+            AutomationProperties.SetName(radio, $"再生速度 {speed:0.##}倍");
             radio.Checked += (_, _) =>
             {
                 foreach (var item in speedGroup.Children)
                     if (item is RadioButton button && button.Content is Image icon)
                         icon.Opacity = ReferenceEquals(button, radio) ? 1 : 0.35;
-                try { setSpeed(speed); }
-                catch (Exception ex) { ViewModel.ReportError(ex); }
+                try
+                {
+                    setSpeed(speed);
+                }
+                catch (Exception ex)
+                {
+                    ViewModel.ReportError(ex);
+                }
             };
             speedGroup.Children.Add(radio);
         }
+
         return speedGroup;
     }
 
     internal static FrameworkElement CreateDelayPicker(bool source, Func<double> getValue, Action<double> setValue)
     {
         var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        var caption = new TextBlock { Text = "Delay", FontSize = 10, Margin = new Thickness(0, 0, 5, 0), VerticalAlignment = VerticalAlignment.Center };
+        var caption = new TextBlock
+        {
+            Text = "Delay",
+            FontSize = 10,
+            Margin = new Thickness(0, 0, 5, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
         caption.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
         row.Children.Add(caption);
-        var input = new TextBox { Width = 56, Height = 20, FontSize = 11, Padding = new Thickness(0), BorderThickness = new Thickness(0),
-            Background = Brushes.Transparent, TextAlignment = TextAlignment.Right, VerticalContentAlignment = VerticalAlignment.Center,
-            ToolTip = "0.1秒単位。正の値は遅らせ、負の値は先に進めます。" };
-        input.SetResourceReference(Control.ForegroundProperty, "Ink");
+        var input = new TextBox
+        {
+            Width = 56,
+            Height = 20,
+            FontSize = 11,
+            Padding = new Thickness(0),
+            BorderThickness = new Thickness(0),
+            Background = Brushes.Transparent,
+            TextAlignment = TextAlignment.Right,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            ToolTip = "0.1秒単位。正の値は遅らせ、負の値は先に進めます。"
+        };
+        input.SetResourceReference(ForegroundProperty, "Ink");
         var textHost = new FrameworkElementFactory(typeof(ScrollViewer));
         textHost.Name = "PART_ContentHost";
         input.Template = new ControlTemplate(typeof(TextBox)) { VisualTree = textHost };
-        var frame = new Border { Child = row, Height = 24, CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1),
-            Padding = new Thickness(9, 0, 5, 0), Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        var frame = new Border
+        {
+            Child = row,
+            Height = 24,
+            CornerRadius = new CornerRadius(12),
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(9, 0, 5, 0),
+            Margin = new Thickness(8, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
         frame.SetResourceReference(Border.BackgroundProperty, "CardBackground");
         frame.SetResourceReference(Border.BorderBrushProperty, "Line");
-        System.Windows.Automation.AutomationProperties.SetName(input, (source ? "Source" : "Target") + " delay in seconds");
-        void Refresh() => input.Text = getValue().ToString("0.0", System.Globalization.CultureInfo.CurrentCulture);
+        AutomationProperties.SetName(input, (source ? "Source" : "Target") + " delay in seconds");
+
+        void Refresh()
+        {
+            input.Text = getValue().ToString("0.0", CultureInfo.CurrentCulture);
+        }
+
         void Commit()
         {
-            if (double.TryParse(input.Text, out double value) && double.IsFinite(value))
+            if (double.TryParse(input.Text, out var value) && double.IsFinite(value))
                 setValue(Math.Round(Math.Clamp(value, -86400, 86400), 1));
             Refresh();
         }
+
         input.LostKeyboardFocus += (_, _) => Commit();
         input.PreviewKeyDown += (_, e) =>
         {
-            if (e.Key == Key.Enter) { Commit(); e.Handled = true; }
-            else if (e.Key == Key.Escape) { Refresh(); e.Handled = true; }
+            if (e.Key == Key.Enter)
+            {
+                Commit();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Escape)
+            {
+                Refresh();
+                e.Handled = true;
+            }
             else if (e.Key == Key.Up || e.Key == Key.Down)
             {
-                Commit(); setValue(Math.Round(Math.Clamp(getValue() + (e.Key == Key.Up ? 0.1 : -0.1), -86400, 86400), 1));
-                Refresh(); e.Handled = true;
+                Commit();
+                setValue(Math.Round(Math.Clamp(getValue() + (e.Key == Key.Up ? 0.1 : -0.1), -86400, 86400), 1));
+                Refresh();
+                e.Handled = true;
             }
         };
         frame.Tag = (Action)Refresh;
-        Refresh(); row.Children.Add(input);
-        var arrows = new StackPanel { Margin = new Thickness(4, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
-        foreach (int direction in new[] { 1, -1 })
+        Refresh();
+        row.Children.Add(input);
+        var arrows = new StackPanel
+        { Margin = new Thickness(4, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        foreach (var direction in new[] { 1, -1 })
         {
-            var button = new RepeatButton { Content = direction > 0 ? "▴" : "▾", Width = 18, Height = 10, FontSize = 9,
-                Padding = new Thickness(0), Focusable = false, Cursor = Cursors.Hand };
-            button.SetResourceReference(Control.ForegroundProperty, "Muted");
+            var button = new RepeatButton
+            {
+                Content = direction > 0 ? "▴" : "▾",
+                Width = 18,
+                Height = 10,
+                FontSize = 9,
+                Padding = new Thickness(0),
+                Focusable = false,
+                Cursor = Cursors.Hand
+            };
+            button.SetResourceReference(ForegroundProperty, "Muted");
             var chrome = new FrameworkElementFactory(typeof(Border));
             chrome.Name = "Chrome";
             chrome.SetValue(Border.CornerRadiusProperty, new CornerRadius(4));
             chrome.SetValue(Border.BackgroundProperty, Brushes.Transparent);
             var glyph = new FrameworkElementFactory(typeof(ContentPresenter));
-            glyph.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Center);
-            glyph.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
+            glyph.SetValue(HorizontalAlignmentProperty, HorizontalAlignment.Center);
+            glyph.SetValue(VerticalAlignmentProperty, VerticalAlignment.Center);
             chrome.AppendChild(glyph);
             var template = new ControlTemplate(typeof(RepeatButton)) { VisualTree = chrome };
-            var hover = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
-            hover.Setters.Add(new Setter(Border.BackgroundProperty, new DynamicResourceExtension("HeaderBackground"), "Chrome"));
+            var hover = new Trigger { Property = IsMouseOverProperty, Value = true };
+            hover.Setters.Add(new Setter(Border.BackgroundProperty, new DynamicResourceExtension("HeaderBackground"),
+                "Chrome"));
             template.Triggers.Add(hover);
             button.Template = template;
             button.Click += (_, _) =>
             {
-                Commit(); setValue(Math.Round(Math.Clamp(getValue() + direction * 0.1, -86400, 86400), 1)); Refresh();
+                Commit();
+                setValue(Math.Round(Math.Clamp(getValue() + direction * 0.1, -86400, 86400), 1));
+                Refresh();
             };
             arrows.Children.Add(button);
         }
+
         row.Children.Add(arrows);
-        var unit = new TextBlock { Text = "s", FontSize = 10, Margin = new Thickness(3, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        var unit = new TextBlock
+        {
+            Text = "s",
+            FontSize = 10,
+            Margin = new Thickness(3, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
         unit.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
         row.Children.Insert(2, unit);
         return frame;
@@ -570,15 +701,51 @@ internal sealed partial class DiffViewWindow
 // Compact block waveforms with playback progress and post-volume output peaks.
 internal sealed class AudioOverview : Control
 {
-    internal bool RepeatEnabled { get; private set; }
-    internal event Action<double?, double?> RepeatChanged;
+    private const double UnplayedOpacity = 0.4;
+    private readonly float[][] barPeaks = new float[2][];
+    private readonly double[] delays = new double[2];
+
+    private readonly AudioEnvelope[] envelopes;
+    private readonly float[] levels = new float[2];
+    private bool[][] differenceBars = new bool[2][];
+    private int differenceBarsCount = -1;
+    private AudioDifferences differences;
+    private bool draggingViewport;
+    private double duration;
+    private double position;
     private double? repeatA, repeatB;
     private bool selectingRepeat;
-    private bool draggingViewport;
-    private bool viewportMoved;
+    private bool showDifferences;
+    private double viewStart, viewDuration;
     private double viewportDragX, viewportDragStart;
+    private bool viewportMoved;
+
+    internal AudioOverview(AudioEnvelope[] envelopes, double duration)
+    {
+        this.envelopes = envelopes;
+        this.duration = duration;
+        ClipToBounds = true;
+        ToolTip = "Source / Target — click waveform to seek; output level at right";
+    }
+
+    internal bool RepeatEnabled { get; private set; }
+
+    internal bool ShowDifferences
+    {
+        get => showDifferences;
+        set
+        {
+            showDifferences = value;
+            InvalidateVisual();
+        }
+    }
+
+    internal event Action<double?, double?> RepeatChanged;
+
     internal event Action<double> ViewportDragged;
+
     internal event Action<double> ViewportClicked;
+
     internal void SetRepeatEnabled(bool enabled)
     {
         RepeatEnabled = enabled;
@@ -591,17 +758,21 @@ internal sealed class AudioOverview : Control
         RepeatChanged?.Invoke(null, null);
         InvalidateVisual();
     }
-    private double RepeatTime(Point point) =>
-        Math.Clamp(point.X / Math.Max(1, ActualWidth - 100), 0, 1) * duration;
+
+    private double RepeatTime(Point point)
+    {
+        return Math.Clamp(point.X / Math.Max(1, ActualWidth - 100), 0, 1) * duration;
+    }
+
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonDown(e);
         if (!RepeatEnabled && duration > 0 && viewDuration > 0 && viewDuration < duration)
         {
-            double width = Math.Max(0, ActualWidth - 100);
-            double x = e.GetPosition(this).X;
-            double left = viewStart / duration * width;
-            double right = (viewStart + viewDuration) / duration * width;
+            var width = Math.Max(0, ActualWidth - 100);
+            var x = e.GetPosition(this).X;
+            var left = viewStart / duration * width;
+            var right = (viewStart + viewDuration) / duration * width;
             if (x >= left && x <= right && CaptureMouse())
             {
                 draggingViewport = true;
@@ -613,6 +784,7 @@ internal sealed class AudioOverview : Control
                 return;
             }
         }
+
         if (!RepeatEnabled || duration <= 0 || e.GetPosition(this).X > ActualWidth - 100) return;
         if (!CaptureMouse()) return;
         selectingRepeat = true;
@@ -622,34 +794,38 @@ internal sealed class AudioOverview : Control
         InvalidateVisual();
         e.Handled = true;
     }
+
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
         if (draggingViewport)
         {
-            double width = Math.Max(1, ActualWidth - 100);
-            double pixels = e.GetPosition(this).X - viewportDragX;
+            var width = Math.Max(1, ActualWidth - 100);
+            var pixels = e.GetPosition(this).X - viewportDragX;
             if (Math.Abs(pixels) >= SystemParameters.MinimumHorizontalDragDistance) viewportMoved = true;
             if (viewportMoved)
             {
-                double delta = pixels / width * duration;
+                var delta = pixels / width * duration;
                 ViewportDragged?.Invoke(Math.Clamp(viewportDragStart + delta, 0, Math.Max(0, duration - viewDuration)));
             }
+
             e.Handled = true;
             return;
         }
+
         if (!selectingRepeat) return;
         repeatB = RepeatTime(e.GetPosition(this));
         InvalidateVisual();
         e.Handled = true;
     }
+
     protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonUp(e);
         if (draggingViewport)
         {
-            bool click = !viewportMoved;
-            double clickTime = RepeatTime(e.GetPosition(this));
+            var click = !viewportMoved;
+            var clickTime = RepeatTime(e.GetPosition(this));
             draggingViewport = false;
             viewportMoved = false;
             ReleaseMouseCapture();
@@ -658,6 +834,7 @@ internal sealed class AudioOverview : Control
             e.Handled = true;
             return;
         }
+
         if (!selectingRepeat) return;
         repeatB = RepeatTime(e.GetPosition(this));
         selectingRepeat = false;
@@ -666,6 +843,7 @@ internal sealed class AudioOverview : Control
         InvalidateVisual();
         e.Handled = true;
     }
+
     protected override void OnLostMouseCapture(MouseEventArgs e)
     {
         base.OnLostMouseCapture(e);
@@ -676,19 +854,22 @@ internal sealed class AudioOverview : Control
             Cursor = Cursors.Arrow;
             return;
         }
+
         if (!selectingRepeat) return;
         selectingRepeat = false;
         repeatA = repeatB = null;
         InvalidateVisual();
     }
+
     private void DrawRepeat(DrawingContext dc, double width)
     {
         if (!RepeatEnabled || !repeatA.HasValue || duration <= 0) return;
-        double a = repeatA.Value / duration * width;
-        double b = (repeatB ?? repeatA).Value / duration * width;
+        var a = repeatA.Value / duration * width;
+        var b = (repeatB ?? repeatA).Value / duration * width;
         dc.PushOpacity(0.18);
         dc.DrawRectangle(Brushes.Yellow, null, new Rect(Math.Min(a, b), 0, Math.Abs(b - a), ActualHeight));
         dc.Pop();
+
         void Marker(double x)
         {
             x = Math.Clamp(x, 1, Math.Max(1, width - 1));
@@ -703,19 +884,12 @@ internal sealed class AudioOverview : Control
                 context.LineTo(new Point(x + 4, ActualHeight), true, false);
                 context.LineTo(new Point(x, ActualHeight - 5), true, false);
             }
+
             dc.DrawGeometry(Brushes.Yellow, null, triangles);
         }
+
         Marker(a);
         if (repeatB.HasValue) Marker(b);
-    }
-    private AudioDifferences differences;
-    private bool showDifferences;
-    private bool[][] differenceBars = new bool[2][];
-    private int differenceBarsCount = -1;
-    internal bool ShowDifferences
-    {
-        get => showDifferences;
-        set { showDifferences = value; InvalidateVisual(); }
     }
 
     internal void SetDifferences(AudioDifferences value, bool enabled)
@@ -732,72 +906,64 @@ internal sealed class AudioOverview : Control
             differenceBarsCount = bars;
             differenceBars = new bool[2][];
         }
+
         if (differenceBars[side] != null) return differenceBars[side];
         var flags = new bool[bars];
         if (differences != null && envelopes[side] != null && envelopes[side].Duration > 0)
         {
             var channels = side == 0 ? differences.Channels : differences.TargetChannels;
-            double seconds = envelopes[side].Duration;
+            var seconds = envelopes[side].Duration;
             foreach (var ranges in channels)
                 foreach (var range in ranges)
                 {
-                    int first = Math.Clamp((int)Math.Floor(range.Start / seconds * bars), 0, bars);
-                    int last = Math.Clamp((int)Math.Ceiling(range.End / seconds * bars), 0, bars);
-                    for (int i = first; i < last; i++) flags[i] = true;
+                    var first = Math.Clamp((int)Math.Floor(range.Start / seconds * bars), 0, bars);
+                    var last = Math.Clamp((int)Math.Ceiling(range.End / seconds * bars), 0, bars);
+                    for (var i = first; i < last; i++) flags[i] = true;
                 }
         }
+
         return differenceBars[side] = flags;
     }
 
-    private readonly AudioEnvelope[] envelopes;
-    private double duration;
-    private readonly double[] delays = new double[2];
     internal void SetTiming(double total, double[] offsets)
     {
         duration = total;
         Array.Copy(offsets, delays, 2);
     }
-    private double position;
-    private readonly float[] levels = new float[2];
-    private readonly float[][] barPeaks = new float[2][];
+
     private float[] GetBarPeaks(int side, int bars)
     {
         if (barPeaks[side]?.Length == bars) return barPeaks[side];
         var result = new float[bars];
         var envelope = envelopes[side];
-        int bins = envelope.Data?.BinCount ?? envelope.Max[0].Length;
+        var bins = envelope.Data?.BinCount ?? envelope.Max[0].Length;
         if (bins == 0) return result;
-        for (int bar = 0; bar < bars; bar++)
+        for (var bar = 0; bar < bars; bar++)
         {
-            int first = Math.Min(bins - 1, (int)((long)bar * bins / bars));
-            int last = Math.Min(bins, Math.Max(first + 1, (int)((long)(bar + 1) * bins / bars)));
-            for (int ch = 0; ch < envelope.Channels; ch++)
-            {
+            var first = Math.Min(bins - 1, (int)((long)bar * bins / bars));
+            var last = Math.Min(bins, Math.Max(first + 1, (int)((long)(bar + 1) * bins / bars)));
+            for (var ch = 0; ch < envelope.Channels; ch++)
                 if (envelope.Data != null)
                 {
-                    envelope.Data.GetExtrema(ch, first, last, out float min, out float max);
+                    envelope.Data.GetExtrema(ch, first, last, out var min, out var max);
                     result[bar] = Math.Max(result[bar], Math.Max(Math.Abs(min), max));
                 }
                 else
-                    for (int bin = first; bin < last; bin++)
-                        result[bar] = Math.Max(result[bar], Math.Max(Math.Abs(envelope.Min[ch][bin]), envelope.Max[ch][bin]));
-            }
+                {
+                    for (var bin = first; bin < last; bin++)
+                        result[bar] = Math.Max(result[bar],
+                            Math.Max(Math.Abs(envelope.Min[ch][bin]), envelope.Max[ch][bin]));
+                }
         }
+
         return barPeaks[side] = result;
     }
-    private double viewStart, viewDuration;
+
     internal void SetViewport(double start, double span)
     {
-        viewStart = start; viewDuration = span; InvalidateVisual();
-    }
-    private const double UnplayedOpacity = 0.4;
-
-    internal AudioOverview(AudioEnvelope[] envelopes, double duration)
-    {
-        this.envelopes = envelopes;
-        this.duration = duration;
-        ClipToBounds = true;
-        ToolTip = "Source / Target — click waveform to seek; output level at right";
+        viewStart = start;
+        viewDuration = span;
+        InvalidateVisual();
     }
 
     internal void Update(double seconds, float source, float target)
@@ -813,33 +979,34 @@ internal sealed class AudioOverview : Control
         base.OnRender(dc);
         dc.DrawRoundedRectangle(Background, null, new Rect(RenderSize), 5, 5);
         double width = Math.Max(0, ActualWidth - 100), rowHeight = ActualHeight / 2;
-        for (int side = 0; side < 2; side++)
+        for (var side = 0; side < 2; side++)
         {
             var color = TryFindResource(side == 0 ? "SourceColor" : "TargetColor") as Brush ?? Foreground;
             var envelope = envelopes[side];
-            double baseline = rowHeight * (side + 1) - 3;
+            var baseline = rowHeight * (side + 1) - 3;
             if (envelope != null && envelope.Duration > 0 && duration > 0)
             {
-                int bars = Math.Max(1, (int)(width * envelope.Duration / duration / 4));
+                var bars = Math.Max(1, (int)(width * envelope.Duration / duration / 4));
                 var peaks = GetBarPeaks(side, bars);
                 var redBars = showDifferences ? GetDifferenceBars(side, bars) : null;
-                for (int bar = 0; bar < bars; bar++)
+                for (var bar = 0; bar < bars; bar++)
                 {
-                    float peak = peaks[bar];
-                    double height = Math.Max(1, Math.Clamp(peak, 0, 1) * (rowHeight - 6));
-                    double barTime = (double)bar / bars * envelope.Duration + delays[side];
-                    double barX = bar * 4 + delays[side] / duration * width;
+                    var peak = peaks[bar];
+                    var height = Math.Max(1, Math.Clamp(peak, 0, 1) * (rowHeight - 6));
+                    var barTime = (double)bar / bars * envelope.Duration + delays[side];
+                    var barX = bar * 4 + delays[side] / duration * width;
                     if (barX < 0 || barX + 2 > width) continue;
-                    bool played = barTime < position;
+                    var played = barTime < position;
                     if (!played) dc.PushOpacity(UnplayedOpacity);
                     dc.DrawRectangle(redBars != null && redBars[bar] ? Brushes.Red : color, null,
                         new Rect(barX, baseline - height, 2, height));
                     if (!played) dc.Pop();
                 }
             }
+
             // dBFS scale: -60 dB to 0 dB, including saved volume/mute.
-            double level = levels[side] > 0 ? Math.Clamp((20 * Math.Log10(levels[side]) + 60) / 60, 0, 1) : 0;
-            for (int segment = 0; segment < 16; segment++)
+            var level = levels[side] > 0 ? Math.Clamp((20 * Math.Log10(levels[side]) + 60) / 60, 0, 1) : 0;
+            for (var segment = 0; segment < 16; segment++)
             {
                 dc.PushOpacity(segment < level * 16 ? 1 : 0.15);
                 dc.DrawRectangle(segment >= 14 ? Brushes.OrangeRed : color, null,
@@ -847,11 +1014,13 @@ internal sealed class AudioOverview : Control
                 dc.Pop();
             }
         }
+
         if (duration > 0)
         {
-            double x = Math.Clamp(position / duration, 0, 1) * width;
+            var x = Math.Clamp(position / duration, 0, 1) * width;
             dc.DrawLine(new Pen(Brushes.OrangeRed, 1), new Point(x, 0), new Point(x, ActualHeight));
         }
+
         if (duration > 0 && viewDuration > 0 && viewDuration < duration)
             dc.DrawRectangle(null, new Pen(Foreground, 1), new Rect(viewStart / duration * width, 1,
                 viewDuration / duration * width, Math.Max(0, ActualHeight - 2)));
@@ -862,55 +1031,13 @@ internal sealed class AudioOverview : Control
 // Both panes share one horizontal time axis; only visible pixels are rendered.
 internal sealed class AudioTimeline : Grid
 {
-    internal static TextBlock CreateHeader(AudioEnvelope current, AudioEnvelope other, bool source)
-    {
-        var label = new TextBlock
-        {
-            Margin = new Thickness(8, 3, 8, 3),
-            FontWeight = FontWeights.SemiBold,
-            TextWrapping = TextWrapping.Wrap
-        };
-        label.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
-        label.Inlines.Add(new System.Windows.Documents.Run(source ? "Source" : "Target"));
-        if (current == null) { label.Inlines.Add(" — No file"); return label; }
-        void Add(string title, string value, bool different)
-        {
-            label.Inlines.Add("   " + title);
-            var run = new System.Windows.Documents.Run(value);
-            if (other != null && different) run.Foreground = Brushes.Red;
-            label.Inlines.Add(run);
-        }
-        string Number(double value, string format) => value.ToString(format, System.Globalization.CultureInfo.InvariantCulture);
-        Add("", current.Channels + " ch", current.Channels != other?.Channels);
-        Add("", TimeSpan.FromSeconds(current.Duration).ToString(@"hh\:mm\:ss\.fff"),
-            Math.Round(current.Duration * 1000) != Math.Round((other?.Duration ?? 0) * 1000));
-        Add("Sample Rate: ", Number(current.SampleRate / 1000.0, "0.0##") + " kHz", current.SampleRate != other?.SampleRate);
-        Add("Bit Depth: ", current.BitDepth.HasValue ? current.BitDepth + (current.FloatingPoint ? " bit float" : " bit") : "N/A",
-            current.BitDepth != other?.BitDepth || current.FloatingPoint != other?.FloatingPoint);
-        Add("Bit Rate: ", current.BitRate.HasValue ? Number(current.BitRate.Value / 1000.0, "0.###") + " kbps" : "N/A",
-            current.BitRate != other?.BitRate);
-        label.ToolTip = "PCM bit rate = sample rate × bit depth × channels. MP3 shows average encoded bit rate; bit depth is not applicable.";
-        return label;
-    }
+    internal readonly double[] Delays = new double[2];
 
     internal readonly AudioWaveform[] Waves = new AudioWaveform[2];
-    private readonly ScrollBar scroll = new ScrollBar { Orientation = Orientation.Horizontal, Height = 16, Minimum = 0 };
-    private double zoom = 1;
-    internal double Zoom => zoom;
-    internal double Offset => scroll.Value;
-    internal double Viewport => Math.Max(1, Waves[0].ActualWidth);
-    internal event Action<double> SeekRequested;
-    internal readonly double[] Delays = new double[2];
     private readonly FrameworkElement[] delayPickers = new FrameworkElement[2];
-    internal void SetDelay(int side, double seconds)
-    {
-        Delays[side] = seconds;
-        (delayPickers[side]?.Tag as Action)?.Invoke();
-    }
-    internal event Action<int, double> DelayChanged;
-    internal event Action<double> ZoomChanged;
-    internal event Action<double, double> ViewChanged;
+    private readonly ScrollBar scroll = new() { Orientation = Orientation.Horizontal, Height = 16, Minimum = 0 };
     private bool applyingView;
+    private double currentPosition;
 
     internal AudioTimeline(AudioEnvelope[] envelopes, double duration, string[] paths)
     {
@@ -918,9 +1045,9 @@ internal sealed class AudioTimeline : Grid
         RowDefinitions.Add(new RowDefinition());
         // Reserve scrollbar space even at fit so zoom never changes waveform height.
         RowDefinitions.Add(new RowDefinition { Height = new GridLength(16) });
-        for (int side = 0; side < 2; side++)
+        for (var side = 0; side < 2; side++)
         {
-            int index = side;
+            var index = side;
             var wave = Waves[side] = new AudioWaveform(envelopes[side], duration, paths[side]);
 
             wave.SetResourceReference(Control.ForegroundProperty, side == 0 ? "SourceColor" : "TargetColor");
@@ -931,14 +1058,16 @@ internal sealed class AudioTimeline : Grid
             var label = CreateHeader(envelopes[side], envelopes[1 - side], side == 0);
             label.FontSize = 11;
             var header = new DockPanel { Margin = new Thickness(0, 3, 8, 3) };
-            var picker = DiffViewWindow.CreateDelayPicker(side == 0, () => Delays[index], value => DelayChanged?.Invoke(index, value));
+            var picker = DiffViewWindow.CreateDelayPicker(side == 0, () => Delays[index],
+                value => DelayChanged?.Invoke(index, value));
             delayPickers[side] = picker;
             picker.IsEnabled = envelopes[side] != null;
             DockPanel.SetDock(picker, Dock.Right);
             header.Children.Add(picker);
             header.Children.Add(label);
             pane.Children.Add(header);
-            SetRow(wave, 1); pane.Children.Add(wave);
+            SetRow(wave, 1);
+            pane.Children.Add(wave);
             var frame = new Border
             {
                 BorderThickness = new Thickness(3),
@@ -947,7 +1076,8 @@ internal sealed class AudioTimeline : Grid
                 Child = pane
             };
             frame.SetResourceReference(Border.BorderBrushProperty, side == 0 ? "SourceColor" : "TargetColor");
-            SetRow(frame, side); Children.Add(frame);
+            SetRow(frame, side);
+            Children.Add(frame);
             wave.PositionClicked += seconds => SeekRequested?.Invoke(Math.Max(0, seconds + Delays[index]));
             wave.CursorDragged += seconds => DelayChanged?.Invoke(index,
                 Math.Round(Math.Clamp(currentPosition - seconds, -86400, 86400), 1));
@@ -957,27 +1087,97 @@ internal sealed class AudioTimeline : Grid
                 applyingView = true;
                 try
                 {
-                    zoom = Math.Max(1, duration / wave.ViewDuration);
+                    Zoom = Math.Max(1, duration / wave.ViewDuration);
                     UpdateRange();
-                    scroll.Value = wave.ViewStart / Math.Max(duration, 0.001) * Viewport * zoom;
+                    scroll.Value = wave.ViewStart / Math.Max(duration, 0.001) * Viewport * Zoom;
                 }
-                finally { applyingView = false; }
-                ApplyView(); ZoomChanged?.Invoke(zoom);
+                finally
+                {
+                    applyingView = false;
+                }
+
+                ApplyView();
+                ZoomChanged?.Invoke(Zoom);
             };
         }
-        SetRow(scroll, 2); Children.Add(scroll);
+
+        SetRow(scroll, 2);
+        Children.Add(scroll);
         scroll.ValueChanged += (_, _) => ApplyView();
         Waves[0].SizeChanged += (_, e) =>
         {
-            double fraction = e.PreviousSize.Width > 0 ? Offset / (e.PreviousSize.Width * zoom) : 0;
+            var fraction = e.PreviousSize.Width > 0 ? Offset / (e.PreviousSize.Width * Zoom) : 0;
             UpdateRange();
-            scroll.Value = Math.Clamp(fraction * Viewport * zoom, 0, LastOffset);
+            scroll.Value = Math.Clamp(fraction * Viewport * Zoom, 0, LastOffset);
             ApplyView();
         };
     }
 
+    internal double Zoom { get; private set; } = 1;
+
+    internal double Offset => scroll.Value;
+    internal double Viewport => Math.Max(1, Waves[0].ActualWidth);
+
     // Maximum is the final scroll Value; ViewportSize controls the thumb size.
-    private double LastOffset => Math.Max(0, Viewport * (zoom - 1));
+    private double LastOffset => Math.Max(0, Viewport * (Zoom - 1));
+
+    internal static TextBlock CreateHeader(AudioEnvelope current, AudioEnvelope other, bool source)
+    {
+        var label = new TextBlock
+        {
+            Margin = new Thickness(8, 3, 8, 3),
+            FontWeight = FontWeights.SemiBold,
+            TextWrapping = TextWrapping.Wrap
+        };
+        label.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
+        label.Inlines.Add(new Run(source ? "Source" : "Target"));
+        if (current == null)
+        {
+            label.Inlines.Add(" — No file");
+            return label;
+        }
+
+        void Add(string title, string value, bool different)
+        {
+            label.Inlines.Add("   " + title);
+            var run = new Run(value);
+            if (other != null && different) run.Foreground = Brushes.Red;
+            label.Inlines.Add(run);
+        }
+
+        string Number(double value, string format)
+        {
+            return value.ToString(format, CultureInfo.InvariantCulture);
+        }
+
+        Add("", current.Channels + " ch", current.Channels != other?.Channels);
+        Add("", TimeSpan.FromSeconds(current.Duration).ToString(@"hh\:mm\:ss\.fff"),
+            Math.Round(current.Duration * 1000) != Math.Round((other?.Duration ?? 0) * 1000));
+        Add("Sample Rate: ", Number(current.SampleRate / 1000.0, "0.0##") + " kHz",
+            current.SampleRate != other?.SampleRate);
+        Add("Bit Depth: ",
+            current.BitDepth.HasValue ? current.BitDepth + (current.FloatingPoint ? " bit float" : " bit") : "N/A",
+            current.BitDepth != other?.BitDepth || current.FloatingPoint != other?.FloatingPoint);
+        Add("Bit Rate: ", current.BitRate.HasValue ? Number(current.BitRate.Value / 1000.0, "0.###") + " kbps" : "N/A",
+            current.BitRate != other?.BitRate);
+        label.ToolTip =
+            "PCM bit rate = sample rate × bit depth × channels. MP3 shows average encoded bit rate; bit depth is not applicable.";
+        return label;
+    }
+
+    internal event Action<double> SeekRequested;
+
+    internal void SetDelay(int side, double seconds)
+    {
+        Delays[side] = seconds;
+        (delayPickers[side]?.Tag as Action)?.Invoke();
+    }
+
+    internal event Action<int, double> DelayChanged;
+
+    internal event Action<double> ZoomChanged;
+
+    internal event Action<double, double> ViewChanged;
 
     private void UpdateRange()
     {
@@ -985,49 +1185,66 @@ internal sealed class AudioTimeline : Grid
         scroll.ViewportSize = Viewport;
         scroll.SmallChange = 48;
         scroll.LargeChange = Viewport * 0.8;
-        scroll.IsEnabled = zoom > 1;
+        scroll.IsEnabled = Zoom > 1;
         // Keep the reserved row height, but hide the scrollbar at 100%.
-        scroll.Visibility = zoom > 1 ? Visibility.Visible : Visibility.Hidden;
+        scroll.Visibility = Zoom > 1 ? Visibility.Visible : Visibility.Hidden;
     }
+
     private void ApplyView()
     {
         if (applyingView) return;
         applyingView = true;
         try
         {
-            double start = Waves[0].Duration * Offset / Math.Max(1, Viewport * zoom);
-            foreach (var wave in Waves) wave.SetViewRange(start, wave.Duration / zoom);
+            var start = Waves[0].Duration * Offset / Math.Max(1, Viewport * Zoom);
+            foreach (var wave in Waves) wave.SetViewRange(start, wave.Duration / Zoom);
         }
-        finally { applyingView = false; }
+        finally
+        {
+            applyingView = false;
+        }
+
         ViewChanged?.Invoke(Waves[0].ViewStart, Waves[0].ViewDuration);
     }
+
     internal void SetZoom(double value)
     {
-        double newZoom = Math.Clamp(value, 1, Math.Max(1, Waves[0].Duration / DesktopIniManager.Controls.WaveformControl.MinimumViewSeconds));
-        if (zoom == newZoom) return;
+        var newZoom = Math.Clamp(value, 1, Math.Max(1, Waves[0].Duration / WaveformControl.MinimumViewSeconds));
+        if (Zoom == newZoom) return;
 
         // Keep the time currently at the viewport's left edge at X=0.
-        double leftFraction = Offset / (Viewport * zoom);
-        zoom = newZoom;
+        var leftFraction = Offset / (Viewport * Zoom);
+        Zoom = newZoom;
         UpdateRange();
-        scroll.Value = Math.Clamp(leftFraction * Viewport * zoom, 0, LastOffset);
+        scroll.Value = Math.Clamp(leftFraction * Viewport * Zoom, 0, LastOffset);
         ApplyView();
     }
-    internal void Fit() { SetZoom(1); scroll.Value = 0; foreach (var wave in Waves) wave.Fit(); }
+
+    internal void Fit()
+    {
+        SetZoom(1);
+        scroll.Value = 0;
+        foreach (var wave in Waves) wave.Fit();
+    }
+
     internal void SetViewStart(double seconds)
     {
-        double duration = Waves[0].Duration;
-        if (duration <= 0 || zoom <= 1) return;
-        scroll.Value = Math.Clamp(seconds / duration * Viewport * zoom, 0, LastOffset);
+        var duration = Waves[0].Duration;
+        if (duration <= 0 || Zoom <= 1) return;
+        scroll.Value = Math.Clamp(seconds / duration * Viewport * Zoom, 0, LastOffset);
     }
-    internal void ScrollBy(double pixels) => scroll.Value = Math.Clamp(Offset + pixels, 0, LastOffset);
-    private double currentPosition;
+
+    internal void ScrollBy(double pixels)
+    {
+        scroll.Value = Math.Clamp(Offset + pixels, 0, LastOffset);
+    }
+
     internal void UpdatePosition(double seconds, bool follow)
     {
         currentPosition = seconds;
-        for (int side = 0; side < Waves.Length; side++) Waves[side].Position = Math.Max(0, seconds - Delays[side]);
-        if (!follow || zoom <= 1 || Array.Exists(Waves, w => w.IsPanning)) return;
-        double x = Waves[0].PixelAt(Math.Max(0, seconds - Delays[0]));
+        for (var side = 0; side < Waves.Length; side++) Waves[side].Position = Math.Max(0, seconds - Delays[side]);
+        if (!follow || Zoom <= 1 || Array.Exists(Waves, w => w.IsPanning)) return;
+        var x = Waves[0].PixelAt(Math.Max(0, seconds - Delays[0]));
         // Scroll smoothly once the playhead reaches the right-hand safe area.
         if (x > Offset + Viewport * 0.85 || x < Offset)
             scroll.Value = Math.Clamp(x - Viewport * (x < Offset ? 0.15 : 0.85), 0, LastOffset);
@@ -1035,13 +1252,23 @@ internal sealed class AudioTimeline : Grid
 }
 
 // DIM supplies annotations; the reusable control owns waveform rendering.
-internal sealed class AudioWaveform : DesktopIniManager.Controls.WaveformControl
+internal sealed class AudioWaveform : WaveformControl
 {
-    private AudioDifferences differences;
-    private bool source = true, showDifferences;
+    private double cursorPosition;
     private DrawingGroup differenceLayer;
-    private (DesktopIniManager.Controls.WaveformData Data, double Start, double Span,
+    private AudioDifferences differences;
+    private bool draggingCursor;
+
+    private (WaveformData Data, double Start, double Span,
         double Amplitude, Size Size, AudioDifferences Differences, bool Source) layerKey;
+
+    private bool source = true, showDifferences;
+
+    internal AudioWaveform(AudioEnvelope envelope, double duration, string path)
+    {
+        SetData(envelope?.Data, duration);
+        ToolTip = "Wheel: time zoom / Ctrl+wheel: amplitude / Drag: pan / Click: seek";
+    }
 
     internal bool ShowDifferences
     {
@@ -1056,6 +1283,15 @@ internal sealed class AudioWaveform : DesktopIniManager.Controls.WaveformControl
         }
     }
 
+    internal double Position
+    {
+        set
+        {
+            cursorPosition = value;
+            SetPosition(TimeSpan.FromSeconds(value));
+        }
+    }
+
     internal void SetDifferences(AudioDifferences value, bool enabled, bool source = true)
     {
         differences = value;
@@ -1066,22 +1302,26 @@ internal sealed class AudioWaveform : DesktopIniManager.Controls.WaveformControl
         InvalidateVisual();
     }
 
-    internal AudioWaveform(AudioEnvelope envelope, double duration, string path)
+    internal void SetView(double zoom, double offset)
     {
-        SetData(envelope?.Data, duration);
-        ToolTip = "Wheel: time zoom / Ctrl+wheel: amplitude / Drag: pan / Click: seek";
+        SetViewRange(Duration * offset / Math.Max(1, ActualWidth * zoom), Duration / zoom);
     }
 
-    internal void SetView(double zoom, double offset) =>
-        SetViewRange(Duration * offset / Math.Max(1, ActualWidth * zoom), Duration / zoom);
-    internal double TimeAt(double x) => XToTime(x);
-    internal double PixelAt(double seconds) => ViewDuration > 0 ? seconds / ViewDuration * ActualWidth : 0;
-    private double cursorPosition;
-    private bool draggingCursor;
+    internal double TimeAt(double x)
+    {
+        return XToTime(x);
+    }
+
+    internal double PixelAt(double seconds)
+    {
+        return ViewDuration > 0 ? seconds / ViewDuration * ActualWidth : 0;
+    }
+
     internal event Action CursorDragStarted;
+
     internal event Action CursorDragCompleted;
+
     internal event Action<double> CursorDragged;
-    internal double Position { set { cursorPosition = value; SetPosition(TimeSpan.FromSeconds(value)); } }
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
@@ -1092,26 +1332,40 @@ internal sealed class AudioWaveform : DesktopIniManager.Controls.WaveformControl
             e.Handled = true;
             return;
         }
+
         base.OnMouseLeftButtonDown(e);
     }
+
     protected override void OnMouseMove(MouseEventArgs e)
     {
-        if (!draggingCursor) { base.OnMouseMove(e); return; }
+        if (!draggingCursor)
+        {
+            base.OnMouseMove(e);
+            return;
+        }
+
         CursorDragged?.Invoke(XToTime(e.GetPosition(this).X));
         e.Handled = true;
     }
+
     protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
     {
-        if (!draggingCursor) { base.OnMouseLeftButtonUp(e); return; }
+        if (!draggingCursor)
+        {
+            base.OnMouseLeftButtonUp(e);
+            return;
+        }
+
         CursorDragged?.Invoke(XToTime(e.GetPosition(this).X));
         draggingCursor = false;
         ReleaseMouseCapture();
         CursorDragCompleted?.Invoke();
         e.Handled = true;
     }
+
     protected override void OnLostMouseCapture(MouseEventArgs e)
     {
-        bool wasDragging = draggingCursor;
+        var wasDragging = draggingCursor;
         draggingCursor = false;
         base.OnLostMouseCapture(e);
         if (wasDragging) CursorDragCompleted?.Invoke();
@@ -1128,6 +1382,7 @@ internal sealed class AudioWaveform : DesktopIniManager.Controls.WaveformControl
             layerKey = key;
             differenceLayer = BuildDifferenceLayer();
         }
+
         dc.DrawDrawing(differenceLayer);
     }
 
@@ -1135,11 +1390,11 @@ internal sealed class AudioWaveform : DesktopIniManager.Controls.WaveformControl
     {
         var layer = new DrawingGroup { Opacity = showDifferences ? 1 : 0 };
         var channels = source ? differences.Channels : differences.TargetChannels;
-        double lane = ActualHeight / Data.Channels;
-        int pixels = Math.Max(1, (int)Math.Ceiling(ActualWidth));
+        var lane = ActualHeight / Data.Channels;
+        var pixels = Math.Max(1, (int)Math.Ceiling(ActualWidth));
         using (var drawing = layer.Open())
         {
-            for (int ch = 0; ch < Math.Min(channels.Length, Data.Channels); ch++)
+            for (var ch = 0; ch < Math.Min(channels.Length, Data.Channels); ch++)
             {
                 // A pixel mask bounds work by viewport width, not recording duration
                 // or the number of difference intervals.
@@ -1148,20 +1403,26 @@ internal sealed class AudioWaveform : DesktopIniManager.Controls.WaveformControl
                 {
                     if (range.End <= ViewStart) continue;
                     if (range.Start >= ViewStart + ViewDuration) break;
-                    int first = Math.Clamp((int)Math.Floor(TimeToX(range.Start)), 0, pixels);
-                    int last = Math.Clamp((int)Math.Ceiling(TimeToX(range.End)), 0, pixels);
-                    for (int x = first; x < last; x++) mask[x] = true;
+                    var first = Math.Clamp((int)Math.Floor(TimeToX(range.Start)), 0, pixels);
+                    var last = Math.Clamp((int)Math.Ceiling(TimeToX(range.End)), 0, pixels);
+                    for (var x = first; x < last; x++) mask[x] = true;
                 }
+
                 var clip = new StreamGeometry();
-                bool any = false;
+                var any = false;
                 using (var context = clip.Open())
                 {
-                    for (int x = 0; x < pixels;)
+                    for (var x = 0; x < pixels;)
                     {
-                        if (!mask[x]) { x++; continue; }
-                        int first = x;
+                        if (!mask[x])
+                        {
+                            x++;
+                            continue;
+                        }
+
+                        var first = x;
                         while (x < pixels && mask[x]) x++;
-                        double right = Math.Min(ActualWidth, x);
+                        var right = Math.Min(ActualWidth, x);
                         if (right <= first) continue;
                         any = true;
                         context.BeginFigure(new Point(first, ch * lane), true, true);
@@ -1170,6 +1431,7 @@ internal sealed class AudioWaveform : DesktopIniManager.Controls.WaveformControl
                         context.LineTo(new Point(first, (ch + 1) * lane), true, false);
                     }
                 }
+
                 if (!any) continue;
                 clip.Freeze();
                 drawing.PushClip(clip);
@@ -1179,6 +1441,7 @@ internal sealed class AudioWaveform : DesktopIniManager.Controls.WaveformControl
                 drawing.Pop();
             }
         }
+
         return layer;
     }
 }

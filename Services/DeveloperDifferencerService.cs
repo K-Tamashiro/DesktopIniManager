@@ -1,32 +1,52 @@
-﻿using Microsoft.Win32.SafeHandles;
-using FastVolumeIndex;
+﻿using FastVolumeIndex;
+using Microsoft.Win32.SafeHandles;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.IO.Compression;
+using System.IO.Hashing;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
 using System.Threading;
-using System.IO.Hashing;
 
 namespace DesktopIniManager.Services;
 
 internal sealed class DiffStamp
 {
     public long Size { get; set; }
+
     public DateTime ModifiedUtc { get; set; }
+
     // Compare whole seconds without rounding; retain the original timestamp for copying.
     public long ModifiedUtcSeconds => ModifiedUtc.Ticks / TimeSpan.TicksPerSecond;
+
     public static DiffStamp Read(string path)
     {
         if (string.IsNullOrWhiteSpace(path)) return null;
         FileAttributes attributes;
-        try { attributes = File.GetAttributes(path); }
-        catch (FileNotFoundException) { return null; }
-        catch (DirectoryNotFoundException) { return null; }
-        catch (UnauthorizedAccessException) { return null; }
-        catch (IOException) { return null; }
+        try
+        {
+            attributes = File.GetAttributes(path);
+        }
+        catch (FileNotFoundException)
+        {
+            return null;
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+
         if ((attributes & FileAttributes.Directory) != 0)
             return null;
         try
@@ -34,25 +54,59 @@ internal sealed class DiffStamp
             var file = new FileInfo(path);
             return new DiffStamp { Size = file.Length, ModifiedUtc = file.LastWriteTimeUtc };
         }
-        catch (FileNotFoundException) { return null; }
-        catch (DirectoryNotFoundException) { return null; }
-        catch (UnauthorizedAccessException) { return null; }
-        catch (IOException) { return null; }
+        catch (FileNotFoundException)
+        {
+            return null;
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
     }
+
     public static bool Same(DiffStamp a, DiffStamp b)
-    { return Same(a, b, true); }
+    {
+        return Same(a, b, true);
+    }
+
     public static bool Same(DiffStamp a, DiffStamp b, bool compareTimestamp, bool compareSize = true)
-    { return a == null || b == null ? a == b : (!compareSize || a.Size == b.Size) && (!compareTimestamp || a.ModifiedUtcSeconds == b.ModifiedUtcSeconds); }
-    public string Describe() { return ModifiedUtc.ToLocalTime().ToString("yyyy/MM/dd HH:mm:ss.fffffff") + "\n" + Size.ToString("N0") + " bytes"; }
+    {
+        return a == null || b == null
+            ? a == b
+            : (!compareSize || a.Size == b.Size) && (!compareTimestamp || a.ModifiedUtcSeconds == b.ModifiedUtcSeconds);
+    }
+
+    public string Describe()
+    {
+        return ModifiedUtc.ToLocalTime().ToString("yyyy/MM/dd HH:mm:ss.fffffff") + "\n" + Size.ToString("N0") +
+               " bytes";
+    }
 }
 
 [Flags]
-internal enum DiffKind { Same = 1, Different = 2, SourceOnly = 4, TargetOnly = 8, Differences = Different | SourceOnly | TargetOnly, All = Same | Differences }
+internal enum DiffKind
+{
+    Same = 1,
+    Different = 2,
+    SourceOnly = 4,
+    TargetOnly = 8,
+    Differences = Different | SourceOnly | TargetOnly,
+    All = Same | Differences
+}
 
 internal sealed class DiffFile : INotifyPropertyChanged
 {
+    private bool selected;
     public string RelativePath { get; set; }
-    public string Name { get { return Path.GetFileName(RelativePath); } }
+    public string Name => Path.GetFileName(RelativePath);
     public DiffStamp Source { get; set; }
     public DiffStamp Target { get; set; }
     public bool CompareTimestamp { get; set; } = true;
@@ -60,33 +114,41 @@ internal sealed class DiffFile : INotifyPropertyChanged
     public bool CompareAttributes { get; set; }
     public bool? SourceBom { get; set; }
     public bool? TargetBom { get; set; }
-    public bool AttributeUnreadable => CompareAttributes && ((Source != null && SourceBom == null) || (Target != null && TargetBom == null));
+
+    public bool AttributeUnreadable => CompareAttributes &&
+                                       ((Source != null && SourceBom == null) || (Target != null && TargetBom == null));
+
     public bool AttributeDifferent => CompareAttributes && SourceBom != TargetBom;
     public bool PreciseCompare { get; set; }
     public string SourceHash { get; set; }
     public string TargetHash { get; set; }
-    public bool ContentDifferent => PreciseCompare && SourceHash != null && TargetHash != null && !string.Equals(SourceHash, TargetHash, StringComparison.Ordinal);
-    public DiffKind Kind { get { return Source == null ? DiffKind.TargetOnly : Target == null ? DiffKind.SourceOnly : (DiffStamp.Same(Source, Target, CompareTimestamp, CompareSize) && !ContentDifferent && !AttributeDifferent && !AttributeUnreadable) ? DiffKind.Same : DiffKind.Different; } }
-    public bool CanSync { get { return !AttributeUnreadable && Kind != DiffKind.Same; } }
-    public bool CanToggleSelection { get { return CanSync || Selected; } }
-    public string State { get { return AttributeUnreadable ? "ATTR unreadable (BOM)" : Kind == DiffKind.Same ? "Same" : Source == null ? "Target only" : Target == null ? "Source only" : AttributeDifferent ? "ATTR differs (BOM)" : ContentDifferent ? "Content differs" : !CompareTimestamp || Source.ModifiedUtcSeconds == Target.ModifiedUtcSeconds ? "Size differs" : CompareSize && Source.Size != Target.Size ? "Time / size differs" : "Time differs"; } }
-    public string SourceInfo { get { return Describe(Source, Target); } }
-    public string TargetInfo { get { return Describe(Target, Source); } }
-    private string Describe(DiffStamp own, DiffStamp other)
-    {
-        if (own == null) return "missing";
-        if (CompareAttributes && (ReferenceEquals(own, Source) ? SourceBom : TargetBom) == null)
-            return "ATTR unreadable (BOM)\n" + own.Describe();
-        string state = other == null ? "" : Kind == DiffKind.Same ? "Same\n" :
-            CompareTimestamp && own.ModifiedUtcSeconds != other.ModifiedUtcSeconds
-                ? (own.ModifiedUtcSeconds > other.ModifiedUtcSeconds ? "NEW\n" : "OLD\n")
-                : AttributeDifferent ? "ATTR differs (BOM)\n" : ContentDifferent ? "Content differs\n" : "Size differs\n";
-        return state + own.Describe();
-    }
-    private bool selected;
+
+    public bool ContentDifferent => PreciseCompare && SourceHash != null && TargetHash != null &&
+                                    !string.Equals(SourceHash, TargetHash, StringComparison.Ordinal);
+
+    public DiffKind Kind => Source == null ? DiffKind.TargetOnly :
+        Target == null ? DiffKind.SourceOnly :
+        DiffStamp.Same(Source, Target, CompareTimestamp, CompareSize) && !ContentDifferent && !AttributeDifferent &&
+        !AttributeUnreadable ? DiffKind.Same : DiffKind.Different;
+
+    public bool CanSync => !AttributeUnreadable && Kind != DiffKind.Same;
+    public bool CanToggleSelection => CanSync || Selected;
+
+    public string State => AttributeUnreadable ? "ATTR unreadable (BOM)" :
+        Kind == DiffKind.Same ? "Same" :
+        Source == null ? "Target only" :
+        Target == null ? "Source only" :
+        AttributeDifferent ? "ATTR differs (BOM)" :
+        ContentDifferent ? "Content differs" :
+        !CompareTimestamp || Source.ModifiedUtcSeconds == Target.ModifiedUtcSeconds ? "Size differs" :
+        CompareSize && Source.Size != Target.Size ? "Time / size differs" : "Time differs";
+
+    public string SourceInfo => Describe(Source, Target);
+    public string TargetInfo => Describe(Target, Source);
+
     public bool Selected
     {
-        get { return selected; }
+        get => selected;
         set
         {
             if (selected == value) return;
@@ -95,7 +157,27 @@ internal sealed class DiffFile : INotifyPropertyChanged
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("CanToggleSelection"));
         }
     }
+
     public event PropertyChangedEventHandler PropertyChanged;
+
+    private string Describe(DiffStamp own, DiffStamp other)
+    {
+        if (own == null) return "missing";
+        if (CompareAttributes && (ReferenceEquals(own, Source) ? SourceBom : TargetBom) == null)
+            return "ATTR unreadable (BOM)\n" + own.Describe();
+        var state = other == null
+            ? ""
+            : Kind == DiffKind.Same
+                ? "Same\n"
+                : CompareTimestamp && own.ModifiedUtcSeconds != other.ModifiedUtcSeconds
+                    ? own.ModifiedUtcSeconds > other.ModifiedUtcSeconds ? "NEW\n" : "OLD\n"
+                    : AttributeDifferent
+                        ? "ATTR differs (BOM)\n"
+                        : ContentDifferent
+                            ? "Content differs\n"
+                            : "Size differs\n";
+        return state + own.Describe();
+    }
 }
 
 internal sealed class DiffFolderSync
@@ -114,39 +196,39 @@ internal sealed class DiffProgress
 
 internal sealed class DiffSnapshot
 {
-    public string SourceRoot;
-    public string TargetRoot;
-    public bool CompareTimestamp = true;
-    public bool CompareSize = true;
     public bool CompareAttributes;
-    public bool PreciseCompare;
-    public List<string> DisabledIgnoreRules = new List<string>();
+    public bool CompareSize = true;
+    public bool CompareTimestamp = true;
+    public List<string> DisabledIgnoreRules = new();
+    public List<DiffFile> Files = new();
+    public HashSet<string> Folders = new(StringComparer.OrdinalIgnoreCase) { "" };
     public List<GitIgnoreRuleInfo> IgnoreRules;
-    public List<DiffFile> Files = new List<DiffFile>();
-    public HashSet<string> Folders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "" };
-    public HashSet<string> SourceFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "" };
-    public HashSet<string> TargetFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "" };
+    public bool PreciseCompare;
+    public HashSet<string> SourceFolders = new(StringComparer.OrdinalIgnoreCase) { "" };
+    public string SourceRoot;
+    public HashSet<string> TargetFolders = new(StringComparer.OrdinalIgnoreCase) { "" };
+    public string TargetRoot;
 }
 
 internal sealed class DiffIndex
 {
-    public string Root;
+    public List<string> DisabledIgnoreRules = new();
     public Dictionary<string, DiffStamp> Files;
     public HashSet<string> Folders;
-    public HashSet<string> NonEmptyFolders;
     public List<GitIgnoreRuleInfo> IgnoreRules = new();
-    public List<string> DisabledIgnoreRules = new();
+    public HashSet<string> NonEmptyFolders;
+    public string Root;
 }
 
 /// <summary>Compares and synchronizes two development directory trees.</summary>
 internal static class DeveloperDifferencerService
 {
-    private static readonly HashSet<string> IgnoredDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ".git",
-            ".vs",
-            ".vscode"
-        };
+    private static readonly HashSet<string> IgnoredDirectories = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".git",
+        ".vs",
+        ".vscode"
+    };
 
     /// <summary>Returns whether a path enters a protected metadata directory.</summary>
     public static bool Protected(string path)
@@ -154,61 +236,80 @@ internal static class DeveloperDifferencerService
         return path.Replace('/', '\\').Split('\\')
             .Any(p => IgnoredDirectories.Contains(p.TrimEnd(' ', '.')));
     }
+
     /// <summary>Normalizes and validates a comparison root directory.</summary>
     public static string Root(string path)
     {
-        string root = Path.GetFullPath(path).TrimEnd('\\') + "\\";
+        var root = Path.GetFullPath(path).TrimEnd('\\') + "\\";
         if (Protected(root)) throw new IOException("Choose a root outside .git.");
         if (!Directory.Exists(root)) throw new DirectoryNotFoundException(root);
         CheckComponents(root);
         return root;
     }
+
     /// <summary>Ensures that the comparison roots are distinct and non-overlapping.</summary>
     public static void ValidateRoots(string source, string target)
     {
-        if (source.StartsWith(target, StringComparison.OrdinalIgnoreCase) || target.StartsWith(source, StringComparison.OrdinalIgnoreCase))
+        if (source.StartsWith(target, StringComparison.OrdinalIgnoreCase) ||
+            target.StartsWith(source, StringComparison.OrdinalIgnoreCase))
             throw new IOException("Roots must not be equal or nested.");
     }
+
     /// <summary>Resolves a relative file path while enforcing comparison boundaries.</summary>
     public static string SafePath(string root, string relative)
     {
-        if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative) || relative.Contains(':') || Protected(relative) ||
-            relative.Replace('/', '\\').Split('\\').Any(p => p == ".." || p == "." || p.Length == 0 || p.EndsWith(" ") || p.EndsWith(".")))
+        if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative) || relative.Contains(':') ||
+            Protected(relative) ||
+            relative.Replace('/', '\\').Split('\\').Any(p =>
+                p == ".." || p == "." || p.Length == 0 || p.EndsWith(" ") || p.EndsWith(".")))
             throw new IOException("Protected or invalid relative path: " + relative);
-        string path = Path.GetFullPath(Path.Combine(root, relative));
+        var path = Path.GetFullPath(Path.Combine(root, relative));
         if (!path.StartsWith(root.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase) || Protected(path))
             throw new IOException("Refused a path outside the root or inside .git.");
         CheckComponents(path);
         return path;
     }
+
     private static void CheckComponents(string path)
     {
         // Do not follow junctions, symbolic links or other reparse points while
         // resolving a path. This includes existing ancestors of a new file.
-        string full = Path.GetFullPath(path);
-        string root = Path.GetPathRoot(full);
+        var full = Path.GetFullPath(path);
+        var root = Path.GetPathRoot(full);
         if (string.IsNullOrEmpty(root)) throw new IOException("Invalid path: " + path);
-        string current = root;
-        foreach (string component in full.Substring(root.Length).Split(
-            new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
-            StringSplitOptions.RemoveEmptyEntries))
+        var current = root;
+        foreach (var component in full.Substring(root.Length).Split(
+                     new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+                     StringSplitOptions.RemoveEmptyEntries))
         {
             current = Path.Combine(current, component);
             FileAttributes attributes;
-            try { attributes = File.GetAttributes(current); }
-            catch (FileNotFoundException) { continue; }
-            catch (DirectoryNotFoundException) { continue; }
+            try
+            {
+                attributes = File.GetAttributes(current);
+            }
+            catch (FileNotFoundException)
+            {
+                continue;
+            }
+            catch (DirectoryNotFoundException)
+            {
+                continue;
+            }
+
             if ((attributes & FileAttributes.ReparsePoint) != 0)
                 throw new IOException("Reparse points are excluded: " + current);
         }
     }
 
-    private static Dictionary<string, DiffStamp> ScanSelectedFolder(string root, string relativeFolder, HashSet<string> folders, CancellationToken token, IProgress<DiffProgress> progress = null, string stage = null, int offset = 0, int total = 0,
+    private static Dictionary<string, DiffStamp> ScanSelectedFolder(string root, string relativeFolder,
+        HashSet<string> folders, CancellationToken token, IProgress<DiffProgress> progress = null, string stage = null,
+        int offset = 0, int total = 0,
         HashSet<string> nonEmptyFolders = null, GitIgnoreMatcher ignore = null)
     {
         var files = new Dictionary<string, DiffStamp>(StringComparer.OrdinalIgnoreCase);
         ignore ??= new GitIgnoreMatcher(root);
-        string baseDirectory = relativeFolder.Length == 0
+        var baseDirectory = relativeFolder.Length == 0
             ? root
             : SafeFolderPath(root, relativeFolder);
 
@@ -216,13 +317,13 @@ internal static class DeveloperDifferencerService
 
         var pending = new Stack<string>();
         pending.Push(baseDirectory);
-        int seen = 0;
+        var seen = 0;
 
         while (pending.Count > 0)
         {
             token.ThrowIfCancellationRequested();
-            string directory = pending.Pop();
-            string directoryRelative = RelativeFromRoot(root, directory);
+            var directory = pending.Pop();
+            var directoryRelative = RelativeFromRoot(root, directory);
             if (ignore.IsIgnored(directoryRelative, true)) continue;
             ignore.ReadDirectory(directoryRelative);
             folders.Add(directoryRelative);
@@ -232,9 +333,10 @@ internal static class DeveloperDifferencerService
                 token.ThrowIfCancellationRequested();
                 // Protected entries still count for the physical empty-folder indicator.
                 nonEmptyFolders?.Add(directoryRelative);
-                string path = Path.Combine(directory, entry.Name);
-                string relative = RelativeFromRoot(root, path);
-                if (Protected(relative) || ignore.IsIgnored(relative, (entry.Attributes & FileAttributes.Directory) != 0)) continue;
+                var path = Path.Combine(directory, entry.Name);
+                var relative = RelativeFromRoot(root, path);
+                if (Protected(relative) ||
+                    ignore.IsIgnored(relative, (entry.Attributes & FileAttributes.Directory) != 0)) continue;
                 if ((entry.Attributes & FileAttributes.Directory) != 0)
                 {
                     folders.Add(relative);
@@ -243,14 +345,15 @@ internal static class DeveloperDifferencerService
                         pending.Push(path);
                     continue;
                 }
+
                 // Preserve the existing metadata behavior for links/provider-managed files.
                 // Ordinary files use the metadata already returned by enumeration.
-                DiffStamp stamp = (entry.Attributes & FileAttributes.ReparsePoint) != 0
+                var stamp = (entry.Attributes & FileAttributes.ReparsePoint) != 0
                     ? DiffStamp.Read(path)
                     : new DiffStamp { Size = entry.Size, ModifiedUtc = entry.ModifiedUtc };
                 if (stamp != null) files[relative] = stamp;
                 seen++;
-                if (progress != null && stage != null && ((seen & 15) == 0))
+                if (progress != null && stage != null && (seen & 15) == 0)
                     progress.Report(ReportCompare(stage, offset + files.Count, total));
             }
         }
@@ -263,7 +366,8 @@ internal static class DeveloperDifferencerService
     private static DiffProgress ReportCompare(string stage, int completed, int total)
     {
         if (total <= 0)
-            return new DiffProgress { Stage = stage + "  " + completed.ToString("N0") + " files", Completed = completed, Total = 0 };
+            return new DiffProgress
+            { Stage = stage + "  " + completed.ToString("N0") + " files", Completed = completed, Total = 0 };
         return new DiffProgress
         {
             Stage = stage + "  " + completed.ToString("N0") + " / " + Math.Max(1, total).ToString("N0"),
@@ -274,11 +378,13 @@ internal static class DeveloperDifferencerService
 
     private static string SafeFolderPath(string root, string relativeFolder)
     {
-        if (string.IsNullOrWhiteSpace(relativeFolder) || Path.IsPathRooted(relativeFolder) || relativeFolder.Contains(':') || Protected(relativeFolder) ||
-            relativeFolder.Replace('/', '\\').Split('\\').Any(p => p == ".." || p == "." || p.Length == 0 || p.EndsWith(" ") || p.EndsWith(".")))
+        if (string.IsNullOrWhiteSpace(relativeFolder) || Path.IsPathRooted(relativeFolder) ||
+            relativeFolder.Contains(':') || Protected(relativeFolder) ||
+            relativeFolder.Replace('/', '\\').Split('\\').Any(p =>
+                p == ".." || p == "." || p.Length == 0 || p.EndsWith(" ") || p.EndsWith(".")))
             throw new IOException("Protected or invalid relative folder: " + relativeFolder);
 
-        string path = Path.GetFullPath(Path.Combine(root, relativeFolder));
+        var path = Path.GetFullPath(Path.Combine(root, relativeFolder));
         if (!path.StartsWith(root.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase) || Protected(path))
             throw new IOException("Refused a folder outside the root or inside .git.");
         CheckComponents(path);
@@ -287,8 +393,8 @@ internal static class DeveloperDifferencerService
 
     private static string RelativeFromRoot(string root, string path)
     {
-        string normalizedRoot = root.TrimEnd('\\') + "\\";
-        string full = Path.GetFullPath(path);
+        var normalizedRoot = root.TrimEnd('\\') + "\\";
+        var full = Path.GetFullPath(path);
         if (string.Equals(full.TrimEnd('\\'), root.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
             return string.Empty;
         if (!full.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
@@ -297,26 +403,32 @@ internal static class DeveloperDifferencerService
     }
 
     /// <summary>Compares all eligible files beneath two development roots.</summary>
-    public static DiffSnapshot Compare(string source, string target, IProgress<DiffProgress> progress = null, bool compareTimestamp = true, CancellationToken token = default(CancellationToken))
+    public static DiffSnapshot Compare(string source, string target, IProgress<DiffProgress> progress = null,
+        bool compareTimestamp = true, CancellationToken token = default)
     {
         token.ThrowIfCancellationRequested();
-        source = Root(source); target = Root(target); ValidateRoots(source, target);
+        source = Root(source);
+        target = Root(target);
+        ValidateRoots(source, target);
         var result = new DiffSnapshot { SourceRoot = source, TargetRoot = target, CompareTimestamp = compareTimestamp };
 
         // Scan each side once; the total becomes known after collecting its metadata.
-        int total = 0;
+        var total = 0;
 
         progress?.Report(ReportCompare("Comparing source\u2026", 0, total));
         var sourceFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "" };
         var targetFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "" };
-        Dictionary<string, DiffStamp> left = ScanSelectedFolder(source, string.Empty, sourceFolders, token, progress, "Comparing source\u2026", 0, total);
+        var left = ScanSelectedFolder(source, string.Empty, sourceFolders, token, progress, "Comparing source\u2026", 0,
+            total);
 
         progress?.Report(ReportCompare("Comparing target\u2026", left.Count, total));
-        Dictionary<string, DiffStamp> right = ScanSelectedFolder(target, string.Empty, targetFolders, token, progress, "Comparing target\u2026", left.Count, total);
+        var right = ScanSelectedFolder(target, string.Empty, targetFolders, token, progress, "Comparing target\u2026",
+            left.Count, total);
         ExcludeIgnored(source, target, left, right, sourceFolders, targetFolders, token);
         result.SourceFolders = sourceFolders;
         result.TargetFolders = targetFolders;
-        result.Folders = new HashSet<string>(sourceFolders.Union(targetFolders, StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase);
+        result.Folders = new HashSet<string>(sourceFolders.Union(targetFolders, StringComparer.OrdinalIgnoreCase),
+            StringComparer.OrdinalIgnoreCase);
 
         total = Math.Max(1, left.Count + right.Count);
         progress?.Report(ReportCompare("Classifying differences\u2026", total, total));
@@ -324,7 +436,8 @@ internal static class DeveloperDifferencerService
         return result;
     }
 
-    internal static DiffIndex BuildIndex(string root, CancellationToken token, IEnumerable<string> disabledIgnoreRules = null)
+    internal static DiffIndex BuildIndex(string root, CancellationToken token,
+        IEnumerable<string> disabledIgnoreRules = null)
     {
         token.ThrowIfCancellationRequested();
         root = Root(root);
@@ -332,7 +445,8 @@ internal static class DeveloperDifferencerService
         var nonEmptyFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var disabled = (disabledIgnoreRules ?? Array.Empty<string>()).ToList();
         var ignore = new GitIgnoreMatcher(root, disabled);
-        var files = ScanSelectedFolder(root, string.Empty, folders, token, nonEmptyFolders: nonEmptyFolders, ignore: ignore);
+        var files = ScanSelectedFolder(root, string.Empty, folders, token, nonEmptyFolders: nonEmptyFolders,
+            ignore: ignore);
         return new DiffIndex
         {
             Root = root,
@@ -346,7 +460,8 @@ internal static class DeveloperDifferencerService
 
     internal static DiffSnapshot Compare(DiffIndex source, DiffIndex target,
         IProgress<DiffProgress> progress, bool compareTimestamp, CancellationToken token,
-        Action<IReadOnlyList<DiffFile>> onBatch = null, Comparison<string> pathComparison = null, bool preciseCompare = false, bool compareSize = true, bool compareAttributes = false)
+        Action<IReadOnlyList<DiffFile>> onBatch = null, Comparison<string> pathComparison = null,
+        bool preciseCompare = false, bool compareSize = true, bool compareAttributes = false)
     {
         token.ThrowIfCancellationRequested();
         ValidateRoots(Root(source.Root), Root(target.Root));
@@ -354,8 +469,9 @@ internal static class DeveloperDifferencerService
         source = CopyIndex(source);
         target = CopyIndex(target);
         var disabled = source.DisabledIgnoreRules.Union(target.DisabledIgnoreRules, StringComparer.Ordinal).ToList();
-        ExcludeIgnored(source.Root, target.Root, source.Files, target.Files, source.Folders, target.Folders, token, disabled);
-        int total = Math.Max(1, source.Files.Count + target.Files.Count);
+        ExcludeIgnored(source.Root, target.Root, source.Files, target.Files, source.Folders, target.Folders, token,
+            disabled);
+        var total = Math.Max(1, source.Files.Count + target.Files.Count);
         progress?.Report(ReportCompare("Classifying differences\u2026", 0, total));
         return new DiffSnapshot
         {
@@ -370,15 +486,19 @@ internal static class DeveloperDifferencerService
             SourceFolders = new HashSet<string>(source.Folders, StringComparer.OrdinalIgnoreCase),
             TargetFolders = new HashSet<string>(target.Folders, StringComparer.OrdinalIgnoreCase),
             Folders = new HashSet<string>(source.Folders.Union(target.Folders), StringComparer.OrdinalIgnoreCase),
-            Files = Classify(source.Files, target.Files, true, compareTimestamp, token, progress, total, onBatch, pathComparison, source.Root, target.Root, preciseCompare, compareSize, compareAttributes)
+            Files = Classify(source.Files, target.Files, true, compareTimestamp, token, progress, total, onBatch,
+                pathComparison, source.Root, target.Root, preciseCompare, compareSize, compareAttributes)
         };
     }
 
     /// <summary>Compares only the requested folder and its immediate child folders.</summary>
-    public static DiffSnapshot CompareFolderLevel(string source, string target, string relativeFolder, bool compareTimestamp = true, CancellationToken token = default(CancellationToken))
+    public static DiffSnapshot CompareFolderLevel(string source, string target, string relativeFolder,
+        bool compareTimestamp = true, CancellationToken token = default)
     {
         token.ThrowIfCancellationRequested();
-        source = Root(source); target = Root(target); ValidateRoots(source, target);
+        source = Root(source);
+        target = Root(target);
+        ValidateRoots(source, target);
         relativeFolder = (relativeFolder ?? string.Empty).Trim('\\', '/');
 
         var result = new DiffSnapshot { SourceRoot = source, TargetRoot = target, CompareTimestamp = compareTimestamp };
@@ -387,50 +507,66 @@ internal static class DeveloperDifferencerService
         ScanFolderLevel(source, relativeFolder, result.SourceFolders, left, token);
         ScanFolderLevel(target, relativeFolder, result.TargetFolders, right, token);
         ExcludeIgnored(source, target, left, right, result.SourceFolders, result.TargetFolders, token);
-        result.Folders = new HashSet<string>(result.SourceFolders.Union(result.TargetFolders, StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase);
+        result.Folders =
+            new HashSet<string>(result.SourceFolders.Union(result.TargetFolders, StringComparer.OrdinalIgnoreCase),
+                StringComparer.OrdinalIgnoreCase);
         result.Files = Classify(left, right, true, compareTimestamp, token);
         return result;
     }
 
-    private static DiffIndex CopyIndex(DiffIndex index) => new DiffIndex
+    private static DiffIndex CopyIndex(DiffIndex index)
     {
-        Root = index.Root,
-        Files = new Dictionary<string, DiffStamp>(index.Files, StringComparer.OrdinalIgnoreCase),
-        Folders = new HashSet<string>(index.Folders, StringComparer.OrdinalIgnoreCase),
-        NonEmptyFolders = index.NonEmptyFolders,
-        IgnoreRules = index.IgnoreRules,
-        DisabledIgnoreRules = index.DisabledIgnoreRules
-    };
+        return new DiffIndex
+        {
+            Root = index.Root,
+            Files = new Dictionary<string, DiffStamp>(index.Files, StringComparer.OrdinalIgnoreCase),
+            Folders = new HashSet<string>(index.Folders, StringComparer.OrdinalIgnoreCase),
+            NonEmptyFolders = index.NonEmptyFolders,
+            IgnoreRules = index.IgnoreRules,
+            DisabledIgnoreRules = index.DisabledIgnoreRules
+        };
+    }
 
     private static void ExcludeIgnored(string source, string target, Dictionary<string, DiffStamp> left,
-        Dictionary<string, DiffStamp> right, HashSet<string> sourceFolders, HashSet<string> targetFolders, CancellationToken token,
+        Dictionary<string, DiffStamp> right, HashSet<string> sourceFolders, HashSet<string> targetFolders,
+        CancellationToken token,
         IEnumerable<string> disabled = null)
     {
         var a = new GitIgnoreMatcher(source, disabled);
         var b = new GitIgnoreMatcher(target, disabled);
-        foreach (string path in left.Keys.Union(right.Keys, StringComparer.OrdinalIgnoreCase).ToArray())
+        foreach (var path in left.Keys.Union(right.Keys, StringComparer.OrdinalIgnoreCase).ToArray())
         {
             token.ThrowIfCancellationRequested();
-            if (a.IsIgnored(path, false) || b.IsIgnored(path, false)) { left.Remove(path); right.Remove(path); }
+            if (a.IsIgnored(path, false) || b.IsIgnored(path, false))
+            {
+                left.Remove(path);
+                right.Remove(path);
+            }
         }
-        foreach (string path in sourceFolders.Union(targetFolders, StringComparer.OrdinalIgnoreCase).ToArray())
+
+        foreach (var path in sourceFolders.Union(targetFolders, StringComparer.OrdinalIgnoreCase).ToArray())
         {
             token.ThrowIfCancellationRequested();
-            if (a.IsIgnored(path, true) || b.IsIgnored(path, true)) { sourceFolders.Remove(path); targetFolders.Remove(path); }
+            if (a.IsIgnored(path, true) || b.IsIgnored(path, true))
+            {
+                sourceFolders.Remove(path);
+                targetFolders.Remove(path);
+            }
         }
     }
 
-    private static void ScanFolderLevel(string root, string relativeFolder, HashSet<string> folders, Dictionary<string, DiffStamp> files, CancellationToken token)
+    private static void ScanFolderLevel(string root, string relativeFolder, HashSet<string> folders,
+        Dictionary<string, DiffStamp> files, CancellationToken token)
     {
-        string directory = relativeFolder.Length == 0 ? root : SafeFolderPath(root, relativeFolder);
+        var directory = relativeFolder.Length == 0 ? root : SafeFolderPath(root, relativeFolder);
         if (!Directory.Exists(directory)) return;
         folders.Add(relativeFolder);
 
         foreach (var entry in VolumePathIndex.EnumerateNativeDirectory(directory, token))
         {
             token.ThrowIfCancellationRequested();
-            string path = Path.Combine(directory, entry.Name);
-            string relative = RelativeFromRoot(root, path);
+            var path = Path.Combine(directory, entry.Name);
+            var relative = RelativeFromRoot(root, path);
             if (Protected(relative)) continue;
             if ((entry.Attributes & FileAttributes.Directory) != 0)
             {
@@ -438,38 +574,47 @@ internal static class DeveloperDifferencerService
                 continue;
             }
 
-            DiffStamp stamp = (entry.Attributes & FileAttributes.ReparsePoint) != 0
+            var stamp = (entry.Attributes & FileAttributes.ReparsePoint) != 0
                 ? DiffStamp.Read(path)
                 : new DiffStamp { Size = entry.Size, ModifiedUtc = entry.ModifiedUtc };
             if (stamp != null) files[relative] = stamp;
         }
     }
 
-    internal static List<DiffFile> Classify(Dictionary<string, DiffStamp> left, Dictionary<string, DiffStamp> right, bool includeSame = false, bool compareTimestamp = true, CancellationToken token = default(CancellationToken), IProgress<DiffProgress> progress = null, int offset = 0,
-        Action<IReadOnlyList<DiffFile>> onBatch = null, Comparison<string> pathComparison = null, string sourceRoot = null, string targetRoot = null, bool preciseCompare = false, bool compareSize = true, bool compareAttributes = false)
+    internal static List<DiffFile> Classify(Dictionary<string, DiffStamp> left, Dictionary<string, DiffStamp> right,
+        bool includeSame = false, bool compareTimestamp = true, CancellationToken token = default,
+        IProgress<DiffProgress> progress = null, int offset = 0,
+        Action<IReadOnlyList<DiffFile>> onBatch = null, Comparison<string> pathComparison = null,
+        string sourceRoot = null, string targetRoot = null, bool preciseCompare = false, bool compareSize = true,
+        bool compareAttributes = false)
     {
         var files = new List<DiffFile>();
         var batch = onBatch == null ? null : new List<DiffFile>(128);
         var sourceValidatedFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var targetValidatedFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        string[] paths = left.Keys.Union(right.Keys, StringComparer.OrdinalIgnoreCase).ToArray();
+        var paths = left.Keys.Union(right.Keys, StringComparer.OrdinalIgnoreCase).ToArray();
         if (pathComparison != null) Array.Sort(paths, pathComparison);
         else Array.Sort(paths, StringComparer.OrdinalIgnoreCase);
-        for (int index = 0; index < paths.Length; index++)
+        for (var index = 0; index < paths.Length; index++)
         {
             token.ThrowIfCancellationRequested();
-            string path = paths[index];
+            var path = paths[index];
             if (progress != null && index % 128 == 0)
                 progress.Report(ReportCompare("Classifying differences\u2026", index, paths.Length));
             if (Protected(path)) continue;
-            DiffStamp a, b; left.TryGetValue(path, out a); right.TryGetValue(path, out b);
+            DiffStamp a, b;
+            left.TryGetValue(path, out a);
+            right.TryGetValue(path, out b);
             string sourceHash = null, targetHash = null;
-            bool? sourceBom = compareAttributes && a != null
-                ? HasBom(SafeAttributePath(sourceRoot, path, sourceValidatedFolders)) : false;
+            var sourceBom = compareAttributes && a != null
+                ? HasBom(SafeAttributePath(sourceRoot, path, sourceValidatedFolders))
+                : false;
 
-            bool? targetBom = compareAttributes && b != null
-                ? HasBom(SafeAttributePath(targetRoot, path, targetValidatedFolders)) : false;
-            if (ShouldHash(a, b, compareTimestamp, compareSize, compareAttributes, sourceBom, targetBom, preciseCompare))
+            var targetBom = compareAttributes && b != null
+                ? HasBom(SafeAttributePath(targetRoot, path, targetValidatedFolders))
+                : false;
+            if (ShouldHash(a, b, compareTimestamp, compareSize, compareAttributes, sourceBom, targetBom,
+                    preciseCompare))
             {
                 sourceHash = HashFile(SafePath(sourceRoot, path), token);
                 targetHash = HashFile(SafePath(targetRoot, path), token);
@@ -479,8 +624,8 @@ internal static class DeveloperDifferencerService
                     continue;
                 }
             }
+
             if (preciseCompare)
-            {
                 // Files may disappear or change between enumeration and hashing
                 // (desktop.ini is a common example). Never interpret a vanished
                 // source as an instruction to delete its destination.
@@ -491,8 +636,10 @@ internal static class DeveloperDifferencerService
                     progress?.Report(ReportCompare("Skipped changed file: " + path, index + 1, paths.Length));
                     continue;
                 }
-            }
-            if (includeSame || !DiffStamp.Same(a, b, compareTimestamp, compareSize) || (preciseCompare && sourceHash != targetHash) || sourceBom != targetBom || sourceBom == null || targetBom == null)
+
+            if (includeSame || !DiffStamp.Same(a, b, compareTimestamp, compareSize) ||
+                (preciseCompare && sourceHash != targetHash) || sourceBom != targetBom || sourceBom == null ||
+                targetBom == null)
             {
                 var file = new DiffFile
                 {
@@ -517,8 +664,10 @@ internal static class DeveloperDifferencerService
                 }
             }
         }
+
         if (batch?.Count > 0) onBatch(batch.ToArray());
-        progress?.Report(ReportCompare("Classifying differences\u2026", Math.Max(1, paths.Length), Math.Max(1, paths.Length)));
+        progress?.Report(ReportCompare("Classifying differences\u2026", Math.Max(1, paths.Length),
+            Math.Max(1, paths.Length)));
         return files;
     }
 
@@ -526,15 +675,16 @@ internal static class DeveloperDifferencerService
         bool compareAttributes, bool? sourceBom, bool? targetBom, bool preciseCompare)
     {
         return preciseCompare && source != null && target != null &&
-            DiffStamp.Same(source, target, compareTimestamp, compareSize) &&
-            (!compareAttributes || (sourceBom.HasValue && targetBom.HasValue && sourceBom == targetBom));
+               DiffStamp.Same(source, target, compareTimestamp, compareSize) &&
+               (!compareAttributes || (sourceBom.HasValue && targetBom.HasValue && sourceBom == targetBom));
     }
+
     private static string SafeAttributePath(
         string root,
         string relative,
         HashSet<string> validatedFolders)
     {
-        string folder = Path.GetDirectoryName(relative) ?? "";
+        var folder = Path.GetDirectoryName(relative) ?? "";
 
         if (!validatedFolders.Contains(folder))
         {
@@ -559,11 +709,11 @@ internal static class DeveloperDifferencerService
             return validated;
         }
 
-        string path = Path.GetFullPath(Path.Combine(root, relative));
+        var path = Path.GetFullPath(Path.Combine(root, relative));
 
         try
         {
-            FileAttributes attributes = File.GetAttributes(path);
+            var attributes = File.GetAttributes(path);
 
             if ((attributes & FileAttributes.ReparsePoint) != 0)
                 throw new IOException("Reparse points are excluded: " + path);
@@ -579,19 +729,27 @@ internal static class DeveloperDifferencerService
 
         return path;
     }
+
     internal static bool? HasBom(string path)
     {
         try
         {
-            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 1);
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1);
             Span<byte> prefix = stackalloc byte[4];
-            int count = stream.ReadAtLeast(prefix, 4, throwOnEndOfStream: false);
-            return (count >= 2 && ((prefix[0] == 0xFF && prefix[1] == 0xFE) || (prefix[0] == 0xFE && prefix[1] == 0xFF))) ||
+            var count = stream.ReadAtLeast(prefix, 4, false);
+            return (count >= 2 &&
+                    ((prefix[0] == 0xFF && prefix[1] == 0xFE) || (prefix[0] == 0xFE && prefix[1] == 0xFF))) ||
                    (count >= 3 && prefix[0] == 0xEF && prefix[1] == 0xBB && prefix[2] == 0xBF) ||
                    (count == 4 && prefix[0] == 0 && prefix[1] == 0 && prefix[2] == 0xFE && prefix[3] == 0xFF);
         }
-        catch (IOException) { return null; }
-        catch (UnauthorizedAccessException) { return null; }
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     internal static string HashFile(string path, CancellationToken token = default)
@@ -599,13 +757,14 @@ internal static class DeveloperDifferencerService
         if (string.IsNullOrEmpty(path) || !File.Exists(path)) return null;
         var xxh128 = new XxHash128();
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 131072);
-        byte[] buffer = new byte[131072];
+        var buffer = new byte[131072];
         int count;
         while ((count = stream.Read(buffer, 0, buffer.Length)) > 0)
         {
             token.ThrowIfCancellationRequested();
             xxh128.Append(buffer.AsSpan(0, count));
         }
+
         return Convert.ToHexString(xxh128.GetCurrentHash());
     }
 
@@ -623,10 +782,14 @@ internal static class DeveloperDifferencerService
         DiffStamp from = toTarget ? file.Source : file.Target, to = toTarget ? file.Target : file.Source;
         return from == null ? "Delete" : to == null ? "Copy" : "Overwrite";
     }
+
     /// <summary>Synchronizes selected differences and returns an operation log.</summary>
-    public static List<string> Synchronize(DiffSnapshot snapshot, IEnumerable<DiffFile> selected, bool toTarget, Action<string> onLog = null, IEnumerable<DiffFolderSync> selectedFolders = null)
+    public static List<string> Synchronize(DiffSnapshot snapshot, IEnumerable<DiffFile> selected, bool toTarget,
+        Action<string> onLog = null, IEnumerable<DiffFolderSync> selectedFolders = null)
     {
-        Root(snapshot.SourceRoot); Root(snapshot.TargetRoot); ValidateRoots(snapshot.SourceRoot, snapshot.TargetRoot);
+        Root(snapshot.SourceRoot);
+        Root(snapshot.TargetRoot);
+        ValidateRoots(snapshot.SourceRoot, snapshot.TargetRoot);
         var log = new List<string>();
         var fileRetryQueue = new Queue<Action>();
         var folderRetryQueue = new Queue<Action>();
@@ -637,28 +800,32 @@ internal static class DeveloperDifferencerService
             log[index] = line;
             onLog?.Invoke(line);
         };
-        foreach (DiffFile file in selected)
+        foreach (var file in selected)
         {
             if (sourceIgnore.IsIgnored(file.RelativePath, false) || targetIgnore.IsIgnored(file.RelativePath, false))
             {
-                string skipped = "SKIP .gitignore: " + file.RelativePath;
-                log.Add(skipped); onLog?.Invoke(skipped); continue;
+                var skipped = "SKIP .gitignore: " + file.RelativePath;
+                log.Add(skipped);
+                onLog?.Invoke(skipped);
+                continue;
             }
+
             if (file.AttributeUnreadable)
             {
-                string failure = "FAIL ATTR unreadable (BOM): " + file.RelativePath;
+                var failure = "FAIL ATTR unreadable (BOM): " + file.RelativePath;
                 log.Add(failure);
                 onLog?.Invoke(failure);
                 continue;
             }
-            int logIndex = log.Count;
+
+            var logIndex = log.Count;
             log.Add(null);
-            bool destinationCommitted = false;
+            var destinationCommitted = false;
             ExecuteFile(false);
 
             void ExecuteFile(bool retry)
             {
-                string operation = Operation(file, toTarget);
+                var operation = Operation(file, toTarget);
                 string left = null;
                 string right = null;
                 string from = null;
@@ -674,31 +841,50 @@ internal static class DeveloperDifferencerService
                     // A failure after replacement/deletion may already have produced the
                     // desired state. Verify it without overwriting a newly changed file.
                     if (retry && destinationCommitted
-                        && MatchesSnapshot(from, toTarget ? file.Source : file.Target, toTarget ? file.SourceHash : file.TargetHash, snapshot.CompareTimestamp)
-                        && MatchesSnapshot(to, toTarget ? file.Source : file.Target, toTarget ? file.SourceHash : file.TargetHash, snapshot.CompareTimestamp))
+                              && MatchesSnapshot(from, toTarget ? file.Source : file.Target,
+                                  toTarget ? file.SourceHash : file.TargetHash, snapshot.CompareTimestamp)
+                              && MatchesSnapshot(to, toTarget ? file.Source : file.Target,
+                                  toTarget ? file.SourceHash : file.TargetHash, snapshot.CompareTimestamp))
                     {
                         writeLog(logIndex, "OK " + operation + " " + file.RelativePath);
                         return;
                     }
-                    if (!MatchesSnapshot(left, file.Source, file.SourceHash, snapshot.CompareTimestamp) || !MatchesSnapshot(right, file.Target, file.TargetHash, snapshot.CompareTimestamp))
+
+                    if (!MatchesSnapshot(left, file.Source, file.SourceHash, snapshot.CompareTimestamp) ||
+                        !MatchesSnapshot(right, file.Target, file.TargetHash, snapshot.CompareTimestamp))
                         throw new IOException("Changed after compare. Compare again.");
-                    if (operation == "Delete") { File.Delete(to); destinationCommitted = true; }
+                    if (operation == "Delete")
+                    {
+                        File.Delete(to);
+                        destinationCommitted = true;
+                    }
                     else
                     {
                         Directory.CreateDirectory(Path.GetDirectoryName(to));
-                        string destinationRoot = toTarget ? snapshot.TargetRoot : snapshot.SourceRoot;
-                        string temporaryRelative = Path.Combine(Path.GetDirectoryName(file.RelativePath) ?? "", ".dim-sync-" + Guid.NewGuid().ToString("N") + ".tmp");
-                        string temporary = SafePath(destinationRoot, temporaryRelative);
+                        var destinationRoot = toTarget ? snapshot.TargetRoot : snapshot.SourceRoot;
+                        var temporaryRelative = Path.Combine(Path.GetDirectoryName(file.RelativePath) ?? "",
+                            ".dim-sync-" + Guid.NewGuid().ToString("N") + ".tmp");
+                        var temporary = SafePath(destinationRoot, temporaryRelative);
                         try
                         {
                             File.Copy(from, temporary, false);
                             File.SetAttributes(temporary, File.GetAttributes(temporary) & ~FileAttributes.ReadOnly);
                             File.SetLastWriteTimeUtc(temporary, (toTarget ? file.Source : file.Target).ModifiedUtc);
-                            SafePath(snapshot.SourceRoot, file.RelativePath); SafePath(snapshot.TargetRoot, file.RelativePath);
-                            if (!MatchesSnapshot(left, file.Source, file.SourceHash, snapshot.CompareTimestamp) || !MatchesSnapshot(right, file.Target, file.TargetHash, snapshot.CompareTimestamp))
+                            SafePath(snapshot.SourceRoot, file.RelativePath);
+                            SafePath(snapshot.TargetRoot, file.RelativePath);
+                            if (!MatchesSnapshot(left, file.Source, file.SourceHash, snapshot.CompareTimestamp) ||
+                                !MatchesSnapshot(right, file.Target, file.TargetHash, snapshot.CompareTimestamp))
                                 throw new IOException("Changed during copy. Compare again.");
-                            if (File.Exists(to)) { RejectHardLinks(to); File.Replace(temporary, to, null); }
-                            else File.Move(temporary, to);
+                            if (File.Exists(to))
+                            {
+                                RejectHardLinks(to);
+                                File.Replace(temporary, to, null);
+                            }
+                            else
+                            {
+                                File.Move(temporary, to);
+                            }
+
                             destinationCommitted = true;
                             // Apply the timestamp to the final file, after replacement/rename.
                             // The temporary file's metadata alone does not guarantee the final state.
@@ -712,9 +898,13 @@ internal static class DeveloperDifferencerService
                             if (File.Exists(temporary)) File.Delete(temporary);
                         }
                     }
-                    SafePath(snapshot.SourceRoot, file.RelativePath); SafePath(snapshot.TargetRoot, file.RelativePath);
-                    if (!MatchesSnapshot(to, toTarget ? file.Source : file.Target, toTarget ? file.SourceHash : file.TargetHash, snapshot.CompareTimestamp))
-                        throw new IOException("Synchronization verification failed: destination timestamp, size or existence differs. Compare again.");
+
+                    SafePath(snapshot.SourceRoot, file.RelativePath);
+                    SafePath(snapshot.TargetRoot, file.RelativePath);
+                    if (!MatchesSnapshot(to, toTarget ? file.Source : file.Target,
+                            toTarget ? file.SourceHash : file.TargetHash, snapshot.CompareTimestamp))
+                        throw new IOException(
+                            "Synchronization verification failed: destination timestamp, size or existence differs. Compare again.");
                     writeLog(logIndex, "OK " + operation + " " + file.RelativePath);
                 }
                 catch (Exception ex)
@@ -722,21 +912,26 @@ internal static class DeveloperDifferencerService
                     if (!retry)
                     {
                         fileRetryQueue.Enqueue(() => ExecuteFile(true));
-                        onLog?.Invoke("QUEUED " + operation + " " + file.RelativePath + " : " + ErrorMessages.English(ex));
+                        onLog?.Invoke("QUEUED " + operation + " " + file.RelativePath + " : " +
+                                      ErrorMessages.English(ex));
                         return;
                     }
+
                     // Do not classify every "access denied" as a lock.
                     // Probe the actual source/destination file and report LOCKED only when
                     // Windows refuses an exclusive open because another process is using it.
-                    bool locked = IsFileLocked(to) || IsFileLocked(from);
+                    var locked = IsFileLocked(to) || IsFileLocked(from);
 
                     if (locked)
-                        writeLog(logIndex, "LOCKED " + operation + " " + file.RelativePath + " : " + ErrorMessages.English(ex));
+                        writeLog(logIndex,
+                            "LOCKED " + operation + " " + file.RelativePath + " : " + ErrorMessages.English(ex));
                     else
-                        writeLog(logIndex, "FAIL " + operation + " " + file.RelativePath + " : " + ErrorMessages.English(ex));
+                        writeLog(logIndex,
+                            "FAIL " + operation + " " + file.RelativePath + " : " + ErrorMessages.English(ex));
                 }
             }
         }
+
         // Complete file retries before directory deletion, so successfully retried
         // deletions can leave one-sided directories empty.
         if (fileRetryQueue.Count > 0) onLog?.Invoke("RETRY " + fileRetryQueue.Count + " queued file operation(s)");
@@ -747,36 +942,42 @@ internal static class DeveloperDifferencerService
         // create their parent directories. Empty directories are therefore handled here.
         var folderOperations = (selectedFolders ?? Enumerable.Empty<DiffFolderSync>())
             .Where(f => f != null && !string.IsNullOrWhiteSpace(f.RelativePath) && f.SourceExists != f.TargetExists)
-            .OrderBy(f => (toTarget ? f.SourceExists : f.TargetExists) ? FolderDepth(f.RelativePath) : -FolderDepth(f.RelativePath))
+            .OrderBy(f =>
+                (toTarget ? f.SourceExists : f.TargetExists)
+                    ? FolderDepth(f.RelativePath)
+                    : -FolderDepth(f.RelativePath))
             .ToArray();
 
-        foreach (DiffFolderSync folder in folderOperations)
+        foreach (var folder in folderOperations)
         {
             if (sourceIgnore.IsIgnored(folder.RelativePath, true) || targetIgnore.IsIgnored(folder.RelativePath, true))
             {
-                string skipped = "SKIP .gitignore: " + folder.RelativePath;
-                log.Add(skipped); onLog?.Invoke(skipped); continue;
+                var skipped = "SKIP .gitignore: " + folder.RelativePath;
+                log.Add(skipped);
+                onLog?.Invoke(skipped);
+                continue;
             }
-            int logIndex = log.Count;
+
+            var logIndex = log.Count;
             log.Add(null);
-            bool folderCommitted = false;
+            var folderCommitted = false;
             ExecuteFolder(false);
 
             void ExecuteFolder(bool retry)
             {
-                bool fromExists = toTarget ? folder.SourceExists : folder.TargetExists;
-                string operation = fromExists ? "CreateDir" : "DeleteDir";
+                var fromExists = toTarget ? folder.SourceExists : folder.TargetExists;
+                var operation = fromExists ? "CreateDir" : "DeleteDir";
                 try
                 {
-                    string leftFolder = SafeFolderPath(snapshot.SourceRoot, folder.RelativePath);
-                    string rightFolder = SafeFolderPath(snapshot.TargetRoot, folder.RelativePath);
-                    string origin = toTarget ? leftFolder : rightFolder;
+                    var leftFolder = SafeFolderPath(snapshot.SourceRoot, folder.RelativePath);
+                    var rightFolder = SafeFolderPath(snapshot.TargetRoot, folder.RelativePath);
+                    var origin = toTarget ? leftFolder : rightFolder;
                     if (Directory.Exists(origin) != fromExists)
                         throw new IOException("Folder changed after compare. Compare again.");
 
-                    string destination = toTarget ? rightFolder : leftFolder;
-                    bool destinationExists = Directory.Exists(destination);
-                    bool expectedDestinationExists = toTarget ? folder.TargetExists : folder.SourceExists;
+                    var destination = toTarget ? rightFolder : leftFolder;
+                    var destinationExists = Directory.Exists(destination);
+                    var expectedDestinationExists = toTarget ? folder.TargetExists : folder.SourceExists;
                     // A successful first attempt can be followed by a verification
                     // failure. On retry, accept the already-completed state only if
                     // the origin still matches the snapshot.
@@ -785,6 +986,7 @@ internal static class DeveloperDifferencerService
                         writeLog(logIndex, "OK " + operation + " " + folder.RelativePath);
                         return;
                     }
+
                     if (destinationExists != expectedDestinationExists)
                         throw new IOException("Destination folder changed after compare. Compare again.");
                     if (fromExists) Directory.CreateDirectory(destination);
@@ -800,19 +1002,24 @@ internal static class DeveloperDifferencerService
                     if (!retry)
                     {
                         folderRetryQueue.Enqueue(() => ExecuteFolder(true));
-                        onLog?.Invoke("QUEUED " + operation + " " + folder.RelativePath + " : " + ErrorMessages.English(ex));
+                        onLog?.Invoke("QUEUED " + operation + " " + folder.RelativePath + " : " +
+                                      ErrorMessages.English(ex));
                         return;
                     }
-                    writeLog(logIndex, "FAIL " + operation + " " + folder.RelativePath + " : " + ErrorMessages.English(ex));
+
+                    writeLog(logIndex,
+                        "FAIL " + operation + " " + folder.RelativePath + " : " + ErrorMessages.English(ex));
                 }
             }
         }
 
         // Retry directory operations once after the normal directory pass.
-        if (folderRetryQueue.Count > 0) onLog?.Invoke("RETRY " + folderRetryQueue.Count + " queued folder operation(s)");
+        if (folderRetryQueue.Count > 0)
+            onLog?.Invoke("RETRY " + folderRetryQueue.Count + " queued folder operation(s)");
         while (folderRetryQueue.Count > 0) folderRetryQueue.Dequeue()();
         return log;
     }
+
     private static int FolderDepth(string relativePath)
     {
         return relativePath.Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries).Length;
@@ -830,11 +1037,12 @@ internal static class DeveloperDifferencerService
             using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None))
             {
             }
+
             return false;
         }
         catch (IOException ex)
         {
-            int code = ex.HResult & 0xFFFF;
+            var code = ex.HResult & 0xFFFF;
             return code == 32 || code == 33;
         }
         catch (UnauthorizedAccessException)
@@ -849,23 +1057,24 @@ internal static class DeveloperDifferencerService
     {
         if (string.IsNullOrWhiteSpace(folder))
             throw new IOException("ZIP output folder is empty.");
-        string name = (fileName ?? "").Trim();
+        var name = (fileName ?? "").Trim();
         if (name.Length == 0)
             throw new IOException("ZIP file name is empty.");
         if (name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
             throw new IOException("ZIP file name contains invalid characters: " + name);
         if (!name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
             name += ".zip";
-        string directory = Path.GetFullPath(folder.Trim());
+        var directory = Path.GetFullPath(folder.Trim());
         Directory.CreateDirectory(directory);
         return Path.Combine(directory, name);
     }
 
     /// <summary>Packs selected files and folders from one comparison side into a ZIP while keeping relative paths.</summary>
-    public static List<string> PackZip(DiffSnapshot snapshot, IEnumerable<DiffFile> selected, IEnumerable<DiffFolderSync> selectedFolders, bool fromSource, string zipPath, Action<string> onLog = null)
+    public static List<string> PackZip(DiffSnapshot snapshot, IEnumerable<DiffFile> selected,
+        IEnumerable<DiffFolderSync> selectedFolders, bool fromSource, string zipPath, Action<string> onLog = null)
     {
         if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
-        string root = fromSource ? snapshot.SourceRoot : snapshot.TargetRoot;
+        var root = fromSource ? snapshot.SourceRoot : snapshot.TargetRoot;
         Root(root);
         var log = new List<string>();
         Action<string> writeLog = line =>
@@ -874,18 +1083,19 @@ internal static class DeveloperDifferencerService
             onLog?.Invoke(line);
         };
         var files = new Dictionary<string, DiffFile>(StringComparer.OrdinalIgnoreCase);
-        foreach (DiffFile file in selected ?? Enumerable.Empty<DiffFile>())
+        foreach (var file in selected ?? Enumerable.Empty<DiffFile>())
         {
             if (file == null || string.IsNullOrEmpty(file.RelativePath)) continue;
-            DiffStamp stamp = fromSource ? file.Source : file.Target;
+            var stamp = fromSource ? file.Source : file.Target;
             if (stamp == null) continue;
             files[file.RelativePath] = file;
         }
+
         var folders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (DiffFolderSync folder in selectedFolders ?? Enumerable.Empty<DiffFolderSync>())
+        foreach (var folder in selectedFolders ?? Enumerable.Empty<DiffFolderSync>())
         {
             if (folder == null || string.IsNullOrEmpty(folder.RelativePath)) continue;
-            bool exists = fromSource ? folder.SourceExists : folder.TargetExists;
+            var exists = fromSource ? folder.SourceExists : folder.TargetExists;
             if (!exists) continue;
             folders.Add(folder.RelativePath.Replace('/', '\\'));
         }
@@ -894,16 +1104,16 @@ internal static class DeveloperDifferencerService
         // complete snapshot once for every selected folder (O(folders * files)).
         if (folders.Count > 0)
         {
-            string[] prefixes = folders
+            var prefixes = folders
                 .Select(folder => folder.TrimEnd('\\') + "\\")
                 .ToArray();
-            foreach (DiffFile file in snapshot.Files ?? Enumerable.Empty<DiffFile>())
+            foreach (var file in snapshot.Files ?? Enumerable.Empty<DiffFile>())
             {
                 if (file == null || string.IsNullOrEmpty(file.RelativePath)) continue;
-                DiffStamp stamp = fromSource ? file.Source : file.Target;
+                var stamp = fromSource ? file.Source : file.Target;
                 if (stamp == null) continue;
-                string relative = file.RelativePath.Replace('/', '\\');
-                for (int i = 0; i < prefixes.Length; i++)
+                var relative = file.RelativePath.Replace('/', '\\');
+                for (var i = 0; i < prefixes.Length; i++)
                 {
                     if (!relative.StartsWith(prefixes[i], StringComparison.OrdinalIgnoreCase)) continue;
                     files[file.RelativePath] = file;
@@ -911,27 +1121,28 @@ internal static class DeveloperDifferencerService
                 }
             }
         }
+
         if (files.Count == 0 && folders.Count == 0)
         {
             writeLog("FAIL no selected files exist on the chosen side");
             return log;
         }
-        string directory = Path.GetDirectoryName(zipPath);
+
+        var directory = Path.GetDirectoryName(zipPath);
         if (!string.IsNullOrEmpty(directory))
             Directory.CreateDirectory(directory);
-        string tempZipPath = Path.Combine(
+        var tempZipPath = Path.Combine(
             directory ?? Path.GetDirectoryName(Path.GetFullPath(zipPath)) ?? Environment.CurrentDirectory,
             "." + Path.GetFileName(zipPath) + "." + Guid.NewGuid().ToString("N") + ".tmp");
-        string wrapper = ZipRootFolderName(root);
-        bool entryFailed = false;
+        var wrapper = ZipRootFolderName(root);
+        var entryFailed = false;
         try
         {
             using (var archive = ZipFile.Open(tempZipPath, ZipArchiveMode.Create))
             {
                 var directoryEntries = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 AddZipDirectory(archive, wrapper, directoryEntries);
-                foreach (string folder in folders.OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
-                {
+                foreach (var folder in folders.OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
                     try
                     {
                         AddZipDirectory(archive, ZipEntryName(wrapper, folder, true), directoryEntries);
@@ -942,23 +1153,24 @@ internal static class DeveloperDifferencerService
                         entryFailed = true;
                         writeLog("FAIL DIR " + folder + " " + ErrorMessages.English(ex));
                     }
-                }
-                foreach (DiffFile file in files.Values.OrderBy(item => item.RelativePath, StringComparer.OrdinalIgnoreCase))
-                {
+
+                foreach (var file in files.Values.OrderBy(item => item.RelativePath, StringComparer.OrdinalIgnoreCase))
                     try
                     {
-                        string from = SafePath(root, file.RelativePath);
+                        var from = SafePath(root, file.RelativePath);
                         if (!File.Exists(from))
                         {
                             entryFailed = true;
                             writeLog("FAIL missing " + file.RelativePath);
                             continue;
                         }
+
                         RejectHardLinks(from);
-                        string parent = Path.GetDirectoryName(file.RelativePath.Replace('/', '\\'));
+                        var parent = Path.GetDirectoryName(file.RelativePath.Replace('/', '\\'));
                         if (!string.IsNullOrEmpty(parent))
                             AddZipDirectory(archive, ZipEntryName(wrapper, parent, true), directoryEntries);
-                        archive.CreateEntryFromFile(from, ZipEntryName(wrapper, file.RelativePath, false), CompressionLevel.Fastest);
+                        archive.CreateEntryFromFile(from, ZipEntryName(wrapper, file.RelativePath, false),
+                            CompressionLevel.Fastest);
                         writeLog("OK ZIP " + file.RelativePath);
                     }
                     catch (Exception ex)
@@ -969,8 +1181,8 @@ internal static class DeveloperDifferencerService
                         else
                             writeLog("FAIL ZIP " + file.RelativePath + " " + ErrorMessages.English(ex));
                     }
-                }
             }
+
             if (entryFailed)
             {
                 // Never replace an existing archive with an incomplete ZIP.
@@ -986,49 +1198,56 @@ internal static class DeveloperDifferencerService
         catch (Exception ex)
         {
             writeLog("FAIL archive " + ErrorMessages.English(ex));
-            try { if (File.Exists(tempZipPath)) File.Delete(tempZipPath); } catch { }
+            try
+            {
+                if (File.Exists(tempZipPath)) File.Delete(tempZipPath);
+            }
+            catch
+            {
+            }
         }
+
         return log;
     }
 
     private static bool IsUnder(string relativePath, string folder)
     {
         if (string.IsNullOrEmpty(relativePath) || string.IsNullOrEmpty(folder)) return false;
-        string path = relativePath.Replace('/', '\\');
-        string prefix = folder.Replace('/', '\\').TrimEnd('\\') + "\\";
+        var path = relativePath.Replace('/', '\\');
+        var prefix = folder.Replace('/', '\\').TrimEnd('\\') + "\\";
         return path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string ZipRootFolderName(string root)
     {
-        string name = Path.GetFileName((root ?? "").TrimEnd('\\', '/'));
+        var name = Path.GetFileName((root ?? "").TrimEnd('\\', '/'));
         if (string.IsNullOrWhiteSpace(name)) name = "root";
-        foreach (char invalid in Path.GetInvalidFileNameChars())
+        foreach (var invalid in Path.GetInvalidFileNameChars())
             name = name.Replace(invalid, '_');
         return name;
     }
 
     private static string ZipEntryName(string wrapper, string relative, bool directory)
     {
-        string entry = (relative ?? "").Replace('\\', '/').Trim('/');
-        string prefix = (wrapper ?? "").Replace('\\', '/').Trim('/');
+        var entry = (relative ?? "").Replace('\\', '/').Trim('/');
+        var prefix = (wrapper ?? "").Replace('\\', '/').Trim('/');
         if (prefix.Length == 0) prefix = "root";
-        string combined = entry.Length == 0 ? prefix : prefix + "/" + entry;
+        var combined = entry.Length == 0 ? prefix : prefix + "/" + entry;
         return directory ? combined + "/" : combined;
     }
 
     private static void AddZipDirectory(ZipArchive archive, string entry, HashSet<string> created)
     {
         if (archive == null || string.IsNullOrEmpty(entry)) return;
-        string normalized = entry.Replace('\\', '/').Trim('/');
+        var normalized = entry.Replace('\\', '/').Trim('/');
         if (normalized.Length == 0) return;
-        string[] parts = normalized.Split('/');
-        string current = "";
-        for (int i = 0; i < parts.Length; i++)
+        var parts = normalized.Split('/');
+        var current = "";
+        for (var i = 0; i < parts.Length; i++)
         {
             if (string.IsNullOrEmpty(parts[i])) continue;
             current = current.Length == 0 ? parts[i] : current + "/" + parts[i];
-            string directoryEntry = current + "/";
+            var directoryEntry = current + "/";
             if (!created.Add(directoryEntry)) continue;
             archive.CreateEntry(directoryEntry);
         }
@@ -1036,27 +1255,37 @@ internal static class DeveloperDifferencerService
 
     private static string SafePathOrEmpty(string root, string relative)
     {
-        try { return SafePath(root, relative); }
-        catch { return ""; }
+        try
+        {
+            return SafePath(root, relative);
+        }
+        catch
+        {
+            return "";
+        }
     }
 
     /// <summary>Rejects files with multiple hard-link references.</summary>
     public static void RejectHardLinks(string path)
     {
-        using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+        using (var stream =
+               new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
         {
             HandleInfo info;
-            if (!GetFileInformationByHandle(stream.SafeFileHandle, out info)) throw new Win32Exception(Marshal.GetLastWin32Error());
+            if (!GetFileInformationByHandle(stream.SafeFileHandle, out info))
+                throw new Win32Exception(Marshal.GetLastWin32Error());
             if (info.Links > 1) throw new IOException("Hard links are excluded: " + path);
         }
     }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetFileInformationByHandle(SafeFileHandle handle, out HandleInfo info);
+
     [StructLayout(LayoutKind.Sequential)]
     private struct HandleInfo
     {
         public uint Attributes;
-        public System.Runtime.InteropServices.ComTypes.FILETIME Creation, Access, Write;
+        public FILETIME Creation, Access, Write;
         public uint Volume, SizeHigh, SizeLow, Links, IndexHigh, IndexLow;
     }
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern bool GetFileInformationByHandle(SafeFileHandle handle, out HandleInfo info);
 }

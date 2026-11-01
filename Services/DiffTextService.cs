@@ -22,6 +22,7 @@ internal sealed class DiffLine
     public int LeftNumber { get; set; }
     public int RightNumber { get; set; }
     public int FilteredLineCount { get; set; }
+    internal DiffLine FilteredAnchor { get; set; }
     internal int EditHunkId { get; set; } = -1;
     internal bool[] LeftChanges { get; set; }
     internal bool[] RightChanges { get; set; }

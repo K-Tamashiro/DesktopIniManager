@@ -51,10 +51,14 @@ internal sealed partial class DiffViewModel
 
     private void ApplyEdits()
     {
+        var expandedRows = expandedEqualBlocks.Select(index => allLines[index]).ToHashSet();
         SourceText = edits.Document(true);
         TargetText = edits.Document(false);
         allLines = edits.Rows();
         expandedEqualBlocks.Clear();
+        for (var i = 0; i < allLines.Count; i++)
+            if (expandedRows.Contains(allLines[i]))
+                expandedEqualBlocks.Add(i);
         UpdateDisplayedLines();
     }
 

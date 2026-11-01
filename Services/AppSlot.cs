@@ -6,7 +6,7 @@ namespace DesktopIniManager.Services;
 
 internal static class AppSlot
 {
-    private static Mutex slotMutex;
+    private static Mutex _slotMutex;
     private static EventWaitHandle _frontEvent;
 
     public static string Root { get; } = Path.Combine(
@@ -97,7 +97,7 @@ internal static class AppSlot
         {
         }
 
-        slotMutex = mutex;
+        _slotMutex = mutex;
         Number = slot;
         _frontEvent = new EventWaitHandle(false, EventResetMode.AutoReset,
             @"Local\DesktopIniManager-dim-" + slot + "-front");

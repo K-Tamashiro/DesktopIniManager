@@ -112,7 +112,7 @@ internal sealed class AudioDifferences
 
         internal FrameStream(ISampleProvider source)
         {
-            this._source = source;
+            _source = source;
             Channels = source.WaveFormat.Channels;
             _buffer = new float[16384 * Channels];
         }
@@ -211,15 +211,15 @@ internal sealed class AudioEnvelope
 // Both inputs feed one output clock; shorter inputs contribute silence.
 internal sealed class AudioRepeatProvider : ISampleProvider
 {
-    private readonly Lock Gate = new();
+    private readonly Lock _gate = new();
     private readonly Action<double> _seek;
     private readonly ISampleProvider _source;
     private long _frame, _start, _end;
 
     internal AudioRepeatProvider(ISampleProvider source, Action<double> seek)
     {
-        this._source = source;
-        this._seek = seek;
+        _source = source;
+        _seek = seek;
     }
 
     internal bool Enabled { get; private set; }
@@ -228,7 +228,7 @@ internal sealed class AudioRepeatProvider : ISampleProvider
     {
         get
         {
-            lock (Gate)
+            lock (_gate)
             {
                 return (double)_frame / WaveFormat.SampleRate;
             }
@@ -239,7 +239,7 @@ internal sealed class AudioRepeatProvider : ISampleProvider
 
     public int Read(float[] buffer, int offset, int count)
     {
-        lock (Gate)
+        lock (_gate)
         {
             int written = 0, channels = WaveFormat.Channels;
             while (written < count)
@@ -273,7 +273,7 @@ internal sealed class AudioRepeatProvider : ISampleProvider
 
     internal void SetRange(double? a, double? b)
     {
-        lock (Gate)
+        lock (_gate)
         {
             _start = (long)Math.Round(Math.Min(a ?? 0, b ?? 0) * WaveFormat.SampleRate);
             _end = (long)Math.Round(Math.Max(a ?? 0, b ?? 0) * WaveFormat.SampleRate);
@@ -283,7 +283,7 @@ internal sealed class AudioRepeatProvider : ISampleProvider
 
     internal void Seek(double seconds)
     {
-        lock (Gate)
+        lock (_gate)
         {
             _frame = (long)Math.Round(seconds * WaveFormat.SampleRate);
             if (Enabled && (_frame < _start || _frame >= _end)) _frame = _start;
@@ -295,7 +295,7 @@ internal sealed class AudioRepeatProvider : ISampleProvider
 // Variable-rate stereo playback. Resampling changes pitch together with speed.
 internal sealed class AudioSpeedProvider : ISampleProvider
 {
-    private readonly float[] _frameA, _frameB;  
+    private readonly float[] _frameA, _frameB;
     private readonly float[] _readBuffer;
     private readonly ISampleProvider _source;
     private int _buffered, _offset;
@@ -304,8 +304,8 @@ internal sealed class AudioSpeedProvider : ISampleProvider
 
     internal AudioSpeedProvider(ISampleProvider source)
     {
-        this._source = source;
-            _frameA = new float[WaveFormat.Channels];
+        _source = source;
+        _frameA = new float[WaveFormat.Channels];
         _frameB = new float[WaveFormat.Channels];
         _readBuffer = new float[4096 * WaveFormat.Channels];
     }
@@ -382,7 +382,7 @@ internal sealed class AudioDiffPlayer : IDisposable
     private readonly AudioFileReader[] _readers = new AudioFileReader[2];
     private readonly AudioRepeatProvider _repeat;
     private readonly AudioSpeedProvider _speedProvider;
-    private readonly Lock SyncLock = new();
+    private readonly Lock _syncLock = new();
     private readonly VolumeSampleProvider[] _volumes = new VolumeSampleProvider[2];
 
     internal Exception PlaybackError;
@@ -439,7 +439,7 @@ internal sealed class AudioDiffPlayer : IDisposable
     {
         get
         {
-            lock (SyncLock)
+            lock (_syncLock)
             {
                 // Use elapsed playback time without depending on the driver's byte
                 // position or output format to determine the display speed.
@@ -455,7 +455,8 @@ internal sealed class AudioDiffPlayer : IDisposable
                     }
                 }
 
-                return PlaybackPosition(_timelineOrigin, _playbackClock.Elapsed.TotalSeconds * _playbackSpeed, _repeatStart,
+                return PlaybackPosition(_timelineOrigin, _playbackClock.Elapsed.TotalSeconds * _playbackSpeed,
+                    _repeatStart,
                     _repeatEnd, Duration);
             }
         }
@@ -463,7 +464,7 @@ internal sealed class AudioDiffPlayer : IDisposable
 
     public void Dispose()
     {
-        lock (SyncLock)
+        lock (_syncLock)
         {
             _playbackClock.Stop();
             _output?.Stop();
@@ -486,9 +487,9 @@ internal sealed class AudioDiffPlayer : IDisposable
     internal void SetDelay(int side, double seconds)
     {
         if (side < 0 || side >= 2 || !double.IsFinite(seconds)) throw new ArgumentOutOfRangeException();
-        lock (SyncLock)
+        lock (_syncLock)
         {
-            if (_delays[side] == seconds) return;
+            if (Math.Abs(_delays[side] - seconds) < 1e-9) return;
             var position = Position;
             var playing = Playing;
             _playbackClock.Stop();
@@ -546,7 +547,7 @@ internal sealed class AudioDiffPlayer : IDisposable
 
     internal void SetSpeed(double value)
     {
-        lock (SyncLock)
+        lock (_syncLock)
         {
             if (Math.Abs(_playbackSpeed - value) < 0.00001) return;
             var wasPlaying = Playing;
@@ -568,7 +569,7 @@ internal sealed class AudioDiffPlayer : IDisposable
 
     internal void Seek(double seconds)
     {
-        lock (SyncLock)
+        lock (_syncLock)
         {
             var wasPlaying = Playing;
             _playbackClock.Stop();
@@ -582,19 +583,26 @@ internal sealed class AudioDiffPlayer : IDisposable
 
     internal void SetRepeat(double? a, double? b)
     {
-        lock (SyncLock)
+        lock (_syncLock)
         {
             var wasPlaying = Playing;
             var position = Position;
             _playbackClock.Stop();
             _output.Stop();
             _repeat.SetRange(a, b);
-            _repeatStart = _repeat.Enabled
-                ? Math.Round(Math.Min(a.Value, b.Value) * WaveFormat.SampleRate) / WaveFormat.SampleRate
-                : 0;
-            _repeatEnd = _repeat.Enabled
-                ? Math.Round(Math.Max(a.Value, b.Value) * WaveFormat.SampleRate) / WaveFormat.SampleRate
-                : 0;
+            if (_repeat.Enabled && a.HasValue && b.HasValue)
+            {
+                _repeatStart = Math.Round(Math.Min(a.Value, b.Value) * WaveFormat.SampleRate)
+                               / WaveFormat.SampleRate;
+                _repeatEnd = Math.Round(Math.Max(a.Value, b.Value) * WaveFormat.SampleRate)
+                             / WaveFormat.SampleRate;
+            }
+            else
+            {
+                _repeatStart = 0;
+                _repeatEnd = 0;
+            }
+
             _repeat.Seek(position);
             ResetPositionClock();
             if (wasPlaying) StartPlayback();
@@ -628,7 +636,7 @@ internal sealed class AudioDiffPlayer : IDisposable
 
     internal void Play()
     {
-        lock (SyncLock)
+        lock (_syncLock)
         {
             // 末尾付近（残り0.05秒以下）または再生完了状態なら先頭に巻き戻す
             if (Position >= Duration) Seek(0);
@@ -644,7 +652,7 @@ internal sealed class AudioDiffPlayer : IDisposable
 
     internal void Pause()
     {
-        lock (SyncLock)
+        lock (_syncLock)
         {
             _output?.Pause();
             _playbackClock.Stop();

@@ -33,6 +33,9 @@ internal sealed class DiffEditSession
             block.Right = part.Where(r => r.RightNumber > 0)
                 .Select(r => new Line(target.Lines[r.RightNumber - 1], target.Endings[r.RightNumber - 1])).ToArray();
             foreach (var row in part) row.EditHunkId = block.Id;
+            block.OriginalRows = part;
+            block.OriginalLeft = block.Left;
+            block.OriginalRight = block.Right;
             blocks.Add(block);
         }
     }
@@ -87,7 +90,10 @@ internal sealed class DiffEditSession
     {
         if (edit.DestinationSource) edit.Block.Left = edit.Before;
         else edit.Block.Right = edit.Before;
-        edit.Block.Rows = null;
+        edit.Block.Rows = edit.Block.Left.SequenceEqual(edit.Block.OriginalLeft) &&
+                          edit.Block.Right.SequenceEqual(edit.Block.OriginalRight)
+            ? edit.Block.OriginalRows
+            : null;
         edit.Active = false;
     }
 
@@ -154,8 +160,9 @@ internal sealed class DiffEditSession
                 continue;
             }
 
+            block.Rows = new List<DiffLine>();
             for (var i = 0; i < Math.Max(1, Math.Max(block.Left.Length, block.Right.Length)); i++)
-                rows.Add(new DiffLine
+                block.Rows.Add(new DiffLine
                 {
                     EditHunkId = block.Id,
                     Kind = DiffLineKind.Modified,
@@ -164,6 +171,7 @@ internal sealed class DiffEditSession
                     LeftNumber = i < block.Left.Length ? ++left : 0,
                     RightNumber = i < block.Right.Length ? ++right : 0
                 });
+            rows.AddRange(block.Rows);
         }
 
         return rows;
@@ -175,6 +183,8 @@ internal sealed class DiffEditSession
     {
         internal int Id = -1;
         internal Line[] Left, Right;
+        internal Line[] OriginalLeft, OriginalRight;
+        internal List<DiffLine> OriginalRows;
         internal List<DiffLine> Rows;
     }
 

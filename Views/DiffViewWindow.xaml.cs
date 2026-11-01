@@ -1,4 +1,4 @@
-﻿using DesktopIniManager.Properties;
+using DesktopIniManager.Properties;
 using DesktopIniManager.Services;
 using DesktopIniManager.ViewModels;
 using System;
@@ -91,13 +91,7 @@ internal sealed partial class DiffViewWindow : Window
         };
         sourceHeader.MouseLeftButtonDown += (_, _) => { clipboardSource = true; body.Focus(); };
         targetHeader.MouseLeftButtonDown += (_, _) => { clipboardSource = false; body.Focus(); };
-        var pasteMenu = new ContextMenu();
-        var pasteSource = new MenuItem { Header = "Source に貼り付け" };
-        var pasteTarget = new MenuItem { Header = "Target に貼り付け" };
-        pasteSource.Click += async (_, _) => await PasteClipboardAsync(true);
-        pasteTarget.Click += async (_, _) => await PasteClipboardAsync(false);
-        pasteMenu.Items.Add(pasteSource); pasteMenu.Items.Add(pasteTarget);
-        body.ContextMenu = pasteMenu;
+        InitializeDiffContextMenu();
         ViewModel.JumpRequested += Jump;
         ViewModel.ReloadRequested = () => LoadContent();
         ViewModel.CloseRequested += Close;
@@ -121,6 +115,10 @@ internal sealed partial class DiffViewWindow : Window
             {
                 e.Cancel = true;
                 if (confirmingTextChanges) return;
+                // Let WPF finish the cancelled Closing event before opening a modal
+                // dialog or issuing another Close (Discard completes synchronously).
+                await Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
+                if (windowClosed || confirmingTextChanges) return;
                 if (await ConfirmTextChangesAsync())
                 {
                     allowEditedClose = true;
@@ -365,7 +363,7 @@ internal sealed partial class DiffViewWindow : Window
         if (accepted && !windowClosed) await LoadContent();
     }
 
-    private ICommand ReloadCommand => reloadCommand ??= new AsyncRelayCommand(RecompareWorkingTextAsync, ViewModel.ReportError);
+    private ICommand ReloadCommand => reloadCommand ??= new AsyncRelayCommand(ReloadTextAsync, ViewModel.ReportError);
 
     private void BuildToolbar()
     {
@@ -645,7 +643,8 @@ internal sealed partial class DiffViewWindow : Window
             await Dispatcher.Yield(DispatcherPriority.Background);
             CheckWindowOpen();
             if (reload && !await ViewModel.LoadContentAsync()) return;
-            selectedEditHunks.Clear();
+            sourceSelectedEditHunks.Clear();
+            targetSelectedEditHunks.Clear();
             if (!IsLoaded) return;
             DetachImageFitHandler();
             ResetImageNavigation();
@@ -840,6 +839,7 @@ internal sealed partial class DiffViewWindow : Window
         {
             IsReadOnly = true,
             IsUndoEnabled = false,
+            ContextMenu = body.ContextMenu,
             AcceptsReturn = true,
             BorderThickness = new Thickness(0),
             Padding = new Thickness(0),
@@ -864,11 +864,28 @@ internal sealed partial class DiffViewWindow : Window
     }
 
     private void PopulatePane(RichTextBox box, bool sourceSide)
-        => PopulatePaneAsync(box, sourceSide, false).GetAwaiter().GetResult();
+        => PopulatePaneAsync(box, sourceSide, false, true).GetAwaiter().GetResult();
 
-    private async Task PopulatePaneAsync(RichTextBox box, bool sourceSide, bool responsive)
+    private sealed record RenderedPane(List<DiffLine> Lines, List<Block> Blocks, List<WhitespaceRow> Markers,
+        List<bool> CommentStates);
+    private readonly Dictionary<bool, RenderedPane> renderedPanes = new();
+
+    private async Task PopulatePaneAsync(RichTextBox box, bool sourceSide, bool responsive, bool incremental = false)
     {
-        var document = new FlowDocument
+        renderedPanes.TryGetValue(sourceSide, out var previous);
+        incremental &= previous != null;
+        var previousRows = incremental ? previous.Lines.Select((line, index) => (line, index))
+            .ToDictionary(item => item.line.FilteredAnchor ?? item.line, item => item.index) : null;
+        int prefix = 0, suffix = 0;
+        bool SameRow(DiffLine a, DiffLine b) => ReferenceEquals(a, b) ||
+            (a.FilteredLineCount > 0 && a.FilteredLineCount == b.FilteredLineCount && a.Left == b.Left);
+        if (incremental)
+        {
+            while (prefix < lines.Count && prefix < previous.Lines.Count && SameRow(lines[prefix], previous.Lines[prefix])) prefix++;
+            while (suffix < lines.Count - prefix && suffix < previous.Lines.Count - prefix &&
+                SameRow(lines[lines.Count - 1 - suffix], previous.Lines[previous.Lines.Count - 1 - suffix])) suffix++;
+        }
+        var document = incremental ? box.Document : new FlowDocument
         {
             PagePadding = new Thickness(0),
             TextAlignment = TextAlignment.Left,
@@ -886,7 +903,13 @@ internal sealed partial class DiffViewWindow : Window
         int originalRow = 0;
 
         var endings = (sourceSide ? ViewModel.SourceText : ViewModel.TargetText)?.Endings;
+        bool IsEof(DiffLine line) => line.FilteredLineCount == 0 &&
+            (sourceSide ? line.Left : line.Right) != null && endings?.Length > 0 &&
+            (sourceSide ? line.LeftNumber : line.RightNumber) == endings.Length;
         var markerRows = new List<WhitespaceRow>(lines.Count);
+        var commentStates = new List<bool>(lines.Count);
+        var editedHunks = new Dictionary<int, bool>();
+        var editedBrushes = new Dictionary<string, Brush>();
 
         // ブロックの一括追加用リスト（都度Addによるイベント発火を防止）
         var blockList = new List<Block>(lines != null ? lines.Count : 0);
@@ -894,6 +917,28 @@ internal sealed partial class DiffViewWindow : Window
 
         foreach (DiffLine line in lines)
         {
+            int row = blockList.Count;
+            int oldRow = -1;
+            if (incremental)
+            {
+                if (row < prefix) oldRow = row;
+                else if (row >= lines.Count - suffix) oldRow = previous.Lines.Count - (lines.Count - row);
+                else if (previousRows.TryGetValue(line.FilteredAnchor ?? line, out var retained) &&
+                    previous.Lines[retained].FilteredLineCount == line.FilteredLineCount) oldRow = retained;
+                if (oldRow >= 0 && syntaxExtension == ".cs" &&
+                    blockComment != (oldRow > 0 && previous.CommentStates[oldRow - 1])) oldRow = -1;
+            }
+            if (oldRow >= 0)
+            {
+                blockList.Add(previous.Blocks[oldRow]);
+                markerRows.Add(previous.Markers[oldRow]);
+                markerRows[^1].IsEndOfFile = IsEof(line);
+                // Folding does not change text: reuse the lexical state as well.
+                blockComment = previous.CommentStates[oldRow];
+                commentStates.Add(blockComment);
+                originalRow += Math.Max(1, line.FilteredLineCount);
+                continue;
+            }
             if (responsive)
             {
                 CheckWindowOpen();
@@ -964,18 +1009,65 @@ internal sealed partial class DiffViewWindow : Window
             if (resource != null)
             {
                 paragraph.SetResourceReference(TextElement.BackgroundProperty, resource);
+                if (line.EditHunkId >= 0)
+                {
+                    if (!editedHunks.TryGetValue(line.EditHunkId, out var edited))
+                        editedHunks[line.EditHunkId] = edited = ViewModel.CanUndoHunk(line.EditHunkId, true) || ViewModel.CanUndoHunk(line.EditHunkId, false);
+                    if (edited && TryFindResource(resource) is SolidColorBrush original)
+                    {
+                        if (!editedBrushes.TryGetValue(resource, out var darker))
+                        {
+                            var color = original.Color;
+                            darker = new SolidColorBrush(Color.FromArgb(color.A,
+                                (byte)(color.R * 0.7), (byte)(color.G * 0.7), (byte)(color.B * 0.7)));
+                            darker.Freeze();
+                            editedBrushes[resource] = darker;
+                        }
+                        paragraph.Background = darker;
+                    }
+                }
             }
 
             blockList.Add(paragraph);
+            commentStates.Add(blockComment);
             int lineNumber = sourceSide ? line.LeftNumber : line.RightNumber;
             string ending = lineNumber > 0 && endings != null && lineNumber <= endings.Length ? endings[lineNumber - 1] : string.Empty;
             markerRows.Add(new WhitespaceRow(paragraph,
-                line.FilteredLineCount > 0 ? null : (sourceSide ? line.Left : line.Right), ending));
+                line.FilteredLineCount > 0 ? null : (sourceSide ? line.Left : line.Right), ending)
+                { IsEndOfFile = IsEof(line) });
         }
 
         // 最後にまとめて追加
-        document.Blocks.AddRange(blockList);
-        box.Document = document;
+        if (incremental)
+        {
+            box.BeginChange();
+            try
+            {
+                var retained = blockList.ToHashSet();
+                var oldBlocks = previous.Blocks.ToHashSet();
+                foreach (var block in previous.Blocks)
+                    if (!retained.Contains(block)) document.Blocks.Remove(block);
+                Block anchor = null;
+                for (int i = blockList.Count - 1; i >= 0; i--)
+                {
+                    if (!oldBlocks.Contains(blockList[i]))
+                    {
+                        if (anchor != null) document.Blocks.InsertBefore(anchor, blockList[i]);
+                        else document.Blocks.Add(blockList[i]);
+                    }
+                    anchor = blockList[i];
+                }
+                document.PageWidth = Math.Max(sharedTextWidth + 24, Math.Max(200, box.ActualWidth));
+                document.PageHeight = Math.Max(DiffLineHeight * Math.Max(1, lines.Count) + 24, 200);
+            }
+            finally { box.EndChange(); }
+        }
+        else
+        {
+            document.Blocks.AddRange(blockList);
+            box.Document = document;
+        }
+        renderedPanes[sourceSide] = new RenderedPane(new List<DiffLine>(lines), blockList, markerRows, commentStates);
         if (box.Parent is Grid paneGrid)
             paneGrid.Children.OfType<WhitespaceOverlay>().Single().SetRows(markerRows);
     }
@@ -1182,32 +1274,38 @@ internal sealed partial class DiffViewWindow : Window
     // updates and scroll restoration in one dispatcher turn, before rendering.
     internal void RefreshFoldedPanes(double vertical, double horizontal, int selectedHunk)
     {
-        using (Dispatcher.DisableProcessing())
+        var wasRendering = renderingContent;
+        renderingContent = true;
+        try
         {
-            scrolling = true;
-            try
+            using (Dispatcher.DisableProcessing())
             {
-                sharedTextWidth = Math.Max(sharedTextWidth, MeasureSharedTextWidth());
-                PopulatePane(leftList, true);
-                PopulatePane(rightList, false);
-                UpdateFoldedGutter(leftList, true);
-                UpdateFoldedGutter(rightList, false);
-                body.UpdateLayout();
-                leftScroll = FindScroll(leftList);
-                rightScroll = FindScroll(rightList);
-                leftScroll?.ScrollToVerticalOffset(vertical);
-                rightScroll?.ScrollToVerticalOffset(vertical);
-                leftScroll?.ScrollToHorizontalOffset(horizontal);
-                rightScroll?.ScrollToHorizontalOffset(horizontal);
-                body.UpdateLayout();
-                if (selectedHunk >= 0 && selectedHunk < hunks.Count)
-                    SelectHunk(hunks[selectedHunk], false);
-                else hunkStart = hunkEnd = -1;
-                DrawMap();
-                UpdateHunkOverlay();
+                scrolling = true;
+                try
+                {
+                    sharedTextWidth = Math.Max(sharedTextWidth, MeasureSharedTextWidth());
+                    PopulatePane(leftList, true);
+                    PopulatePane(rightList, false);
+                    UpdateFoldedGutter(leftList, true);
+                    UpdateFoldedGutter(rightList, false);
+                    body.UpdateLayout();
+                    leftScroll = FindScroll(leftList);
+                    rightScroll = FindScroll(rightList);
+                    leftScroll?.ScrollToVerticalOffset(vertical);
+                    rightScroll?.ScrollToVerticalOffset(vertical);
+                    leftScroll?.ScrollToHorizontalOffset(horizontal);
+                    rightScroll?.ScrollToHorizontalOffset(horizontal);
+                    body.UpdateLayout();
+                    if (selectedHunk >= 0 && selectedHunk < hunks.Count)
+                        SelectHunk(hunks[selectedHunk], false);
+                    else hunkStart = hunkEnd = -1;
+                    DrawMap();
+                    UpdateHunkOverlay();
+                }
+                finally { scrolling = false; }
             }
-            finally { scrolling = false; }
         }
+        finally { renderingContent = wasRendering; }
     }
 
     private void UpdateFoldedGutter(RichTextBox pane, bool source)
@@ -1224,7 +1322,15 @@ internal sealed partial class DiffViewWindow : Window
         gutter.Text = numbers.ToString();
         gutter.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         viewport.Width = Math.Max(viewport.Width, gutter.DesiredSize.Width);
-        BuildEditArrows(viewport, source);
+        // Folding only changes displayed row positions, not edit hunk identities.
+        var rowsByHunk = hunks.Where(row => lines[row].EditHunkId >= 0)
+            .ToDictionary(row => lines[row].EditHunkId);
+        foreach (var button in viewport.Children.OfType<Button>())
+        {
+            var (_, id, _) = ((int, int, bool))button.Tag;
+            button.Tag = (rowsByHunk[id], id, source);
+        }
+        PositionEditArrows(viewport, -Canvas.GetTop(gutter));
     }
 
     private void Jump(int index) => SelectHunk(index, scrollToStart: true);

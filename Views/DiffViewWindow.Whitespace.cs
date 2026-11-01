@@ -31,6 +31,7 @@ internal sealed partial class DiffViewWindow
         internal readonly Paragraph Paragraph;
         private readonly Run[] runs;
         private readonly int[] starts;
+        internal bool IsEndOfFile;
 
         internal WhitespaceRow(Paragraph paragraph, string original, string ending)
         {
@@ -97,6 +98,7 @@ internal sealed partial class DiffViewWindow
 
         internal int LastVisibleRowCount { get; private set; }
         internal int LastDrawnMarkCount { get; private set; }
+        internal int LastDrawnEofCount { get; private set; }
 
         internal void SetRows(IReadOnlyList<WhitespaceRow> value)
         {
@@ -107,7 +109,7 @@ internal sealed partial class DiffViewWindow
         protected override void OnRender(DrawingContext drawing)
         {
             base.OnRender(drawing);
-            LastVisibleRowCount = LastDrawnMarkCount = 0;
+            LastVisibleRowCount = LastDrawnMarkCount = LastDrawnEofCount = 0;
             if ((!model.ShowSpaces && !model.ShowNewlines) || rows.Count == 0) return;
             var scroll = FindScroll(pane);
             if (scroll == null || scroll.ViewportHeight <= 0) return;
@@ -133,6 +135,8 @@ internal sealed partial class DiffViewWindow
                         DrawMark(drawing, row, mark.Offset, mark.Glyph, false, dpi);
                 if (model.ShowNewlines && row.Ending != null)
                     DrawMark(drawing, row, row.Length, row.Ending, true, dpi);
+                if (model.ShowNewlines && row.IsEndOfFile)
+                    DrawMark(drawing, row, row.Length, "[EOF]", true, dpi);
             }
 
             drawing.Pop();
@@ -147,6 +151,19 @@ internal sealed partial class DiffViewWindow
             if (rect.IsEmpty) return;
             var point = pane.TranslatePoint(rect.TopLeft, this);
             if (point.X < -30 || point.X > ActualWidth || point.Y < -DiffLineHeight || point.Y > ActualHeight) return;
+            if (glyph == "[EOF]")
+            {
+                var icon = DifferencerStatusIcons.GetCustomIcon(155);
+                if (icon != null)
+                {
+                    const double size = 20;
+                    drawing.DrawImage(icon, new Rect(point.X, point.Y + (rect.Height - size) / 2, size, size));
+                    LastDrawnMarkCount++;
+                    LastDrawnEofCount++;
+                    return;
+                }
+            }
+
             var light = GetWindow(pane) is DiffViewWindow window && !window.IsDarkBackground();
             Brush foreground = !newline ? Brushes.Gray :
                 glyph == "\u2193" ? Brushes.RoyalBlue :
@@ -163,6 +180,7 @@ internal sealed partial class DiffViewWindow
 
             drawing.DrawText(text, new Point(point.X, point.Y + (rect.Height - text.Height)));
             LastDrawnMarkCount++;
+            if (glyph == "[EOF]") LastDrawnEofCount++;
         }
     }
 }

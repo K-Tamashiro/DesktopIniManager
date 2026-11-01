@@ -231,7 +231,13 @@ internal sealed partial class DiffViewModel : ObservableObject
 
                 var label = string.Format(StringOverlay.Get("Diff_FilteredLines"), count);
                 visible.Add(new DiffLine
-                { Kind = DiffLineKind.Unchanged, Left = label, Right = label, FilteredLineCount = count });
+                {
+                    Kind = DiffLineKind.Unchanged,
+                    Left = label,
+                    Right = label,
+                    FilteredLineCount = count,
+                    FilteredAnchor = allLines[start]
+                });
             }
 
             Lines = visible;

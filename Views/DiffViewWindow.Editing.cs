@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -15,8 +16,74 @@ namespace DesktopIniManager.Views;
 
 internal sealed partial class DiffViewWindow
 {
-    private readonly HashSet<int> selectedEditHunks = new();
+    private readonly HashSet<int> sourceSelectedEditHunks = new();
+    private readonly HashSet<int> targetSelectedEditHunks = new();
     private bool savingText, confirmingTextChanges, allowEditedClose;
+
+    private HashSet<int> SelectedEditHunks(bool source)
+    {
+        return source ? sourceSelectedEditHunks : targetSelectedEditHunks;
+    }
+
+    private void InitializeDiffContextMenu()
+    {
+        var menu = new ContextMenu();
+
+        MenuItem Item(string label, int icon)
+        {
+            return new MenuItem
+            {
+                Header = label,
+                Icon = new Image { Source = DifferencerStatusIcons.GetCustomIcon(icon), Width = 16, Height = 16 }
+            };
+        }
+
+        var clipboard = new MenuItem { Header = "クリップボード" };
+        var pasteSource = Item("Sourceに貼付", 4);
+        var pasteTarget = Item("Targetに貼付", 5);
+        pasteSource.Click += async (_, _) => await PasteClipboardAsync(true);
+        pasteTarget.Click += async (_, _) => await PasteClipboardAsync(false);
+        clipboard.Items.Add(pasteSource);
+        clipboard.Items.Add(pasteTarget);
+        menu.Items.Add(clipboard);
+        menu.Items.Add(new Separator());
+        var copyRight = Item("右にコピー", 153);
+        var copyLeft = Item("左にコピー", 151);
+        menu.Items.Add(copyRight);
+        menu.Items.Add(copyLeft);
+        menu.Items.Add(new Separator());
+        var hunkId = -1;
+
+        async Task Copy(bool source)
+        {
+            if (hunkId < 0 || renderingContent || savingText || !ViewModel.CanChangeComparison) return;
+            var selected = SelectedEditHunks(source);
+            ViewModel.CopyHunks(selected.Contains(hunkId) ? selected.ToArray() : new[] { hunkId }, source);
+            await RenderTextEditsAsync();
+        }
+
+        copyRight.Click += async (_, _) => await Copy(true);
+        copyLeft.Click += async (_, _) => await Copy(false);
+        body.ContextMenu = menu;
+        body.PreviewMouseRightButtonDown += (_, e) =>
+        {
+            hunkId = -1;
+            var pane = e.GetPosition(body).X < body.ActualWidth / 2 ? leftList : rightList;
+            if (ViewModel.IsText && pane != null && !renderingContent)
+            {
+                var scroll = FindScroll(pane);
+                var row = (int)Math.Floor((e.GetPosition(pane).Y + (scroll?.VerticalOffset ?? 0)) / DiffLineHeight);
+                if (row >= 0 && row < lines.Count) hunkId = lines[row].EditHunkId;
+            }
+
+            copyRight.IsEnabled = copyLeft.IsEnabled = hunkId >= 0 && ViewModel.CanChangeComparison && !savingText;
+            // Open without allowing RichTextBox to replace this side's selection.
+            e.Handled = true;
+            menu.PlacementTarget = body;
+            menu.Placement = PlacementMode.MousePoint;
+            menu.IsOpen = true;
+        };
+    }
 
     private void AddTextSaveButton(TextBlock header, bool source)
     {
@@ -58,6 +125,7 @@ internal sealed partial class DiffViewWindow
 
             case Key.A:
                 e.Handled = true;
+                var selectedEditHunks = SelectedEditHunks(clipboardSource);
                 selectedEditHunks.Clear();
                 foreach (var row in lines.Where(r => r.EditHunkId >= 0)) selectedEditHunks.Add(row.EditHunkId);
                 var pane = clipboardSource ? leftList : rightList;
@@ -71,7 +139,8 @@ internal sealed partial class DiffViewWindow
 
     private void UpdateTextHunkSelection(RichTextBox pane)
     {
-        if (renderingContent || savingText || pane != (clipboardSource ? leftList : rightList)) return;
+        if (renderingContent || savingText) return;
+        var selectedEditHunks = SelectedEditHunks(pane == leftList);
         selectedEditHunks.Clear();
         if (!pane.Selection.IsEmpty)
         {
@@ -113,6 +182,7 @@ internal sealed partial class DiffViewWindow
                 e.Handled = true;
                 if (renderingContent || savingText || !ViewModel.CanChangeComparison) return;
                 clipboardSource = source;
+                var selectedEditHunks = SelectedEditHunks(source);
                 if (ViewModel.CanUndoHunk(id, source)) ViewModel.UndoHunk(id, source);
                 else
                     ViewModel.CopyHunks(selectedEditHunks.Contains(id) ? selectedEditHunks.ToArray() : new[] { id },
@@ -129,11 +199,15 @@ internal sealed partial class DiffViewWindow
 
     private void UpdateEditArrowAppearance(Canvas viewport)
     {
+        var firstBySide = new Dictionary<bool, int>();
         foreach (var button in viewport.Children.OfType<Button>())
         {
             var (row, id, source) = ((int, int, bool))button.Tag;
+            var selectedEditHunks = SelectedEditHunks(source);
             var undo = ViewModel.CanUndoHunk(id, source);
-            var first = selectedEditHunks.Where(i => !ViewModel.CanUndoHunk(i, source)).DefaultIfEmpty(-1).Min();
+            if (!firstBySide.TryGetValue(source, out var first))
+                firstBySide[source] = first = selectedEditHunks.Where(i => !ViewModel.CanUndoHunk(i, source))
+                    .DefaultIfEmpty(-1).Min();
             var grouped = !undo && selectedEditHunks.Contains(id) && first != id;
             var icon = undo ? source ? 154 : 152 : grouped ? source ? 152 : 154 : source ? 153 : 151;
             ((Image)button.Content).Source = DifferencerStatusIcons.GetCustomIcon(icon);
@@ -158,15 +232,63 @@ internal sealed partial class DiffViewWindow
         }
     }
 
-    private async Task RenderTextEditsAsync()
+    private Task RenderTextEditsAsync()
     {
-        var offset = (leftScroll ?? FindScroll(leftList))?.VerticalOffset ?? 0;
-        await LoadContent(false, false);
-        leftList?.UpdateLayout();
-        leftScroll = FindScroll(leftList);
-        rightScroll = FindScroll(rightList);
-        leftScroll?.ScrollToVerticalOffset(offset);
-        rightScroll?.ScrollToVerticalOffset(offset);
+        if (leftList == null || rightList == null) return LoadContent(false, false);
+        var scroll = leftScroll ?? FindScroll(leftList);
+        var vertical = scroll?.VerticalOffset ?? 0;
+        var horizontal = scroll?.HorizontalOffset ?? 0;
+        var restoreSourceSelection = !leftList.Selection.IsEmpty;
+        var restoreTargetSelection = !rightList.Selection.IsEmpty;
+        var selectedHunk = current;
+        if (renderedPanes.TryGetValue(true, out var previous) && hunkStart >= 0 && hunkStart < previous.Lines.Count)
+        {
+            var id = previous.Lines[hunkStart].EditHunkId;
+            selectedHunk = hunks.FindIndex(row => lines[row].EditHunkId == id);
+        }
+
+        renderingContent = true;
+        try
+        {
+            RefreshFoldedPanes(vertical, horizontal, selectedHunk);
+            foreach (var side in new[] { true, false })
+            {
+                if (!(side ? restoreSourceSelection : restoreTargetSelection)) continue;
+                var selected = SelectedEditHunks(side);
+                var first = lines.FindIndex(row => selected.Contains(row.EditHunkId));
+                var last = lines.FindLastIndex(row => selected.Contains(row.EditHunkId));
+                if (first < 0) continue;
+                var pane = side ? leftList : rightList;
+                var blocks = pane.Document.Blocks.ToArray();
+                pane.Selection.Select(blocks[first].ContentStart, blocks[last].ContentEnd);
+            }
+
+            leftScroll?.ScrollToVerticalOffset(vertical);
+            rightScroll?.ScrollToVerticalOffset(vertical);
+            leftScroll?.ScrollToHorizontalOffset(horizontal);
+            rightScroll?.ScrollToHorizontalOffset(horizontal);
+        }
+        finally
+        {
+            renderingContent = false;
+        }
+
+        RefreshEditArrows();
+        foreach (var side in new[] { true, false })
+        {
+            var header = side ? sourceHeader : targetHeader;
+            foreach (var button in header.Inlines.OfType<InlineUIContainer>().Select(i => i.Child).OfType<Button>())
+                button.IsEnabled = ViewModel.IsDirty(side);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private async Task ReloadTextAsync()
+    {
+        if (renderingContent || savingText || !ViewModel.CanChangeComparison) return;
+        if (!await ConfirmTextChangesAsync()) return;
+        await ViewModel.ReloadFromDiskAsync();
     }
 
     private async Task RecompareWorkingTextAsync()
@@ -291,6 +413,8 @@ internal sealed partial class DiffViewWindow
                 ShowInTaskbar = false
             };
             var panel = new StackPanel { Margin = new Thickness(20) };
+            dialog.SetResourceReference(BackgroundProperty, "WindowBackground");
+            dialog.SetResourceReference(ForegroundProperty, "Ink");
             panel.Children.Add(new TextBlock
             { Text = StringOverlay.Get("Diff_UnsavedPrompt"), Margin = new Thickness(0, 0, 0, 20) });
             var buttons = new StackPanel

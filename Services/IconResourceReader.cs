@@ -27,9 +27,9 @@ internal static class IconResourceReader
         var result = new List<IconGroupResource>();
         try
         {
-            EnumResourceNames(module, RtGroupIcon, (m, t, name, p) =>
+            EnumResourceNames(module, RtGroupIcon, (_, _, name, _) =>
             {
-                EnumResourceLanguages(module, RtGroupIcon, name, (m2, t2, n2, language, p2) =>
+                EnumResourceLanguages(module, RtGroupIcon, name, (_, _, _, language, _) =>
                 {
                     var group = LoadBytes(module, RtGroupIcon, name, language);
                     if (group != null)
@@ -122,7 +122,7 @@ internal static class IconResourceReader
     private static byte[] LoadBytesAnyLanguage(IntPtr module, IntPtr type, IntPtr name)
     {
         byte[] found = null;
-        EnumResourceLanguages(module, type, name, (m, t, n, language, p) =>
+        EnumResourceLanguages(module, type, name, (_, _, _, language, _) =>
         {
             found = LoadBytes(module, type, name, language);
             return false;

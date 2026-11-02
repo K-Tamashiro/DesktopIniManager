@@ -30,7 +30,7 @@
             Opacity="0.75"
             TextWrapping="Wrap" />
         <TextBox
-            x:Name="log"
+            x:Name="Log"
             Grid.Row="2"
             AcceptsReturn="True"
             FontFamily="Consolas"

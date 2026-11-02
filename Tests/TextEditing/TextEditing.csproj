@@ -9,6 +9,7 @@
     <ProjectReference Include="../../DesktopIniManager.csproj" />
     <Compile Include="Program.cs" /><Compile Include="../DiffEditingTests.cs" />
     <Compile Include="../DiffRegressionTests.cs" />
+    <Page Include="../../Themes/DarkTheme.xaml" Link="Themes/DarkTheme.xaml" />
     <None Include="../../App.xaml" Link="TestAssets/App.xaml" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

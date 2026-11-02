@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -459,9 +459,9 @@ internal static class AudioDiffTests
                 Await((Task)typeof(DiffViewWindow).GetMethod("RenderAudio", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(viewer, null));
             }
             finally { SynchronizationContext.SetSynchronizationContext(previousContext); }
-            Check(((DispatcherTimer)typeof(DiffViewWindow).GetField("audioTimer", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(viewer)).Dispatcher == viewer.Dispatcher,
+            Check(((DispatcherTimer)typeof(DiffViewWindow).GetField("_audioTimer", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(viewer)).Dispatcher == viewer.Dispatcher,
                 "audio controls and timer belong to the window dispatcher without a synchronization context");
-            var body = (Grid)viewer.FindName("body");
+            var body = (Grid)viewer.FindName("Body");
             var audioRoot = (Grid)body.Parent;
             foreach (string theme in new[] { "Dark", "Light" })
             {
@@ -474,7 +474,7 @@ internal static class AudioDiffTests
                 Check(((SolidColorBrush)wave.Foreground).Color == (theme == "Dark" ? Colors.White : Color.FromRgb(46, 32, 48)), theme + " waveform theme");
             }
             typeof(DiffViewWindow).GetMethod("ResetMediaController", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(viewer, null);
-            Check(typeof(DiffViewWindow).GetField("audioPlayer", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(viewer) == null, "reload releases audio resources");
+            Check(typeof(DiffViewWindow).GetField("_audioPlayer", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(viewer) == null, "reload releases audio resources");
         }
         finally { viewer.Close(); app.Shutdown(); }
         using (File.Open(a, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) { }

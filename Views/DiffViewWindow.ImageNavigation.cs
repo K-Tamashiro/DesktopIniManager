@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -12,35 +12,35 @@ namespace DesktopIniManager.Views;
 internal sealed partial class DiffViewWindow
 {
     private const double NavigatorWidth = 100, NavigatorHeight = 60;
-    private Canvas imageNavigator;
-    private Thumb imageViewport;
-    private Point navigationDrag;
-    private double navigationScale, navigationLeft, navigationTop, imageWidth, imageHeight;
-    private TextBlock sourcePixelDetails, targetPixelDetails;
-    private BitmapSource sourcePixels, targetPixels;
+    private Canvas _imageNavigator;
+    private Thumb _imageViewport;
+    private Point _navigationDrag;
+    private double _navigationScale, _navigationLeft, _navigationTop, _imageWidth, _imageHeight;
+    private TextBlock _sourcePixelDetails, _targetPixelDetails;
+    private BitmapSource _sourcePixels, _targetPixels;
 
     private void ResetImageNavigation()
     {
         StopImagePan();
-        if (imageViewport?.IsMouseCaptured == true) imageViewport.ReleaseMouseCapture();
-        imageControlRow.Visibility = Visibility.Collapsed;
-        imageDetails.Children.Clear();
-        imageNavigator = null;
-        imageViewport = null;
-        sourcePixels = targetPixels = null;
-        sourcePixelDetails = targetPixelDetails = null;
+        if (_imageViewport?.IsMouseCaptured == true) _imageViewport.ReleaseMouseCapture();
+        ImageControlRow.Visibility = Visibility.Collapsed;
+        ImageDetails.Children.Clear();
+        _imageNavigator = null;
+        _imageViewport = null;
+        _sourcePixels = _targetPixels = null;
+        _sourcePixelDetails = _targetPixelDetails = null;
     }
 
     private void BuildImageNavigation(double width, double height)
     {
-        imageWidth = width;
-        imageHeight = height;
-        navigationScale = Math.Min(NavigatorWidth / Math.Max(1, width), NavigatorHeight / Math.Max(1, height));
-        navigationLeft = (NavigatorWidth - width * navigationScale) / 2;
-        navigationTop = (NavigatorHeight - height * navigationScale) / 2;
-        sourcePixels = PixelImage(ViewModel.SourceImage);
-        targetPixels = PixelImage(ViewModel.TargetImage);
-        imageDetails.Children.Clear();
+        _imageWidth = width;
+        _imageHeight = height;
+        _navigationScale = Math.Min(NavigatorWidth / Math.Max(1, width), NavigatorHeight / Math.Max(1, height));
+        _navigationLeft = (NavigatorWidth - width * _navigationScale) / 2;
+        _navigationTop = (NavigatorHeight - height * _navigationScale) / 2;
+        _sourcePixels = PixelImage(ViewModel.SourceImage);
+        _targetPixels = PixelImage(ViewModel.TargetImage);
+        ImageDetails.Children.Clear();
         var sizes = new TextBlock
         {
             Text = "Source: " + Dimensions(ViewModel.SourceImage) + "\nTarget: " + Dimensions(ViewModel.TargetImage),
@@ -48,12 +48,12 @@ internal sealed partial class DiffViewWindow
             TextAlignment = TextAlignment.Right,
             Margin = new Thickness(0, 0, 8, 0)
         };
-        sizes.SetBinding(TextBlock.FontSizeProperty, new Binding(nameof(TextBlock.FontSize)) { Source = targetHeader });
+        sizes.SetBinding(TextBlock.FontSizeProperty, new Binding(nameof(TextBlock.FontSize)) { Source = TargetHeader });
         sizes.SetBinding(TextBlock.FontFamilyProperty,
-            new Binding(nameof(TextBlock.FontFamily)) { Source = targetHeader });
+            new Binding(nameof(TextBlock.FontFamily)) { Source = TargetHeader });
         sizes.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
-        imageDetails.Children.Add(sizes);
-        imageNavigator = new Canvas
+        ImageDetails.Children.Add(sizes);
+        _imageNavigator = new Canvas
         {
             Width = NavigatorWidth,
             Height = NavigatorHeight,
@@ -62,47 +62,47 @@ internal sealed partial class DiffViewWindow
             Margin = new Thickness(0, 0, 8, 0),
             ToolTip = "Source + Target 50% / differences highlighted. Drag the frame to navigate."
         };
-        imageNavigator.Children.Add(new Image
+        _imageNavigator.Children.Add(new Image
         {
             Source = CreateNavigationBitmap(ViewModel.SourceImage, ViewModel.TargetImage),
             Width = NavigatorWidth,
             Height = NavigatorHeight,
             IsHitTestVisible = false
         });
-        imageViewport = new Thumb { Cursor = Cursors.SizeAll, Focusable = false };
+        _imageViewport = new Thumb { Cursor = Cursors.SizeAll, Focusable = false };
         var border = new FrameworkElementFactory(typeof(Border));
         border.SetValue(Border.BorderThicknessProperty, new Thickness(2));
         border.SetValue(Border.BorderBrushProperty, Brushes.Cyan);
         border.SetValue(Border.BackgroundProperty, new SolidColorBrush(Color.FromArgb(25, 0, 255, 255)));
-        imageViewport.Template = new ControlTemplate(typeof(Thumb)) { VisualTree = border };
-        imageViewport.DragStarted += (_, _) =>
-            navigationDrag = new Point(leftScroll.HorizontalOffset, leftScroll.VerticalOffset);
-        imageViewport.DragDelta += (_, e) =>
+        _imageViewport.Template = new ControlTemplate(typeof(Thumb)) { VisualTree = border };
+        _imageViewport.DragStarted += (_, _) =>
+            _navigationDrag = new Point(_leftScroll.HorizontalOffset, _leftScroll.VerticalOffset);
+        _imageViewport.DragDelta += (_, e) =>
         {
-            var scale = (imageZoom?.Value ?? 1) / navigationScale;
-            navigationDrag.X += e.HorizontalChange * scale;
-            navigationDrag.Y += e.VerticalChange * scale;
-            navigationDrag = ScrollImagesTo(navigationDrag.X, navigationDrag.Y);
+            var scale = (_imageZoom?.Value ?? 1) / _navigationScale;
+            _navigationDrag.X += e.HorizontalChange * scale;
+            _navigationDrag.Y += e.VerticalChange * scale;
+            _navigationDrag = ScrollImagesTo(_navigationDrag.X, _navigationDrag.Y);
         };
-        imageNavigator.Children.Add(imageViewport);
-        imageNavigator.MouseMove += (_, e) =>
+        _imageNavigator.Children.Add(_imageViewport);
+        _imageNavigator.MouseMove += (_, e) =>
         {
-            var point = e.GetPosition(imageNavigator);
-            SetImagePointDetails(new Point((point.X - navigationLeft) / navigationScale,
-                (point.Y - navigationTop) / navigationScale), false);
+            var point = e.GetPosition(_imageNavigator);
+            SetImagePointDetails(new Point((point.X - _navigationLeft) / _navigationScale,
+                (point.Y - _navigationTop) / _navigationScale), false);
         };
-        imageNavigator.MouseLeftButtonDown += (_, e) =>
+        _imageNavigator.MouseLeftButtonDown += (_, e) =>
         {
             if (e.OriginalSource is DependencyObject d && FindAncestor<Thumb>(d) != null) return;
-            var point = e.GetPosition(imageNavigator);
-            var zoom = imageZoom?.Value ?? 1;
-            ScrollImagesTo((point.X - navigationLeft) / navigationScale * zoom - leftScroll.ViewportWidth / 2,
-                (point.Y - navigationTop) / navigationScale * zoom - leftScroll.ViewportHeight / 2);
+            var point = e.GetPosition(_imageNavigator);
+            var zoom = _imageZoom?.Value ?? 1;
+            ScrollImagesTo((point.X - _navigationLeft) / _navigationScale * zoom - _leftScroll.ViewportWidth / 2,
+                (point.Y - _navigationTop) / _navigationScale * zoom - _leftScroll.ViewportHeight / 2);
             e.Handled = true;
         };
-        imageDetails.Children.Add(imageNavigator);
-        sourcePixelDetails = AddPixelCard("Source", "SourceColor");
-        targetPixelDetails = AddPixelCard("Target", "TargetColor");
+        ImageDetails.Children.Add(_imageNavigator);
+        _sourcePixelDetails = AddPixelCard("Source", "SourceColor");
+        _targetPixelDetails = AddPixelCard("Target", "TargetColor");
         SetImagePointDetails(new Point(-1, -1), false);
     }
 
@@ -129,7 +129,7 @@ internal sealed partial class DiffViewWindow
         };
         card.SetResourceReference(Border.BackgroundProperty, "CardBackground");
         card.SetResourceReference(Border.BorderBrushProperty, color);
-        imageDetails.Children.Add(card);
+        ImageDetails.Children.Add(card);
         return text;
     }
 
@@ -140,11 +140,11 @@ internal sealed partial class DiffViewWindow
 
     private void SetImagePointDetails(Point point, bool rememberOrigin)
     {
-        if (sourcePixelDetails == null) return;
+        if (_sourcePixelDetails == null) return;
         // During a drag keep the clicked pixel; mouse-up resumes live hover.
-        if (imagePanning && !rememberOrigin) return;
-        sourcePixelDetails.Text = DescribePixel(sourcePixels, point);
-        targetPixelDetails.Text = DescribePixel(targetPixels, point);
+        if (_imagePanning && !rememberOrigin) return;
+        _sourcePixelDetails.Text = DescribePixel(_sourcePixels, point);
+        _targetPixelDetails.Text = DescribePixel(_targetPixels, point);
     }
 
     internal static string DescribePixel(BitmapSource pixels, Point point)
@@ -190,28 +190,28 @@ internal sealed partial class DiffViewWindow
 
     internal Point ScrollImagesTo(double x, double y)
     {
-        if (leftScroll == null || rightScroll == null) return new Point();
-        var maxX = Math.Min(leftScroll.ScrollableWidth, rightScroll.ScrollableWidth);
-        var maxY = Math.Min(leftScroll.ScrollableHeight, rightScroll.ScrollableHeight);
+        if (_leftScroll == null || _rightScroll == null) return new Point();
+        var maxX = Math.Min(_leftScroll.ScrollableWidth, _rightScroll.ScrollableWidth);
+        var maxY = Math.Min(_leftScroll.ScrollableHeight, _rightScroll.ScrollableHeight);
         x = Math.Clamp(x, 0, Math.Max(0, maxX));
         y = Math.Clamp(y, 0, Math.Max(0, maxY));
-        leftScroll.ScrollToHorizontalOffset(x);
-        rightScroll.ScrollToHorizontalOffset(x);
-        leftScroll.ScrollToVerticalOffset(y);
-        rightScroll.ScrollToVerticalOffset(y);
+        _leftScroll.ScrollToHorizontalOffset(x);
+        _rightScroll.ScrollToHorizontalOffset(x);
+        _leftScroll.ScrollToVerticalOffset(y);
+        _rightScroll.ScrollToVerticalOffset(y);
         return new Point(x, y);
     }
 
     private void UpdateImageNavigation()
     {
-        if (imageViewport == null || leftScroll == null || imageZoom == null) return;
-        var zoom = imageZoom.Value;
-        var width = Math.Min(imageWidth, leftScroll.ViewportWidth / zoom) * navigationScale;
-        var height = Math.Min(imageHeight, leftScroll.ViewportHeight / zoom) * navigationScale;
-        imageViewport.Width = Math.Max(0, width);
-        imageViewport.Height = Math.Max(0, height);
-        Canvas.SetLeft(imageViewport, navigationLeft + leftScroll.HorizontalOffset / zoom * navigationScale);
-        Canvas.SetTop(imageViewport, navigationTop + leftScroll.VerticalOffset / zoom * navigationScale);
+        if (_imageViewport == null || _leftScroll == null || _imageZoom == null) return;
+        var zoom = _imageZoom.Value;
+        var width = Math.Min(_imageWidth, _leftScroll.ViewportWidth / zoom) * _navigationScale;
+        var height = Math.Min(_imageHeight, _leftScroll.ViewportHeight / zoom) * _navigationScale;
+        _imageViewport.Width = Math.Max(0, width);
+        _imageViewport.Height = Math.Max(0, height);
+        Canvas.SetLeft(_imageViewport, _navigationLeft + _leftScroll.HorizontalOffset / zoom * _navigationScale);
+        Canvas.SetTop(_imageViewport, _navigationTop + _leftScroll.VerticalOffset / zoom * _navigationScale);
     }
 
     internal static BitmapSource CreateXorBitmap(BitmapSource foreground, BitmapSource background)

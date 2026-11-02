@@ -21,15 +21,15 @@ internal sealed class GitIgnoreRuleInfo
 // Scoped to the chosen comparison root; no Git executable or repository is required.
 internal sealed class GitIgnoreMatcher
 {
-    private readonly Dictionary<string, bool> directories = new(StringComparer.Ordinal);
-    private readonly HashSet<string> disabled;
-    private readonly string root;
-    private readonly Dictionary<string, List<Rule>> rules = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, bool> _directories = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _disabled;
+    private readonly string _root;
+    private readonly Dictionary<string, List<Rule>> _rules = new(StringComparer.Ordinal);
 
     internal GitIgnoreMatcher(string root, IEnumerable<string> disabled = null)
     {
-        this.root = root;
-        this.disabled = new HashSet<string>(disabled ?? Array.Empty<string>(), StringComparer.Ordinal);
+        this._root = root;
+        this._disabled = new HashSet<string>(disabled ?? Array.Empty<string>(), StringComparer.Ordinal);
     }
 
     internal List<GitIgnoreRuleInfo> Entries { get; } = new();
@@ -90,7 +90,7 @@ internal sealed class GitIgnoreMatcher
     {
         relative = relative.Replace('\\', '/').Trim('/');
         if (relative.Length == 0) return false;
-        if (directory && directories.TryGetValue(relative, out var cached)) return cached;
+        if (directory && _directories.TryGetValue(relative, out var cached)) return cached;
         var slash = relative.LastIndexOf('/');
         var parent = slash < 0 ? "" : relative.Substring(0, slash);
         // Git cannot re-include a child whose parent remains excluded.
@@ -110,16 +110,16 @@ internal sealed class GitIgnoreMatcher
             }
         }
 
-        if (directory) directories[relative] = ignored;
+        if (directory) _directories[relative] = ignored;
         return ignored;
     }
 
     private List<Rule> Load(string scope)
     {
-        if (rules.TryGetValue(scope, out var cached)) return cached;
+        if (_rules.TryGetValue(scope, out var cached)) return cached;
         var result = new List<Rule>();
-        rules.Add(scope, result);
-        var path = Path.Combine(root, scope.Replace('/', Path.DirectorySeparatorChar), ".gitignore");
+        _rules.Add(scope, result);
+        var path = Path.Combine(_root, scope.Replace('/', Path.DirectorySeparatorChar), ".gitignore");
         if (!File.Exists(path) || (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0) return result;
         foreach (var line in File.ReadLines(path))
         {
@@ -151,7 +151,7 @@ internal sealed class GitIgnoreMatcher
                 {
                     var entry = new GitIgnoreRuleInfo { Scope = scope, Pattern = original };
                     Entries.Add(entry);
-                    if (disabled.Contains(entry.Key)) continue;
+                    if (_disabled.Contains(entry.Key)) continue;
                 }
 
                 result.Add(new Rule(regex, directoryOnly, negate));

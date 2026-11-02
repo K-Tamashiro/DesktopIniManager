@@ -1,4 +1,4 @@
-﻿<Window
+<Window
     x:Class="DesktopIniManager.Views.DiffViewWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -32,7 +32,7 @@
                 Foreground="{DynamicResource Accent}"
                 Text="{loc:L Diff_Heading}" />
             <TextBlock
-                x:Name="selectedFileText"
+                x:Name="SelectedFileText"
                 Grid.Column="1"
                 MaxWidth="720"
                 Margin="20,0,12,4"
@@ -49,7 +49,6 @@
                 x:Name="CloseButton"
                 Grid.Column="2"
                 VerticalAlignment="Center"
-                Command="{Binding CloseCommand}"
                 Style="{DynamicResource IconButton}"
                 ToolTip="{loc:L Common_Close}">
                 <Image
@@ -87,7 +86,7 @@
                     Stretch="Uniform"
                     ToolTip="External Diff" />
                 <history:HistoryTextBox
-                    x:Name="externalDiffBox"
+                    x:Name="ExternalDiffBox"
                     Grid.Column="1"
                     Height="36"
                     Padding="8,4"
@@ -106,6 +105,7 @@
 
             <Grid
                 Grid.Row="1"
+                Grid.Column="0"
                 Grid.ColumnSpan="3"
                 Height="64">
                 <Grid.ColumnDefinitions>
@@ -132,10 +132,10 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <WrapPanel x:Name="actionsPanel"
+                    <WrapPanel x:Name="ActionsPanel"
                                VerticalAlignment="Center" />
                     <ScrollViewer
-                        x:Name="imageControlRow"
+                        x:Name="ImageControlRow"
                         Grid.Column="1"
                         HorizontalAlignment="Stretch"
                         VerticalAlignment="Center"
@@ -156,7 +156,7 @@
                                 </Style.Triggers>
                             </Style>
                         </ScrollViewer.Style>
-                        <StackPanel x:Name="imageToolbar">
+                        <StackPanel x:Name="ImageToolbar">
                             <StackPanel.Style>
                                 <Style TargetType="StackPanel">
                                     <Setter Property="Orientation"
@@ -183,11 +183,11 @@
                         VerticalAlignment="Center"
                         Stretch="Uniform"
                         StretchDirection="DownOnly">
-                        <StackPanel x:Name="imageDetails"
+                        <StackPanel x:Name="ImageDetails"
                                     Orientation="Horizontal" />
                     </Viewbox>
                     <StackPanel
-                        x:Name="fileNavigationPanel"
+                        x:Name="FileNavigationPanel"
                         Grid.Column="1"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Center"
@@ -196,47 +196,47 @@
             </Grid>
         </Grid>
 
-        <Grid x:Name="audioOverviewHost"
+        <Grid x:Name="AudioOverviewHost"
               DockPanel.Dock="Top"
               Height="64"
               Margin="0,0,0,8"
               Visibility="Collapsed" />
 
         <StackPanel
-            x:Name="markerOptions"
+            x:Name="MarkerOptions"
             Margin="8,4,8,0"
             DockPanel.Dock="Bottom"
             Orientation="Horizontal"
             Visibility="Collapsed">
             <CheckBox
-                x:Name="showSpacesBox"
+                x:Name="ShowSpacesBox"
                 Margin="0,0,16,0"
-                Click="MarkerDisplay_Click"
+                IsChecked="{Binding ShowSpaces, Mode=TwoWay}"
                 Content="Show spaces / tabs" />
             <CheckBox
-                x:Name="showNewlinesBox"
-                Click="MarkerDisplay_Click"
+                x:Name="ShowNewlinesBox"
+                IsChecked="{Binding ShowNewlines, Mode=TwoWay}"
                 Content="Show line endings" />
         </StackPanel>
         <StackPanel
-            x:Name="loadProgressPanel"
+            x:Name="LoadProgressPanel"
             Height="30"
             Margin="8,6,8,0"
             DockPanel.Dock="Bottom"
             Visibility="Collapsed">
             <TextBlock
-                x:Name="loadProgressText"
+                x:Name="LoadProgressText"
                 Margin="0,0,0,4"
                 Foreground="{DynamicResource Muted}" />
             <ProgressBar
-                x:Name="loadProgress"
+                x:Name="LoadProgress"
                 Height="6"
                 Maximum="100"
                 Minimum="0" />
         </StackPanel>
 
         <TextBlock
-            x:Name="status"
+            x:Name="Status"
             Margin="8,6,8,0"
             DockPanel.Dock="Bottom"
             Foreground="{DynamicResource Muted}"
@@ -253,7 +253,7 @@
                 <ColumnDefinition Width="34" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <Border x:Name="sourceFileNameBorder"
+            <Border x:Name="SourceFileNameBorder"
                     Grid.Row="0"
                     Margin="8,0,8,5"
                     Padding="9,4"
@@ -263,12 +263,12 @@
                     Visibility="Collapsed"
                     HorizontalAlignment="Left"
                     MaxWidth="600">
-                <TextBlock x:Name="sourceFileNameText"
+                <TextBlock x:Name="SourceFileNameText"
                            FontWeight="SemiBold"
                            Foreground="{DynamicResource SourceColor}"
                            TextTrimming="CharacterEllipsis" />
             </Border>
-            <Border x:Name="targetFileNameBorder"
+            <Border x:Name="TargetFileNameBorder"
                     Grid.Row="0"
                     Grid.Column="2"
                     Margin="8,0,8,5"
@@ -279,25 +279,26 @@
                     Visibility="Collapsed"
                     HorizontalAlignment="Left"
                     MaxWidth="600">
-                <TextBlock x:Name="targetFileNameText"
+                <TextBlock x:Name="TargetFileNameText"
                            FontWeight="SemiBold"
                            Foreground="{DynamicResource TargetColor}"
                            TextTrimming="CharacterEllipsis" />
             </Border>
             <Grid Grid.Row="1"
+                  Grid.Column="0"
                   Margin="8,0,8,4">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBlock
-                    x:Name="sourceHeader"
+                    x:Name="SourceHeader"
                     VerticalAlignment="Center"
                     Foreground="{DynamicResource Ink}"
                     Text="{Binding SourceHeader}"
                     TextWrapping="Wrap" />
                 <StackPanel
-                    x:Name="sourceStatusIcons"
+                    x:Name="SourceStatusIcons"
                     Grid.Column="1"
                     Margin="8,0,0,0"
                     VerticalAlignment="Center"
@@ -311,13 +312,13 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBlock
-                    x:Name="targetHeader"
+                    x:Name="TargetHeader"
                     VerticalAlignment="Center"
                     Foreground="{DynamicResource Ink}"
                     Text="{Binding TargetHeader}"
                     TextWrapping="Wrap" />
                 <StackPanel
-                    x:Name="targetStatusIcons"
+                    x:Name="TargetStatusIcons"
                     Grid.Column="1"
                     Margin="8,0,0,0"
                     VerticalAlignment="Center"
@@ -330,18 +331,18 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
             <Grid
-                x:Name="body"
+                x:Name="Body"
                 Grid.Row="0"
                 PreviewMouseWheel="Body_PreviewMouseWheel">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition x:Name="mapColumn"
+                    <ColumnDefinition x:Name="MapColumn"
                                       Width="34" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
             </Grid>
             <StackPanel
-                x:Name="gifFrameHost"
+                x:Name="GifFrameHost"
                 Grid.Row="1"
                 Margin="0,4,0,4"
                 HorizontalAlignment="Center"

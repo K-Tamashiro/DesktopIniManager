@@ -9,7 +9,7 @@ internal static class NativeFolderPicker
 {
     public static string Show(IntPtr owner, string initialPath, string title)
     {
-        var dialog = (IFileDialog)new FileOpenDialog();
+        var dialog = (IFileDialog)Activator.CreateInstance(typeof(FileOpenDialog));
         try
         {
             dialog.GetOptions(out var options);
@@ -17,9 +17,8 @@ internal static class NativeFolderPicker
                               FileOpenOptions.PathMustExist | FileOpenOptions.NoChangeDirectory);
             dialog.SetTitle(title);
 
-            IShellItem initialItem = null;
             if (!string.IsNullOrWhiteSpace(initialPath) &&
-                SHCreateItemFromParsingName(initialPath, IntPtr.Zero, typeof(IShellItem).GUID, out initialItem) == 0)
+                SHCreateItemFromParsingName(initialPath, IntPtr.Zero, typeof(IShellItem).GUID, out var initialItem) == 0)
                 try
                 {
                     dialog.SetFolder(initialItem);

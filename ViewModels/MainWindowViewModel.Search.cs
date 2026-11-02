@@ -25,7 +25,6 @@ internal sealed partial class MainWindowViewModel
     private VolumePathIndex _solutionPathIndex;
     private bool _solutionReady;
     private Task _solutionTask;
-    private int _statusEpoch;
     private int _treeViewGeneration;
 
     internal bool IsLazyNetworkTreeActive
@@ -48,7 +47,6 @@ internal sealed partial class MainWindowViewModel
         _searchCts?.Cancel();
         _searchRoots.Clear();
         _searchResultCount = 0;
-        _searchCurrent = null;
         Files.Clear();
         ClearSearchHits();
         FileListCountLabel = string.Format(Strings.Main_NItems, 0);
@@ -132,7 +130,6 @@ internal sealed partial class MainWindowViewModel
     internal async Task SearchAsync(bool quietMissingRoot)
     {
         // Snapshot bindable state before starting background work.
-        var statusEpoch = ++_statusEpoch;
         SearchHistoryRequested?.Invoke();
         var root = RootPath.Trim();
         var visibleQuery = Query.Trim();
@@ -246,7 +243,6 @@ internal sealed partial class MainWindowViewModel
         }
         finally
         {
-            _statusEpoch++;
             if (ReferenceEquals(_searchCts, searchCts))
             {
                 _searchCts = null;
@@ -436,7 +432,7 @@ internal sealed partial class MainWindowViewModel
                         var now = Environment.TickCount;
                         if (unchecked(now - lastReport) < 125) return;
                         lastReport = now;
-                        Dispatcher.BeginInvoke(new Action(() =>
+                        _dispatcher.BeginInvoke(new Action(() =>
                         {
                             if (!IsSearching) return;
                             Status = string.Format(Strings.Main_IndexedFoldersEllipsis, count.ToString("N0"));
@@ -453,7 +449,7 @@ internal sealed partial class MainWindowViewModel
                 }
             }
 
-            Dispatcher.BeginInvoke(new Action(() =>
+            _dispatcher.BeginInvoke(new Action(() =>
             {
                 if (!IsSearching) return;
                 Status = Strings.Main_BuildingTree;
@@ -545,7 +541,7 @@ internal sealed partial class MainWindowViewModel
                         lastReport = now;
                         var count = built.Count;
                         var name = Path.GetFileName(path);
-                        Dispatcher.BeginInvoke(new Action(() =>
+                        _dispatcher.BeginInvoke(new Action(() =>
                         {
                             if (generation != _solutionGeneration || token.IsCancellationRequested
                                                                   || _solutionReady || TreeViewIndex != 1 ||

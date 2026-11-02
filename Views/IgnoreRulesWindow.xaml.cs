@@ -8,7 +8,7 @@ using System.Windows;
 
 namespace DesktopIniManager.Views;
 
-internal partial class IgnoreRulesWindow : Window
+internal partial class IgnoreRulesWindow
 {
     public List<IgnoreRuleRow> Rules { get; }
     internal IEnumerable<string> DisabledRules => Rules.Where(r => !r.Exclude).Select(r => r.Key);
@@ -38,15 +38,15 @@ internal partial class IgnoreRulesWindow : Window
 
 internal sealed class IgnoreRuleRow : ObservableObject
 {
-    private bool exclude;
-    public bool Exclude { get => exclude; set => SetProperty(ref exclude, value); }
+    private bool _exclude;
+    public bool Exclude { get => _exclude; set => SetProperty(ref _exclude, value); }
     public string Key { get; }
     public string Pattern { get; }
     public string Location { get; }
 
     internal IgnoreRuleRow(GitIgnoreRuleInfo rule, bool exclude)
     {
-        Key = rule.Key; Pattern = rule.Pattern; this.exclude = exclude;
+        Key = rule.Key; Pattern = rule.Pattern; this._exclude = exclude;
         string origin = StringOverlay.Get(rule.Source && rule.Target ? "Ignore_Both" : rule.Source ? "Ignore_Source" : "Ignore_Target");
         Location = origin + "  ·  " + (rule.Scope.Length == 0 ? ".gitignore" : rule.Scope + "/.gitignore");
     }

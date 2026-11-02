@@ -19,7 +19,7 @@ using System.Windows.Threading;
 
 namespace DesktopIniManager.Views;
 
-public partial class GrepWindow : Window
+public partial class GrepWindow
 {
     internal GrepWindowViewModel ViewModel { get; }
     private bool _resultGroupsExpanded = true;
@@ -38,7 +38,7 @@ public partial class GrepWindow : Window
         ClearQueryButton.Click += (_, _) => Dispatcher.BeginInvoke(new Action(() => QueryBox.Focus()), DispatcherPriority.Input);
         ClearListFilterButton.Click += (_, _) => Dispatcher.BeginInvoke(new Action(() => FilterBox.Focus()), DispatcherPriority.Input);
         DataContext = ViewModel;
-        QueryBox.PreviewKeyDown += (sender, args) =>
+        QueryBox.PreviewKeyDown += (_, args) =>
         {
             if (args.Key != Key.Enter || Keyboard.Modifiers != ModifierKeys.None || QueryBox.IsHistoryOpen) return;
             QueryBox.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
@@ -62,19 +62,19 @@ public partial class GrepWindow : Window
         HookPathBox(EditorBox);
         HookPathBox(EditorArgumentsBox);
         // Re-selecting the same history item must also restore its preset arguments.
-        EditorBox.HistoryItemApplied += (sender, args) => ViewModel.ApplyEditorPresetCommand.Execute(null);
+        EditorBox.HistoryItemApplied += (_, _) => ViewModel.ApplyEditorPresetCommand.Execute(null);
         ResultsGrid.PreviewMouseWheel += ResultsGrid_PreviewMouseWheel;
-        SourceInitialized += (sender, args) =>
+        SourceInitialized += (_, _) =>
         {
             _inputSource = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
             _inputSource?.AddHook(HorizontalWheelMessage);
         };
-        Closed += (sender, args) =>
+        Closed += (_, _) =>
         {
             _inputSource?.RemoveHook(HorizontalWheelMessage);
             _inputSource = null;
         };
-        Loaded += (sender, args) =>
+        Loaded += (_, _) =>
         {
             ApplyGrepColumnWidths(ViewModel.ColumnWidths);
             Dispatcher.BeginInvoke(new Action(() => ApplyGrepColumnWidths(ViewModel.ColumnWidths)), DispatcherPriority.Loaded);
@@ -149,8 +149,8 @@ public partial class GrepWindow : Window
 
     private IntPtr HorizontalWheelMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        const int MouseHorizontalWheel = 0x020E;
-        if (message != MouseHorizontalWheel) return IntPtr.Zero;
+        const int mouseHorizontalWheel = 0x020E;
+        if (message != mouseHorizontalWheel) return IntPtr.Zero;
         if (ResultsGrid == null) return IntPtr.Zero;
 
         long coordinates = lParam.ToInt64();
@@ -167,9 +167,9 @@ public partial class GrepWindow : Window
 
     private void HookPathBox(TextBox box)
     {
-        box.GotKeyboardFocus += (sender, args) => ShowTextEnd(box);
-        box.LostKeyboardFocus += (sender, args) => ShowTextEnd(box);
-        box.TextChanged += (sender, args) =>
+        box.GotKeyboardFocus += (_, _) => ShowTextEnd(box);
+        box.LostKeyboardFocus += (_, _) => ShowTextEnd(box);
+        box.TextChanged += (_, _) =>
         {
             if (!box.IsKeyboardFocusWithin) ShowTextEnd(box);
         };
@@ -180,7 +180,7 @@ public partial class GrepWindow : Window
         if (box == null) return;
         box.Dispatcher.BeginInvoke(new Action(() =>
         {
-            string text = box.Text ?? string.Empty;
+            string text = box.Text;
             box.CaretIndex = text.Length;
             box.ScrollToHorizontalOffset(Math.Max(0, box.ExtentWidth - box.ViewportWidth));
         }), DispatcherPriority.Loaded);
@@ -259,23 +259,17 @@ public partial class GrepWindow : Window
         if (match == null || ResultsGrid == null) return;
         Dispatcher.BeginInvoke(new Action(() =>
         {
-            try { ResultsGrid.ScrollIntoView(match); }
-            catch { }
+            try
+            {
+                ResultsGrid.ScrollIntoView(match);
+            }
+            catch
+            {
+                //無視
+            }
             ScrollViewer viewer = FindVisualDescendants<ScrollViewer>(ResultsGrid).FirstOrDefault();
             viewer?.ScrollToEnd();
         }), DispatcherPriority.Background);
-    }
-
-    private void RecordGroupStates(System.Collections.IEnumerable groups, bool expanded)
-    {
-        if (groups == null) return;
-        foreach (object item in groups)
-        {
-            var group = item as CollectionViewGroup;
-            if (group == null) continue;
-            _resultGroupStates[Convert.ToString(group.Name) ?? string.Empty] = expanded;
-            if (!group.IsBottomLevel) RecordGroupStates(group.Items, expanded);
-        }
     }
 
     private void GroupHeader_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -340,7 +334,7 @@ public partial class GrepWindow : Window
         {
             var match = current as T;
             if (match != null) return match;
-            current = System.Windows.Media.VisualTreeHelper.GetParent(current);
+            current = VisualTreeHelper.GetParent(current);
         }
         return null;
     }
@@ -366,9 +360,9 @@ public partial class GrepWindow : Window
     private static IEnumerable<T> FindVisualDescendants<T>(DependencyObject root) where T : DependencyObject
     {
         if (root == null) yield break;
-        for (int index = 0; index < System.Windows.Media.VisualTreeHelper.GetChildrenCount(root); index++)
+        for (int index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
         {
-            DependencyObject child = System.Windows.Media.VisualTreeHelper.GetChild(root, index);
+            DependencyObject child = VisualTreeHelper.GetChild(root, index);
             var match = child as T;
             if (match != null) yield return match;
             foreach (T descendant in FindVisualDescendants<T>(child)) yield return descendant;
@@ -506,7 +500,11 @@ public partial class GrepWindow : Window
 
     private void HistoryTabStrip_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        var item = ItemsControl.ContainerFromElement(sender as ItemsControl, e.OriginalSource as DependencyObject) as ListBoxItem;
+        if (sender is not ItemsControl control ||
+            e.OriginalSource is not DependencyObject source)
+            return;
+
+        var item = ItemsControl.ContainerFromElement(control, source) as ListBoxItem;
         if (item?.DataContext == null) return;
         if (ViewModel.DeleteHistoryTabCommand.CanExecute(item.DataContext))
             ViewModel.DeleteHistoryTabCommand.Execute(item.DataContext);
@@ -527,7 +525,7 @@ public partial class GrepWindow : Window
     }
 }
 
-internal sealed class GrepGroupDirectoryConverter : System.Windows.Data.IValueConverter
+internal sealed class GrepGroupDirectoryConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
     {
@@ -544,14 +542,14 @@ internal sealed class GrepGroupDirectoryConverter : System.Windows.Data.IValueCo
         fileName = string.Empty;
         if (string.IsNullOrEmpty(name)) return;
 
-        int separator = name.LastIndexOfAny(new[] { '\\', '/' });
+        int separator = name.LastIndexOfAny(['\\', '/']);
         if (separator < 0) return;
         directory = name.Substring(0, separator + 1);
         fileName = name.Substring(separator + 1);
     }
 }
 
-internal sealed class GrepGroupFileConverter : System.Windows.Data.IValueConverter
+internal sealed class GrepGroupFileConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
     {

@@ -123,6 +123,7 @@ internal static class SettingsService
         }
         catch
         {
+            // Settings persistence must never prevent the app from closing.
         }
     }
 
@@ -148,6 +149,7 @@ internal static class SettingsService
         }
         catch
         {
+            // Settings persistence must never prevent the app from closing.
         }
     }
 
@@ -173,6 +175,7 @@ internal static class SettingsService
         }
         catch
         {
+            // Settings persistence must never prevent the app from closing.
         }
     }
 
@@ -407,6 +410,7 @@ internal static class SettingsService
         }
         catch
         {
+            // Settings persistence must never prevent the app from closing.
         }
     }
 
@@ -422,6 +426,7 @@ internal static class SettingsService
                 }
                 catch
                 {
+                    // Settings persistence must never prevent the app from closing.
                 }
 
             foreach (var dir in Directory.GetDirectories(SettingsDirectory))
@@ -431,10 +436,12 @@ internal static class SettingsService
                 }
                 catch
                 {
+                    // Settings persistence must never prevent the app from closing.
                 }
         }
         catch
         {
+            // Settings persistence must never prevent the app from closing.
         }
     }
 }

@@ -106,7 +106,7 @@ internal sealed class DocumentGrepService
             foreach (var page in document.GetPages())
             {
                 token.ThrowIfCancellationRequested();
-                var text = page.Text ?? string.Empty;
+                var text = page.Text;
                 if (text.Length == 0) continue;
                 var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
                 if (lines.Length == 0) lines = new[] { text };
@@ -139,7 +139,7 @@ internal sealed class DocumentGrepService
                     row++;
                     for (var column = 0; column < reader.FieldCount; column++)
                     {
-                        var value = reader.GetValue(column)?.ToString();
+                        var value = reader.GetValue(column).ToString();
                         if (string.IsNullOrEmpty(value)) continue;
                         var match = matcher.Match(value);
                         if (!match.Success) continue;
@@ -295,7 +295,7 @@ internal sealed class DocumentGrepService
     {
         var found = new GrepMatch
         {
-            ScopeName = Path.GetFileName((scope ?? string.Empty).TrimEnd(Path.DirectorySeparatorChar)) ?? scope,
+            ScopeName = Path.GetFileName((scope ?? string.Empty).TrimEnd(Path.DirectorySeparatorChar)),
             FilePath = path,
             RelativePath = scope == null ? path : MakeRelativePath(scope, path),
             LineNumber = line,

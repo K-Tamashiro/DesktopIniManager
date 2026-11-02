@@ -4,7 +4,7 @@ using System.Windows;
 
 namespace DesktopIniManager.Views;
 
-internal partial class CleanReportWindow : Window
+internal partial class CleanReportWindow
 {
     public CleanReportWindow()
     {

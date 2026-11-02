@@ -42,12 +42,12 @@ internal static class ResultHistoryStore
 
 internal sealed class GrepHistoryTab : ObservableObject
 {
-    private string title = StringOverlay.Get("History_NewSearch");
+    private string _title = StringOverlay.Get("History_NewSearch");
 
     public string Title
     {
-        get => title;
-        set => SetProperty(ref title, value);
+        get => _title;
+        set => SetProperty(ref _title, value);
     }
 
     public string Query { get; set; } = "";

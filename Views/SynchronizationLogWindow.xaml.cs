@@ -5,7 +5,7 @@ using System.Windows;
 
 namespace DesktopIniManager.Views;
 
-internal partial class SynchronizationLogWindow : Window, ISynchronizationLog
+internal partial class SynchronizationLogWindow : ISynchronizationLog
 {
     public SynchronizationLogWindow()
     {
@@ -31,8 +31,8 @@ internal partial class SynchronizationLogWindow : Window, ISynchronizationLog
         if (!IsVisible) return;
         if (line != null && line.StartsWith("Log: ", StringComparison.Ordinal))
             LogPathText.Text = line;
-        log.AppendText(line + Environment.NewLine);
-        log.ScrollToEnd();
+        Log.AppendText(line + Environment.NewLine);
+        Log.ScrollToEnd();
     }
 
     public void Complete(int succeeded, int failed, int locked)

@@ -142,7 +142,7 @@ internal static class SolutionCleanService
             }
         })
         {
-            DataReceivedEventHandler append = (s, e) =>
+            DataReceivedEventHandler append = (_, e) =>
             {
                 if (e.Data != null)
                     lock (log)

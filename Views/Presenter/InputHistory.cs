@@ -4,7 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 
-namespace DesktopIniManager.Views;
+namespace DesktopIniManager.Views.Presenter;
 
 // Adds persisted history without replacing the native TextBox template or input handling.
 public static class InputHistory
@@ -64,7 +64,7 @@ public static class InputHistory
         if (e.Key == Key.Down && (Keyboard.Modifiers & ModifierKeys.Control) != 0)
         {
             Populate(box);
-            if (box.ContextMenu.Items.Count > 0) box.ContextMenu.IsOpen = true;
+            if (box.ContextMenu is { Items.Count: > 0 }) box.ContextMenu.IsOpen = true;
             e.Handled = true;
         }
     }
@@ -82,7 +82,7 @@ public static class InputHistory
         foreach (var value in Store.Load(GetKey(box)))
         {
             var item = new MenuItem { Header = value, ToolTip = value };
-            item.Click += (s, e) =>
+            item.Click += (_, _) =>
             {
                 box.Text = value;
                 box.CaretIndex = value.Length;

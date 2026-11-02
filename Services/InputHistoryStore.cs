@@ -9,18 +9,18 @@ namespace DesktopIniManager.Services;
 internal sealed class InputHistoryStore
 {
     internal const int Capacity = 20;
-    private readonly string directory;
+    private readonly string _directory;
 
     internal InputHistoryStore(string directory)
     {
-        this.directory = directory;
+        this._directory = directory;
     }
 
     private string FilePath(string key)
     {
         if (string.IsNullOrEmpty(key) || key.Any(c => !char.IsLetterOrDigit(c) && c != '-' && c != '_'))
             throw new ArgumentException(nameof(key));
-        return Path.Combine(directory, key + ".txt");
+        return Path.Combine(_directory, key + ".txt");
     }
 
     internal List<string> Load(string key)
@@ -105,7 +105,7 @@ internal sealed class InputHistoryStore
         if (entries.Count > Capacity) entries.RemoveRange(Capacity, entries.Count - Capacity);
         try
         {
-            Directory.CreateDirectory(directory);
+            Directory.CreateDirectory(_directory);
             File.WriteAllLines(FilePath(key), entries.Select(s => Convert.ToBase64String(Encoding.UTF8.GetBytes(s))),
                 new UTF8Encoding(false));
         }

@@ -18,7 +18,7 @@ internal sealed class CleanSolutionItem
     public string SideLabel { get; set; }
 }
 
-internal partial class CleanSolutionsWindow : Window
+internal partial class CleanSolutionsWindow
 {
     public CleanSolutionsWindow()
     {

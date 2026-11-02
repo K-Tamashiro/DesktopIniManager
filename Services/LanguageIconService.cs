@@ -68,6 +68,7 @@ internal static class LanguageIconService
         }
         catch
         {
+            // Ignore errors when trying to delete the alternate data stream
         }
     }
 

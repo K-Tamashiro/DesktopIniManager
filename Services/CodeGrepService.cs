@@ -57,8 +57,7 @@ internal sealed class CodeGrepService
                     if (!match.Success) continue;
                     var found = new GrepMatch
                     {
-                        ScopeName = Path.GetFileName((scope ?? string.Empty).TrimEnd(Path.DirectorySeparatorChar)) ??
-                                    scope,
+                        ScopeName = Path.GetFileName((scope ?? string.Empty).TrimEnd(Path.DirectorySeparatorChar)),
                         FilePath = file,
                         RelativePath = scope == null ? file : MakeRelativePath(scope, file),
                         LineNumber = lineNumber,

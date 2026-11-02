@@ -1,4 +1,4 @@
-﻿using DesktopIniManager.ViewModels;
+using DesktopIniManager.ViewModels;
 using DesktopIniManager.Services;
 using DesktopIniManager.Views;
 using System;
@@ -49,16 +49,16 @@ internal static class ScrollPerformance
         window.Show();
         Func<string, object> field = name => typeof(DiffViewWindow).GetField(name, Private)?.GetValue(window) ?? typeof(DiffViewWindow).GetProperty(name, Private)?.GetValue(window);
         var wait = Stopwatch.StartNew();
-        while (field("leftScroll") == null && wait.ElapsedMilliseconds < 5000) Pump(50);
+        while (field("_leftScroll") == null && wait.ElapsedMilliseconds < 5000) Pump(50);
         Pump(100);
-        var scroll = (ScrollViewer)field("leftScroll");
-        var other = (ScrollViewer)field("rightScroll");
-        var thumb = (System.Windows.Controls.Primitives.Thumb)field("viewportThumb");
-        var map = (Canvas)field("map");
+        var scroll = (ScrollViewer)field("_leftScroll");
+        var other = (ScrollViewer)field("_rightScroll");
+        var thumb = (System.Windows.Controls.Primitives.Thumb)field("_viewportThumb");
+        var map = (Canvas)field("_map");
         if (scroll == null || thumb == null || thumb.Height <= 0 || thumb.Height >= map.ActualHeight) throw new Exception("Missing viewport range");
         if (scroll.ComputedVerticalScrollBarVisibility == Visibility.Visible || other.ComputedVerticalScrollBarVisibility == Visibility.Visible)
             throw new Exception("Vertical bars are still visible");
-        var body = (Grid)field("body");
+        var body = (Grid)field("Body");
         Point wheelPoint = body.PointToScreen(new Point(10, 10));
         int packedPoint = unchecked(((int)wheelPoint.Y << 16) | ((int)wheelPoint.X & 0xffff));
         object[] message = { IntPtr.Zero, 0x020E, new IntPtr(120 << 16), new IntPtr(packedPoint), false };

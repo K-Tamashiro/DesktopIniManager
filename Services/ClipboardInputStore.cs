@@ -12,26 +12,26 @@ namespace DesktopIniManager.Services;
 // Each viewer owns only the temporary copies it creates; clipboard originals are untouched.
 internal sealed class ClipboardInputStore : IDisposable
 {
-    private readonly string directory;
-    private readonly List<string> files = new();
-    private bool disposed;
+    private readonly string _directory;
+    private readonly List<string> _files = new();
+    private bool _disposed;
 
     internal ClipboardInputStore(string root = null)
     {
-        directory = Path.Combine(root ?? Path.GetTempPath(),
+        _directory = Path.Combine(root ?? Path.GetTempPath(),
             "DesktopIniManager-clipboard-" + Guid.NewGuid().ToString("N"));
     }
 
     public void Dispose()
     {
-        if (disposed) return;
-        disposed = true;
+        if (_disposed) return;
+        _disposed = true;
         _ = CleanUpAsync();
     }
 
     internal string[] Capture(IDataObject data)
     {
-        if (disposed) throw new ObjectDisposedException(nameof(ClipboardInputStore));
+        if (_disposed) throw new ObjectDisposedException(nameof(ClipboardInputStore));
         if (data == null) throw new InvalidOperationException("クリップボードは空です。");
         if (data.GetDataPresent(DataFormats.FileDrop))
         {
@@ -103,9 +103,9 @@ internal sealed class ClipboardInputStore : IDisposable
 
     private string Write(string extension, Action<Stream> write)
     {
-        Directory.CreateDirectory(directory);
-        var path = Path.Combine(directory, "Clipboard-" + Guid.NewGuid().ToString("N") + extension);
-        files.Add(path);
+        Directory.CreateDirectory(_directory);
+        var path = Path.Combine(_directory, "Clipboard-" + Guid.NewGuid().ToString("N") + extension);
+        _files.Add(path);
         using var output = File.Create(path);
         write(output);
         return path;
@@ -117,7 +117,7 @@ internal sealed class ClipboardInputStore : IDisposable
         for (var attempt = 0; attempt < 20; attempt++)
         {
             var remaining = false;
-            foreach (var path in files)
+            foreach (var path in _files)
                 try
                 {
                     File.Delete(path);
@@ -135,7 +135,7 @@ internal sealed class ClipboardInputStore : IDisposable
             {
                 try
                 {
-                    if (Directory.Exists(directory)) Directory.Delete(directory);
+                    if (Directory.Exists(_directory)) Directory.Delete(_directory);
                 }
                 catch (IOException)
                 {

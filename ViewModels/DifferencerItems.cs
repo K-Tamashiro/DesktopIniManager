@@ -24,7 +24,7 @@ public sealed class DifferencerState
 
 internal static class DifferencerStatusIcons
 {
-    private static readonly ImageSource[] icons = Load();
+    private static readonly ImageSource[] Icons = Load();
 
     private static ImageSource[] Load()
     {
@@ -52,6 +52,7 @@ internal static class DifferencerStatusIcons
         }
         catch
         {
+            // Ignore errors; the icons will be missing but the differencer will still work.
         }
 
         return result;
@@ -98,28 +99,28 @@ internal static class DifferencerStatusIcons
 
     private static ImageSource Get(int index)
     {
-        return index >= 0 && index < icons.Length ? icons[index] : null;
+        return index >= 0 && index < Icons.Length ? Icons[index] : null;
     }
 }
 
 internal sealed class DiffFolder : INotifyPropertyChanged
 {
-    private readonly int[] counts = new int[9];
-    private readonly int[] selectedCounts = new int[9];
+    private readonly int[] _counts = new int[9];
+    private readonly int[] _selectedCounts = new int[9];
     public Action<DiffFolder, bool> Toggle;
-    private bool active;
-    private bool expanded;
-    private bool folderSelected;
-    private string label;
+    private bool _active;
+    private bool _expanded;
+    private bool _folderSelected;
+    private string _label;
     public string Path { get; set; }
 
     public string Label
     {
-        get => label;
+        get => _label;
         set
         {
-            if (string.Equals(label, value, StringComparison.Ordinal)) return;
-            label = value;
+            if (string.Equals(_label, value, StringComparison.Ordinal)) return;
+            _label = value;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Label"));
         }
     }
@@ -136,12 +137,12 @@ internal sealed class DiffFolder : INotifyPropertyChanged
 
     public bool FolderSelected
     {
-        get => folderSelected;
+        get => _folderSelected;
         set
         {
             value = value && FolderCanSync;
-            if (folderSelected == value) return;
-            folderSelected = value;
+            if (_folderSelected == value) return;
+            _folderSelected = value;
             NotifyCheckedUpward();
         }
     }
@@ -174,22 +175,22 @@ internal sealed class DiffFolder : INotifyPropertyChanged
 
     public bool Expanded
     {
-        get => expanded;
+        get => _expanded;
         set
         {
-            if (expanded == value) return;
-            expanded = value;
+            if (_expanded == value) return;
+            _expanded = value;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Expanded"));
         }
     }
 
     public bool Active
     {
-        get => active;
+        get => _active;
         set
         {
-            if (active == value) return;
-            active = value;
+            if (_active == value) return;
+            _active = value;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Active"));
         }
     }
@@ -262,12 +263,12 @@ internal sealed class DiffFolder : INotifyPropertyChanged
 
     public int CountFor(DiffKind mask)
     {
-        return Sum(counts, mask);
+        return Sum(_counts, mask);
     }
 
     public int SelectedFor(DiffKind mask)
     {
-        return Sum(selectedCounts, mask);
+        return Sum(_selectedCounts, mask);
     }
 
     private static void AddFolderSelectionCounts(DiffFolder folder, DiffKind mask, ref int selected, ref int total)
@@ -285,8 +286,8 @@ internal sealed class DiffFolder : INotifyPropertyChanged
 
     public void Refresh()
     {
-        Array.Clear(counts, 0, counts.Length);
-        Array.Clear(selectedCounts, 0, selectedCounts.Length);
+        Array.Clear(_counts, 0, _counts.Length);
+        Array.Clear(_selectedCounts, 0, _selectedCounts.Length);
         SelectedCount = 0;
         AllDifferenceCount = 0;
         foreach (var file in Files)
@@ -294,8 +295,8 @@ internal sealed class DiffFolder : INotifyPropertyChanged
             if (file.CanSync) AllDifferenceCount++;
             if (file.Selected) SelectedCount++;
             if (IncludeFile != null && !IncludeFile(file)) continue;
-            counts[(int)file.Kind]++;
-            if (file.Selected) selectedCounts[(int)file.Kind]++;
+            _counts[(int)file.Kind]++;
+            if (file.Selected) _selectedCounts[(int)file.Kind]++;
         }
 
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Checked"));
@@ -306,15 +307,15 @@ internal sealed class DiffFolder : INotifyPropertyChanged
     public void SetFolderSelected(bool value, bool notify = true)
     {
         value = value && FolderCanSync;
-        if (folderSelected == value) return;
-        folderSelected = value;
+        if (_folderSelected == value) return;
+        _folderSelected = value;
         if (notify)
             NotifyCheckedUpward();
     }
 
     public void RefreshSelectionCounts()
     {
-        Array.Clear(selectedCounts, 0, selectedCounts.Length);
+        Array.Clear(_selectedCounts, 0, _selectedCounts.Length);
         SelectedCount = 0;
 
         foreach (var file in Files)
@@ -326,7 +327,7 @@ internal sealed class DiffFolder : INotifyPropertyChanged
                 continue;
 
             if (file.Selected)
-                selectedCounts[(int)file.Kind]++;
+                _selectedCounts[(int)file.Kind]++;
         }
 
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Checked)));
@@ -337,21 +338,21 @@ internal sealed class DiffFolder : INotifyPropertyChanged
         if (delta == 0) return;
         SelectedCount += delta;
         if (!included) return;
-        selectedCounts[(int)kind] += delta;
+        _selectedCounts[(int)kind] += delta;
         if ((Mask & kind) != 0) PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Checked"));
     }
 }
 
 internal sealed class DiffSide : INotifyPropertyChanged
 {
-    private string info;
+    private string _info;
 
     public string Info
     {
-        get => info;
+        get => _info;
         set
         {
-            info = value;
+            _info = value;
             SummaryInfo = Regex.Replace(value ?? "", @"(\d{2}:\d{2}:\d{2})\.\d{7}", "$1");
         }
     }
@@ -425,8 +426,8 @@ internal sealed class DiffSide : INotifyPropertyChanged
 
 internal sealed class DiffRow : INotifyPropertyChanged
 {
-    private CancellationTokenSource previewCancellation;
-    private DiffSide source, target;
+    private CancellationTokenSource _previewCancellation;
+    private DiffSide _source, _target;
     public DiffFile File { get; set; }
     public string SourceRoot { get; set; }
 
@@ -435,16 +436,16 @@ internal sealed class DiffRow : INotifyPropertyChanged
     // Identical entries can be numerous; format side details only for rows that are actually displayed.
     public DiffSide Source
     {
-        get => source ?? (source = new DiffSide
+        get => _source ?? (_source = new DiffSide
         { Info = File.SourceInfo, Root = SourceRoot, Relative = File.RelativePath, Exists = File.Source != null });
-        set => source = value;
+        set => _source = value;
     }
 
     public DiffSide Target
     {
-        get => target ?? (target = new DiffSide
+        get => _target ?? (_target = new DiffSide
         { Info = File.TargetInfo, Root = TargetRoot, Relative = File.RelativePath, Exists = File.Target != null });
-        set => target = value;
+        set => _target = value;
     }
 
     public string Extension => Path.GetExtension(File.RelativePath);
@@ -467,7 +468,7 @@ internal sealed class DiffRow : INotifyPropertyChanged
 
     public void CancelPreview()
     {
-        previewCancellation?.Cancel();
+        _previewCancellation?.Cancel();
     }
 
     public void ReleasePreview()
@@ -482,9 +483,9 @@ internal sealed class DiffRow : INotifyPropertyChanged
 
     public async Task LoadPreviewAsync(SemaphoreSlim workers, CancellationToken scope)
     {
-        if (IsPreviewReady || (previewCancellation != null && !previewCancellation.IsCancellationRequested)) return;
+        if (IsPreviewReady || (_previewCancellation != null && !_previewCancellation.IsCancellationRequested)) return;
         var request = CancellationTokenSource.CreateLinkedTokenSource(scope);
-        previewCancellation = request;
+        _previewCancellation = request;
         var entered = false;
         try
         {
@@ -523,7 +524,7 @@ internal sealed class DiffRow : INotifyPropertyChanged
         finally
         {
             if (entered) workers.Release();
-            if (ReferenceEquals(previewCancellation, request)) previewCancellation = null;
+            if (ReferenceEquals(_previewCancellation, request)) _previewCancellation = null;
             request.Dispose();
         }
     }
@@ -531,8 +532,8 @@ internal sealed class DiffRow : INotifyPropertyChanged
     internal void RefreshFromFile()
     {
         ReleasePreview();
-        source = null;
-        target = null;
+        _source = null;
+        _target = null;
         Icon = null;
         IsPreviewReady = false;
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Source"));
@@ -541,5 +542,3 @@ internal sealed class DiffRow : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Icon"));
     }
 }
-
-/// <summary>Displays and synchronizes differences between development directories.</summary>

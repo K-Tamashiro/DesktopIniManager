@@ -17,7 +17,7 @@ namespace DesktopIniManager.ViewModels;
 
 internal sealed partial class MainWindowViewModel : ObservableObject
 {
-    private readonly Dispatcher Dispatcher;
+    private readonly Dispatcher _dispatcher;
     private readonly IUserDialogService _dialogs;
     private readonly ObservableCollection<FolderMatch> _results = new();
     private readonly ObservableCollection<FolderMatch> _searchRoots = new();
@@ -41,7 +41,7 @@ internal sealed partial class MainWindowViewModel : ObservableObject
     private bool _isTreeBusy;
     private VolumePathIndex _pathIndex;
     private string _pendingSearchQuery;
-    private FolderMatch _physicalCurrent, _solutionCurrent, _searchCurrent;
+    private FolderMatch _physicalCurrent, _solutionCurrent;
     private string _query = string.Empty;
     private bool _rebuildingFolderTrees;
     private string _rootPath = string.Empty;
@@ -54,12 +54,12 @@ internal sealed partial class MainWindowViewModel : ObservableObject
     private bool _solutionView;
     private string _status = Strings.Common_Ready;
     private IEnumerable<FolderMatch> _treeItems;
-    private bool treeCompact;
+    private bool _treeCompact;
 
     internal MainWindowViewModel(StartupState startup, Dispatcher dispatcher, IUserDialogService dialogs)
     {
         _startup = startup;
-        Dispatcher = dispatcher;
+        this._dispatcher = dispatcher;
         _dialogs = dialogs;
         FolderMatch.SelectionChanged += RefreshScopedLabel;
         InitializeInteractionCommands();
@@ -85,8 +85,8 @@ internal sealed partial class MainWindowViewModel : ObservableObject
 
     public bool TreeCompact
     {
-        get => treeCompact;
-        set => SetProperty(ref treeCompact, value);
+        get => _treeCompact;
+        set => SetProperty(ref _treeCompact, value);
     }
 
     public string RootPath
@@ -109,7 +109,7 @@ internal sealed partial class MainWindowViewModel : ObservableObject
             _treeRoots.Clear();
             _searchRoots.Clear();
             Files.Clear();
-            _physicalCurrent = _solutionCurrent = _searchCurrent = null;
+            _physicalCurrent = _solutionCurrent = null;
             _searchResultCount = 0;
             ClearSearchHits();
             FilePanelPath = null;
@@ -317,7 +317,7 @@ internal sealed partial class MainWindowViewModel : ObservableObject
         _searchResultCount = 0;
         _filteredViewItems = null;
         _folderTreeRoot = null;
-        _physicalCurrent = _solutionCurrent = _searchCurrent = null;
+        _physicalCurrent = _solutionCurrent = null;
         SelectedIconIndex = 0;
         _selectedIconPreview = null;
         _pendingSearchQuery = null;
@@ -390,7 +390,6 @@ internal sealed partial class MainWindowViewModel : ObservableObject
     {
         if (TreeViewIndex == 0) _physicalCurrent = target;
         else if (TreeViewIndex == 1) _solutionCurrent = target;
-        else _searchCurrent = target;
     }
 
     public void ApplySelectedIcon(int index, ImageSource preview)

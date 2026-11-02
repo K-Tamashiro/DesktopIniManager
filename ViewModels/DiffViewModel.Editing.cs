@@ -11,8 +11,8 @@ namespace DesktopIniManager.ViewModels;
 
 internal sealed partial class DiffViewModel
 {
-    private DiffEditSession edits;
-    private TextDocument originalSource, originalTarget;
+    private DiffEditSession _edits;
+    private TextDocument _originalSource, _originalTarget;
     internal Func<Task<bool>> ConfirmChangesRequested { get; set; }
     internal bool IsText => !IsImage && !IsVideo && !IsAudio;
     internal bool HasEdits => IsDirty(true) || IsDirty(false);
@@ -20,45 +20,45 @@ internal sealed partial class DiffViewModel
     internal bool IsDirty(bool source)
     {
         return IsText && (source ? SourceText : TargetText) is { } current &&
-               (source ? originalSource : originalTarget) is { } original && Text(current) != Text(original);
+               (source ? _originalSource : _originalTarget) is { } original && Text(current) != Text(original);
     }
 
     internal bool CanUndoHunk(int id, bool fromSource)
     {
-        return edits?.CanUndo(id, fromSource) == true;
+        return _edits?.CanUndo(id, fromSource) == true;
     }
 
     internal void CopyHunks(IEnumerable<int> ids, bool fromSource)
     {
-        if (!CanChangeComparison || !IsText || edits == null) return;
-        edits.Copy(ids, fromSource);
+        if (!CanChangeComparison || !IsText || _edits == null) return;
+        _edits.Copy(ids, fromSource);
         ApplyEdits();
     }
 
     internal void UndoHunk(int id, bool fromSource)
     {
-        if (!CanChangeComparison || edits == null) return;
-        edits.UndoHunk(id, fromSource);
+        if (!CanChangeComparison || _edits == null) return;
+        _edits.UndoHunk(id, fromSource);
         ApplyEdits();
     }
 
     internal void UndoEdit()
     {
-        if (!CanChangeComparison || edits == null) return;
-        edits.UndoLast();
+        if (!CanChangeComparison || _edits == null) return;
+        _edits.UndoLast();
         ApplyEdits();
     }
 
     private void ApplyEdits()
     {
-        var expandedRows = expandedEqualBlocks.Select(index => allLines[index]).ToHashSet();
-        SourceText = edits.Document(true);
-        TargetText = edits.Document(false);
-        allLines = edits.Rows();
-        expandedEqualBlocks.Clear();
-        for (var i = 0; i < allLines.Count; i++)
-            if (expandedRows.Contains(allLines[i]))
-                expandedEqualBlocks.Add(i);
+        var expandedRows = _expandedEqualBlocks.Select(index => _allLines[index]).ToHashSet();
+        SourceText = _edits.Document(true);
+        TargetText = _edits.Document(false);
+        _allLines = _edits.Rows();
+        _expandedEqualBlocks.Clear();
+        for (var i = 0; i < _allLines.Count; i++)
+            if (expandedRows.Contains(_allLines[i]))
+                _expandedEqualBlocks.Add(i);
         UpdateDisplayedLines();
     }
 
@@ -106,11 +106,11 @@ internal sealed partial class DiffViewModel
     {
         if (!CanChangeComparison || !IsDirty(source)) return;
         var document = source ? SourceText : TargetText;
-        var original = source ? originalSource : originalTarget;
+        var original = source ? _originalSource : _originalTarget;
         var bytes = EncodeDocument(document);
         var path = GetPath(source);
         if (string.IsNullOrEmpty(path)) throw new IOException(StringOverlay.Get("Diff_SaveNoPath"));
-        navigating = true;
+        _navigating = true;
         try
         {
             await Task.Run(() => WriteDocument(path, bytes, original.OriginalBytes));
@@ -118,12 +118,12 @@ internal sealed partial class DiffViewModel
             var saved = await Task.Run(() => ReadDocument(path));
             if (source)
             {
-                SourceText = originalSource = saved;
+                SourceText = _originalSource = saved;
                 File.Source = DiffStamp.Read(path);
             }
             else
             {
-                TargetText = originalTarget = saved;
+                TargetText = _originalTarget = saved;
                 File.Target = DiffStamp.Read(path);
             }
 
@@ -133,7 +133,7 @@ internal sealed partial class DiffViewModel
         }
         finally
         {
-            navigating = false;
+            _navigating = false;
         }
     }
 
@@ -160,6 +160,7 @@ internal sealed partial class DiffViewModel
             }
             else
             {
+                ArgumentNullException.ThrowIfNull(path);
                 System.IO.File.Move(temp, path);
             }
         }

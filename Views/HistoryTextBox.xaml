@@ -32,6 +32,7 @@
                                     VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
                                 <TextBlock
                                     x:Name="PART_ReadOnlyText"
+                                    Grid.Column="0"
                                     Margin="{TemplateBinding Padding}"
                                     VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                     Text="{TemplateBinding Text}"

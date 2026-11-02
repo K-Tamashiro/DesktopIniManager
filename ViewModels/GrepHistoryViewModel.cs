@@ -11,16 +11,16 @@ namespace DesktopIniManager.ViewModels;
 
 internal sealed partial class GrepWindowViewModel
 {
-    private bool changingHistoryTabs;
-    private GrepHistoryTab selectedHistoryTab;
+    private bool _changingHistoryTabs;
+    private GrepHistoryTab _selectedHistoryTab;
     public ObservableCollection<GrepHistoryTab> HistoryTabs { get; } = new();
 
     public GrepHistoryTab SelectedHistoryTab
     {
-        get => selectedHistoryTab;
+        get => _selectedHistoryTab;
         set
         {
-            if (changingHistoryTabs || IsSearching || value == null || value == selectedHistoryTab) return;
+            if (_changingHistoryTabs || IsSearching || value == null || value == _selectedHistoryTab) return;
             SelectHistoryTab(value);
         }
     }
@@ -67,7 +67,7 @@ internal sealed partial class GrepWindowViewModel
             ResultHistoryStore.Save("grep", new HistoryFile<GrepHistoryTab>
             {
                 Tabs = HistoryTabs.ToList(),
-                SelectedIndex = HistoryTabs.IndexOf(selectedHistoryTab)
+                SelectedIndex = HistoryTabs.IndexOf(_selectedHistoryTab)
             });
             return true;
         }
@@ -82,14 +82,14 @@ internal sealed partial class GrepWindowViewModel
     {
         var query = Query;
         bool? regex = UseRegex, matchCase = MatchCase, wholeWord = WholeWord;
-        if (selectedHistoryTab == null) AddHistoryTab();
-        if (selectedHistoryTab == null) return false;
+        if (_selectedHistoryTab == null) AddHistoryTab();
+        if (_selectedHistoryTab == null) return false;
         if (Matches.Count > 0)
         {
             var full = HistoryTabs.Count >= ResultHistoryStore.Limit;
             var answer = _dialogs.Show(
                 string.Format(StringOverlay.Get(full ? "History_GrepAppendAtLimit" : "History_GrepAppend"),
-                    selectedHistoryTab.Title),
+                    _selectedHistoryTab.Title),
                 DialogTitle, MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
             if (answer != MessageBoxResult.Yes && answer != MessageBoxResult.No) return false;
             if (answer == MessageBoxResult.No)
@@ -101,7 +101,7 @@ internal sealed partial class GrepWindowViewModel
                 else
                 {
                     // Preserve the original tab's search query before creating a new tab.
-                    Query = selectedHistoryTab.Query ?? string.Empty;
+                    Query = _selectedHistoryTab.Query ?? string.Empty;
                     AddHistoryTab();
                 }
             }
@@ -111,7 +111,7 @@ internal sealed partial class GrepWindowViewModel
         UseRegex = regex;
         MatchCase = matchCase;
         WholeWord = wholeWord;
-        selectedHistoryTab.Title = Query;
+        _selectedHistoryTab.Title = Query;
         return true;
     }
 
@@ -131,17 +131,17 @@ internal sealed partial class GrepWindowViewModel
             Scopes = Scopes.Select(item => item.FolderPath).ToList(),
             EnabledScopes = EnabledScopePaths().ToList()
         };
-        changingHistoryTabs = true;
+        _changingHistoryTabs = true;
         try
         {
             HistoryTabs.Insert(0, tab);
         }
         finally
         {
-            changingHistoryTabs = false;
+            _changingHistoryTabs = false;
         }
 
-        selectedHistoryTab = tab;
+        _selectedHistoryTab = tab;
         ApplyHistoryTab(tab);
         OnPropertyChanged(nameof(SelectedHistoryTab));
         NotifyListCommands();
@@ -151,14 +151,14 @@ internal sealed partial class GrepWindowViewModel
     {
         if (tab == null) return;
         CaptureHistoryTab();
-        changingHistoryTabs = true;
+        _changingHistoryTabs = true;
         try
         {
-            selectedHistoryTab = tab;
+            _selectedHistoryTab = tab;
         }
         finally
         {
-            changingHistoryTabs = false;
+            _changingHistoryTabs = false;
         }
 
         ApplyHistoryTab(tab);
@@ -167,19 +167,19 @@ internal sealed partial class GrepWindowViewModel
 
     private void CaptureHistoryTab()
     {
-        if (selectedHistoryTab == null) return;
-        selectedHistoryTab.Query = Query ?? string.Empty;
-        selectedHistoryTab.Profile = SelectedProfile?.Name;
-        selectedHistoryTab.Extensions = Extensions ?? string.Empty;
-        selectedHistoryTab.UseRegex = UseRegex == true;
-        selectedHistoryTab.MatchCase = MatchCase == true;
-        selectedHistoryTab.WholeWord = WholeWord == true;
-        selectedHistoryTab.Filter = ListFilter ?? string.Empty;
-        selectedHistoryTab.Status = Status;
-        selectedHistoryTab.Scopes = Scopes.Select(item => item.FolderPath).ToList();
-        selectedHistoryTab.EnabledScopes =
+        if (_selectedHistoryTab == null) return;
+        _selectedHistoryTab.Query = Query ?? string.Empty;
+        _selectedHistoryTab.Profile = SelectedProfile?.Name;
+        _selectedHistoryTab.Extensions = Extensions ?? string.Empty;
+        _selectedHistoryTab.UseRegex = UseRegex == true;
+        _selectedHistoryTab.MatchCase = MatchCase == true;
+        _selectedHistoryTab.WholeWord = WholeWord == true;
+        _selectedHistoryTab.Filter = ListFilter ?? string.Empty;
+        _selectedHistoryTab.Status = Status;
+        _selectedHistoryTab.Scopes = Scopes.Select(item => item.FolderPath).ToList();
+        _selectedHistoryTab.EnabledScopes =
             Scopes.Where(item => item.IsEnabled).Select(item => item.FolderPath).ToList();
-        selectedHistoryTab.Matches = Matches.ToList();
+        _selectedHistoryTab.Matches = Matches.ToList();
     }
 
     private void ApplyHistoryTab(GrepHistoryTab tab)
@@ -218,20 +218,20 @@ internal sealed partial class GrepWindowViewModel
     {
         var tab = item as GrepHistoryTab;
         if (IsSearching || tab == null || !HistoryTabs.Contains(tab)) return;
-        var active = tab == selectedHistoryTab;
-        changingHistoryTabs = true;
+        var active = tab == _selectedHistoryTab;
+        _changingHistoryTabs = true;
         try
         {
             HistoryTabs.Remove(tab);
         }
         finally
         {
-            changingHistoryTabs = false;
+            _changingHistoryTabs = false;
         }
 
         if (active)
         {
-            selectedHistoryTab = null;
+            _selectedHistoryTab = null;
             if (HistoryTabs.Count > 0)
             {
                 SelectHistoryTab(HistoryTabs[0]);
@@ -250,17 +250,17 @@ internal sealed partial class GrepWindowViewModel
     private void DeleteAllHistoryTabs()
     {
         if (IsSearching || HistoryTabs.Count == 0) return;
-        changingHistoryTabs = true;
+        _changingHistoryTabs = true;
         try
         {
             HistoryTabs.Clear();
         }
         finally
         {
-            changingHistoryTabs = false;
+            _changingHistoryTabs = false;
         }
 
-        selectedHistoryTab = null;
+        _selectedHistoryTab = null;
         ResetMatches();
         SelectedMatch = null;
         OnPropertyChanged(nameof(SelectedHistoryTab));
@@ -271,7 +271,7 @@ internal sealed partial class GrepWindowViewModel
     {
         var tab = item as GrepHistoryTab;
         if (IsSearching || tab == null || !HistoryTabs.Contains(tab) || HistoryTabs.Count <= 1) return;
-        changingHistoryTabs = true;
+        _changingHistoryTabs = true;
         try
         {
             for (var i = HistoryTabs.Count - 1; i >= 0; i--)
@@ -280,10 +280,10 @@ internal sealed partial class GrepWindowViewModel
         }
         finally
         {
-            changingHistoryTabs = false;
+            _changingHistoryTabs = false;
         }
 
-        if (selectedHistoryTab != tab) SelectHistoryTab(tab);
+        if (_selectedHistoryTab != tab) SelectHistoryTab(tab);
         SaveHistory();
     }
 }

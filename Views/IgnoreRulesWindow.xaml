@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:loc="clr-namespace:DesktopIniManager.Properties"
+    xmlns:local="clr-namespace:DesktopIniManager.Views"
     Title="{loc:L Ignore_Title}"
     Width="580"
     Height="480"
@@ -41,7 +42,7 @@
                 </Style>
             </ListBox.ItemContainerStyle>
             <ListBox.ItemTemplate>
-                <DataTemplate>
+                <DataTemplate DataType="{x:Type local:IgnoreRuleRow}">
                     <CheckBox
                         VerticalContentAlignment="Center"
                         Foreground="{DynamicResource Ink}"

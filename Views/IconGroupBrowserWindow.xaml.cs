@@ -1,12 +1,11 @@
 ﻿using DesktopIniManager.Models;
 using DesktopIniManager.ViewModels;
 using System.Collections.Generic;
-using System.Windows;
 using System.Windows.Input;
 
 namespace DesktopIniManager.Views;
 
-public partial class IconGroupBrowserWindow : Window
+public partial class IconGroupBrowserWindow
 {
     internal IconGroupBrowserViewModel ViewModel { get; }
 
@@ -20,7 +19,7 @@ public partial class IconGroupBrowserWindow : Window
             CancelButtonIcon.Source = DifferencerStatusIcons.GetCustomIcon(25);
         if (SelectButtonIcon != null)
             SelectButtonIcon.Source = DifferencerStatusIcons.GetCustomIcon(34);
-        Loaded += (sender, args) => { if (GroupList.SelectedItem != null) GroupList.ScrollIntoView(GroupList.SelectedItem); };
+        Loaded += (_, _) => { if (GroupList.SelectedItem != null) GroupList.ScrollIntoView(GroupList.SelectedItem); };
     }
 
     internal IconGroupResource SelectedGroup => ViewModel.SelectedGroup;

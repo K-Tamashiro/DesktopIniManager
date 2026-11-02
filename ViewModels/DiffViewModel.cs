@@ -1,6 +1,4 @@
-﻿using DesktopIniManager.Properties;
-using DesktopIniManager.Services;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -10,6 +8,8 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media.Imaging;
+using DesktopIniManager.Properties;
+using DesktopIniManager.Services;
 
 namespace DesktopIniManager.ViewModels;
 
@@ -24,39 +24,46 @@ internal sealed partial class DiffViewModel : ObservableObject
         @"""C:\Program Files\Beyond Compare 5\BCompare.exe"" ""{source}"" ""{target}"""
     };
 
-    private readonly IUserDialogService dialogs;
+    private readonly IUserDialogService _dialogs;
 
-    private readonly HashSet<int> expandedEqualBlocks = new();
-    private readonly bool standalone;
-    private List<DiffLine> allLines;
-    private bool checkingExternalEdit;
-    private string externalDiff = string.Empty;
-    private bool externalDiffPending;
-    private DiffStamp externalSourceStamp, externalTargetStamp;
-    private DiffFile file;
-    private int frameVersion;
-    private DiffFile listFile;
-    private bool loadingContent, navigating, closed;
-    private TextDocument[] preparedText;
-    private GifFrames sourceGif, targetGif;
-    private string sourcePath, targetPath;
-    private string status = string.Empty;
+    private readonly HashSet<int> _expandedEqualBlocks = new();
+    private readonly bool _standalone;
+    private List<DiffLine> _allLines;
+    private bool _checkingExternalEdit;
+    private string _externalDiff = string.Empty;
+    private bool _externalDiffPending;
+    private DiffStamp _externalSourceStamp, _externalTargetStamp;
+    private DiffFile _file;
+    private int _frameVersion;
+    private DiffFile _listFile;
+    private bool _loadingContent, _navigating, _closed;
+    private TextDocument[] _preparedText;
+
+    private bool _showNewlines =
+        SettingsService.LoadDiffFlag("show-newlines", SettingsService.LoadDiffFlag("newlines", false));
+
+    private bool _showSpaces =
+        SettingsService.LoadDiffFlag("show-spaces", SettingsService.LoadDiffFlag("spaces", false));
+
+    private GifFrames _sourceGif, _targetGif;
+    private string _sourcePath, _targetPath;
+    private string _status = string.Empty;
 
     internal DiffViewModel(DiffSnapshot snapshot, DiffFile file, IUserDialogService dialogs, string sourcePath = null,
         string targetPath = null)
     {
-        this.sourcePath = sourcePath;
-        this.targetPath = targetPath;
-        standalone = sourcePath != null || targetPath != null;
-        listFile = file;
-        this.dialogs = dialogs;
+        _sourcePath = sourcePath;
+        _targetPath = targetPath;
+        _standalone = sourcePath != null || targetPath != null;
+        _listFile = file;
+        _dialogs = dialogs;
         DifferencesOnly = SettingsService.LoadDiffDifferencesOnly();
         Snapshot = snapshot;
         File = file;
         PreviousHunkCommand = new RelayCommand(() => NavigateHunk(-1));
         NextHunkCommand = new RelayCommand(() => NavigateHunk(1));
-        PreviousFileCommand = new AsyncRelayCommand(() => NavigateFileAsync(-1), ReportError, () => !standalone);
-        NextFileCommand = new AsyncRelayCommand(() => NavigateFileAsync(1), ReportError, () => !standalone);
+        PreviousFileCommand = new AsyncRelayCommand(() => NavigateFileAsync(-1), ReportError, () => !_standalone);
+        NextFileCommand = new AsyncRelayCommand(() => NavigateFileAsync(1), ReportError, () => !_standalone);
         OpenSourceCommand = new RelayCommand(() => OpenAssociatedApplication(true));
         OpenTargetCommand = new RelayCommand(() => OpenAssociatedApplication(false));
         OpenExternalDiffCommand = new RelayCommand(OpenExternalDiff);
@@ -70,14 +77,14 @@ internal sealed partial class DiffViewModel : ObservableObject
 
     public DiffFile File
     {
-        get => file;
+        get => _file;
         set
         {
-            if (SetProperty(ref file, value)) RefreshFileDetails();
+            if (SetProperty(ref _file, value)) RefreshFileDetails();
         }
     }
 
-    internal bool IsDetachedComparison => sourcePath != null || targetPath != null;
+    internal bool IsDetachedComparison => _sourcePath != null || _targetPath != null;
     internal bool IsEmpty => string.IsNullOrEmpty(File.RelativePath);
 
     public string Title => IsEmpty
@@ -85,7 +92,7 @@ internal sealed partial class DiffViewModel : ObservableObject
         : string.Format(StringOverlay.Get("Diff_TitleFile"),
             !IsDetachedComparison
                 ? File.RelativePath
-                : Path.GetFileName(sourcePath) + " \u2194 " + Path.GetFileName(targetPath));
+                : Path.GetFileName(_sourcePath) + " \u2194 " + Path.GetFileName(_targetPath));
 
     public string SourceHeader => HeaderMeta(File.SourceInfo);
     public string TargetHeader => HeaderMeta(File.TargetInfo);
@@ -95,34 +102,40 @@ internal sealed partial class DiffViewModel : ObservableObject
 
     public string ExternalDiff
     {
-        get => externalDiff;
-        set => SetProperty(ref externalDiff, value);
+        get => _externalDiff;
+        set => SetProperty(ref _externalDiff, value);
     }
 
     public BitmapSource SourceImage { get; private set; }
     public BitmapSource TargetImage { get; private set; }
-    internal int ImageFrameCount => Math.Max(sourceGif?.Count ?? 1, targetGif?.Count ?? 1);
+    internal int ImageFrameCount => Math.Max(_sourceGif?.Count ?? 1, _targetGif?.Count ?? 1);
     internal int ImageFrameIndex { get; private set; }
 
     internal string ImageFrameDetails =>
-        $"Frame {ImageFrameIndex + 1}/{ImageFrameCount}  Source: {FrameDetails(sourceGif)}  Target: {FrameDetails(targetGif)}";
+        $"Frame {ImageFrameIndex + 1}/{ImageFrameCount}  Source: {FrameDetails(_sourceGif)}  Target: {FrameDetails(_targetGif)}";
 
     internal string SourceImageFormat { get; private set; }
     internal string TargetImageFormat { get; private set; }
     public List<DiffLine> Lines { get; private set; }
-    internal IReadOnlyList<DiffLine> AllLines => allLines;
+    internal IReadOnlyList<DiffLine> AllLines => _allLines;
     internal bool DifferencesOnly { get; private set; }
     internal bool CompareNewlines { get; set; } = SettingsService.LoadDiffFlag("newlines", false);
     internal bool CompareCase { get; set; } = SettingsService.LoadDiffFlag("case", false);
     internal bool CompareSpaces { get; set; } = SettingsService.LoadDiffFlag("spaces", false);
 
-    internal bool ShowSpaces { get; set; } =
-        SettingsService.LoadDiffFlag("show-spaces", SettingsService.LoadDiffFlag("spaces", false));
+    public bool ShowSpaces
+    {
+        get => _showSpaces;
+        set => SetProperty(ref _showSpaces, value);
+    }
 
-    internal bool ShowNewlines { get; set; } =
-        SettingsService.LoadDiffFlag("show-newlines", SettingsService.LoadDiffFlag("newlines", false));
+    public bool ShowNewlines
+    {
+        get => _showNewlines;
+        set => SetProperty(ref _showNewlines, value);
+    }
 
-    internal bool CanChangeComparison => !loadingContent && !navigating && !checkingExternalEdit && !closed;
+    internal bool CanChangeComparison => !_loadingContent && !_navigating && !_checkingExternalEdit && !_closed;
     internal TextDocument SourceText { get; private set; }
     internal TextDocument TargetText { get; private set; }
     public List<int> Hunks { get; } = new();
@@ -130,8 +143,8 @@ internal sealed partial class DiffViewModel : ObservableObject
 
     public string Status
     {
-        get => status;
-        set => SetProperty(ref status, value);
+        get => _status;
+        set => SetProperty(ref _status, value);
     }
 
     public RelayCommand PreviousHunkCommand { get; }
@@ -145,7 +158,6 @@ internal sealed partial class DiffViewModel : ObservableObject
     internal Func<DiffFile, Task> RefreshFileRequested { get; set; }
     internal Func<Task> ReloadRequested { get; set; }
     internal Func<IReadOnlyList<DiffFile>> VisibleFilesRequested { get; set; }
-    internal Action<DiffFile> FileClosed { get; set; }
 
     private string FrameDetails(GifFrames gif)
     {
@@ -158,11 +170,11 @@ internal sealed partial class DiffViewModel : ObservableObject
 
     internal async Task<bool> SelectImageFrameAsync(int index)
     {
-        var version = ++frameVersion;
-        var a = sourceGif;
-        var b = targetGif;
+        var version = ++_frameVersion;
+        var a = _sourceGif;
+        var b = _targetGif;
         var images = await Task.Run(() => (a?.Compose(index), b?.Compose(index)));
-        if (closed || version != frameVersion) return false;
+        if (_closed || version != _frameVersion) return false;
         if (a != null) SourceImage = images.Item1;
         if (b != null) TargetImage = images.Item2;
         ImageFrameIndex = index;
@@ -171,9 +183,9 @@ internal sealed partial class DiffViewModel : ObservableObject
 
     internal bool ToggleDifferencesOnly()
     {
-        if (loadingContent || navigating || closed || IsImage || allLines == null) return false;
+        if (_loadingContent || _navigating || _closed || IsImage || _allLines == null) return false;
         DifferencesOnly = !DifferencesOnly;
-        expandedEqualBlocks.Clear();
+        _expandedEqualBlocks.Clear();
         UpdateDisplayedLines();
         return true;
     }
@@ -184,7 +196,7 @@ internal sealed partial class DiffViewModel : ObservableObject
             Lines[index].FilteredLineCount == 0) return false;
         var originalStart = 0;
         for (var i = 0; i < index; i++) originalStart += Math.Max(1, Lines[i].FilteredLineCount);
-        expandedEqualBlocks.Add(originalStart);
+        _expandedEqualBlocks.Add(originalStart);
         UpdateDisplayedLines();
         return true;
     }
@@ -196,8 +208,8 @@ internal sealed partial class DiffViewModel : ObservableObject
         var originalIndex = 0;
         for (var i = 0; i < index; i++) originalIndex += Math.Max(1, Lines[i].FilteredLineCount);
         var start = originalIndex;
-        while (start > 0 && allLines[start - 1].Kind == DiffLineKind.Unchanged) start--;
-        if (!expandedEqualBlocks.Remove(start)) return -1;
+        while (start > 0 && _allLines[start - 1].Kind == DiffLineKind.Unchanged) start--;
+        if (!_expandedEqualBlocks.Remove(start)) return -1;
         var collapsedIndex = index - (originalIndex - start);
         UpdateDisplayedLines();
         return collapsedIndex;
@@ -207,25 +219,25 @@ internal sealed partial class DiffViewModel : ObservableObject
     {
         if (!DifferencesOnly)
         {
-            Lines = allLines;
+            Lines = _allLines;
         }
         else
         {
             var visible = new List<DiffLine>();
-            for (var i = 0; i < allLines.Count; i++)
+            for (var i = 0; i < _allLines.Count; i++)
             {
-                if (allLines[i].Kind != DiffLineKind.Unchanged)
+                if (_allLines[i].Kind != DiffLineKind.Unchanged)
                 {
-                    visible.Add(allLines[i]);
+                    visible.Add(_allLines[i]);
                     continue;
                 }
 
                 var start = i;
-                while (i + 1 < allLines.Count && allLines[i + 1].Kind == DiffLineKind.Unchanged) i++;
+                while (i + 1 < _allLines.Count && _allLines[i + 1].Kind == DiffLineKind.Unchanged) i++;
                 var count = i - start + 1;
-                if (expandedEqualBlocks.Contains(start))
+                if (_expandedEqualBlocks.Contains(start))
                 {
-                    visible.AddRange(allLines.GetRange(start, count));
+                    visible.AddRange(_allLines.GetRange(start, count));
                     continue;
                 }
 
@@ -236,7 +248,7 @@ internal sealed partial class DiffViewModel : ObservableObject
                     Left = label,
                     Right = label,
                     FilteredLineCount = count,
-                    FilteredAnchor = allLines[start]
+                    FilteredAnchor = _allLines[start]
                 });
             }
 
@@ -260,15 +272,14 @@ internal sealed partial class DiffViewModel : ObservableObject
 
     internal void Close()
     {
-        closed = true;
+        _closed = true;
         SettingsService.SaveDiffDifferencesOnly(DifferencesOnly);
         SettingsService.SaveDiffFlag("newlines", CompareNewlines);
         SettingsService.SaveDiffFlag("case", CompareCase);
         SettingsService.SaveDiffFlag("spaces", CompareSpaces);
         SettingsService.SaveDiffFlag("show-spaces", ShowSpaces);
         SettingsService.SaveDiffFlag("show-newlines", ShowNewlines);
-        externalDiffPending = false;
-        if (!standalone) FileClosed?.Invoke(listFile);
+        _externalDiffPending = false;
         if (string.IsNullOrWhiteSpace(ExternalDiff)) return;
         ExternalDiffHistoryRequested?.Invoke();
         SettingsService.SaveExternalDiff(ExternalDiff.Trim());
@@ -287,14 +298,14 @@ internal sealed partial class DiffViewModel : ObservableObject
 
     internal async Task<bool> LoadContentAsync()
     {
-        if (closed || loadingContent) return false;
-        loadingContent = true;
+        if (_closed || _loadingContent) return false;
+        _loadingContent = true;
         ResetContent();
         RefreshFileDetails();
         SourceImage = TargetImage = null;
-        sourceGif = targetGif = null;
+        _sourceGif = _targetGif = null;
         ImageFrameIndex = 0;
-        frameVersion++;
+        _frameVersion++;
         SourceImageFormat = TargetImageFormat = null;
         // Status = StringOverlay.Get("Diff_Loading");  // プログレスパネルで表示するため重複を避ける
         try
@@ -313,8 +324,8 @@ internal sealed partial class DiffViewModel : ObservableObject
                 TargetImage = images[1].Image;
                 SourceImageFormat = images[0].Format;
                 TargetImageFormat = images[1].Format;
-                sourceGif = images[0].Gif;
-                targetGif = images[1].Gif;
+                _sourceGif = images[0].Gif;
+                _targetGif = images[1].Gif;
                 Status = string.Empty;
             }
             else
@@ -341,7 +352,7 @@ internal sealed partial class DiffViewModel : ObservableObject
         }
         finally
         {
-            loadingContent = false;
+            _loadingContent = false;
         }
 
         return false;
@@ -349,7 +360,7 @@ internal sealed partial class DiffViewModel : ObservableObject
 
     private void ReportUnsupportedContent()
     {
-        dialogs.Show(DiffMedia.BinaryMessage, "Diff View", MessageBoxButton.OK, MessageBoxImage.Information);
+        _dialogs.Show(DiffMedia.BinaryMessage, "Diff View", MessageBoxButton.OK, MessageBoxImage.Information);
         CloseRequested?.Invoke();
     }
 
@@ -367,16 +378,16 @@ internal sealed partial class DiffViewModel : ObservableObject
     private void ReplaceInputs(string source, string target)
     {
         // Manual pairs must not modify or refresh the owning comparison snapshot.
-        sourcePath = source ?? "";
-        targetPath = target ?? "";
-        externalDiffPending = false;
-        preparedText = null;
-        frameVersion++;
-        var sourceStamp = DiffStamp.Read(sourcePath);
-        var targetStamp = DiffStamp.Read(targetPath);
+        _sourcePath = source ?? "";
+        _targetPath = target ?? "";
+        _externalDiffPending = false;
+        _preparedText = null;
+        _frameVersion++;
+        var sourceStamp = DiffStamp.Read(_sourcePath);
+        var targetStamp = DiffStamp.Read(_targetPath);
         File = new DiffFile
         {
-            RelativePath = Path.GetFileName(sourceStamp != null ? sourcePath : targetPath),
+            RelativePath = Path.GetFileName(sourceStamp != null ? _sourcePath : _targetPath),
             Source = sourceStamp,
             Target = targetStamp
         };
@@ -399,7 +410,7 @@ internal sealed partial class DiffViewModel : ObservableObject
             throw new InvalidOperationException(StringOverlay.Get("Diff_DropMode"));
         // A mode change starts a new pair; never feed the previous text/image to the video player.
         if (imageMode != IsImage || videoMode != IsVideo || audioMode != IsAudio) currentSource = currentTarget = "";
-        navigating = true;
+        _navigating = true;
         try
         {
             // Validate before replacing either side, so a rejected drop retains the pair.
@@ -413,20 +424,20 @@ internal sealed partial class DiffViewModel : ObservableObject
                     else if (!videoMode && !audioMode) ReadDocument(path);
                 }
             });
-            if (closed) return false;
+            if (_closed) return false;
             if (full.Length == 2) ReplaceInputs(full[0], full[1]);
             else ReplaceInputs(sourceSide ? full[0] : currentSource, sourceSide ? currentTarget : full[0]);
             return true;
         }
         finally
         {
-            navigating = false;
+            _navigating = false;
         }
     }
 
     internal string GetPath(bool source)
     {
-        return (source ? sourcePath : targetPath)
+        return (source ? _sourcePath : _targetPath)
                ?? DeveloperDifferencerService.SafePath(source ? Snapshot.SourceRoot : Snapshot.TargetRoot,
                    File.RelativePath);
     }
@@ -439,26 +450,26 @@ internal sealed partial class DiffViewModel : ObservableObject
 
     internal async Task LoadTextAsync()
     {
-        expandedEqualBlocks.Clear();
+        _expandedEqualBlocks.Clear();
         string left = GetPath(true), right = GetPath(false);
-        var prepared = preparedText;
-        preparedText = null;
+        var prepared = _preparedText;
+        _preparedText = null;
         var documents = prepared ?? await Task.Run(() => new[] { ReadDocument(left), ReadDocument(right) });
         SourceText = documents[0];
         TargetText = documents[1];
-        originalSource = SourceText;
-        originalTarget = TargetText;
+        _originalSource = SourceText;
+        _originalTarget = TargetText;
         await RecompareTextAsync();
     }
 
     internal async Task RecompareTextAsync()
     {
-        expandedEqualBlocks.Clear();
-        allLines = await Task.Run(() => DiffTextService.Compare(SourceText.Lines, TargetText.Lines,
+        _expandedEqualBlocks.Clear();
+        _allLines = await Task.Run(() => DiffTextService.Compare(SourceText.Lines, TargetText.Lines,
             !CompareCase, !CompareSpaces, CompareNewlines ? SourceText.Endings : null,
             CompareNewlines ? TargetText.Endings : null,
             CompareCase));
-        edits = new DiffEditSession(SourceText, TargetText, allLines);
+        _edits = new DiffEditSession(SourceText, TargetText, _allLines);
         UpdateDisplayedLines();
         Status = IsEmpty ? StringOverlay.Get("Diff_DropHint")
             : Hunks.Count == 0 ? StringOverlay.Get("Diff_Identical")
@@ -476,9 +487,9 @@ internal sealed partial class DiffViewModel : ObservableObject
 
     private async Task NavigateFileAsync(int direction)
     {
-        if (standalone || closed || navigating || loadingContent || checkingExternalEdit) return;
+        if (_standalone || _closed || _navigating || _loadingContent || _checkingExternalEdit) return;
         if (ConfirmChangesRequested != null && !await ConfirmChangesRequested()) return;
-        navigating = true;
+        _navigating = true;
         try
         {
             var requested = VisibleFilesRequested?.Invoke();
@@ -487,7 +498,7 @@ internal sealed partial class DiffViewModel : ObservableObject
                 : requested.Where(IsVisibleComparableFile)).ToList();
             if (candidates.Count == 0) return;
             var index = candidates.FindIndex(candidate =>
-                ReferenceEquals(candidate, listFile) || string.Equals(candidate.RelativePath, listFile.RelativePath,
+                ReferenceEquals(candidate, _listFile) || string.Equals(candidate.RelativePath, _listFile.RelativePath,
                     StringComparison.OrdinalIgnoreCase));
             if (!IsDetachedComparison && candidates.Count == 1 && index == 0) return;
             if (index < 0) index = direction > 0 ? -1 : 0;
@@ -527,11 +538,11 @@ internal sealed partial class DiffViewModel : ObservableObject
                     }
                 }
 
-                if (closed) return;
-                externalDiffPending = false;
-                preparedText = text;
-                sourcePath = targetPath = null;
-                listFile = candidate;
+                if (_closed) return;
+                _externalDiffPending = false;
+                _preparedText = text;
+                _sourcePath = _targetPath = null;
+                _listFile = candidate;
                 File = candidate;
                 if (ReloadRequested != null) await ReloadRequested();
                 return;
@@ -539,7 +550,7 @@ internal sealed partial class DiffViewModel : ObservableObject
         }
         finally
         {
-            navigating = false;
+            _navigating = false;
         }
     }
 
@@ -609,7 +620,7 @@ internal sealed partial class DiffViewModel : ObservableObject
                     jis = true;
             encoding = jis
                 ? CodePagesEncodingProvider.Instance.GetEncoding(50220, EncoderFallback.ExceptionFallback,
-                    DecoderFallback.ExceptionFallback)
+                    DecoderFallback.ExceptionFallback) ?? throw new NotSupportedException("ISO-2022-JP encoding is unavailable.")
                 : DetectUnicodeEncoding(bytes) ?? new UTF8Encoding(false, true);
         }
 
@@ -621,7 +632,7 @@ internal sealed partial class DiffViewModel : ObservableObject
         catch (DecoderFallbackException) when (preamble == 0 && encoding.CodePage == 65001)
         {
             encoding = CodePagesEncodingProvider.Instance.GetEncoding(932, EncoderFallback.ExceptionFallback,
-                DecoderFallback.ExceptionFallback);
+                DecoderFallback.ExceptionFallback) ?? throw new NotSupportedException("Shift-JIS encoding is unavailable.");
             text = encoding.GetString(bytes);
         }
 
@@ -776,27 +787,22 @@ internal sealed partial class DiffViewModel : ObservableObject
 
     internal async Task ReloadFromDiskAsync()
     {
-        if (!CanChangeComparison || checkingExternalEdit) return;
-        navigating = true;
+        if (!CanChangeComparison || _checkingExternalEdit) return;
+        _navigating = true;
         try
         {
             if (!IsDetachedComparison && RefreshFileRequested != null) await RefreshFileRequested(File);
             File.Source = DiffStamp.Read(GetPath(true));
             File.Target = DiffStamp.Read(GetPath(false));
-            preparedText = null;
+            _preparedText = null;
             RefreshFileDetails();
             if (ReloadRequested != null) await ReloadRequested();
             else await LoadContentAsync();
         }
         finally
         {
-            navigating = false;
+            _navigating = false;
         }
-    }
-
-    private static string ImageSize(BitmapSource image)
-    {
-        return image == null ? "none" : image.PixelWidth + " \u00D7 " + image.PixelHeight + " px";
     }
 
     private static void SeedExternalDiffPresets()
@@ -812,8 +818,9 @@ internal sealed partial class DiffViewModel : ObservableObject
             Directory.CreateDirectory(settingsDirectory);
             System.IO.File.WriteAllText(markerPath, "code+mifes+winmerge+visualstudio");
         }
-        catch
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
+            Trace.TraceWarning("Unable to record external diff preset initialization: {0}", ex);
         }
     }
 
@@ -829,7 +836,7 @@ internal sealed partial class DiffViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            dialogs.Show(ErrorMessages.English(ex), Title, MessageBoxButton.OK, MessageBoxImage.Error);
+            _dialogs.Show(ErrorMessages.English(ex), Title, MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -856,15 +863,15 @@ internal sealed partial class DiffViewModel : ObservableObject
                 .Replace("{source}", sourcePath)
                 .Replace("{target}", targetPath);
 
-            externalSourceStamp = DiffStamp.Read(sourcePath);
-            externalTargetStamp = DiffStamp.Read(targetPath);
-            externalDiffPending = true;
+            _externalSourceStamp = DiffStamp.Read(sourcePath);
+            _externalTargetStamp = DiffStamp.Read(targetPath);
+            _externalDiffPending = true;
 
             Process.Start(CreateExternalDiffStartInfo(executable, arguments));
         }
         catch (Exception ex)
         {
-            dialogs.Show(ErrorMessages.English(ex), Title, MessageBoxButton.OK, MessageBoxImage.Error);
+            _dialogs.Show(ErrorMessages.English(ex), Title, MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -880,17 +887,17 @@ internal sealed partial class DiffViewModel : ObservableObject
     internal async Task RefreshAfterExternalEditAsync()
     {
         if (HasEdits) return;
-        if (closed || navigating || loadingContent || !externalDiffPending || checkingExternalEdit) return;
+        if (_closed || _navigating || _loadingContent || !_externalDiffPending || _checkingExternalEdit) return;
 
         try
         {
-            checkingExternalEdit = true;
+            _checkingExternalEdit = true;
             var source = DiffStamp.Read(GetPath(true));
             var target = DiffStamp.Read(GetPath(false));
-            if (SameStamp(source, externalSourceStamp) && SameStamp(target, externalTargetStamp)) return;
+            if (SameStamp(source, _externalSourceStamp) && SameStamp(target, _externalTargetStamp)) return;
 
-            externalSourceStamp = source;
-            externalTargetStamp = target;
+            _externalSourceStamp = source;
+            _externalTargetStamp = target;
 
             if (!IsDetachedComparison && RefreshFileRequested != null) await RefreshFileRequested(File);
             RefreshFileDetails();
@@ -902,7 +909,7 @@ internal sealed partial class DiffViewModel : ObservableObject
         }
         finally
         {
-            checkingExternalEdit = false;
+            _checkingExternalEdit = false;
         }
     }
 

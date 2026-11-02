@@ -91,10 +91,10 @@ internal static class Program
         var viewer = new DiffViewWindow(snapshot, snapshot.Files[0], "", "");
         try
         {
-            typeof(DiffViewWindow).GetField("leftMedia", Private).SetValue(viewer, new MediaElement());
-            typeof(DiffViewWindow).GetField("rightMedia", Private).SetValue(viewer, new MediaElement());
+            typeof(DiffViewWindow).GetField("_leftMedia", Private).SetValue(viewer, new MediaElement());
+            typeof(DiffViewWindow).GetField("_rightMedia", Private).SetValue(viewer, new MediaElement());
             Call(viewer, "BuildVideoController");
-            var slider = Field<Slider>(viewer, "videoSeek");
+            var slider = Field<Slider>(viewer, "_videoSeek");
             slider.Maximum = 10800; slider.IsEnabled = true;
             slider.Measure(new Size(150, 40)); slider.Arrange(new Rect(0, 0, 150, 40)); slider.UpdateLayout();
             Check(slider.ActualWidth <= 150, "video slider fits narrow transport instead of forcing 400px");
@@ -104,7 +104,7 @@ internal static class Program
             Check(right <= 150, "thumb stays within track near long-video end");
             slider.Value = 7201;
             Check((double)typeof(DiffViewWindow).GetProperty("VideoPosition", Private).GetValue(viewer) == 7201, "requested long seek owns timeline even before decoder reports new position");
-            Check(Field<TextBlock>(viewer, "videoTimeLabel").Text == "02:00:01 / 03:00:00", "long video label retains hours");
+            Check(Field<TextBlock>(viewer, "_videoTimeLabel").Text == "02:00:01 / 03:00:00", "long video label retains hours");
             slider.RaiseEvent(new DragStartedEventArgs(0, 0) { RoutedEvent = Thumb.DragStartedEvent });
             slider.Value = 8000;
             Check((double)typeof(DiffViewWindow).GetProperty("VideoPosition", Private).GetValue(viewer) == 7201, "drag previews do not repeatedly seek decoders");

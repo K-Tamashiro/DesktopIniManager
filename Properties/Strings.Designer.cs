@@ -3670,6 +3670,15 @@ namespace DesktopIniManager.Properties {
         }
         
         /// <summary>
+        ///   シェルメニューでは同じフォルダー内のファイルを選択してください。 に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ShellMenu_SelectFilesFromSameFolder {
+            get {
+                return ResourceManager.GetString("ShellMenu_SelectFilesFromSameFolder", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   By Tamayan に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Splash_Author {

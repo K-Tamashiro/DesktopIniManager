@@ -13,6 +13,8 @@
     SizeToContent="Height"
     WindowStartupLocation="CenterOwner">
     <Window.Resources>
+        <SolidColorBrush x:Key="SourceColor" Color="#E8B949" />
+        <SolidColorBrush x:Key="TargetColor" Color="#2878BF" />
         <Style
             x:Key="DifferencerActionButton"
             BasedOn="{StaticResource IconTextButton}"
@@ -108,18 +110,20 @@
                     x:Name="SourceLabelText"
                     Margin="0,0,12,8"
                     FontWeight="SemiBold"
-                    Foreground="{DynamicResource Muted}" />
+                    Foreground="{StaticResource SourceColor}" />
                 <TextBlock
                     x:Name="SourcePathText"
+                    Grid.Row="0"
                     Grid.Column="1"
                     Margin="0,0,0,8"
                     TextTrimming="CharacterEllipsis" />
                 <TextBlock
                     x:Name="TargetLabelText"
+                    Grid.Column="0"
                     Grid.Row="1"
                     Margin="0,0,12,0"
                     FontWeight="SemiBold"
-                    Foreground="{DynamicResource Muted}" />
+                    Foreground="{StaticResource TargetColor}" />
                 <TextBlock
                     x:Name="TargetPathText"
                     Grid.Row="1"

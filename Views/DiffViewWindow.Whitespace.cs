@@ -1,4 +1,3 @@
-﻿using DesktopIniManager.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -7,16 +6,16 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
+using System.Windows.Threading;
+using DesktopIniManager.ViewModels;
 
 namespace DesktopIniManager.Views;
 
 internal sealed partial class DiffViewWindow
 {
-    private void MarkerDisplay_Click(object sender, RoutedEventArgs e)
+    private void RefreshWhitespaceMarkers()
     {
-        ViewModel.ShowSpaces = showSpacesBox.IsChecked == true;
-        ViewModel.ShowNewlines = showNewlinesBox.IsChecked == true;
-        foreach (var pane in new[] { leftList, rightList })
+        foreach (var pane in new[] { _leftList, _rightList })
             if (pane?.Parent is Grid grid)
                 foreach (var overlay in grid.Children.OfType<WhitespaceOverlay>())
                     overlay.InvalidateVisual();
@@ -29,20 +28,20 @@ internal sealed partial class DiffViewWindow
         internal readonly int Length;
         internal readonly List<(int Offset, string Glyph)> Marks = new();
         internal readonly Paragraph Paragraph;
-        private readonly Run[] runs;
-        private readonly int[] starts;
+        private readonly Run[] _runs;
+        private readonly int[] _starts;
         internal bool IsEndOfFile;
 
         internal WhitespaceRow(Paragraph paragraph, string original, string ending)
         {
             Paragraph = paragraph;
-            runs = paragraph.Inlines.OfType<Run>().ToArray();
-            starts = new int[runs.Length];
+            _runs = paragraph.Inlines.OfType<Run>().ToArray();
+            _starts = new int[_runs.Length];
             var offset = 0;
-            for (var i = 0; i < runs.Length; i++)
+            for (var i = 0; i < _runs.Length; i++)
             {
-                starts[i] = offset;
-                offset += runs[i].Text.Length;
+                _starts[i] = offset;
+                offset += _runs[i].Text.Length;
             }
 
             if (original == null) return; // A folded summary or missing side.
@@ -68,32 +67,33 @@ internal sealed partial class DiffViewWindow
 
         internal TextPointer Position(int offset)
         {
-            if (runs.Length == 0) return Paragraph.ContentStart.GetInsertionPosition(LogicalDirection.Forward);
-            var index = Array.BinarySearch(starts, offset);
+            if (_runs.Length == 0) return Paragraph.ContentStart.GetInsertionPosition(LogicalDirection.Forward);
+            var index = Array.BinarySearch(_starts, offset);
             if (index < 0) index = Math.Max(0, ~index - 1);
-            return runs[index].ContentStart
-                .GetPositionAtOffset(Math.Min(offset - starts[index], runs[index].Text.Length));
+            return _runs[index].ContentStart
+                .GetPositionAtOffset(Math.Min(offset - _starts[index], _runs[index].Text.Length));
         }
     }
 
     private sealed class WhitespaceOverlay : FrameworkElement
     {
-        private readonly Dictionary<string, FormattedText> glyphs = new();
-        private readonly DiffViewModel model;
-        private readonly RichTextBox pane;
-        private double glyphDpi;
-        private IReadOnlyList<WhitespaceRow> rows = Array.Empty<WhitespaceRow>();
+        private readonly Dictionary<string, FormattedText> _glyphs = new();
+        private readonly DiffViewModel _model;
+        private readonly RichTextBox _pane;
+        private double _glyphDpi;
+        private bool _refreshPending;
+        private IReadOnlyList<WhitespaceRow> _rows = Array.Empty<WhitespaceRow>();
 
         internal WhitespaceOverlay(RichTextBox pane, DiffViewModel model)
         {
-            this.pane = pane;
-            this.model = model;
+            _pane = pane;
+            _model = model;
             IsHitTestVisible = false;
             ClipToBounds = true;
             pane.AddHandler(ScrollViewer.ScrollChangedEvent,
-                new ScrollChangedEventHandler((s, e) => InvalidateVisual()), true);
-            pane.SizeChanged += (s, e) => InvalidateVisual();
-            Loaded += (s, e) => InvalidateVisual();
+                new ScrollChangedEventHandler((_, _) => RefreshAfterLayout()), true);
+            pane.SizeChanged += (_, _) => RefreshAfterLayout();
+            Loaded += (_, _) => RefreshAfterLayout();
         }
 
         internal int LastVisibleRowCount { get; private set; }
@@ -102,40 +102,55 @@ internal sealed partial class DiffViewWindow
 
         internal void SetRows(IReadOnlyList<WhitespaceRow> value)
         {
-            rows = value;
-            InvalidateVisual();
+            _rows = value;
+            RefreshAfterLayout();
+        }
+
+        private void RefreshAfterLayout()
+        {
+            if (_refreshPending) return;
+            _refreshPending = true;
+            Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+            {
+                _refreshPending = false;
+                if (!IsLoaded) return;
+                // RichTextBox lays out its FlowDocument separately. Drawing before
+                // that pass leaves an empty overlay whose text positions are invalid.
+                _pane.UpdateLayout();
+                InvalidateVisual();
+            }));
         }
 
         protected override void OnRender(DrawingContext drawing)
         {
             base.OnRender(drawing);
             LastVisibleRowCount = LastDrawnMarkCount = LastDrawnEofCount = 0;
-            if ((!model.ShowSpaces && !model.ShowNewlines) || rows.Count == 0) return;
-            var scroll = FindScroll(pane);
+            if ((!_model.ShowSpaces && !_model.ShowNewlines) || _rows.Count == 0) return;
+            var scroll = FindScroll(_pane);
             if (scroll == null || scroll.ViewportHeight <= 0) return;
             var dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
-            if (glyphDpi != dpi)
+            if (Math.Abs(_glyphDpi - dpi) > 0.0001)
             {
-                glyphs.Clear();
-                glyphDpi = dpi;
+                _glyphs.Clear();
+                _glyphDpi = dpi;
             }
 
             // The comparison uses fixed-height, unwrapped rows.
             var first = Math.Max(0, (int)(scroll.VerticalOffset / DiffLineHeight) - 1);
-            var last = Math.Min(rows.Count, first + (int)Math.Ceiling(scroll.ViewportHeight / DiffLineHeight) + 3);
+            var last = Math.Min(_rows.Count, first + (int)Math.Ceiling(scroll.ViewportHeight / DiffLineHeight) + 3);
             var origin = scroll.TranslatePoint(new Point(), this);
             drawing.PushClip(
                 new RectangleGeometry(new Rect(origin, new Size(scroll.ViewportWidth, scroll.ViewportHeight))));
             for (var i = first; i < last; i++)
             {
                 LastVisibleRowCount++;
-                var row = rows[i];
-                if (model.ShowSpaces)
+                var row = _rows[i];
+                if (_model.ShowSpaces)
                     foreach (var mark in row.Marks)
                         DrawMark(drawing, row, mark.Offset, mark.Glyph, false, dpi);
-                if (model.ShowNewlines && row.Ending != null)
+                if (_model.ShowNewlines && row.Ending != null)
                     DrawMark(drawing, row, row.Length, row.Ending, true, dpi);
-                if (model.ShowNewlines && row.IsEndOfFile)
+                if (_model.ShowNewlines && row.IsEndOfFile)
                     DrawMark(drawing, row, row.Length, "[EOF]", true, dpi);
             }
 
@@ -149,7 +164,7 @@ internal sealed partial class DiffViewWindow
             if (position == null || !position.HasValidLayout) return;
             var rect = position.GetCharacterRect(LogicalDirection.Forward);
             if (rect.IsEmpty) return;
-            var point = pane.TranslatePoint(rect.TopLeft, this);
+            var point = _pane.TranslatePoint(rect.TopLeft, this);
             if (point.X < -30 || point.X > ActualWidth || point.Y < -DiffLineHeight || point.Y > ActualHeight) return;
             if (glyph == "[EOF]")
             {
@@ -164,18 +179,18 @@ internal sealed partial class DiffViewWindow
                 }
             }
 
-            var light = GetWindow(pane) is DiffViewWindow window && !window.IsDarkBackground();
+            var light = GetWindow(_pane) is DiffViewWindow window && !window.IsDarkBackground();
             Brush foreground = !newline ? Brushes.Gray :
                 glyph == "\u2193" ? Brushes.RoyalBlue :
                 glyph == "\u21B2" && light ? Brushes.DarkRed : Brushes.Gold;
             var key = (newline ? "n" : "s") + glyph + (light ? "light" : "dark");
-            if (!glyphs.TryGetValue(key, out var text))
+            if (!_glyphs.TryGetValue(key, out var text))
             {
                 text = new FormattedText(glyph, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
-                    new Typeface(pane.FontFamily, FontStyles.Normal, newline ? FontWeights.Bold : FontWeights.Normal,
+                    new Typeface(_pane.FontFamily, FontStyles.Normal, newline ? FontWeights.Bold : FontWeights.Normal,
                         FontStretches.Normal),
-                    pane.FontSize, foreground, dpi);
-                glyphs.Add(key, text);
+                    _pane.FontSize, foreground, dpi);
+                _glyphs.Add(key, text);
             }
 
             drawing.DrawText(text, new Point(point.X, point.Y + (rect.Height - text.Height)));

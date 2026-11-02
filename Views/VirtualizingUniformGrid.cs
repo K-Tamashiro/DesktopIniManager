@@ -21,7 +21,7 @@ internal sealed class VirtualizingUniformGrid : VirtualizingPanel, IScrollInfo
 
     public VirtualizingUniformGrid()
     {
-        Loaded += (s, e) => Dispatcher.BeginInvoke(new Action(InvalidateMeasure), DispatcherPriority.Loaded);
+        Loaded += (_, _) => Dispatcher.BeginInvoke(new Action(InvalidateMeasure), DispatcherPriority.Loaded);
     }
 
     public int Columns
@@ -209,6 +209,7 @@ internal sealed class VirtualizingUniformGrid : VirtualizingPanel, IScrollInfo
         }
         catch
         {
+            // ArrangeOverride時の例外は意図的に無視する。
         }
 
         return finalSize;
@@ -221,8 +222,9 @@ internal sealed class VirtualizingUniformGrid : VirtualizingPanel, IScrollInfo
             if (args.Action == NotifyCollectionChangedAction.Reset)
                 RemoveInternalChildRange(0, InternalChildren.Count);
         }
-        catch
+        catch (Exception)
         {
+            // Reset時の例外は意図的に無視する。
         }
 
         InvalidateMeasure();

@@ -1,79 +1,85 @@
-using DesktopIniManager.Properties;
-using DesktopIniManager.Services;
-using DesktopIniManager.ViewModels;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using DesktopIniManager.Properties;
+using DesktopIniManager.Services;
+using DesktopIniManager.ViewModels;
+using Path = System.Windows.Shapes.Path;
 
 namespace DesktopIniManager.Views;
 
-internal sealed partial class DiffViewWindow : Window
+internal sealed partial class DiffViewWindow
 {
-    internal DiffViewModel ViewModel { get; }
-    private bool renderingContent;
-    private bool windowClosed;
-    private readonly ClipboardInputStore clipboardInputs = new();
-    private bool clipboardSource = true;
-
-    private void ShowLoadProgress(string message, double? percent = null)
-    {
-        loadProgressText.Text = message;
-        loadProgress.IsIndeterminate = !percent.HasValue;
-        loadProgress.Value = percent ?? 0;
-    }
-
-    private void SetRendering(bool value)
-    {
-        renderingContent = value;
-        loadProgressPanel.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
-        actionsPanel.IsEnabled = fileNavigationPanel.IsEnabled = !value;
-        body.IsHitTestVisible = !value;
-        imageToolbar.IsHitTestVisible = imageDetails.IsHitTestVisible = !value;
-    }
-
-    private void CheckWindowOpen()
-    {
-        if (windowClosed) throw new OperationCanceledException();
-    }
-
-    private List<int> hunks => ViewModel.Hunks;
-    private List<DiffLine> lines => ViewModel.Lines;
-    private RichTextBox leftList, rightList;
-    private ScrollViewer leftScroll, rightScroll;
-    private Canvas map;
-    private System.Windows.Shapes.Path hunkOverlay;
-    private int hunkStart = -1;
-    private int hunkEnd = -1;
-    private Thumb viewportThumb;
-    private Border mapSelection;
-    private double viewportDragTop;
-    private double sharedTextWidth;
     private const double DiffLineHeight = 22;
-    private string syntaxExtension => System.IO.Path.GetExtension(ViewModel.File?.RelativePath ?? string.Empty).ToLowerInvariant();
-    private HwndSource inputSource;
-    private int current { get => ViewModel.CurrentHunk; set => ViewModel.CurrentHunk = value; }
-    private bool scrolling;
-    private bool imagePanning;
-    private Point imagePanLast;
-    private SizeChangedEventHandler imageFitHandler;
-    private Slider imageZoom;
-    private bool sourceImageXorMode = SettingsService.LoadDiffFlag("source-image-xor", false);
-    private bool targetImageXorMode = SettingsService.LoadDiffFlag("target-image-xor", false);
 
-    internal DiffSnapshot Snapshot => ViewModel.Snapshot;
+    private const double StatusIconHeight = 36;
+
+    private static readonly HashSet<string> CSharpKeywords = new(StringComparer.Ordinal)
+    {
+        "abstract", "as", "base", "bool", "break", "byte", "case", "catch", "char", "checked", "class", "const",
+        "continue",
+        "decimal", "default", "delegate", "do", "double", "else", "enum", "event", "explicit", "extern", "false",
+        "finally",
+        "fixed", "float", "for", "foreach", "goto", "if", "implicit", "in", "int", "interface", "internal", "is",
+        "lock", "long",
+        "namespace", "new", "null", "object", "operator", "out", "override", "params", "private", "protected", "public",
+        "readonly",
+        "ref", "return", "sbyte", "sealed", "short", "sizeof", "stackalloc", "static", "string", "struct", "switch",
+        "this",
+        "throw", "true", "try", "typeof", "uint", "ulong", "unchecked", "unsafe", "ushort", "using", "virtual", "void",
+        "volatile",
+        "while", "async", "await", "record", "init", "required", "var", "dynamic", "get", "set", "value", "yield"
+    };
+
+    private static readonly Brush MissingImageBrush = new SolidColorBrush(Color.FromRgb(10, 15, 21));
+    private static readonly Brush PixelLineGridBrush = CreatePixelLineGridBrush();
+    private readonly ClipboardInputStore _clipboardInputs = new();
+    private readonly Dictionary<bool, RenderedPane> _renderedPanes = new();
+    private ICommand _clearInputsCommand;
+    private bool _clipboardSource = true;
+    private int _hunkEnd = -1;
+    private Path _hunkOverlay;
+    private int _hunkStart = -1;
+    private SizeChangedEventHandler _imageFitHandler;
+    private Point _imagePanLast;
+    private bool _imagePanning;
+    private Slider _imageZoom;
+    private HwndSource _inputSource;
+    private RichTextBox _leftList, _rightList;
+    private ScrollViewer _leftScroll, _rightScroll;
+    private Canvas _map;
+    private Border _mapSelection;
+
+    private ICommand _reloadCommand;
+    private bool _renderingContent;
+    private bool _scrolling;
+    private double _sharedTextWidth;
+    private bool _sourceImageXorMode = SettingsService.LoadDiffFlag("source-image-xor", false);
+    private bool _targetImageXorMode = SettingsService.LoadDiffFlag("target-image-xor", false);
+
+    private ICommand _toggleDisplayCommand;
+    private double _viewportDragTop;
+    private Thumb _viewportThumb;
+    private bool _windowClosed;
 
     internal DiffViewWindow(DiffSnapshot snapshot, DiffFile file, string sourcePath = null, string targetPath = null)
     {
@@ -81,16 +87,32 @@ internal sealed partial class DiffViewWindow : Window
         InitializeComponent();
         Icon = DifferencerStatusIcons.GetCustomIcon(52) ?? Icon;
         DataContext = ViewModel;
-        if (sourcePath != null) selectedFileText.Visibility = Visibility.Collapsed;
-        PreviewKeyDown += DiffViewKeyDown;
-        body.Focusable = true;
-        body.PreviewMouseDown += (_, e) =>
+        CloseButton.Command = ViewModel.CloseCommand;
+        ViewModel.PropertyChanged += (_, args) =>
         {
-            clipboardSource = ViewModel.IsAudio ? e.GetPosition(body).Y < body.ActualHeight / 2 : e.GetPosition(body).X < body.ActualWidth / 2;
-            if (ViewModel.IsAudio || ViewModel.IsImage || ViewModel.IsVideo) body.Focus();
+            if (args.PropertyName is nameof(DiffViewModel.ShowSpaces) or nameof(DiffViewModel.ShowNewlines))
+                RefreshWhitespaceMarkers();
         };
-        sourceHeader.MouseLeftButtonDown += (_, _) => { clipboardSource = true; body.Focus(); };
-        targetHeader.MouseLeftButtonDown += (_, _) => { clipboardSource = false; body.Focus(); };
+        if (sourcePath != null) SelectedFileText.Visibility = Visibility.Collapsed;
+        PreviewKeyDown += DiffViewKeyDown;
+        Body.Focusable = true;
+        Body.PreviewMouseDown += (_, e) =>
+        {
+            _clipboardSource = ViewModel.IsAudio
+                ? e.GetPosition(Body).Y < Body.ActualHeight / 2
+                : e.GetPosition(Body).X < Body.ActualWidth / 2;
+            if (ViewModel.IsAudio || ViewModel.IsImage || ViewModel.IsVideo) Body.Focus();
+        };
+        SourceHeader.MouseLeftButtonDown += (_, _) =>
+        {
+            _clipboardSource = true;
+            Body.Focus();
+        };
+        TargetHeader.MouseLeftButtonDown += (_, _) =>
+        {
+            _clipboardSource = false;
+            Body.Focus();
+        };
         InitializeDiffContextMenu();
         ViewModel.JumpRequested += Jump;
         ViewModel.ReloadRequested = () => LoadContent();
@@ -100,7 +122,7 @@ internal sealed partial class DiffViewWindow : Window
             CloseButtonIcon.Source = DifferencerStatusIcons.GetCustomIcon(26);
         if (ExternalDiffLabelIcon != null)
             ExternalDiffLabelIcon.Source = DifferencerStatusIcons.GetCustomIcon(52);
-        ViewModel.ExternalDiffHistoryRequested += () => externalDiffBox.CommitHistory();
+        ViewModel.ExternalDiffHistoryRequested += () => ExternalDiffBox.CommitHistory();
         ViewModel.RefreshFileRequested = async difference =>
         {
             if (Owner is DeveloperDifferencerWindow owner) await owner.RefreshFileAsync(difference);
@@ -109,49 +131,63 @@ internal sealed partial class DiffViewWindow : Window
             Owner is DeveloperDifferencerWindow owner
                 ? owner.GetVisibleComparableFiles()
                 : Array.Empty<DiffFile>();
-        Closing += async (s, e) =>
+        Closing += async (_, e) =>
         {
-            if (!allowEditedClose && ViewModel.HasEdits)
+            if (!_allowEditedClose && ViewModel.HasEdits)
             {
                 e.Cancel = true;
-                if (confirmingTextChanges) return;
+                if (_confirmingTextChanges) return;
                 // Let WPF finish the cancelled Closing event before opening a modal
                 // dialog or issuing another Close (Discard completes synchronously).
-                await Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
-                if (windowClosed || confirmingTextChanges) return;
+                await Dispatcher.Yield(DispatcherPriority.Background);
+                if (_windowClosed || _confirmingTextChanges) return;
                 if (await ConfirmTextChangesAsync())
                 {
-                    allowEditedClose = true;
+                    _allowEditedClose = true;
                     Close();
                 }
+
                 return;
             }
-            if (savingText) { e.Cancel = true; return; }
+
+            if (_savingText)
+            {
+                e.Cancel = true;
+                return;
+            }
+
             if (Owner == null)
             {
-                Rect bounds = WindowState == WindowState.Normal ? new Rect(Left, Top, ActualWidth, ActualHeight) : RestoreBounds;
+                var bounds = WindowState == WindowState.Normal
+                    ? new Rect(Left, Top, ActualWidth, ActualHeight)
+                    : RestoreBounds;
                 if (!bounds.IsEmpty && bounds.Width > 0 && bounds.Height > 0)
-                    SettingsService.SaveDiffWindowPlacement(bounds.Left, bounds.Top, bounds.Width, bounds.Height, (int)WindowState);
+                    SettingsService.SaveDiffWindowPlacement(bounds.Left, bounds.Top, bounds.Width, bounds.Height,
+                        (int)WindowState);
             }
+
             // WPF can clear Owner before Closed is raised.
-            if (!ViewModel.IsDetachedComparison && Owner is DeveloperDifferencerWindow owner) owner.SelectLastViewedFile(ViewModel.File);
+            if (!ViewModel.IsDetachedComparison && Owner is DeveloperDifferencerWindow owner)
+                owner.SelectLastViewedFile(ViewModel.File);
         };
         BuildToolbar();
-        Loaded += async (s, e) => await LoadContent();
+        Loaded += async (_, _) => await LoadContent();
         AllowDrop = true;
         PreviewDragEnter += FileDragOver;
         PreviewDragOver += FileDragOver;
         PreviewDrop += FileDrop;
-        Activated += async (s, e) =>
+        Activated += async (_, _) =>
         {
-            if (IsLoaded && !renderingContent) await ViewModel.RefreshAfterExternalEditAsync();
+            if (IsLoaded && !_renderingContent) await ViewModel.RefreshAfterExternalEditAsync();
         };
-        SourceInitialized += (s, e) =>
+        SourceInitialized += (_, _) =>
         {
-            if (Owner == null && SettingsService.TryLoadDiffWindowPlacement(out double x, out double y, out double w, out double h, out int state)
-                && double.IsFinite(x) && double.IsFinite(y) && double.IsFinite(w) && double.IsFinite(h))
+            if (Owner == null && SettingsService.TryLoadDiffWindowPlacement(out var x, out var y, out var w, out var h,
+                                  out var state)
+                              && double.IsFinite(x) && double.IsFinite(y) && double.IsFinite(w) && double.IsFinite(h))
             {
-                var desktop = new Rect(SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenTop, SystemParameters.VirtualScreenWidth, SystemParameters.VirtualScreenHeight);
+                var desktop = new Rect(SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenTop,
+                    SystemParameters.VirtualScreenWidth, SystemParameters.VirtualScreenHeight);
                 if (desktop.IntersectsWith(new Rect(x, y, w, h)))
                 {
                     WindowStartupLocation = WindowStartupLocation.Manual;
@@ -162,27 +198,90 @@ internal sealed partial class DiffViewWindow : Window
                     if (state == (int)WindowState.Maximized) WindowState = WindowState.Maximized;
                 }
             }
-            inputSource = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
-            inputSource?.AddHook(HorizontalWheelMessage);
+
+            _inputSource = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
+            _inputSource?.AddHook(HorizontalWheelMessage);
         };
-        Closed += (s, e) =>
+        Closed += (_, _) =>
         {
-            windowClosed = true;
-            inputSource?.RemoveHook(HorizontalWheelMessage);
-            inputSource = null;
+            _windowClosed = true;
+            _inputSource?.RemoveHook(HorizontalWheelMessage);
+            _inputSource = null;
             DetachImageFitHandler();
-            try { ResetMediaController(); }
+            try
+            {
+                ResetMediaController();
+            }
             finally
             {
                 ViewModel.Close();
-                clipboardInputs.Dispose();
+                _clipboardInputs.Dispose();
             }
         };
     }
 
+    internal DiffViewModel ViewModel { get; }
+
+    private List<int> Hunks => ViewModel.Hunks;
+    private List<DiffLine> Lines => ViewModel.Lines;
+
+    private string SyntaxExtension =>
+        System.IO.Path.GetExtension(ViewModel.File?.RelativePath ?? string.Empty).ToLowerInvariant();
+
+    private int Current
+    {
+        get => ViewModel.CurrentHunk;
+        set => ViewModel.CurrentHunk = value;
+    }
+
+    internal DiffSnapshot Snapshot => ViewModel.Snapshot;
+
+    private ICommand ToggleDisplayCommand => _toggleDisplayCommand ??=
+        new AsyncRelayCommand(async () =>
+        {
+            if (ViewModel.ToggleDifferencesOnly()) await LoadContent(false);
+        }, ViewModel.ReportError);
+
+    private ICommand ClearInputsCommand => _clearInputsCommand ??= new AsyncRelayCommand(async () =>
+    {
+        if (_renderingContent || !ViewModel.CanChangeComparison) return;
+        if (!await ConfirmTextChangesAsync()) return;
+        ViewModel.ClearInputs();
+        await LoadContent();
+    }, ViewModel.ReportError);
+
+    private ICommand ReloadCommand => _reloadCommand ??= new AsyncRelayCommand(ReloadTextAsync, ViewModel.ReportError);
+
+    private double MapHeight => Math.Max(0, Math.Min(_map?.ActualHeight ?? 0,
+        _leftScroll != null && _leftScroll.ViewportHeight > 0 ? _leftScroll.ViewportHeight : _map?.ActualHeight ?? 0));
+
+    private double MapExtent => Math.Max(1, Math.Max((Lines?.Count ?? 0) * DiffLineHeight,
+        Math.Max(_leftScroll?.ExtentHeight ?? 0, _leftScroll?.ViewportHeight ?? 0)));
+
+    private void ShowLoadProgress(string message, double? percent = null)
+    {
+        LoadProgressText.Text = message;
+        LoadProgress.IsIndeterminate = !percent.HasValue;
+        LoadProgress.Value = percent ?? 0;
+    }
+
+    private void SetRendering(bool value)
+    {
+        _renderingContent = value;
+        LoadProgressPanel.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
+        ActionsPanel.IsEnabled = FileNavigationPanel.IsEnabled = !value;
+        Body.IsHitTestVisible = !value;
+        ImageToolbar.IsHitTestVisible = ImageDetails.IsHitTestVisible = !value;
+    }
+
+    private void CheckWindowOpen()
+    {
+        if (_windowClosed) throw new OperationCanceledException();
+    }
+
     internal void MatchOwnerSize()
     {
-        Window owner = Owner;
+        var owner = Owner;
         if (owner == null) return;
         if (owner.WindowState == WindowState.Maximized)
         {
@@ -190,13 +289,14 @@ internal sealed partial class DiffViewWindow : Window
             return;
         }
 
-        double width = owner.ActualWidth > 0 ? owner.ActualWidth : owner.Width;
-        double height = owner.ActualHeight > 0 ? owner.ActualHeight : owner.Height;
+        var width = owner.ActualWidth > 0 ? owner.ActualWidth : owner.Width;
+        var height = owner.ActualHeight > 0 ? owner.ActualHeight : owner.Height;
         if (owner.WindowState == WindowState.Minimized)
         {
             width = owner.RestoreBounds.Width;
             height = owner.RestoreBounds.Height;
         }
+
         if (width > 0) Width = Math.Max(MinWidth, width);
         if (height > 0) Height = Math.Max(MinHeight, height);
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -209,38 +309,43 @@ internal sealed partial class DiffViewWindow : Window
             if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0)
                 e.Handled = ScrollHorizontally(-e.Delta);
             // Other wheel gestures belong to WaveformControl (including Ctrl+wheel).
-            return;
         }
-        else if ((ViewModel.IsImage || ViewModel.IsVideo || ViewModel.IsAudio) && imageZoom != null)
+        else if ((ViewModel.IsImage || ViewModel.IsVideo || ViewModel.IsAudio) && _imageZoom != null)
         {
             ChangeImageZoom(e.Delta / 120.0);
             e.Handled = true;
         }
         else if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0)
+        {
             e.Handled = ScrollHorizontally(-e.Delta);
+        }
         else
+        {
             e.Handled = ScrollVertically(-e.Delta * DiffLineHeight * 3 / 120.0);
+        }
     }
 
     private void DiffViewKeyDown(object sender, KeyEventArgs e)
     {
-        if (renderingContent) return;
+        if (_renderingContent) return;
         if (e.Handled || Keyboard.FocusedElement is TextBox) return;
         if (HandleTextEditKey(e)) return;
         if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.V)
         {
             e.Handled = true;
-            _ = PasteClipboardAsync(clipboardSource);
+            _ = PasteClipboardAsync(_clipboardSource);
             return;
         }
+
         if (ViewModel.IsAudio &&
-        Keyboard.Modifiers == ModifierKeys.None &&
-        e.Key == Key.Space)
+            Keyboard.Modifiers == ModifierKeys.None &&
+            e.Key == Key.Space)
         {
             ToggleAudioPlayback();
             e.Handled = true;
             return;
         }
+
         if (Keyboard.Modifiers == ModifierKeys.Control)
         {
             ICommand command;
@@ -258,10 +363,12 @@ internal sealed partial class DiffViewWindow : Window
 
                 default: return;
             }
+
             e.Handled = true;
             if (command.CanExecute(null)) command.Execute(null);
             return;
         }
+
         if (Keyboard.Modifiers != ModifierKeys.None) return;
         switch (e.Key)
         {
@@ -271,135 +378,153 @@ internal sealed partial class DiffViewWindow : Window
             case Key.Right: e.Handled = ScrollHorizontally(120); break;
             case Key.PageUp:
             case Key.PageDown:
-                int direction = e.Key == Key.PageUp ? -1 : 1;
-                if ((ViewModel.IsImage || ViewModel.IsVideo || ViewModel.IsAudio) && imageZoom != null)
+                var direction = e.Key == Key.PageUp ? -1 : 1;
+                if ((ViewModel.IsImage || ViewModel.IsVideo || ViewModel.IsAudio) && _imageZoom != null)
                 {
                     ChangeImageZoom(-direction);
                     e.Handled = true;
                 }
                 else
                 {
-                    if (leftScroll == null) leftScroll = FindScroll(leftList);
-                    e.Handled = ScrollVertically(direction * (leftScroll?.ViewportHeight ?? 0));
+                    if (_leftScroll == null) _leftScroll = FindScroll(_leftList);
+                    e.Handled = ScrollVertically(direction * (_leftScroll?.ViewportHeight ?? 0));
                 }
+
                 break;
         }
     }
 
     private void ChangeImageZoom(double steps)
     {
-        imageZoom.Value = Math.Max(imageZoom.Minimum,
-            Math.Min(imageZoom.Maximum, imageZoom.Value * Math.Pow(1.25, steps)));
+        _imageZoom.Value = Math.Max(_imageZoom.Minimum,
+            Math.Min(_imageZoom.Maximum, _imageZoom.Value * Math.Pow(1.25, steps)));
     }
 
     private bool ScrollVertically(double delta)
     {
-        if (leftScroll == null) leftScroll = FindScroll(leftList);
-        if (rightScroll == null) rightScroll = FindScroll(rightList);
-        if (leftScroll == null || rightScroll == null) return false;
-        double offset = leftScroll.VerticalOffset + delta;
-        leftScroll.ScrollToVerticalOffset(offset);
-        rightScroll.ScrollToVerticalOffset(offset);
+        if (_leftScroll == null) _leftScroll = FindScroll(_leftList);
+        if (_rightScroll == null) _rightScroll = FindScroll(_rightList);
+        if (_leftScroll == null || _rightScroll == null) return false;
+        var offset = _leftScroll.VerticalOffset + delta;
+        _leftScroll.ScrollToVerticalOffset(offset);
+        _rightScroll.ScrollToVerticalOffset(offset);
         return true;
     }
 
-    private ICommand toggleDisplayCommand;
-
-    private ICommand ToggleDisplayCommand => toggleDisplayCommand ??=
-        new AsyncRelayCommand(async () =>
-        {
-            if (ViewModel.ToggleDifferencesOnly()) await LoadContent(false);
-        }, ViewModel.ReportError);
-
-    private ICommand reloadCommand;
-    private ICommand clearInputsCommand;
-
-    private ICommand ClearInputsCommand => clearInputsCommand ??= new AsyncRelayCommand(async () =>
-    {
-        if (renderingContent || !ViewModel.CanChangeComparison) return;
-        if (!await ConfirmTextChangesAsync()) return;
-        ViewModel.ClearInputs();
-        await LoadContent();
-    }, ViewModel.ReportError);
-
     private void FileDragOver(object sender, DragEventArgs e)
     {
-        e.Effects = !renderingContent && ViewModel.CanChangeComparison && e.Data.GetDataPresent(DataFormats.FileDrop)
-            ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Effects = !_renderingContent && ViewModel.CanChangeComparison && e.Data.GetDataPresent(DataFormats.FileDrop)
+            ? DragDropEffects.Copy
+            : DragDropEffects.None;
         e.Handled = true;
     }
 
     private async void FileDrop(object sender, DragEventArgs e)
     {
         e.Handled = true;
-        if (renderingContent || !ViewModel.CanChangeComparison || !e.Data.GetDataPresent(DataFormats.FileDrop)) return;
+        if (_renderingContent || !ViewModel.CanChangeComparison || !e.Data.GetDataPresent(DataFormats.FileDrop)) return;
         var paths = e.Data.GetData(DataFormats.FileDrop) as string[];
         if (paths == null || paths.Length == 0) return;
-        if (paths.Length > 2) { ViewModel.Status = StringOverlay.Get("Diff_DropCount"); return; }
+        if (paths.Length > 2)
+        {
+            ViewModel.Status = StringOverlay.Get("Diff_DropCount");
+            return;
+        }
+
         if (!await ConfirmTextChangesAsync()) return;
-        bool sourceSide = ViewModel.IsAudio ? e.GetPosition(body).Y < body.ActualHeight / 2 : e.GetPosition(body).X < body.ActualWidth / 2;
-        bool accepted = false;
+        var sourceSide = ViewModel.IsAudio
+            ? e.GetPosition(Body).Y < Body.ActualHeight / 2
+            : e.GetPosition(Body).X < Body.ActualWidth / 2;
+        var accepted = false;
         SetRendering(true);
-        try { accepted = await ViewModel.DropFilesAsync(paths, sourceSide); }
-        catch (Exception ex) { ViewModel.ReportError(ex); }
-        finally { SetRendering(false); }
-        if (accepted && !windowClosed) await LoadContent();
+        try
+        {
+            accepted = await ViewModel.DropFilesAsync(paths, sourceSide);
+        }
+        catch (Exception ex)
+        {
+            ViewModel.ReportError(ex);
+        }
+        finally
+        {
+            SetRendering(false);
+        }
+
+        if (accepted && !_windowClosed) await LoadContent();
     }
 
     private async Task PasteClipboardAsync(bool sourceSide)
     {
-        if (renderingContent || windowClosed || !ViewModel.CanChangeComparison) return;
+        if (_renderingContent || _windowClosed || !ViewModel.CanChangeComparison) return;
         if (!await ConfirmTextChangesAsync()) return;
-        bool accepted = false;
+        var accepted = false;
         SetRendering(true);
         try
         {
-            var paths = clipboardInputs.Capture(Clipboard.GetDataObject());
+            var paths = _clipboardInputs.Capture(Clipboard.GetDataObject());
             accepted = await ViewModel.DropFilesAsync(paths, sourceSide);
-            clipboardSource = sourceSide;
+            _clipboardSource = sourceSide;
         }
-        catch (Exception ex) { ViewModel.ReportError(ex); }
-        finally { SetRendering(false); }
-        if (accepted && !windowClosed) await LoadContent();
-    }
+        catch (Exception ex)
+        {
+            ViewModel.ReportError(ex);
+        }
+        finally
+        {
+            SetRendering(false);
+        }
 
-    private ICommand ReloadCommand => reloadCommand ??= new AsyncRelayCommand(ReloadTextAsync, ViewModel.ReportError);
+        if (accepted && !_windowClosed) await LoadContent();
+    }
 
     private void BuildToolbar()
     {
-        showSpacesBox.IsChecked = ViewModel.ShowSpaces;
-        showNewlinesBox.IsChecked = ViewModel.ShowNewlines;
-        markerOptions.Visibility = (ViewModel.IsImage || ViewModel.IsVideo || ViewModel.IsAudio) ? Visibility.Collapsed : Visibility.Visible;
-        actionsPanel.Children.Clear();
-        fileNavigationPanel.Children.Clear();
+        MarkerOptions.Visibility = ViewModel.IsImage || ViewModel.IsVideo || ViewModel.IsAudio
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        ActionsPanel.Children.Clear();
+        FileNavigationPanel.Children.Clear();
         if (!ViewModel.IsImage && !ViewModel.IsVideo && !ViewModel.IsAudio)
         {
-            AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(33), StringOverlay.Get("Diff_PreviousHunk"), ViewModel.PreviousHunkCommand);
-            AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(32), StringOverlay.Get("Diff_NextHunk"), ViewModel.NextHunkCommand);
+            AddButton(ActionsPanel, DifferencerStatusIcons.GetCustomIcon(33), StringOverlay.Get("Diff_PreviousHunk"),
+                ViewModel.PreviousHunkCommand);
+            AddButton(ActionsPanel, DifferencerStatusIcons.GetCustomIcon(32), StringOverlay.Get("Diff_NextHunk"),
+                ViewModel.NextHunkCommand);
         }
-        AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(53), StringOverlay.Get("Diff_OpenSource"), ViewModel.OpenSourceCommand);
-        AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(54), StringOverlay.Get("Diff_OpenTarget"), ViewModel.OpenTargetCommand);
-        var openExtDiffButton = AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(52), "Open Ext Diff", ViewModel.OpenExternalDiffCommand);
+
+        AddButton(ActionsPanel, DifferencerStatusIcons.GetCustomIcon(53), StringOverlay.Get("Diff_OpenSource"),
+            ViewModel.OpenSourceCommand);
+        AddButton(ActionsPanel, DifferencerStatusIcons.GetCustomIcon(54), StringOverlay.Get("Diff_OpenTarget"),
+            ViewModel.OpenTargetCommand);
+        var openExtDiffButton = AddButton(ActionsPanel, DifferencerStatusIcons.GetCustomIcon(52), "Open Ext Diff",
+            ViewModel.OpenExternalDiffCommand);
         openExtDiffButton.Background = Brushes.Transparent;
         if (!ViewModel.IsImage && !ViewModel.IsVideo && !ViewModel.IsAudio)
-            AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(ViewModel.DifferencesOnly ? 109 : 110),
+            AddButton(ActionsPanel, DifferencerStatusIcons.GetCustomIcon(ViewModel.DifferencesOnly ? 109 : 110),
                 StringOverlay.Get(ViewModel.DifferencesOnly ? "Diff_ShowAllLines" : "Diff_ShowDifferences"),
                 ToggleDisplayCommand);
         if (!ViewModel.IsImage && !ViewModel.IsVideo && !ViewModel.IsAudio)
         {
-            AddComparisonButton(ViewModel.CompareCase ? 116 : 119, "Compare case", () => ViewModel.CompareCase = !ViewModel.CompareCase);
-            AddComparisonButton(ViewModel.CompareSpaces ? 117 : 120, "Compare spaces / tabs", () => ViewModel.CompareSpaces = !ViewModel.CompareSpaces);
-            AddComparisonButton(ViewModel.CompareNewlines ? 118 : 121, "Compare line endings", () => ViewModel.CompareNewlines = !ViewModel.CompareNewlines);
+            AddComparisonButton(ViewModel.CompareCase ? 116 : 119, "Compare case",
+                () => ViewModel.CompareCase = !ViewModel.CompareCase);
+            AddComparisonButton(ViewModel.CompareSpaces ? 117 : 120, "Compare spaces / tabs",
+                () => ViewModel.CompareSpaces = !ViewModel.CompareSpaces);
+            AddComparisonButton(ViewModel.CompareNewlines ? 118 : 121, "Compare line endings",
+                () => ViewModel.CompareNewlines = !ViewModel.CompareNewlines);
         }
-        AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(140), StringOverlay.Get("Diff_ClearInputs"), ClearInputsCommand);
-        AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(69), "Reload", ReloadCommand);
-        AddButton(fileNavigationPanel, DifferencerStatusIcons.GetCustomIcon(40), StringOverlay.Get("Diff_PreviousFile"), ViewModel.PreviousFileCommand);
-        AddButton(fileNavigationPanel, DifferencerStatusIcons.GetCustomIcon(41), StringOverlay.Get("Diff_NextFile"), ViewModel.NextFileCommand);
+
+        AddButton(ActionsPanel, DifferencerStatusIcons.GetCustomIcon(140), StringOverlay.Get("Diff_ClearInputs"),
+            ClearInputsCommand);
+        AddButton(ActionsPanel, DifferencerStatusIcons.GetCustomIcon(69), "Reload", ReloadCommand);
+        AddButton(FileNavigationPanel, DifferencerStatusIcons.GetCustomIcon(40), StringOverlay.Get("Diff_PreviousFile"),
+            ViewModel.PreviousFileCommand);
+        AddButton(FileNavigationPanel, DifferencerStatusIcons.GetCustomIcon(41), StringOverlay.Get("Diff_NextFile"),
+            ViewModel.NextFileCommand);
     }
 
     private void AddComparisonButton(int icon, string label, Action toggle)
     {
-        AddButton(actionsPanel, DifferencerStatusIcons.GetCustomIcon(icon), label,
+        AddButton(ActionsPanel, DifferencerStatusIcons.GetCustomIcon(icon), label,
             new AsyncRelayCommand(async () =>
             {
                 if (!ViewModel.CanChangeComparison) return;
@@ -410,28 +535,31 @@ internal sealed partial class DiffViewWindow : Window
 
     private bool ScrollHorizontally(int delta)
     {
-        if (ViewModel.IsAudio && audioTimeline != null)
+        if (ViewModel.IsAudio && _audioTimeline != null)
         {
-            audioTimeline.ScrollBy(delta * 48.0 / 120);
+            _audioTimeline.ScrollBy(delta * 48.0 / 120);
             return true;
         }
-        if (leftScroll == null) leftScroll = FindScroll(leftList);
-        if (rightScroll == null) rightScroll = FindScroll(rightList);
-        if (leftScroll == null || rightScroll == null) return false;
+
+        if (_leftScroll == null) _leftScroll = FindScroll(_leftList);
+        if (_rightScroll == null) _rightScroll = FindScroll(_rightList);
+        if (_leftScroll == null || _rightScroll == null) return false;
         // Native horizontal wheel: positive is right; Shift+vertical wheel reverses that sign.
-        double offset = Math.Max(leftScroll.HorizontalOffset, rightScroll.HorizontalOffset) + delta * 48.0 / 120;
-        leftScroll.ScrollToHorizontalOffset(offset);
-        rightScroll.ScrollToHorizontalOffset(offset);
+        var offset = Math.Max(_leftScroll.HorizontalOffset, _rightScroll.HorizontalOffset) + delta * 48.0 / 120;
+        _leftScroll.ScrollToHorizontalOffset(offset);
+        _rightScroll.ScrollToHorizontalOffset(offset);
         return true;
     }
 
     private IntPtr HorizontalWheelMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        const int MouseHorizontalWheel = 0x020E;
-        if (message != MouseHorizontalWheel) return IntPtr.Zero;
-        long coordinates = lParam.ToInt64();
-        var point = body.PointFromScreen(new Point(unchecked((short)(coordinates & 0xffff)), unchecked((short)((coordinates >> 16) & 0xffff))));
-        if (point.X < 0 || point.Y < 0 || point.X >= body.ActualWidth || point.Y >= body.ActualHeight) return IntPtr.Zero;
+        const int mouseHorizontalWheel = 0x020E;
+        if (message != mouseHorizontalWheel) return IntPtr.Zero;
+        var coordinates = lParam.ToInt64();
+        var point = Body.PointFromScreen(new Point(unchecked((short)(coordinates & 0xffff)),
+            unchecked((short)((coordinates >> 16) & 0xffff))));
+        if (point.X < 0 || point.Y < 0 || point.X >= Body.ActualWidth || point.Y >= Body.ActualHeight)
+            return IntPtr.Zero;
         int delta = unchecked((short)((wParam.ToInt64() >> 16) & 0xffff));
         handled = ScrollHorizontally(delta);
         return IntPtr.Zero;
@@ -439,26 +567,24 @@ internal sealed partial class DiffViewWindow : Window
 
     private void DetachImageFitHandler()
     {
-        if (imageFitHandler == null) return;
-        body.SizeChanged -= imageFitHandler;
-        imageFitHandler = null;
+        if (_imageFitHandler == null) return;
+        Body.SizeChanged -= _imageFitHandler;
+        _imageFitHandler = null;
     }
-
-    private const double StatusIconHeight = 36;
 
     private void UpdateSideStatusIcons()
     {
-        FillStatusIcons(sourceStatusIcons, true);
-        FillStatusIcons(targetStatusIcons, false);
+        FillStatusIcons(SourceStatusIcons, true);
+        FillStatusIcons(TargetStatusIcons, false);
     }
 
     private void FillStatusIcons(Panel panel, bool sourceSide)
     {
         if (panel == null) return;
         panel.Children.Clear();
-        DiffFile file = ViewModel.File;
+        var file = ViewModel.File;
         if (file == null) return;
-        foreach (int index in StatusIconIndexes(file, sourceSide))
+        foreach (var index in StatusIconIndexes(file, sourceSide))
             panel.Children.Add(StatusIcon(index));
         var document = sourceSide ? ViewModel.SourceText : ViewModel.TargetText;
         if (!ViewModel.IsImage && document != null)
@@ -467,7 +593,7 @@ internal sealed partial class DiffViewWindow : Window
             bom.Opacity = document.HasBom ? 1 : 0.25;
             bom.ToolTip = document.HasBom ? "BOM" : "No BOM";
             panel.Children.Add(bom);
-            string endings = document.Newlines;
+            var endings = document.Newlines;
             if (endings == "LF" || endings == "CRLF" || endings.Contains('/'))
             {
                 var marker = StatusIcon(endings.Contains('/') ? 122 : endings == "LF" ? 113 : 114);
@@ -480,15 +606,25 @@ internal sealed partial class DiffViewWindow : Window
                 marker.ToolTip = "No line endings / missing file";
                 panel.Children.Add(marker);
             }
-            else panel.Children.Add(new TextBlock { Text = endings, VerticalAlignment = VerticalAlignment.Center, ToolTip = "Line endings", Margin = new Thickness(4, 0, 0, 0) });
+            else
+            {
+                panel.Children.Add(new TextBlock
+                {
+                    Text = endings,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    ToolTip = "Line endings",
+                    Margin = new Thickness(4, 0, 0, 0)
+                });
+            }
         }
+
         panel.Children.Add(StatusIcon(sourceSide ? 111 : 112));
     }
 
     private void UpdateDetachedFileNames()
     {
-        bool visible = ViewModel.IsDetachedComparison;
-        sourceFileNameBorder.Visibility = targetFileNameBorder.Visibility =
+        var visible = ViewModel.IsDetachedComparison;
+        SourceFileNameBorder.Visibility = TargetFileNameBorder.Visibility =
             visible ? Visibility.Visible : Visibility.Collapsed;
         if (!visible) return;
 
@@ -498,8 +634,8 @@ internal sealed partial class DiffViewWindow : Window
             label.ToolTip = path;
         }
 
-        Update(sourceFileNameText, ViewModel.GetPath(true));
-        Update(targetFileNameText, ViewModel.GetPath(false));
+        Update(SourceFileNameText, ViewModel.GetPath(true));
+        Update(TargetFileNameText, ViewModel.GetPath(false));
     }
 
     private void UpdateEncodingHeaders()
@@ -510,16 +646,19 @@ internal sealed partial class DiffViewWindow : Window
             header.Inlines.Clear();
             header.Inlines.Add(new Run(source ? ViewModel.SourceHeader : ViewModel.TargetHeader));
             var document = source ? ViewModel.SourceText : ViewModel.TargetText;
-            string label = (ViewModel.IsAudio || ViewModel.IsVideo)
-                ? System.IO.Path.GetExtension(ViewModel.GetPath(source)).TrimStart('.').ToUpperInvariant()
-                : ViewModel.IsImage ? (source ? ViewModel.SourceImageFormat : ViewModel.TargetImageFormat) : document?.EncodingName;
+            var label = ViewModel.IsAudio || ViewModel.IsVideo
+                ? (System.IO.Path.GetExtension(ViewModel.GetPath(source)) ?? string.Empty).TrimStart('.').ToUpperInvariant()
+                : ViewModel.IsImage
+                    ? source ? ViewModel.SourceImageFormat : ViewModel.TargetImageFormat
+                    : document?.EncodingName;
             if (string.IsNullOrEmpty(label)) return;
             var color = source ? Color.FromRgb(255, 210, 64) : Color.FromRgb(64, 190, 255);
-            bool differs = (ViewModel.IsAudio || ViewModel.IsVideo)
+            var differs = ViewModel.IsAudio || ViewModel.IsVideo
                 ? !string.Equals(System.IO.Path.GetExtension(ViewModel.GetPath(true)),
                     System.IO.Path.GetExtension(ViewModel.GetPath(false)), StringComparison.OrdinalIgnoreCase)
                 : ViewModel.IsImage
-                    ? ViewModel.SourceImageFormat != null && ViewModel.TargetImageFormat != null && ViewModel.SourceImageFormat != ViewModel.TargetImageFormat
+                    ? ViewModel.SourceImageFormat != null && ViewModel.TargetImageFormat != null &&
+                      ViewModel.SourceImageFormat != ViewModel.TargetImageFormat
                     : ViewModel.SourceText?.EncodingName != ViewModel.TargetText?.EncodingName;
             var brush = new SolidColorBrush(color);
             header.Inlines.Add(new InlineUIContainer(new Border
@@ -530,7 +669,7 @@ internal sealed partial class DiffViewWindow : Window
                 Background = differs ? brush : (Brush)FindResource("CardBackground"),
                 Padding = new Thickness(8, 2, 8, 2),
                 Margin = new Thickness(8, 0, 0, 0),
-                Effect = new System.Windows.Media.Effects.DropShadowEffect { Color = color, BlurRadius = 7, ShadowDepth = 0, Opacity = 0.65 },
+                Effect = new DropShadowEffect { Color = color, BlurRadius = 7, ShadowDepth = 0, Opacity = 0.65 },
                 Child = new TextBlock
                 {
                     Text = label,
@@ -553,12 +692,12 @@ internal sealed partial class DiffViewWindow : Window
                     ToolTip = source ? "Source video duration" : "Target video duration"
                 };
                 duration.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
-                videoDurationLabels[source ? 0 : 1] = duration;
+                _videoDurationLabels[source ? 0 : 1] = duration;
                 header.Inlines.Add(new InlineUIContainer(duration) { BaselineAlignment = BaselineAlignment.Center });
-                string path = ViewModel.GetPath(source);
-                if (!string.IsNullOrEmpty(path) && System.IO.File.Exists(path))
+                var path = ViewModel.GetPath(source);
+                if (!string.IsNullOrEmpty(path) && File.Exists(path))
                 {
-                    long bytes = new System.IO.FileInfo(path).Length;
+                    var bytes = new FileInfo(path).Length;
                     var sizeLabel = new TextBlock
                     {
                         Text = FormatVideoFileSize(bytes),
@@ -567,33 +706,38 @@ internal sealed partial class DiffViewWindow : Window
                         ToolTip = $"{bytes:N0} bytes"
                     };
                     sizeLabel.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
-                    header.Inlines.Add(new InlineUIContainer(sizeLabel) { BaselineAlignment = BaselineAlignment.Center });
+                    header.Inlines.Add(
+                        new InlineUIContainer(sizeLabel) { BaselineAlignment = BaselineAlignment.Center });
                 }
             }
         }
-        Update(sourceHeader, true);
-        Update(targetHeader, false);
+
+        Update(SourceHeader, true);
+        Update(TargetHeader, false);
     }
 
     private static IEnumerable<int> StatusIconIndexes(DiffFile file, bool sourceSide)
     {
-        DiffStamp own = sourceSide ? file.Source : file.Target;
-        DiffStamp other = sourceSide ? file.Target : file.Source;
+        var own = sourceSide ? file.Source : file.Target;
+        var other = sourceSide ? file.Target : file.Source;
         if (own == null)
         {
             yield return 12;
             yield break;
         }
+
         if (other == null)
         {
             yield return 15;
             yield break;
         }
+
         if (file.Kind == DiffKind.Same)
         {
             yield return 11;
             yield break;
         }
+
         if (own.ModifiedUtcSeconds != other.ModifiedUtcSeconds)
             yield return own.ModifiedUtcSeconds < other.ModifiedUtcSeconds ? 14 : 13;
         if (own.Size != other.Size)
@@ -635,7 +779,7 @@ internal sealed partial class DiffViewWindow : Window
 
     private async Task LoadContent(bool reload = true, bool jumpToFirst = true)
     {
-        if (renderingContent || windowClosed) return;
+        if (_renderingContent || _windowClosed) return;
         SetRendering(true);
         ShowLoadProgress(StringOverlay.Get("Diff_Loading"));
         try
@@ -643,51 +787,67 @@ internal sealed partial class DiffViewWindow : Window
             await Dispatcher.Yield(DispatcherPriority.Background);
             CheckWindowOpen();
             if (reload && !await ViewModel.LoadContentAsync()) return;
-            sourceSelectedEditHunks.Clear();
-            targetSelectedEditHunks.Clear();
+            _sourceSelectedEditHunks.Clear();
+            _targetSelectedEditHunks.Clear();
             if (!IsLoaded) return;
             DetachImageFitHandler();
             ResetImageNavigation();
             ResetMediaController();
-            if (imageToolbar is Panel p)
+            if (ImageToolbar is Panel p)
             {
                 p.Children.Clear();
                 p.Visibility = Visibility.Collapsed;
             }
+
             BuildToolbar();
             UpdateSideStatusIcons();
-            leftList = rightList = null;
-            leftScroll = rightScroll = null;
-            imageZoom = null;
-            map = null;
-            hunkOverlay = null;
-            hunkStart = hunkEnd = -1;
-            viewportThumb = null;
-            mapSelection = null;
+            _leftList = _rightList = null;
+            _leftScroll = _rightScroll = null;
+            _imageZoom = null;
+            _map = null;
+            _hunkOverlay = null;
+            _hunkStart = _hunkEnd = -1;
+            _viewportThumb = null;
+            _mapSelection = null;
             UpdateEncodingHeaders();
             UpdateDetachedFileNames();
-            if (ViewModel.IsAudio) { await RenderAudio(); return; }
-            if (ViewModel.IsVideo) { await RenderVideos(); return; }
-            if (ViewModel.IsImage) { await RenderImages(); return; }
-            sharedTextWidth = MeasureSharedTextWidth();
-            FrameworkElement leftHost = MakeHost(true, out leftList);
-            FrameworkElement rightHost = MakeHost(false, out rightList);
-            await PopulatePaneAsync(leftList, true, true);
-            await PopulatePaneAsync(rightList, false, true);
+            if (ViewModel.IsAudio)
+            {
+                await RenderAudio();
+                return;
+            }
+
+            if (ViewModel.IsVideo)
+            {
+                await RenderVideos();
+                return;
+            }
+
+            if (ViewModel.IsImage)
+            {
+                await RenderImages();
+                return;
+            }
+
+            _sharedTextWidth = MeasureSharedTextWidth();
+            var leftHost = MakeHost(true, out _leftList);
+            var rightHost = MakeHost(false, out _rightList);
+            await PopulatePaneAsync(_leftList, true, true);
+            await PopulatePaneAsync(_rightList, false, true);
             CheckWindowOpen();
             // Keep the previous comparison visible until both new panes are ready.
-            body.Children.Clear();
-            mapColumn.Width = new GridLength(34);
-            body.Children.Add(leftHost);
+            Body.Children.Clear();
+            MapColumn.Width = new GridLength(34);
+            Body.Children.Add(leftHost);
             Grid.SetColumn(rightHost, 2);
-            body.Children.Add(rightHost);
-            map = new Canvas();
-            map.SetResourceReference(Panel.BackgroundProperty, "CardBackground");
-            Grid.SetColumn(map, 1);
-            body.Children.Add(map);
-            map.SizeChanged += (s, e) => DrawMap();
+            Body.Children.Add(rightHost);
+            _map = new Canvas();
+            _map.SetResourceReference(Panel.BackgroundProperty, "CardBackground");
+            Grid.SetColumn(_map, 1);
+            Body.Children.Add(_map);
+            _map.SizeChanged += (_, _) => DrawMap();
             DrawMap();
-            hunkOverlay = new System.Windows.Shapes.Path
+            _hunkOverlay = new Path
             {
                 StrokeThickness = 2,
                 StrokeDashArray = new DoubleCollection { 2, 2 },
@@ -695,13 +855,12 @@ internal sealed partial class DiffViewWindow : Window
                 Visibility = Visibility.Collapsed,
                 SnapsToDevicePixels = true
             };
-            hunkOverlay.Stroke = new SolidColorBrush(Color.FromRgb(255, 210, 0));
-            Grid.SetColumnSpan(hunkOverlay, 3);
-            Panel.SetZIndex(hunkOverlay, 2);
-            body.Children.Add(hunkOverlay);
+            _hunkOverlay.Stroke = new SolidColorBrush(Color.FromRgb(255, 210, 0));
+            Grid.SetColumnSpan(_hunkOverlay, 3);
+            Panel.SetZIndex(_hunkOverlay, 2);
+            Body.Children.Add(_hunkOverlay);
             if (ViewModel.IsEmpty)
-            {
-                foreach (int column in new[] { 0, 2 })
+                foreach (var column in new[] { 0, 2 })
                 {
                     var hint = new TextBlock
                     {
@@ -715,52 +874,61 @@ internal sealed partial class DiffViewWindow : Window
                     };
                     hint.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
                     Grid.SetColumn(hint, column);
-                    body.Children.Add(hint);
+                    Body.Children.Add(hint);
                 }
-            }
-            leftList.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(ScrollChanged));
-            rightList.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(ScrollChanged));
-            leftList.PreviewMouseLeftButtonDown += DiffPane_PreviewMouseLeftButtonDown;
-            rightList.PreviewMouseLeftButtonDown += DiffPane_PreviewMouseLeftButtonDown;
-            long finalCount = Math.Max(0L, 2L * lines.Count - 1);
+
+            _leftList.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(ScrollChanged));
+            _rightList.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(ScrollChanged));
+            _leftList.PreviewMouseLeftButtonDown += DiffPane_PreviewMouseLeftButtonDown;
+            _rightList.PreviewMouseLeftButtonDown += DiffPane_PreviewMouseLeftButtonDown;
+            var finalCount = Math.Max(0L, 2L * Lines.Count - 1);
             ShowLoadProgress("Preparing layout\u2026  " + finalCount + " / " + finalCount, 100);
             await Dispatcher.Yield(DispatcherPriority.ContextIdle);
             CheckWindowOpen();
-            if (jumpToFirst && hunks.Count > 0)
-            {
+            if (jumpToFirst && Hunks.Count > 0)
                 _ = Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    if (!IsLoaded || hunks.Count == 0) return;
-                    Jump(hunks[0]);
+                    if (!IsLoaded || Hunks.Count == 0) return;
+                    Jump(Hunks[0]);
                     _ = Dispatcher.BeginInvoke(new Action(() =>
                     {
-                        if (IsLoaded && hunks.Count > 0) Jump(hunks[0]);
+                        if (IsLoaded && Hunks.Count > 0) Jump(Hunks[0]);
                     }), DispatcherPriority.ContextIdle);
                 }), DispatcherPriority.Loaded);
-            }
         }
-        catch (OperationCanceledException) when (windowClosed) { }
-        catch (Exception ex) { ViewModel.ReportError(ex); }
-        finally { SetRendering(false); }
+        catch (OperationCanceledException) when (_windowClosed)
+        {
+        }
+        catch (Exception ex)
+        {
+            ViewModel.ReportError(ex);
+        }
+        finally
+        {
+            SetRendering(false);
+        }
     }
 
     private double MeasureSharedTextWidth()
     {
-        if (lines == null || lines.Count == 0) return 0;
+        if (Lines == null || Lines.Count == 0) return 0;
 
-        string longest = string.Empty;
-        foreach (var line in lines)
+        var longest = string.Empty;
+        foreach (var line in Lines)
         {
-            string left = (line.Left ?? string.Empty).Replace("\t", "    ");
-            string right = (line.Right ?? string.Empty).Replace("\t", "    ");
+            var left = (line.Left ?? string.Empty).Replace("\t", "    ");
+            var right = (line.Right ?? string.Empty).Replace("\t", "    ");
             if (left.Length > longest.Length) longest = left;
             if (right.Length > longest.Length) longest = right;
         }
+
         // Reserve room for an ending marker without changing layout when toggled.
         longest += "  ";
 
-        var typeface = new Typeface(new FontFamily("Consolas, Yu Gothic UI, Meiryo UI"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
-        var formatted = new FormattedText(longest, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface, 13, Brushes.Black, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+        var typeface = new Typeface(new FontFamily("Consolas, Yu Gothic UI, Meiryo UI"), FontStyles.Normal,
+            FontWeights.Normal, FontStretches.Normal);
+        var formatted = new FormattedText(longest, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface, 13,
+            Brushes.Black, VisualTreeHelper.GetDpi(this).PixelsPerDip);
         return formatted.WidthIncludingTrailingWhitespace + 24;
     }
 
@@ -781,14 +949,15 @@ internal sealed partial class DiffViewWindow : Window
         gutter.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
         gutter.SetResourceReference(TextBlock.BackgroundProperty, "CardBackground");
 
-        var numbers = new System.Text.StringBuilder();
-        for (int i = 0; i < lines.Count; i++)
+        var numbers = new StringBuilder();
+        for (var i = 0; i < Lines.Count; i++)
         {
-            DiffLine line = lines[i];
-            int number = sourceSide ? line.LeftNumber : line.RightNumber;
+            var line = Lines[i];
+            var number = sourceSide ? line.LeftNumber : line.RightNumber;
             if (i > 0) numbers.Append('\n');
             numbers.Append(number == 0 ? string.Empty : number.ToString());
         }
+
         gutter.Text = numbers.ToString();
 
         box = MakePane(sourceSide, font);
@@ -809,7 +978,7 @@ internal sealed partial class DiffViewWindow : Window
         box.Tag = gutterViewport;
         // Each gutter follows its own pane, including synchronized scrolling
         // and jumps to a hunk. Match the viewport above the horizontal bar.
-        box.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler((s, e) =>
+        box.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler((_, e) =>
         {
             if (!(e.OriginalSource is ScrollViewer paneScroll)) return;
             gutterViewport.Height = paneScroll.ViewportHeight;
@@ -839,7 +1008,7 @@ internal sealed partial class DiffViewWindow : Window
         {
             IsReadOnly = true,
             IsUndoEnabled = false,
-            ContextMenu = body.ContextMenu,
+            ContextMenu = Body.ContextMenu,
             AcceptsReturn = true,
             BorderThickness = new Thickness(0),
             Padding = new Thickness(0),
@@ -849,85 +1018,101 @@ internal sealed partial class DiffViewWindow : Window
             VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
             AutoWordSelection = false
         };
-        box.SetResourceReference(Control.BackgroundProperty, "CardBackground");
-        box.SetResourceReference(Control.ForegroundProperty, "Ink");
+        box.SetResourceReference(BackgroundProperty, "CardBackground");
+        box.SetResourceReference(ForegroundProperty, "Ink");
         box.SetResourceReference(TextBoxBase.SelectionBrushProperty, "ThemeSelected");
-        box.GotKeyboardFocus += (_, _) => clipboardSource = sourceSide;
+        box.GotKeyboardFocus += (_, _) => _clipboardSource = sourceSide;
         box.SelectionChanged += (_, _) => UpdateTextHunkSelection(box);
 
         box.SizeChanged += (_, _) =>
         {
-            box.Document.PageWidth = Math.Max(sharedTextWidth + 24, Math.Max(200, box.ActualWidth));
+            box.Document.PageWidth = Math.Max(_sharedTextWidth + 24, Math.Max(200, box.ActualWidth));
             UpdateHunkOverlay();
         };
         return box;
     }
 
     private void PopulatePane(RichTextBox box, bool sourceSide)
-        => PopulatePaneAsync(box, sourceSide, false, true).GetAwaiter().GetResult();
-
-    private sealed record RenderedPane(List<DiffLine> Lines, List<Block> Blocks, List<WhitespaceRow> Markers,
-        List<bool> CommentStates);
-    private readonly Dictionary<bool, RenderedPane> renderedPanes = new();
+    {
+        PopulatePaneAsync(box, sourceSide, false, true).GetAwaiter().GetResult();
+    }
 
     private async Task PopulatePaneAsync(RichTextBox box, bool sourceSide, bool responsive, bool incremental = false)
     {
-        renderedPanes.TryGetValue(sourceSide, out var previous);
+        _renderedPanes.TryGetValue(sourceSide, out var previous);
         incremental &= previous != null;
-        var previousRows = incremental ? previous.Lines.Select((line, index) => (line, index))
-            .ToDictionary(item => item.line.FilteredAnchor ?? item.line, item => item.index) : null;
+        var previousRows = incremental
+            ? previous.Lines.Select((line, index) => (line, index))
+                .ToDictionary(item => item.line.FilteredAnchor ?? item.line, item => item.index)
+            : null;
         int prefix = 0, suffix = 0;
-        bool SameRow(DiffLine a, DiffLine b) => ReferenceEquals(a, b) ||
-            (a.FilteredLineCount > 0 && a.FilteredLineCount == b.FilteredLineCount && a.Left == b.Left);
+
+        bool SameRow(DiffLine a, DiffLine b)
+        {
+            return ReferenceEquals(a, b) ||
+                   (a.FilteredLineCount > 0 && a.FilteredLineCount == b.FilteredLineCount && a.Left == b.Left);
+        }
+
         if (incremental)
         {
-            while (prefix < lines.Count && prefix < previous.Lines.Count && SameRow(lines[prefix], previous.Lines[prefix])) prefix++;
-            while (suffix < lines.Count - prefix && suffix < previous.Lines.Count - prefix &&
-                SameRow(lines[lines.Count - 1 - suffix], previous.Lines[previous.Lines.Count - 1 - suffix])) suffix++;
+            while (prefix < Lines.Count && prefix < previous.Lines.Count &&
+                   SameRow(Lines[prefix], previous.Lines[prefix])) prefix++;
+            while (suffix < Lines.Count - prefix && suffix < previous.Lines.Count - prefix &&
+                   SameRow(Lines[Lines.Count - 1 - suffix],
+                       previous.Lines[previous.Lines.Count - 1 - suffix])) suffix++;
         }
-        var document = incremental ? box.Document : new FlowDocument
-        {
-            PagePadding = new Thickness(0),
-            TextAlignment = TextAlignment.Left,
-            LineHeight = DiffLineHeight,
-            LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
-            PageWidth = Math.Max(sharedTextWidth + 24, Math.Max(200, box.ActualWidth)),
-            PageHeight = Math.Max(DiffLineHeight * Math.Max(1, lines == null ? 1 : lines.Count) + 24, 200),
-            IsOptimalParagraphEnabled = false,
-            IsHyphenationEnabled = false
-        };
+
+        var document = incremental
+            ? box.Document
+            : new FlowDocument
+            {
+                PagePadding = new Thickness(0),
+                TextAlignment = TextAlignment.Left,
+                LineHeight = DiffLineHeight,
+                LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
+                PageWidth = Math.Max(_sharedTextWidth + 24, Math.Max(200, box.ActualWidth)),
+                PageHeight = Math.Max(DiffLineHeight * Math.Max(1, Lines.Count) + 24, 200),
+                IsOptimalParagraphEnabled = false,
+                IsHyphenationEnabled = false
+            };
         document.SetResourceReference(FlowDocument.BackgroundProperty, "CardBackground");
         document.SetResourceReference(FlowDocument.ForegroundProperty, "Ink");
 
-        bool blockComment = false;
-        int originalRow = 0;
+        var blockComment = false;
+        var originalRow = 0;
 
         var endings = (sourceSide ? ViewModel.SourceText : ViewModel.TargetText)?.Endings;
-        bool IsEof(DiffLine line) => line.FilteredLineCount == 0 &&
-            (sourceSide ? line.Left : line.Right) != null && endings?.Length > 0 &&
-            (sourceSide ? line.LeftNumber : line.RightNumber) == endings.Length;
-        var markerRows = new List<WhitespaceRow>(lines.Count);
-        var commentStates = new List<bool>(lines.Count);
+
+        bool IsEof(DiffLine line)
+        {
+            return line.FilteredLineCount == 0 &&
+                   (sourceSide ? line.Left : line.Right) != null && endings?.Length > 0 &&
+                   (sourceSide ? line.LeftNumber : line.RightNumber) == endings.Length;
+        }
+
+        var markerRows = new List<WhitespaceRow>(Lines.Count);
+        var commentStates = new List<bool>(Lines.Count);
         var editedHunks = new Dictionary<int, bool>();
         var editedBrushes = new Dictionary<string, Brush>();
 
         // ブロックの一括追加用リスト（都度Addによるイベント発火を防止）
-        var blockList = new List<Block>(lines != null ? lines.Count : 0);
-        var slice = System.Diagnostics.Stopwatch.StartNew();
+        var blockList = new List<Block>(Lines != null ? Lines.Count : 0);
+        var slice = Stopwatch.StartNew();
 
-        foreach (DiffLine line in lines)
+        foreach (var line in Lines)
         {
-            int row = blockList.Count;
-            int oldRow = -1;
+            var row = blockList.Count;
+            var oldRow = -1;
             if (incremental)
             {
                 if (row < prefix) oldRow = row;
-                else if (row >= lines.Count - suffix) oldRow = previous.Lines.Count - (lines.Count - row);
+                else if (row >= Lines.Count - suffix) oldRow = previous.Lines.Count - (Lines.Count - row);
                 else if (previousRows.TryGetValue(line.FilteredAnchor ?? line, out var retained) &&
-                    previous.Lines[retained].FilteredLineCount == line.FilteredLineCount) oldRow = retained;
-                if (oldRow >= 0 && syntaxExtension == ".cs" &&
+                         previous.Lines[retained].FilteredLineCount == line.FilteredLineCount) oldRow = retained;
+                if (oldRow >= 0 && SyntaxExtension == ".cs" &&
                     blockComment != (oldRow > 0 && previous.CommentStates[oldRow - 1])) oldRow = -1;
             }
+
             if (oldRow >= 0)
             {
                 blockList.Add(previous.Blocks[oldRow]);
@@ -939,11 +1124,12 @@ internal sealed partial class DiffViewWindow : Window
                 originalRow += Math.Max(1, line.FilteredLineCount);
                 continue;
             }
+
             if (responsive)
             {
                 CheckWindowOpen();
-                long completed = (sourceSide ? 0L : lines.Count) + blockList.Count;
-                long total = Math.Max(0L, 2L * lines.Count - 1);
+                var completed = (sourceSide ? 0L : Lines.Count) + blockList.Count;
+                var total = Math.Max(0L, 2L * Lines.Count - 1);
                 ShowLoadProgress((sourceSide ? "Source" : "Target") + "  " + completed + " / " + total,
                     100.0 * completed / Math.Max(1L, total));
                 if (blockList.Count == 0 || slice.ElapsedMilliseconds >= 16)
@@ -953,7 +1139,8 @@ internal sealed partial class DiffViewWindow : Window
                     slice.Restart();
                 }
             }
-            string text = sourceSide ? line.Left : line.Right;
+
+            var text = sourceSide ? line.Left : line.Right;
 
             text = (text ?? string.Empty).Replace("\t", "    ");
 
@@ -970,14 +1157,14 @@ internal sealed partial class DiffViewWindow : Window
             {
                 paragraph.Cursor = Cursors.Hand;
                 paragraph.ToolTip = "Click to expand unchanged lines";
-                if (syntaxExtension == ".cs")
-                {
-                    for (int i = 0; i < line.FilteredLineCount; i++)
+                if (SyntaxExtension == ".cs")
+                    for (var i = 0; i < line.FilteredLineCount; i++)
                     {
-                        DiffLine hidden = ViewModel.AllLines[originalRow + i];
-                        AddCSharpRuns(null, (sourceSide ? hidden.Left : hidden.Right) ?? string.Empty, ref blockComment);
+                        var hidden = ViewModel.AllLines[originalRow + i];
+                        AddCSharpRuns(null, (sourceSide ? hidden.Left : hidden.Right) ?? string.Empty,
+                            ref blockComment);
                     }
-                }
+
                 originalRow += line.FilteredLineCount;
                 paragraph.Inlines.Add(new Run(text));
                 paragraph.FontSize = 10;
@@ -998,31 +1185,31 @@ internal sealed partial class DiffViewWindow : Window
 
                 if (ViewModel.CompareCase && line.Kind == DiffLineKind.Modified &&
                     !string.Equals(line.Left, line.Right, StringComparison.Ordinal))
-                {
                     await MarkInlineDifferencesAsync(paragraph, line, sourceSide, responsive);
-                }
 
                 originalRow++;
             }
 
-            string resource = LineBrushKey(line.Kind, sourceSide);
+            var resource = LineBrushKey(line.Kind, sourceSide);
             if (resource != null)
             {
                 paragraph.SetResourceReference(TextElement.BackgroundProperty, resource);
                 if (line.EditHunkId >= 0)
                 {
                     if (!editedHunks.TryGetValue(line.EditHunkId, out var edited))
-                        editedHunks[line.EditHunkId] = edited = ViewModel.CanUndoHunk(line.EditHunkId, true) || ViewModel.CanUndoHunk(line.EditHunkId, false);
+                        editedHunks[line.EditHunkId] = edited = ViewModel.CanUndoHunk(line.EditHunkId, true) ||
+                                                                ViewModel.CanUndoHunk(line.EditHunkId, false);
                     if (edited && TryFindResource(resource) is SolidColorBrush original)
                     {
                         if (!editedBrushes.TryGetValue(resource, out var darker))
                         {
                             var color = original.Color;
                             darker = new SolidColorBrush(Color.FromArgb(color.A,
-                                (byte)(color.R * 0.7), (byte)(color.G * 0.7), (byte)(color.B * 0.7)));
+                                (byte)(color.R * 0.5), (byte)(color.G * 0.5), (byte)(color.B * 0.5)));
                             darker.Freeze();
                             editedBrushes[resource] = darker;
                         }
+
                         paragraph.Background = darker;
                     }
                 }
@@ -1030,11 +1217,13 @@ internal sealed partial class DiffViewWindow : Window
 
             blockList.Add(paragraph);
             commentStates.Add(blockComment);
-            int lineNumber = sourceSide ? line.LeftNumber : line.RightNumber;
-            string ending = lineNumber > 0 && endings != null && lineNumber <= endings.Length ? endings[lineNumber - 1] : string.Empty;
+            var lineNumber = sourceSide ? line.LeftNumber : line.RightNumber;
+            var ending = lineNumber > 0 && endings != null && lineNumber <= endings.Length
+                ? endings[lineNumber - 1]
+                : string.Empty;
             markerRows.Add(new WhitespaceRow(paragraph,
-                line.FilteredLineCount > 0 ? null : (sourceSide ? line.Left : line.Right), ending)
-                { IsEndOfFile = IsEof(line) });
+                    line.FilteredLineCount > 0 ? null : sourceSide ? line.Left : line.Right, ending)
+            { IsEndOfFile = IsEof(line) });
         }
 
         // 最後にまとめて追加
@@ -1046,28 +1235,35 @@ internal sealed partial class DiffViewWindow : Window
                 var retained = blockList.ToHashSet();
                 var oldBlocks = previous.Blocks.ToHashSet();
                 foreach (var block in previous.Blocks)
-                    if (!retained.Contains(block)) document.Blocks.Remove(block);
+                    if (!retained.Contains(block))
+                        document.Blocks.Remove(block);
                 Block anchor = null;
-                for (int i = blockList.Count - 1; i >= 0; i--)
+                for (var i = blockList.Count - 1; i >= 0; i--)
                 {
                     if (!oldBlocks.Contains(blockList[i]))
                     {
                         if (anchor != null) document.Blocks.InsertBefore(anchor, blockList[i]);
                         else document.Blocks.Add(blockList[i]);
                     }
+
                     anchor = blockList[i];
                 }
-                document.PageWidth = Math.Max(sharedTextWidth + 24, Math.Max(200, box.ActualWidth));
-                document.PageHeight = Math.Max(DiffLineHeight * Math.Max(1, lines.Count) + 24, 200);
+
+                document.PageWidth = Math.Max(_sharedTextWidth + 24, Math.Max(200, box.ActualWidth));
+                document.PageHeight = Math.Max(DiffLineHeight * Math.Max(1, Lines.Count) + 24, 200);
             }
-            finally { box.EndChange(); }
+            finally
+            {
+                box.EndChange();
+            }
         }
         else
         {
             document.Blocks.AddRange(blockList);
             box.Document = document;
         }
-        renderedPanes[sourceSide] = new RenderedPane(new List<DiffLine>(lines), blockList, markerRows, commentStates);
+
+        _renderedPanes[sourceSide] = new RenderedPane(new List<DiffLine>(Lines), blockList, markerRows, commentStates);
         if (box.Parent is Grid paneGrid)
             paneGrid.Children.OfType<WhitespaceOverlay>().Single().SetRows(markerRows);
     }
@@ -1078,21 +1274,29 @@ internal sealed partial class DiffViewWindow : Window
         if (changed == null) return;
 
         var ranges = new List<TextRange>();
-        int offset = 0;
-        foreach (Run run in paragraph.Inlines.OfType<Run>())
+        var offset = 0;
+        foreach (var run in paragraph.Inlines.OfType<Run>())
         {
-            int index = 0;
+            var index = 0;
             while (index < run.Text.Length)
             {
-                if (offset + index >= changed.Length || !changed[offset + index]) { index++; continue; }
-                int start = index++;
+                if (offset + index >= changed.Length || !changed[offset + index])
+                {
+                    index++;
+                    continue;
+                }
+
+                var start = index++;
                 while (index < run.Text.Length && offset + index < changed.Length && changed[offset + index]) index++;
-                ranges.Add(new TextRange(run.ContentStart.GetPositionAtOffset(start), run.ContentStart.GetPositionAtOffset(index)));
+                ranges.Add(new TextRange(run.ContentStart.GetPositionAtOffset(start),
+                    run.ContentStart.GetPositionAtOffset(index)));
             }
+
             offset += run.Text.Length;
         }
-        var slice = System.Diagnostics.Stopwatch.StartNew();
-        foreach (TextRange range in ranges)
+
+        var slice = Stopwatch.StartNew();
+        foreach (var range in ranges)
         {
             range.ApplyPropertyValue(TextElement.ForegroundProperty, Brushes.Red);
             range.ApplyPropertyValue(TextElement.FontWeightProperty, FontWeights.Bold);
@@ -1105,24 +1309,27 @@ internal sealed partial class DiffViewWindow : Window
         }
     }
 
-    private static readonly HashSet<string> CSharpKeywords = new HashSet<string>(StringComparer.Ordinal)
-        {
-            "abstract","as","base","bool","break","byte","case","catch","char","checked","class","const","continue",
-            "decimal","default","delegate","do","double","else","enum","event","explicit","extern","false","finally",
-            "fixed","float","for","foreach","goto","if","implicit","in","int","interface","internal","is","lock","long",
-            "namespace","new","null","object","operator","out","override","params","private","protected","public","readonly",
-            "ref","return","sbyte","sealed","short","sizeof","stackalloc","static","string","struct","switch","this",
-            "throw","true","try","typeof","uint","ulong","unchecked","unsafe","ushort","using","virtual","void","volatile",
-            "while","async","await","record","init","required","var","dynamic","get","set","value","yield"
-        };
-
     private void AddSyntaxRuns(Paragraph paragraph, string text, ref bool blockComment)
     {
-        if (syntaxExtension == ".cs") { AddCSharpRuns(paragraph, text, ref blockComment); return; }
-        if (syntaxExtension == ".xaml" || syntaxExtension == ".xml" || syntaxExtension == ".csproj" ||
-            syntaxExtension == ".props" || syntaxExtension == ".targets")
-        { AddXmlRuns(paragraph, text); return; }
-        if (syntaxExtension == ".json") { AddJsonRuns(paragraph, text); return; }
+        if (SyntaxExtension == ".cs")
+        {
+            AddCSharpRuns(paragraph, text, ref blockComment);
+            return;
+        }
+
+        if (SyntaxExtension == ".xaml" || SyntaxExtension == ".xml" || SyntaxExtension == ".csproj" ||
+            SyntaxExtension == ".props" || SyntaxExtension == ".targets")
+        {
+            AddXmlRuns(paragraph, text);
+            return;
+        }
+
+        if (SyntaxExtension == ".json")
+        {
+            AddJsonRuns(paragraph, text);
+            return;
+        }
+
         paragraph.Inlines.Add(new Run(text));
     }
 
@@ -1133,69 +1340,116 @@ internal sealed partial class DiffViewWindow : Window
         {
             if (blockComment)
             {
-                int end = text.IndexOf("*/", i, StringComparison.Ordinal);
+                var end = text.IndexOf("*/", i, StringComparison.Ordinal);
                 AddColoredRun(paragraph, text.Substring(i, end < 0 ? text.Length - i : end + 2 - i), "comment");
                 if (end < 0) return;
-                i = plain = end + 2; blockComment = false; continue;
+                i = plain = end + 2;
+                blockComment = false;
+                continue;
             }
+
             if (i + 1 < text.Length && text[i] == '/' && text[i + 1] == '/')
             {
-                AddPlainRun(paragraph, text, plain, i - plain); AddColoredRun(paragraph, text.Substring(i), "comment"); return;
+                AddPlainRun(paragraph, text, plain, i - plain);
+                AddColoredRun(paragraph, text.Substring(i), "comment");
+                return;
             }
+
             if (i + 1 < text.Length && text[i] == '/' && text[i + 1] == '*')
             {
                 AddPlainRun(paragraph, text, plain, i - plain);
-                int end = text.IndexOf("*/", i + 2, StringComparison.Ordinal);
-                if (end < 0) { AddColoredRun(paragraph, text.Substring(i), "comment"); blockComment = true; return; }
-                AddColoredRun(paragraph, text.Substring(i, end + 2 - i), "comment"); i = plain = end + 2; continue;
-            }
-            if (text[i] == '"' || text[i] == '\'')
-            {
-                AddPlainRun(paragraph, text, plain, i - plain); char quote = text[i]; int start = i++;
-                while (i < text.Length) { if (text[i] == '\\') { i += Math.Min(2, text.Length - i); continue; } if (text[i++] == quote) break; }
-                AddColoredRun(paragraph, text.Substring(start, i - start), "string"); plain = i; continue;
-            }
-            if (char.IsLetter(text[i]) || text[i] == '_')
-            {
-                int start = i++; while (i < text.Length && (char.IsLetterOrDigit(text[i]) || text[i] == '_')) i++;
-                string word = text.Substring(start, i - start);
-                if (CSharpKeywords.Contains(word)) { AddPlainRun(paragraph, text, plain, start - plain); AddColoredRun(paragraph, word, "keyword"); plain = i; }
+                var end = text.IndexOf("*/", i + 2, StringComparison.Ordinal);
+                if (end < 0)
+                {
+                    AddColoredRun(paragraph, text.Substring(i), "comment");
+                    blockComment = true;
+                    return;
+                }
+
+                AddColoredRun(paragraph, text.Substring(i, end + 2 - i), "comment");
+                i = plain = end + 2;
                 continue;
             }
+
+            if (text[i] == '"' || text[i] == '\'')
+            {
+                AddPlainRun(paragraph, text, plain, i - plain);
+                var quote = text[i];
+                var start = i++;
+                while (i < text.Length)
+                {
+                    if (text[i] == '\\')
+                    {
+                        i += Math.Min(2, text.Length - i);
+                        continue;
+                    }
+
+                    if (text[i++] == quote) break;
+                }
+
+                AddColoredRun(paragraph, text.Substring(start, i - start), "string");
+                plain = i;
+                continue;
+            }
+
+            if (char.IsLetter(text[i]) || text[i] == '_')
+            {
+                var start = i++;
+                while (i < text.Length && (char.IsLetterOrDigit(text[i]) || text[i] == '_')) i++;
+                var word = text.Substring(start, i - start);
+                if (CSharpKeywords.Contains(word))
+                {
+                    AddPlainRun(paragraph, text, plain, start - plain);
+                    AddColoredRun(paragraph, word, "keyword");
+                    plain = i;
+                }
+
+                continue;
+            }
+
             if (char.IsDigit(text[i]))
             {
-                AddPlainRun(paragraph, text, plain, i - plain); int start = i++;
+                AddPlainRun(paragraph, text, plain, i - plain);
+                var start = i++;
                 while (i < text.Length && (char.IsLetterOrDigit(text[i]) || text[i] == '.' || text[i] == '_')) i++;
-                AddColoredRun(paragraph, text.Substring(start, i - start), "number"); plain = i; continue;
+                AddColoredRun(paragraph, text.Substring(start, i - start), "number");
+                plain = i;
+                continue;
             }
+
             i++;
         }
+
         AddPlainRun(paragraph, text, plain, text.Length - plain);
     }
 
     private void AddXmlRuns(Paragraph paragraph, string text)
     {
-        int pos = 0;
+        var pos = 0;
         foreach (Match match in Regex.Matches(text, "<!--.*?-->|</?[^>]+>|&[A-Za-z0-9#]+;"))
         {
             AddPlainRun(paragraph, text, pos, match.Index - pos);
-            AddColoredRun(paragraph, match.Value, match.Value.StartsWith("<!--", StringComparison.Ordinal) ? "comment" : "keyword");
+            AddColoredRun(paragraph, match.Value,
+                match.Value.StartsWith("<!--", StringComparison.Ordinal) ? "comment" : "keyword");
             pos = match.Index + match.Length;
         }
+
         AddPlainRun(paragraph, text, pos, text.Length - pos);
     }
 
     private void AddJsonRuns(Paragraph paragraph, string text)
     {
-        int pos = 0;
-        foreach (Match match in Regex.Matches(text, @"""(?:\\.|[^""\\])*""|\b(?:true|false|null)\b|-?\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b"))
+        var pos = 0;
+        foreach (Match match in Regex.Matches(text,
+                     @"""(?:\\.|[^""\\])*""|\b(?:true|false|null)\b|-?\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b"))
         {
             AddPlainRun(paragraph, text, pos, match.Index - pos);
-            string kind = match.Value.StartsWith("\"", StringComparison.Ordinal) ? "string" :
-                (match.Value == "true" || match.Value == "false" || match.Value == "null" ? "keyword" : "number");
+            var kind = match.Value.StartsWith("\"", StringComparison.Ordinal) ? "string" :
+                match.Value == "true" || match.Value == "false" || match.Value == "null" ? "keyword" : "number";
             AddColoredRun(paragraph, match.Value, kind);
             pos = match.Index + match.Length;
         }
+
         AddPlainRun(paragraph, text, pos, text.Length - pos);
     }
 
@@ -1208,11 +1462,11 @@ internal sealed partial class DiffViewWindow : Window
     {
         if (paragraph == null) return;
         var run = new Run(text);
-        bool dark = IsDarkBackground();
-        Color color = kind == "comment" ? (dark ? Color.FromRgb(106, 153, 85) : Color.FromRgb(0, 128, 0)) :
-                      kind == "string" ? (dark ? Color.FromRgb(206, 145, 120) : Color.FromRgb(163, 21, 21)) :
-                      kind == "number" ? (dark ? Color.FromRgb(181, 206, 168) : Color.FromRgb(9, 134, 88)) :
-                                          (dark ? Color.FromRgb(86, 156, 214) : Color.FromRgb(0, 0, 255));
+        var dark = IsDarkBackground();
+        var color = kind == "comment" ? dark ? Color.FromRgb(106, 153, 85) : Color.FromRgb(0, 128, 0) :
+            kind == "string" ? dark ? Color.FromRgb(206, 145, 120) : Color.FromRgb(163, 21, 21) :
+            kind == "number" ? dark ? Color.FromRgb(181, 206, 168) : Color.FromRgb(9, 134, 88) :
+            dark ? Color.FromRgb(86, 156, 214) : Color.FromRgb(0, 0, 255);
         run.Foreground = new SolidColorBrush(color);
         paragraph.Inlines.Add(run);
     }
@@ -1221,7 +1475,7 @@ internal sealed partial class DiffViewWindow : Window
     {
         var brush = TryFindResource("CardBackground") as SolidColorBrush;
         if (brush == null) return true;
-        Color c = brush.Color;
+        var c = brush.Color;
         return (c.R * 299 + c.G * 587 + c.B * 114) / 1000 < 128;
     }
 
@@ -1237,200 +1491,217 @@ internal sealed partial class DiffViewWindow : Window
     {
         if (e.OriginalSource is Visual visual && FindAncestor<ScrollBar>(visual) != null) return;
         var box = sender as RichTextBox;
-        if (box == null || lines == null || lines.Count == 0) return;
+        if (box == null || Lines == null || Lines.Count == 0) return;
 
-        if (leftScroll == null) leftScroll = FindScroll(leftList);
-        if (rightScroll == null) rightScroll = FindScroll(rightList);
-        ScrollViewer scroll = box == rightList ? rightScroll : leftScroll;
+        if (_leftScroll == null) _leftScroll = FindScroll(_leftList);
+        if (_rightScroll == null) _rightScroll = FindScroll(_rightList);
+        var scroll = box == _rightList ? _rightScroll : _leftScroll;
         if (scroll == null) scroll = FindScroll(box);
         if (scroll == null) return;
 
-        double y = e.GetPosition(box).Y + scroll.VerticalOffset;
-        int index = (int)Math.Floor(y / DiffLineHeight);
-        if (index < 0 || index >= lines.Count) return;
-        if (ViewModel.DifferencesOnly && lines[index].Kind == DiffLineKind.Unchanged)
+        var y = e.GetPosition(box).Y + scroll.VerticalOffset;
+        var index = (int)Math.Floor(y / DiffLineHeight);
+        if (index < 0 || index >= Lines.Count) return;
+        if (ViewModel.DifferencesOnly && Lines[index].Kind == DiffLineKind.Unchanged)
         {
             e.Handled = true;
             double vertical = scroll.VerticalOffset, horizontal = scroll.HorizontalOffset;
-            int selectedHunk = current;
-            if (lines[index].FilteredLineCount > 0)
+            var selectedHunk = Current;
+            if (Lines[index].FilteredLineCount > 0)
             {
                 if (!ViewModel.ExpandFilteredLines(index)) return;
             }
             else
             {
-                int collapsedIndex = ViewModel.CollapseExpandedLines(index);
+                var collapsedIndex = ViewModel.CollapseExpandedLines(index);
                 if (collapsedIndex < 0) return;
                 vertical = Math.Min(vertical, collapsedIndex * DiffLineHeight);
             }
+
             RefreshFoldedPanes(vertical, horizontal, selectedHunk);
             return;
         }
-        if (lines[index].Kind == DiffLineKind.Unchanged) return;
-        SelectHunk(index, scrollToStart: false);
+
+        if (Lines[index].Kind == DiffLineKind.Unchanged) return;
+        SelectHunk(index, false);
     }
 
     // Keep the pane controls, toolbar and overlay alive. Complete both document
     // updates and scroll restoration in one dispatcher turn, before rendering.
     internal void RefreshFoldedPanes(double vertical, double horizontal, int selectedHunk)
     {
-        var wasRendering = renderingContent;
-        renderingContent = true;
+        var wasRendering = _renderingContent;
+        _renderingContent = true;
         try
         {
             using (Dispatcher.DisableProcessing())
             {
-                scrolling = true;
+                _scrolling = true;
                 try
                 {
-                    sharedTextWidth = Math.Max(sharedTextWidth, MeasureSharedTextWidth());
-                    PopulatePane(leftList, true);
-                    PopulatePane(rightList, false);
-                    UpdateFoldedGutter(leftList, true);
-                    UpdateFoldedGutter(rightList, false);
-                    body.UpdateLayout();
-                    leftScroll = FindScroll(leftList);
-                    rightScroll = FindScroll(rightList);
-                    leftScroll?.ScrollToVerticalOffset(vertical);
-                    rightScroll?.ScrollToVerticalOffset(vertical);
-                    leftScroll?.ScrollToHorizontalOffset(horizontal);
-                    rightScroll?.ScrollToHorizontalOffset(horizontal);
-                    body.UpdateLayout();
-                    if (selectedHunk >= 0 && selectedHunk < hunks.Count)
-                        SelectHunk(hunks[selectedHunk], false);
-                    else hunkStart = hunkEnd = -1;
+                    _sharedTextWidth = Math.Max(_sharedTextWidth, MeasureSharedTextWidth());
+                    PopulatePane(_leftList, true);
+                    PopulatePane(_rightList, false);
+                    UpdateFoldedGutter(_leftList, true);
+                    UpdateFoldedGutter(_rightList, false);
+                    Body.UpdateLayout();
+                    _leftScroll = FindScroll(_leftList);
+                    _rightScroll = FindScroll(_rightList);
+                    _leftScroll?.ScrollToVerticalOffset(vertical);
+                    _rightScroll?.ScrollToVerticalOffset(vertical);
+                    _leftScroll?.ScrollToHorizontalOffset(horizontal);
+                    _rightScroll?.ScrollToHorizontalOffset(horizontal);
+                    Body.UpdateLayout();
+                    if (selectedHunk >= 0 && selectedHunk < Hunks.Count)
+                        SelectHunk(Hunks[selectedHunk], false);
+                    else _hunkStart = _hunkEnd = -1;
                     DrawMap();
                     UpdateHunkOverlay();
                 }
-                finally { scrolling = false; }
+                finally
+                {
+                    _scrolling = false;
+                }
             }
         }
-        finally { renderingContent = wasRendering; }
+        finally
+        {
+            _renderingContent = wasRendering;
+        }
     }
 
     private void UpdateFoldedGutter(RichTextBox pane, bool source)
     {
         var viewport = (Canvas)pane.Tag;
         var gutter = (TextBlock)viewport.Children[0];
-        var numbers = new System.Text.StringBuilder();
-        for (int i = 0; i < lines.Count; i++)
+        var numbers = new StringBuilder();
+        for (var i = 0; i < Lines.Count; i++)
         {
             if (i > 0) numbers.Append('\n');
-            int number = source ? lines[i].LeftNumber : lines[i].RightNumber;
+            var number = source ? Lines[i].LeftNumber : Lines[i].RightNumber;
             if (number > 0) numbers.Append(number);
         }
+
         gutter.Text = numbers.ToString();
         gutter.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         viewport.Width = Math.Max(viewport.Width, gutter.DesiredSize.Width);
         // Folding only changes displayed row positions, not edit hunk identities.
-        var rowsByHunk = hunks.Where(row => lines[row].EditHunkId >= 0)
-            .ToDictionary(row => lines[row].EditHunkId);
+        var rowsByHunk = Hunks.Where(row => Lines[row].EditHunkId >= 0)
+            .ToDictionary(row => Lines[row].EditHunkId);
         foreach (var button in viewport.Children.OfType<Button>())
         {
             var (_, id, _) = ((int, int, bool))button.Tag;
             button.Tag = (rowsByHunk[id], id, source);
         }
+
         PositionEditArrows(viewport, -Canvas.GetTop(gutter));
     }
 
-    private void Jump(int index) => SelectHunk(index, scrollToStart: true);
+    private void Jump(int index)
+    {
+        SelectHunk(index, true);
+    }
 
     private void SelectHunk(int index, bool scrollToStart)
     {
-        if (lines == null || index < 0 || index >= lines.Count) return;
-        int start = index;
-        while (start > 0 && lines[start - 1].Kind != DiffLineKind.Unchanged)
+        if (Lines == null || index < 0 || index >= Lines.Count) return;
+        var start = index;
+        while (start > 0 && Lines[start - 1].Kind != DiffLineKind.Unchanged)
             start--;
-        if (lines[start].Kind == DiffLineKind.Unchanged)
+        if (Lines[start].Kind == DiffLineKind.Unchanged)
         {
             start = index;
-            while (start < lines.Count && lines[start].Kind == DiffLineKind.Unchanged)
+            while (start < Lines.Count && Lines[start].Kind == DiffLineKind.Unchanged)
                 start++;
-            if (start >= lines.Count) return;
+            if (start >= Lines.Count) return;
         }
-        int end = start + 1;
-        while (end < lines.Count && lines[end].Kind != DiffLineKind.Unchanged)
+
+        var end = start + 1;
+        while (end < Lines.Count && Lines[end].Kind != DiffLineKind.Unchanged)
             end++;
 
-        hunkStart = start;
-        hunkEnd = end;
-        int hunkIndex = hunks.IndexOf(start);
+        _hunkStart = start;
+        _hunkEnd = end;
+        var hunkIndex = Hunks.IndexOf(start);
         if (hunkIndex < 0)
         {
-            hunkIndex = hunks.FindLastIndex(item => item <= start);
+            hunkIndex = Hunks.FindLastIndex(item => item <= start);
             if (hunkIndex < 0) hunkIndex = 0;
         }
-        current = hunkIndex;
+
+        Current = hunkIndex;
 
         if (scrollToStart)
         {
-            ScrollPaneToLine(leftList, start);
-            ScrollPaneToLine(rightList, start);
+            ScrollPaneToLine(_leftList, start);
+            ScrollPaneToLine(_rightList, start);
         }
+
         Dispatcher.BeginInvoke(new Action(UpdateHunkOverlay), DispatcherPriority.Loaded);
     }
 
     private void UpdateHunkOverlay()
     {
         UpdateMapSelection();
-        if (hunkOverlay == null || hunkStart < 0 || hunkEnd <= hunkStart || lines == null)
+        if (_hunkOverlay == null || _hunkStart < 0 || _hunkEnd <= _hunkStart || Lines == null)
         {
-            if (hunkOverlay != null) hunkOverlay.Visibility = Visibility.Collapsed;
+            if (_hunkOverlay != null) _hunkOverlay.Visibility = Visibility.Collapsed;
             return;
         }
 
-        if (leftScroll == null) leftScroll = FindScroll(leftList);
-        if (leftScroll == null)
+        if (_leftScroll == null) _leftScroll = FindScroll(_leftList);
+        if (_leftScroll == null)
         {
-            hunkOverlay.Visibility = Visibility.Collapsed;
+            _hunkOverlay.Visibility = Visibility.Collapsed;
             return;
         }
 
-        Point viewTop = leftScroll.TranslatePoint(new Point(0, 0), body);
-        double viewHeight = leftScroll.ViewportHeight;
-        if (viewHeight <= 0) viewHeight = body.ActualHeight;
-        double clipTop = viewTop.Y;
-        double clipBottom = viewTop.Y + viewHeight;
+        var viewTop = _leftScroll.TranslatePoint(new Point(0, 0), Body);
+        var viewHeight = _leftScroll.ViewportHeight;
+        if (viewHeight <= 0) viewHeight = Body.ActualHeight;
+        var clipTop = viewTop.Y;
+        var clipBottom = viewTop.Y + viewHeight;
 
         // Paragraph backgrounds use fixed row boundaries, not glyph bounds.
         // Glyph ascenders/descenders shift the outline below the painted top.
-        double hunkTop = viewTop.Y + hunkStart * DiffLineHeight - leftScroll.VerticalOffset;
-        double hunkBottom = viewTop.Y + hunkEnd * DiffLineHeight - leftScroll.VerticalOffset;
-        var sourceHost = FindAncestor<Border>(leftList);
-        var targetHost = FindAncestor<Border>(rightList);
+        var hunkTop = viewTop.Y + _hunkStart * DiffLineHeight - _leftScroll.VerticalOffset;
+        var hunkBottom = viewTop.Y + _hunkEnd * DiffLineHeight - _leftScroll.VerticalOffset;
+        var sourceHost = FindAncestor<Border>(_leftList);
+        var targetHost = FindAncestor<Border>(_rightList);
         if (sourceHost == null || targetHost == null) return;
-        double innerLeft = sourceHost.TranslatePoint(new Point(sourceHost.BorderThickness.Left, 0), body).X;
-        double innerRight = targetHost.TranslatePoint(new Point(targetHost.ActualWidth - targetHost.BorderThickness.Right, 0), body).X;
+        var innerLeft = sourceHost.TranslatePoint(new Point(sourceHost.BorderThickness.Left, 0), Body).X;
+        var innerRight = targetHost
+            .TranslatePoint(new Point(targetHost.ActualWidth - targetHost.BorderThickness.Right, 0), Body).X;
         if (hunkBottom <= clipTop || hunkTop >= clipBottom)
         {
-            hunkOverlay.Visibility = Visibility.Collapsed;
+            _hunkOverlay.Visibility = Visibility.Collapsed;
             return;
         }
 
-        bool showTopEdge = hunkTop >= clipTop - 0.5;
-        bool showBottomEdge = hunkBottom <= clipBottom + 0.5;
-        double y = Math.Max(clipTop, hunkTop);
-        double bottom = Math.Min(clipBottom, hunkBottom);
-        double height = bottom - y;
+        var showTopEdge = hunkTop >= clipTop - 0.5;
+        var showBottomEdge = hunkBottom <= clipBottom + 0.5;
+        var y = Math.Max(clipTop, hunkTop);
+        var bottom = Math.Min(clipBottom, hunkBottom);
+        var height = bottom - y;
         if (height < 1)
         {
-            hunkOverlay.Visibility = Visibility.Collapsed;
+            _hunkOverlay.Visibility = Visibility.Collapsed;
             return;
         }
 
         // Keep the entire stroke inside the arranged Path; a stroke centered
         // on its bottom boundary was clipped to half thickness.
-        var dpi = VisualTreeHelper.GetDpi(body);
+        var dpi = VisualTreeHelper.GetDpi(Body);
         y = Math.Round(y * dpi.DpiScaleY) / dpi.DpiScaleY;
         bottom = Math.Round(bottom * dpi.DpiScaleY) / dpi.DpiScaleY;
         height = bottom - y;
-        double inset = hunkOverlay.StrokeThickness / 2;
+        var inset = _hunkOverlay.StrokeThickness / 2;
         double topEdge = inset, bottomEdge = Math.Max(inset, height - inset);
         var geometry = new StreamGeometry();
         using (var drawing = geometry.Open())
         {
-            double left = innerLeft + inset;
-            double right = Math.Max(left, innerRight - inset);
+            var left = innerLeft + inset;
+            var right = Math.Max(left, innerRight - inset);
             drawing.BeginFigure(new Point(left, topEdge), false, false);
             drawing.LineTo(new Point(left, bottomEdge), true, false);
             if (showBottomEdge) drawing.LineTo(new Point(right, bottomEdge), true, false);
@@ -1438,22 +1709,24 @@ internal sealed partial class DiffViewWindow : Window
             drawing.LineTo(new Point(right, topEdge), true, false);
             if (showTopEdge) drawing.LineTo(new Point(left, topEdge), true, false);
         }
-        hunkOverlay.Data = geometry;
-        hunkOverlay.Margin = new Thickness(0, y, 0, Math.Max(0, body.ActualHeight - y - height));
-        hunkOverlay.Visibility = Visibility.Visible;
+
+        _hunkOverlay.Data = geometry;
+        _hunkOverlay.Margin = new Thickness(0, y, 0, Math.Max(0, Body.ActualHeight - y - height));
+        _hunkOverlay.Visibility = Visibility.Visible;
     }
 
     private static void ScrollPaneToLine(RichTextBox box, int index)
     {
         if (box?.Document == null) return;
-        int i = 0;
-        foreach (Block block in box.Document.Blocks)
+        var i = 0;
+        foreach (var block in box.Document.Blocks)
         {
             if (i == index)
             {
                 block.BringIntoView();
                 return;
             }
+
             i++;
         }
     }
@@ -1462,171 +1735,199 @@ internal sealed partial class DiffViewWindow : Window
     {
         if (parent == null) return null;
         if (parent is ScrollViewer) return (ScrollViewer)parent;
-        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++) { var found = FindScroll(VisualTreeHelper.GetChild(parent, i)); if (found != null) return found; }
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var found = FindScroll(VisualTreeHelper.GetChild(parent, i));
+            if (found != null) return found;
+        }
+
         return null;
     }
 
     private void ScrollChanged(object sender, ScrollChangedEventArgs e)
     {
-        if (scrolling) return;
-        var from = e.OriginalSource as ScrollViewer; if (from == null) return;
-        if (leftScroll == null) leftScroll = FindScroll(leftList);
-        if (rightScroll == null) rightScroll = FindScroll(rightList);
-        if (from != leftScroll && from != rightScroll) return;
+        if (_scrolling) return;
+        var from = e.OriginalSource as ScrollViewer;
+        if (from == null) return;
+        if (_leftScroll == null) _leftScroll = FindScroll(_leftList);
+        if (_rightScroll == null) _rightScroll = FindScroll(_rightList);
+        if (from != _leftScroll && from != _rightScroll) return;
         if (e.ExtentHeightChange != 0 || e.ViewportHeightChange != 0) DrawMap();
         UpdateImageNavigation();
         UpdateViewport(from);
         UpdateHunkOverlay();
         if (e.VerticalChange == 0 && e.HorizontalChange == 0) return;
-        var to = from == leftScroll ? rightScroll : leftScroll; if (to == null) return;
-        scrolling = true; to.ScrollToVerticalOffset(from.VerticalOffset); to.ScrollToHorizontalOffset(from.HorizontalOffset); scrolling = false;
+        var to = from == _leftScroll ? _rightScroll : _leftScroll;
+        if (to == null) return;
+        _scrolling = true;
+        to.ScrollToVerticalOffset(from.VerticalOffset);
+        to.ScrollToHorizontalOffset(from.HorizontalOffset);
+        _scrolling = false;
     }
 
     private void UpdateViewport(ScrollViewer scroll)
     {
-        if (viewportThumb == null || map == null || scroll == null) return;
-        double height = MapHeight;
-        double scale = height / MapExtent;
-        viewportThumb.Height = Math.Min(height, scroll.ViewportHeight * scale);
-        viewportThumb.Width = Math.Max(0, map.ActualWidth - 2);
-        Canvas.SetTop(viewportThumb, Math.Max(0, scroll.VerticalOffset * scale));
+        if (_viewportThumb == null || _map == null || scroll == null) return;
+        var height = MapHeight;
+        var scale = height / MapExtent;
+        _viewportThumb.Height = Math.Min(height, scroll.ViewportHeight * scale);
+        _viewportThumb.Width = Math.Max(0, _map.ActualWidth - 2);
+        Canvas.SetTop(_viewportThumb, Math.Max(0, scroll.VerticalOffset * scale));
         UpdateMapSelection();
     }
 
-    private double MapHeight => Math.Max(0, Math.Min(map?.ActualHeight ?? 0,
-        leftScroll != null && leftScroll.ViewportHeight > 0 ? leftScroll.ViewportHeight : map?.ActualHeight ?? 0));
-
-    private double MapExtent => Math.Max(1, Math.Max((lines?.Count ?? 0) * DiffLineHeight,
-        Math.Max(leftScroll?.ExtentHeight ?? 0, leftScroll?.ViewportHeight ?? 0)));
-
     private void UpdateMapSelection()
     {
-        if (mapSelection == null || viewportThumb == null) return;
-        mapSelection.Visibility = Visibility.Collapsed;
-        if (hunkStart < 0 || hunkEnd <= hunkStart) return;
-        double scale = MapHeight / MapExtent;
-        double viewTop = Canvas.GetTop(viewportThumb);
+        if (_mapSelection == null || _viewportThumb == null) return;
+        _mapSelection.Visibility = Visibility.Collapsed;
+        if (_hunkStart < 0 || _hunkEnd <= _hunkStart) return;
+        var scale = MapHeight / MapExtent;
+        var viewTop = Canvas.GetTop(_viewportThumb);
         if (double.IsNaN(viewTop)) return;
-        double top = Math.Max(viewTop + 2, hunkStart * DiffLineHeight * scale);
-        double bottom = Math.Min(viewTop + viewportThumb.Height - 2, hunkEnd * DiffLineHeight * scale);
+        var top = Math.Max(viewTop + 2, _hunkStart * DiffLineHeight * scale);
+        var bottom = Math.Min(viewTop + _viewportThumb.Height - 2, _hunkEnd * DiffLineHeight * scale);
         if (bottom <= top) return;
-        Canvas.SetLeft(mapSelection, 3);
-        Canvas.SetTop(mapSelection, top);
-        mapSelection.Width = Math.Max(0, map.ActualWidth - 6);
-        mapSelection.Height = bottom - top;
-        mapSelection.Visibility = Visibility.Visible;
+        Canvas.SetLeft(_mapSelection, 3);
+        Canvas.SetTop(_mapSelection, top);
+        _mapSelection.Width = Math.Max(0, _map.ActualWidth - 6);
+        _mapSelection.Height = bottom - top;
+        _mapSelection.Visibility = Visibility.Visible;
     }
 
     private void DragViewport(object sender, DragDeltaEventArgs e)
     {
-        if (leftScroll == null || rightScroll == null) return;
-        double travel = Math.Max(0, MapHeight - viewportThumb.Height);
-        viewportDragTop = Math.Max(0, Math.Min(travel, viewportDragTop + e.VerticalChange));
-        double fraction = travel <= 0 ? 0 : viewportDragTop / travel;
-        leftScroll.ScrollToVerticalOffset(fraction * leftScroll.ScrollableHeight);
-        rightScroll.ScrollToVerticalOffset(fraction * rightScroll.ScrollableHeight);
+        if (_leftScroll == null || _rightScroll == null) return;
+        var travel = Math.Max(0, MapHeight - _viewportThumb.Height);
+        _viewportDragTop = Math.Max(0, Math.Min(travel, _viewportDragTop + e.VerticalChange));
+        var fraction = travel <= 0 ? 0 : _viewportDragTop / travel;
+        _leftScroll.ScrollToVerticalOffset(fraction * _leftScroll.ScrollableHeight);
+        _rightScroll.ScrollToVerticalOffset(fraction * _rightScroll.ScrollableHeight);
         e.Handled = true;
     }
 
     private void DrawMap()
     {
-        if (map == null || lines == null) return;
-        if (leftScroll == null) leftScroll = FindScroll(leftList);
-        if (rightScroll == null) rightScroll = FindScroll(rightList);
-        map.Children.Clear();
-        foreach (int start in hunks)
+        if (_map == null || Lines == null) return;
+        if (_leftScroll == null) _leftScroll = FindScroll(_leftList);
+        if (_rightScroll == null) _rightScroll = FindScroll(_rightList);
+        _map.Children.Clear();
+        foreach (var start in Hunks)
         {
-            int end = start + 1; while (end < lines.Count && lines[end].Kind != DiffLineKind.Unchanged) end++;
-            DiffLineKind kind = lines[start].Kind;
-            double mapWidth = Math.Max(0, map.ActualWidth);
-            double halfWidth = mapWidth / 2.0;
-            double scale = MapHeight / MapExtent;
-            double top = start * DiffLineHeight * scale;
-            double height = Math.Min(Math.Max(1, (end - start) * DiffLineHeight * scale), Math.Max(0, MapHeight - top));
+            var end = start + 1;
+            while (end < Lines.Count && Lines[end].Kind != DiffLineKind.Unchanged) end++;
+            var kind = Lines[start].Kind;
+            var mapWidth = Math.Max(0, _map.ActualWidth);
+            var halfWidth = mapWidth / 2.0;
+            var scale = MapHeight / MapExtent;
+            var top = start * DiffLineHeight * scale;
+            var height = Math.Min(Math.Max(1, (end - start) * DiffLineHeight * scale), Math.Max(0, MapHeight - top));
 
             if (kind == DiffLineKind.Modified)
             {
-                var leftMarker = new Rectangle { Width = halfWidth, Height = height, ToolTip = string.Format(StringOverlay.Get("Diff_HunkN"), hunks.IndexOf(start) + 1), Cursor = System.Windows.Input.Cursors.Hand };
+                var leftMarker = new Rectangle
+                {
+                    Width = halfWidth,
+                    Height = height,
+                    ToolTip = string.Format(StringOverlay.Get("Diff_HunkN"), Hunks.IndexOf(start) + 1),
+                    Cursor = Cursors.Hand
+                };
                 leftMarker.SetResourceReference(Shape.FillProperty, "DiffRemoved");
                 Canvas.SetLeft(leftMarker, 0);
                 Canvas.SetTop(leftMarker, top);
-                leftMarker.MouseLeftButtonDown += (s, e) => Jump(start);
-                map.Children.Add(leftMarker);
+                leftMarker.MouseLeftButtonDown += (_, _) => Jump(start);
+                _map.Children.Add(leftMarker);
 
-                var rightMarker = new Rectangle { Width = halfWidth, Height = height, ToolTip = string.Format(StringOverlay.Get("Diff_HunkN"), hunks.IndexOf(start) + 1), Cursor = System.Windows.Input.Cursors.Hand };
+                var rightMarker = new Rectangle
+                {
+                    Width = halfWidth,
+                    Height = height,
+                    ToolTip = string.Format(StringOverlay.Get("Diff_HunkN"), Hunks.IndexOf(start) + 1),
+                    Cursor = Cursors.Hand
+                };
                 rightMarker.SetResourceReference(Shape.FillProperty, "DiffAdded");
                 Canvas.SetLeft(rightMarker, halfWidth);
                 Canvas.SetTop(rightMarker, top);
-                rightMarker.MouseLeftButtonDown += (s, e) => Jump(start);
-                map.Children.Add(rightMarker);
+                rightMarker.MouseLeftButtonDown += (_, _) => Jump(start);
+                _map.Children.Add(rightMarker);
             }
             else
             {
-                var marker = new Rectangle { Width = halfWidth, Height = height, ToolTip = string.Format(StringOverlay.Get("Diff_HunkN"), hunks.IndexOf(start) + 1), Cursor = System.Windows.Input.Cursors.Hand };
-                marker.SetResourceReference(Shape.FillProperty, kind == DiffLineKind.Added ? "DiffAdded" : "DiffRemoved");
+                var marker = new Rectangle
+                {
+                    Width = halfWidth,
+                    Height = height,
+                    ToolTip = string.Format(StringOverlay.Get("Diff_HunkN"), Hunks.IndexOf(start) + 1),
+                    Cursor = Cursors.Hand
+                };
+                marker.SetResourceReference(Shape.FillProperty,
+                    kind == DiffLineKind.Added ? "DiffAdded" : "DiffRemoved");
                 Canvas.SetLeft(marker, kind == DiffLineKind.Added ? halfWidth : 0);
                 Canvas.SetTop(marker, top);
-                marker.MouseLeftButtonDown += (s, e) => Jump(start);
-                map.Children.Add(marker);
+                marker.MouseLeftButtonDown += (_, _) => Jump(start);
+                _map.Children.Add(marker);
             }
         }
-        if (viewportThumb == null)
+
+        if (_viewportThumb == null)
         {
-            viewportThumb = new Thumb { Cursor = System.Windows.Input.Cursors.Hand, ToolTip = StringOverlay.Get("Diff_VisibleRange"), Focusable = false };
+            _viewportThumb = new Thumb
+            { Cursor = Cursors.Hand, ToolTip = StringOverlay.Get("Diff_VisibleRange"), Focusable = false };
             var border = new FrameworkElementFactory(typeof(Border));
             border.SetValue(Border.BorderThicknessProperty, new Thickness(0));
             border.SetValue(Border.BackgroundProperty, new DynamicResourceExtension("Ink"));
-            border.SetValue(UIElement.OpacityProperty, 0.20);
-            viewportThumb.Template = new ControlTemplate(typeof(Thumb)) { VisualTree = border };
-            viewportThumb.DragStarted += (s, e) => viewportDragTop = Canvas.GetTop(viewportThumb);
-            viewportThumb.DragDelta += DragViewport;
+            border.SetValue(OpacityProperty, 0.20);
+            _viewportThumb.Template = new ControlTemplate(typeof(Thumb)) { VisualTree = border };
+            _viewportThumb.DragStarted += (_, _) => _viewportDragTop = Canvas.GetTop(_viewportThumb);
+            _viewportThumb.DragDelta += DragViewport;
         }
-        Canvas.SetLeft(viewportThumb, 1);
-        Panel.SetZIndex(viewportThumb, 1);
-        map.Children.Add(viewportThumb);
-        if (mapSelection == null)
-            mapSelection = new Border
+
+        Canvas.SetLeft(_viewportThumb, 1);
+        Panel.SetZIndex(_viewportThumb, 1);
+        _map.Children.Add(_viewportThumb);
+        if (_mapSelection == null)
+            _mapSelection = new Border
             {
                 BorderBrush = new SolidColorBrush(Color.FromRgb(255, 210, 0)),
                 BorderThickness = new Thickness(2),
                 IsHitTestVisible = false,
                 Visibility = Visibility.Collapsed
             };
-        Panel.SetZIndex(mapSelection, 2);
-        map.Children.Add(mapSelection);
-        if (leftScroll == null) leftScroll = FindScroll(leftList);
-        if (rightScroll == null) rightScroll = FindScroll(rightList);
-        UpdateViewport(leftScroll);
+        Panel.SetZIndex(_mapSelection, 2);
+        _map.Children.Add(_mapSelection);
+        if (_leftScroll == null) _leftScroll = FindScroll(_leftList);
+        if (_rightScroll == null) _rightScroll = FindScroll(_rightList);
+        UpdateViewport(_leftScroll);
     }
 
     private Task RenderImages()
     {
         var left = ViewModel.SourceImage;
         var right = ViewModel.TargetImage;
-        body.Children.Clear();
+        Body.Children.Clear();
         // 前回の描画で登録したウィンドウ側のキーイベントを解除する。
-        if (gifFrameHost.Tag is System.Windows.Input.KeyEventHandler previousFrameKeyHandler)
+        if (GifFrameHost.Tag is KeyEventHandler previousFrameKeyHandler)
         {
-            RemoveHandler(System.Windows.Input.Keyboard.PreviewKeyDownEvent, previousFrameKeyHandler);
-            gifFrameHost.Tag = null;
+            RemoveHandler(Keyboard.PreviewKeyDownEvent, previousFrameKeyHandler);
+            GifFrameHost.Tag = null;
         }
-        gifFrameHost.Children.Clear();
-        gifFrameHost.Visibility = Visibility.Collapsed;
-        body.ColumnDefinitions[1].Width = new GridLength(12);
+
+        GifFrameHost.Children.Clear();
+        GifFrameHost.Visibility = Visibility.Collapsed;
+        Body.ColumnDefinitions[1].Width = new GridLength(12);
         double width = Math.Max(left == null ? 0 : left.PixelWidth, right == null ? 0 : right.PixelWidth);
         double height = Math.Max(left == null ? 0 : left.PixelHeight, right == null ? 0 : right.PixelHeight);
         var leftCanvas = ImageCanvas(left, width, height, out var leftPixelGrid);
         var rightCanvas = ImageCanvas(right, width, height, out var rightPixelGrid);
-        leftScroll = ThemedViewer(leftCanvas, true, left == null);
-        rightScroll = ThemedViewer(rightCanvas, false, right == null);
-        EnableImagePan(leftScroll);
-        EnableImagePan(rightScroll);
-        body.Children.Add(ImagePaneHost(leftScroll, true, left == null));
-        var rightHost = ImagePaneHost(rightScroll, false, right == null);
+        _leftScroll = ThemedViewer(leftCanvas, true, left == null);
+        _rightScroll = ThemedViewer(rightCanvas, false, right == null);
+        EnableImagePan(_leftScroll);
+        EnableImagePan(_rightScroll);
+        Body.Children.Add(ImagePaneHost(_leftScroll, true, left == null));
+        var rightHost = ImagePaneHost(_rightScroll, false, right == null);
         Grid.SetColumn(rightHost, 2);
-        body.Children.Add(rightHost);
-        leftScroll.ScrollChanged += ScrollChanged;
-        rightScroll.ScrollChanged += ScrollChanged;
+        Body.Children.Add(rightHost);
+        _leftScroll.ScrollChanged += ScrollChanged;
+        _rightScroll.ScrollChanged += ScrollChanged;
         // The navigator is supplementary: a failure to generate its preview must
         // not prevent the image zoom toolbar from being initialized.
         try
@@ -1635,13 +1936,14 @@ internal sealed partial class DiffViewWindow : Window
         }
         catch (InvalidOperationException)
         {
-            imageDetails.Children.Clear();
-            imageNavigator = null;
-            imageViewport = null;
-            sourcePixels = targetPixels = null;
-            sourcePixelDetails = targetPixelDetails = null;
+            ImageDetails.Children.Clear();
+            _imageNavigator = null;
+            _imageViewport = null;
+            _sourcePixels = _targetPixels = null;
+            _sourcePixelDetails = _targetPixelDetails = null;
         }
-        var zoom = imageZoom = new Slider
+
+        var zoom = _imageZoom = new Slider
         {
             Minimum = 0.05,
             Maximum = 16,
@@ -1661,35 +1963,35 @@ internal sealed partial class DiffViewWindow : Window
         zoomLabel.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
         // Fit images and icons to the viewport when first opened.
         bool fitToWindow = true, fitting = false;
-        Action fit = () =>
+        void Fit()
         {
             if (!fitToWindow || width <= 0 || height <= 0) return;
-            double viewportWidth = Math.Min(leftScroll.ViewportWidth, rightScroll.ViewportWidth);
-            double viewportHeight = Math.Min(leftScroll.ViewportHeight, rightScroll.ViewportHeight);
+            var viewportWidth = Math.Min(_leftScroll.ViewportWidth, _rightScroll.ViewportWidth);
+            var viewportHeight = Math.Min(_leftScroll.ViewportHeight, _rightScroll.ViewportHeight);
             if (viewportWidth <= 0 || viewportHeight <= 0) return;
-            double scale = Math.Min(viewportWidth / width, viewportHeight / height);
+            var scale = Math.Min(viewportWidth / width, viewportHeight / height);
             scale = Math.Min(1.0, scale);
             if (scale <= 0) return;
             fitting = true;
             zoom.Value = Math.Max(zoom.Minimum, Math.Min(zoom.Maximum, scale));
             fitting = false;
-        };
+        }
 
         // GIFフレームの更新では、画像枠・スライダー・ズームを再生成しない。
-        BitmapSource xorImage = null;
+
         void UpdateDisplayedFrames()
         {
             left = ViewModel.SourceImage;
             right = ViewModel.TargetImage;
             width = Math.Max(left?.PixelWidth ?? 0, right?.PixelWidth ?? 0);
             height = Math.Max(left?.PixelHeight ?? 0, right?.PixelHeight ?? 0);
-            xorImage = null; // フレームが変わったのでXORを再計算する
+            BitmapSource xorImage = null; // フレームが変わったのでXORを再計算する
 
             if (left != null && right != null &&
-                (sourceImageXorMode || targetImageXorMode))
+                (_sourceImageXorMode || _targetImageXorMode))
                 xorImage = CreateXorBitmap(left, right);
 
-            void UpdateCanvas(Canvas canvas, BitmapSource pixels, ref Canvas pixelGrid)
+            Canvas UpdateCanvas(Canvas canvas, BitmapSource pixels)
             {
                 var replacement = ImageCanvas(pixels, width, height, out var newGrid);
                 canvas.Width = width;
@@ -1697,26 +1999,26 @@ internal sealed partial class DiffViewWindow : Window
                 canvas.Children.Clear();
                 while (replacement.Children.Count > 0)
                 {
-                    UIElement child = replacement.Children[0];
+                    var child = replacement.Children[0];
                     replacement.Children.RemoveAt(0);
                     canvas.Children.Add(child);
                 }
-                pixelGrid = newGrid;
-                if (pixelGrid != null)
-                    pixelGrid.Visibility = zoom.Value >= zoom.Maximum - 0.0001
-                        ? Visibility.Visible : Visibility.Collapsed;
+
+                if (newGrid != null)
+                    newGrid.Visibility = zoom.Value >= zoom.Maximum - 0.0001
+                        ? Visibility.Visible
+                        : Visibility.Collapsed;
+                return newGrid;
             }
 
-            UpdateCanvas(leftCanvas,
-                sourceImageXorMode && xorImage != null ? xorImage : left,
-                ref leftPixelGrid);
-            UpdateCanvas(rightCanvas,
-                targetImageXorMode && xorImage != null ? xorImage : right,
-                ref rightPixelGrid);
+            leftPixelGrid = UpdateCanvas(leftCanvas,
+                _sourceImageXorMode && xorImage != null ? xorImage : left);
+            rightPixelGrid = UpdateCanvas(rightCanvas,
+                _targetImageXorMode && xorImage != null ? xorImage : right);
             UpdateImageNavigation();
         }
 
-        var wrapper = imageToolbar as Panel;
+        var wrapper = ImageToolbar as Panel;
         if (wrapper != null)
         {
             wrapper.Children.Clear();
@@ -1728,7 +2030,7 @@ internal sealed partial class DiffViewWindow : Window
             var toolbarView = new Viewbox { Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly };
             // Let the parent measure the Viewbox. Its own ActualWidth may still be
             // zero after the collapsed toolbar is rebuilt during a reload.
-            toolbar.SetBinding(FrameworkElement.WidthProperty, new System.Windows.Data.Binding("ActualWidth") { Source = imageControlRow });
+            toolbar.SetBinding(WidthProperty, new Binding("ActualWidth") { Source = ImageControlRow });
             toolbarView.Child = toolbar;
             wrapper.Children.Add(toolbarView);
             var buttons = new StackPanel { Orientation = Orientation.Horizontal };
@@ -1747,7 +2049,7 @@ internal sealed partial class DiffViewWindow : Window
             chrome.SetResourceReference(Border.BorderBrushProperty, "Line");
             chrome.BorderThickness = new Thickness(1);
             var chromeRow = (Grid)chrome.Child;
-            for (int column = 0; column < 5; column++)
+            for (var column = 0; column < 5; column++)
                 chromeRow.ColumnDefinitions.Add(new ColumnDefinition
                 { Width = column == 2 ? new GridLength(1, GridUnitType.Star) : GridLength.Auto });
             var zoomTitle = new TextBlock
@@ -1771,14 +2073,24 @@ internal sealed partial class DiffViewWindow : Window
                 zoom.Value = Math.Min(zoom.Maximum, zoom.Value * 1.25);
             }));
             chromeRow.Children.Add(zoomLabel);
-            for (int column = 0; column < chromeRow.Children.Count; column++)
+            for (var column = 0; column < chromeRow.Children.Count; column++)
                 Grid.SetColumn(chromeRow.Children[column], column);
             toolbar.Children.Add(chrome);
-            AddIconActionButton(buttons, DifferencerStatusIcons.GetCustomIcon(72), StringOverlay.Get("Diff_Fit"), () => { fitToWindow = true; fit(); });
-            AddIconActionButton(buttons, DifferencerStatusIcons.GetCustomIcon(73), "100%", () => { fitToWindow = false; zoom.Value = 1; });
+            AddIconActionButton(buttons, DifferencerStatusIcons.GetCustomIcon(72), StringOverlay.Get("Diff_Fit"), () =>
+            {
+                fitToWindow = true;
+                Fit();
+            });
+            AddIconActionButton(buttons, DifferencerStatusIcons.GetCustomIcon(73), "100%", () =>
+            {
+                fitToWindow = false;
+                zoom.Value = 1;
+            });
+
             void AddXorButton(bool sourceSide, int iconIndex, string title)
             {
-                var xorIcon = new Image { Source = DifferencerStatusIcons.GetCustomIcon(iconIndex), Stretch = Stretch.Uniform };
+                var xorIcon = new Image
+                { Source = DifferencerStatusIcons.GetCustomIcon(iconIndex), Stretch = Stretch.Uniform };
                 RenderOptions.SetBitmapScalingMode(xorIcon, BitmapScalingMode.HighQuality);
                 var xorButton = new ToggleButton
                 {
@@ -1786,36 +2098,41 @@ internal sealed partial class DiffViewWindow : Window
                     Style = TryFindResource("IconToggleButton") as Style,
                     ToolTip = title,
                     Margin = new Thickness(0, 0, 2, 8),
-                    IsChecked = sourceSide ? sourceImageXorMode : targetImageXorMode,
+                    IsChecked = sourceSide ? _sourceImageXorMode : _targetImageXorMode,
                     IsEnabled = left != null && right != null
                 };
-                System.Windows.Automation.AutomationProperties.SetName(xorButton, title);
+                AutomationProperties.SetName(xorButton, title);
+
                 void ApplyXorMode()
                 {
-                    bool enabled = xorButton.IsChecked == true;
+                    var enabled = xorButton.IsChecked == true;
                     xorIcon.Opacity = enabled ? 1.0 : 0.35;
                     UpdateDisplayedFrames();
                 }
+
                 void SaveXorMode(object sender, RoutedEventArgs e)
                 {
-                    bool enabled = xorButton.IsChecked == true;
-                    if (sourceSide) sourceImageXorMode = enabled;
-                    else targetImageXorMode = enabled;
+                    var enabled = xorButton.IsChecked == true;
+                    if (sourceSide) _sourceImageXorMode = enabled;
+                    else _targetImageXorMode = enabled;
                     SettingsService.SaveDiffFlag(sourceSide ? "source-image-xor" : "target-image-xor", enabled);
                     ApplyXorMode();
                 }
+
                 xorButton.Checked += SaveXorMode;
                 xorButton.Unchecked += SaveXorMode;
                 buttons.Children.Add(xorButton);
                 ApplyXorMode();
             }
+
             AddXorButton(true, 137, "Source XOR mode");
             AddXorButton(false, 138, "Target XOR mode");
             foreach (FrameworkElement button in buttons.Children)
                 button.Margin = new Thickness(0, 0, 2, 8);
             wrapper.Visibility = Visibility.Visible;
-            imageControlRow.Visibility = Visibility.Visible;
+            ImageControlRow.Visibility = Visibility.Visible;
         }
+
         if (ViewModel.ImageFrameCount > 1)
         {
             var frames = new Slider
@@ -1884,10 +2201,10 @@ internal sealed partial class DiffViewWindow : Window
                 border.SetResourceReference(Border.BorderBrushProperty, "Line");
                 var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
                 presenter.SetValue(ContentPresenter.ContentProperty,
-                    new TemplateBindingExtension(ContentControl.ContentProperty));
-                presenter.SetValue(FrameworkElement.HorizontalAlignmentProperty,
+                    new TemplateBindingExtension(ContentProperty));
+                presenter.SetValue(HorizontalAlignmentProperty,
                     HorizontalAlignment.Center);
-                presenter.SetValue(FrameworkElement.VerticalAlignmentProperty,
+                presenter.SetValue(VerticalAlignmentProperty,
                     VerticalAlignment.Center);
                 border.AppendChild(presenter);
                 button.Template = new ControlTemplate(typeof(Button)) { VisualTree = border };
@@ -1910,21 +2227,21 @@ internal sealed partial class DiffViewWindow : Window
 
             // ウィンドウ内のどこにフォーカスがあっても左右キーでフレーム移動する。
             // RenderImages再実行時は冒頭で前回の登録を解除する。
-            System.Windows.Input.KeyEventHandler frameKeyHandler = (_, e) =>
+            KeyEventHandler frameKeyHandler = (_, e) =>
             {
-                if (gifFrameHost.Visibility != Visibility.Visible) return;
+                if (GifFrameHost.Visibility != Visibility.Visible) return;
                 int step;
-                if (e.Key == System.Windows.Input.Key.Left) step = -1;
-                else if (e.Key == System.Windows.Input.Key.Right) step = 1;
+                if (e.Key == Key.Left) step = -1;
+                else if (e.Key == Key.Right) step = 1;
                 else return;
 
                 frames.Value = Math.Max(frames.Minimum,
                     Math.Min(frames.Maximum, frames.Value + step));
                 e.Handled = true;
             };
-            AddHandler(System.Windows.Input.Keyboard.PreviewKeyDownEvent,
+            AddHandler(Keyboard.PreviewKeyDownEvent,
                 frameKeyHandler, true);
-            gifFrameHost.Tag = frameKeyHandler;
+            GifFrameHost.Tag = frameKeyHandler;
 
             // ラベル、前後ボタン、スライダーをまとめて角丸枠で囲む。
             var frameBorder = new Border
@@ -1941,11 +2258,11 @@ internal sealed partial class DiffViewWindow : Window
 
             // 余白は外枠に集約する。
             framePanel.Margin = new Thickness(0);
-            gifFrameHost.Children.Add(frameBorder);
-            gifFrameHost.Visibility = Visibility.Visible;
+            GifFrameHost.Children.Add(frameBorder);
+            GifFrameHost.Visibility = Visibility.Visible;
 
-            int requestedFrame = ViewModel.ImageFrameIndex;
-            bool processingFrame = false;
+            var requestedFrame = ViewModel.ImageFrameIndex;
+            var processingFrame = false;
 
             async void SelectFrame()
             {
@@ -1956,8 +2273,8 @@ internal sealed partial class DiffViewWindow : Window
                 {
                     while (IsLoaded && requestedFrame != ViewModel.ImageFrameIndex)
                     {
-                        int index = requestedFrame;
-                        bool changed = await ViewModel.SelectImageFrameAsync(index);
+                        var index = requestedFrame;
+                        var changed = await ViewModel.SelectImageFrameAsync(index);
                         if (!IsLoaded) return;
                         if (!changed) break;
 
@@ -1983,7 +2300,8 @@ internal sealed partial class DiffViewWindow : Window
                 SelectFrame();
             };
         }
-        zoom.ValueChanged += (s, e) =>
+
+        zoom.ValueChanged += (_, e) =>
         {
             leftCanvas.LayoutTransform = new ScaleTransform(e.NewValue, e.NewValue);
             rightCanvas.LayoutTransform = new ScaleTransform(e.NewValue, e.NewValue);
@@ -1996,13 +2314,17 @@ internal sealed partial class DiffViewWindow : Window
             if (!fitting) fitToWindow = false;
             Dispatcher.BeginInvoke(new Action(UpdateImageNavigation), DispatcherPriority.Loaded);
         };
-        imageFitHandler = (s, e) => { fit(); UpdateImageNavigation(); };
-        body.SizeChanged += imageFitHandler;
+        _imageFitHandler = (_, _) =>
+        {
+            Fit();
+            UpdateImageNavigation();
+        };
+        Body.SizeChanged += _imageFitHandler;
         // Complete layout and fitting in the same dispatcher turn as the swap.
         // Yielding here would expose the initial 100% image before its fitted size.
-        body.UpdateLayout();
-        fit();
-        body.UpdateLayout();
+        Body.UpdateLayout();
+        Fit();
+        Body.UpdateLayout();
         UpdateImageNavigation();
         return Task.CompletedTask;
     }
@@ -2020,14 +2342,15 @@ internal sealed partial class DiffViewWindow : Window
             VerticalContentAlignment = VerticalAlignment.Top,
             PanningMode = PanningMode.Both
         };
-        viewer.SetResourceReference(Control.BackgroundProperty, "CardBackground");
-        viewer.SetResourceReference(Control.ForegroundProperty, "Ink");
-        viewer.SetResourceReference(Control.BorderBrushProperty, sourceSide ? "SourceColor" : "TargetColor");
+        viewer.SetResourceReference(BackgroundProperty, "CardBackground");
+        viewer.SetResourceReference(ForegroundProperty, "Ink");
+        viewer.SetResourceReference(BorderBrushProperty, sourceSide ? "SourceColor" : "TargetColor");
         if (missing)
         {
             viewer.Background = MissingImageBrush;
             viewer.BorderBrush = MissingImageBrush;
         }
+
         return viewer;
     }
 
@@ -2048,19 +2371,19 @@ internal sealed partial class DiffViewWindow : Window
         viewer.PreviewMouseLeftButtonDown += ImageViewer_PreviewMouseLeftButtonDown;
         viewer.PreviewMouseMove += ImageViewer_PreviewMouseMove;
         viewer.PreviewMouseLeftButtonUp += ImageViewer_PreviewMouseLeftButtonUp;
-        viewer.LostMouseCapture += (s, e) => StopImagePan();
+        viewer.LostMouseCapture += (_, _) => StopImagePan();
     }
 
     private void ImageViewer_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (FindAncestor<System.Windows.Controls.Primitives.ScrollBar>(e.OriginalSource as DependencyObject) != null)
+        if (FindAncestor<ScrollBar>(e.OriginalSource as DependencyObject) != null)
             return;
         var viewer = sender as ScrollViewer;
         if (viewer == null) return;
         if (viewer.Content is Canvas canvas)
             SetImagePointDetails(e.GetPosition(canvas), true);
-        imagePanning = true;
-        imagePanLast = e.GetPosition(viewer);
+        _imagePanning = true;
+        _imagePanLast = e.GetPosition(viewer);
         viewer.CaptureMouse();
         viewer.Cursor = Cursors.SizeAll;
         e.Handled = true;
@@ -2072,23 +2395,23 @@ internal sealed partial class DiffViewWindow : Window
         if (viewer == null) return;
         if (viewer.Content is Canvas canvas)
             SetImagePointDetails(e.GetPosition(canvas), false);
-        if (!imagePanning || e.LeftButton != MouseButtonState.Pressed) return;
-        Point now = e.GetPosition(viewer);
-        Vector delta = now - imagePanLast;
-        imagePanLast = now;
-        if (leftScroll == null || rightScroll == null) return;
-        scrolling = true;
-        leftScroll.ScrollToHorizontalOffset(leftScroll.HorizontalOffset - delta.X);
-        leftScroll.ScrollToVerticalOffset(leftScroll.VerticalOffset - delta.Y);
-        rightScroll.ScrollToHorizontalOffset(rightScroll.HorizontalOffset - delta.X);
-        rightScroll.ScrollToVerticalOffset(rightScroll.VerticalOffset - delta.Y);
-        scrolling = false;
+        if (!_imagePanning || e.LeftButton != MouseButtonState.Pressed) return;
+        var now = e.GetPosition(viewer);
+        var delta = now - _imagePanLast;
+        _imagePanLast = now;
+        if (_leftScroll == null || _rightScroll == null) return;
+        _scrolling = true;
+        _leftScroll.ScrollToHorizontalOffset(_leftScroll.HorizontalOffset - delta.X);
+        _leftScroll.ScrollToVerticalOffset(_leftScroll.VerticalOffset - delta.Y);
+        _rightScroll.ScrollToHorizontalOffset(_rightScroll.HorizontalOffset - delta.X);
+        _rightScroll.ScrollToVerticalOffset(_rightScroll.VerticalOffset - delta.Y);
+        _scrolling = false;
         e.Handled = true;
     }
 
     private void ImageViewer_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
-        if (!imagePanning) return;
+        if (!_imagePanning) return;
         StopImagePan();
         if (sender is ScrollViewer viewer && viewer.Content is Canvas canvas)
             SetImagePointDetails(e.GetPosition(canvas), false);
@@ -2097,10 +2420,10 @@ internal sealed partial class DiffViewWindow : Window
 
     private void StopImagePan()
     {
-        if (!imagePanning) return;
-        imagePanning = false;
-        if (leftScroll != null && leftScroll.IsMouseCaptured) leftScroll.ReleaseMouseCapture();
-        if (rightScroll != null && rightScroll.IsMouseCaptured) rightScroll.ReleaseMouseCapture();
+        if (!_imagePanning) return;
+        _imagePanning = false;
+        if (_leftScroll != null && _leftScroll.IsMouseCaptured) _leftScroll.ReleaseMouseCapture();
+        if (_rightScroll != null && _rightScroll.IsMouseCaptured) _rightScroll.ReleaseMouseCapture();
     }
 
     private static T FindAncestor<T>(DependencyObject current) where T : DependencyObject
@@ -2110,6 +2433,7 @@ internal sealed partial class DiffViewWindow : Window
             if (current is T match) return match;
             current = VisualTreeHelper.GetParent(current);
         }
+
         return null;
     }
 
@@ -2132,12 +2456,9 @@ internal sealed partial class DiffViewWindow : Window
             ToolTip = tip,
             Style = TryFindResource("IconButton") as Style
         };
-        button.Click += (s, e) => action();
+        button.Click += (_, _) => action();
         return button;
     }
-
-    private static readonly Brush MissingImageBrush = new SolidColorBrush(Color.FromRgb(10, 15, 21));
-    private static readonly Brush PixelLineGridBrush = CreatePixelLineGridBrush();
 
     private static Brush CreatePixelLineGridBrush()
     {
@@ -2196,7 +2517,11 @@ internal sealed partial class DiffViewWindow : Window
             Panel.SetZIndex(pixelGrid, 2);
             canvas.Children.Add(pixelGrid);
         }
-        else canvas.Background = MissingImageBrush;
+        else
+        {
+            canvas.Background = MissingImageBrush;
+        }
+
         return canvas;
     }
 
@@ -2217,7 +2542,7 @@ internal sealed partial class DiffViewWindow : Window
             ToolTip = text,
             Margin = new Thickness(0, 0, 8, 8)
         };
-        System.Windows.Automation.AutomationProperties.SetName(button, text ?? string.Empty);
+        AutomationProperties.SetName(button, text ?? string.Empty);
         button.Command = command;
         panel.Children.Add(button);
         return button;
@@ -2240,9 +2565,15 @@ internal sealed partial class DiffViewWindow : Window
             ToolTip = text,
             Margin = new Thickness(0, 0, 8, 8)
         };
-        System.Windows.Automation.AutomationProperties.SetName(button, text ?? string.Empty);
-        button.Click += (s, e) => action();
+        AutomationProperties.SetName(button, text ?? string.Empty);
+        button.Click += (_, _) => action();
         panel.Children.Add(button);
         return button;
     }
+
+    private sealed record RenderedPane(
+        List<DiffLine> Lines,
+        List<Block> Blocks,
+        List<WhitespaceRow> Markers,
+        List<bool> CommentStates);
 }

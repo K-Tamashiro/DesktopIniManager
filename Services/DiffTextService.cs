@@ -91,7 +91,6 @@ internal static class DiffTextService
         var rightIndex = 0;
 
         // 改行比較が有効な場合のみ判定する。
-        var compareNewlines = leftEndings != null && rightEndings != null;
         var comparison = ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
         void AddRow(string l, string r, int lNum, int rNum, DiffLineKind kind)
@@ -107,7 +106,7 @@ internal static class DiffTextService
             {
                 if (!ignoreSpaces && !string.Equals(l, r, comparison))
                     kind = DiffLineKind.Modified;
-                else if (compareNewlines && !string.Equals(leftEndings[lNum - 1], rightEndings[rNum - 1],
+                else if (leftEndings != null && rightEndings != null && !string.Equals(leftEndings[lNum - 1], rightEndings[rNum - 1],
                              StringComparison.Ordinal))
                     kind = DiffLineKind.Modified;
             }

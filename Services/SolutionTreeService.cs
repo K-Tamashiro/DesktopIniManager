@@ -192,7 +192,6 @@ internal static class SolutionTreeService
                 var id = project.Groups["id"].Value;
                 entries[id] = new Entry
                 {
-                    Id = id,
                     Type = project.Groups["type"].Value,
                     Name = project.Groups["name"].Value,
                     RelativePath = project.Groups["path"].Value
@@ -830,7 +829,6 @@ internal static class SolutionTreeService
 
     private sealed class Entry
     {
-        public string Id;
         public string Name;
         public string RelativePath;
         public string Type;

@@ -8,7 +8,7 @@ namespace DesktopIniManager.ViewModels;
 
 internal sealed class IconGroupBrowserViewModel : ObservableObject
 {
-    private IconGroupResource selectedGroup;
+    private IconGroupResource _selectedGroup;
 
     internal IconGroupBrowserViewModel(string filePath, IEnumerable<IconGroupResource> groups, int currentIndex)
     {
@@ -24,10 +24,10 @@ internal sealed class IconGroupBrowserViewModel : ObservableObject
 
     public IconGroupResource SelectedGroup
     {
-        get => selectedGroup;
+        get => _selectedGroup;
         set
         {
-            if (SetProperty(ref selectedGroup, value)) SelectCommand.NotifyCanExecuteChanged();
+            if (SetProperty(ref _selectedGroup, value)) SelectCommand.NotifyCanExecuteChanged();
         }
     }
 

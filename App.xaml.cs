@@ -11,8 +11,10 @@ using System.Windows.Threading;
 
 namespace DesktopIniManager;
 
-public partial class App : Application
+public partial class App
 {
+    private bool _startupReady;
+
     protected override async void OnStartup(StartupEventArgs e)
     {
         bool externalDiff = ExternalDiffLaunch.IsRequested(e.Args);
@@ -39,11 +41,10 @@ public partial class App : Application
         }
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         SplashWindow splash = null;
-        bool ready = false;
         try
         {
             splash = new SplashWindow();
-            splash.Closed += (sender, args) => { if (!ready) Shutdown(); };
+            splash.Closed += (_, _) => { if (!_startupReady) Shutdown(); };
             splash.Show();
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             var progress = new Progress<Tuple<string, int>>(step => splash.Report(step.Item1, step.Item2));
@@ -53,13 +54,13 @@ public partial class App : Application
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             var main = new MainWindow(state);
             MainWindow = main;
-            splash.SkipStartupAnalysisRequested += (sender, args) => main.ViewModel.CancelSearch();
+            splash.SkipStartupAnalysisRequested += (_, _) => main.ViewModel.CancelSearch();
             if (!string.IsNullOrWhiteSpace(main.ViewModel.RootPath)
                 && Directory.Exists(main.ViewModel.RootPath.Trim()))
             {
                 splash.Report(Strings.Splash_BuildingWorkspace, 3);
                 splash.SetBusy(true);
-                System.ComponentModel.PropertyChangedEventHandler onStatus = (sender, args) =>
+                System.ComponentModel.PropertyChangedEventHandler onStatus = (_, args) =>
                 {
                     if (args.PropertyName == nameof(main.ViewModel.Status)
                         && !string.IsNullOrWhiteSpace(main.ViewModel.Status))
@@ -78,11 +79,11 @@ public partial class App : Application
             }
             var rendered = new TaskCompletionSource<bool>();
             EventHandler onRendered = null;
-            onRendered = (sender, args) => { main.ContentRendered -= onRendered; rendered.TrySetResult(true); };
+            onRendered = (_, _) => { main.ContentRendered -= onRendered; rendered.TrySetResult(true); };
             main.ContentRendered += onRendered;
             main.Show();
             await rendered.Task;
-            ready = true;
+            _startupReady = true;
             splash.Report(Strings.Splash_Ready, 4);
             splash.Close();
             WindowActivationService.BringToFront(main);
@@ -91,7 +92,7 @@ public partial class App : Application
         catch (Exception ex)
         {
             MessageBox.Show(string.Format(Strings.App_StartFailed, ErrorMessages.English(ex)), Strings.App_ProductName, MessageBoxButton.OK, MessageBoxImage.Error);
-            ready = true;
+            _startupReady = true;
             splash?.Close();
             Shutdown(1);
         }

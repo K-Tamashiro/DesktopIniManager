@@ -29,7 +29,7 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         new("code", @"--goto ""{file}:{line}:{column}""")
     };
 
-    private readonly Dispatcher Dispatcher;
+    private readonly Dispatcher _dispatcher;
     private readonly IUserDialogService _dialogs;
     private readonly DispatcherTimer _resultTimer;
     private readonly Func<IReadOnlyList<string>> _scopeProvider;
@@ -55,7 +55,7 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         IUserDialogService dialogs)
     {
         _scopeProvider = scopeProvider;
-        Dispatcher = dispatcher;
+        _dispatcher = dispatcher;
         _dialogs = dialogs;
         SearchCommand = new AsyncRelayCommand(SearchAsync, ex => _dialogs.Show(ErrorMessages.English(ex), DialogTitle),
             () => !IsSearching);
@@ -77,7 +77,7 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         Results.Filter = MatchListFilter;
         Results.GroupDescriptions.Add(new PropertyGroupDescription(nameof(GrepMatch.GroupPath)));
         _resultTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(50), DispatcherPriority.Background,
-            (sender, args) => DrainPendingMatches(20), Dispatcher);
+            (_, _) => DrainPendingMatches(20), _dispatcher);
         _resultTimer.Stop();
         InitializeHistoryCommands();
     }
@@ -433,6 +433,7 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         }
         catch
         {
+            // Ignore clipboard errors
         }
 
         try
@@ -550,6 +551,7 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         if (!PrepareSearchTab()) return;
 
         var cts = new CancellationTokenSource();
+        var searchToken = cts.Token;
         _searchCts = cts;
         var pending = new ConcurrentQueue<GrepMatch>();
         _pendingMatches = pending;
@@ -560,26 +562,26 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
             var document = profile.IsDocument;
             var result = await Task.Run(() => document
                 ? new DocumentGrepService().Search(scopes, extensions, query, useRegex, matchCase, wholeWord,
-                    (done, total) => Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+                    (done, total) => _dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                     {
-                        if (ReferenceEquals(_searchCts, cts) && !cts.IsCancellationRequested)
+                        if (_searchCts?.Token == searchToken && !searchToken.IsCancellationRequested)
                             Status = string.Format(Strings.Grep_SearchingFiles, done.ToString("N0"),
                                 total.ToString("N0"));
-                    })), cts.Token,
+                    })), searchToken,
                     match =>
                     {
-                        if (!cts.IsCancellationRequested) pending.Enqueue(match);
+                        if (!searchToken.IsCancellationRequested) pending.Enqueue(match);
                     })
                 : new CodeGrepService().Search(scopes, profile, query, useRegex, matchCase, wholeWord,
-                    (done, total) => Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+                    (done, total) => _dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                     {
-                        if (ReferenceEquals(_searchCts, cts) && !cts.IsCancellationRequested)
+                        if (_searchCts?.Token == searchToken && !searchToken.IsCancellationRequested)
                             Status = string.Format(Strings.Grep_SearchingFiles, done.ToString("N0"),
                                 total.ToString("N0"));
-                    })), cts.Token,
+                    })), searchToken,
                     match =>
                     {
-                        if (!cts.IsCancellationRequested) pending.Enqueue(match);
+                        if (!searchToken.IsCancellationRequested) pending.Enqueue(match);
                     }));
             await DrainAllPendingMatchesAsync(cts.Token);
             cts.Token.ThrowIfCancellationRequested();
@@ -740,6 +742,7 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         }
         catch
         {
+            // Ignore clipboard errors
         }
 
         return true;
@@ -790,19 +793,19 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
 
 internal sealed class GrepScopeItem : ObservableObject
 {
-    private bool isEnabled;
+    private bool _isEnabled;
 
     public GrepScopeItem(string path, bool enabled = true)
     {
         FolderPath = path;
-        isEnabled = enabled;
+        _isEnabled = enabled;
     }
 
     public string FolderPath { get; }
 
     public bool IsEnabled
     {
-        get => isEnabled;
-        set => SetProperty(ref isEnabled, value);
+        get => _isEnabled;
+        set => SetProperty(ref _isEnabled, value);
     }
 }

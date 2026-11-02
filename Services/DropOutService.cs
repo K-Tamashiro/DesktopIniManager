@@ -116,6 +116,7 @@ internal static class DropOutService
             }
             catch
             {
+                // Ignore invalid paths
             }
         }
 

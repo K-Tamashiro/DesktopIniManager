@@ -1365,4 +1365,7 @@ Cancel: select a different tab without searching</value>
   <data name="InvalidAudioFormat" xml:space="preserve">
     <value>Invalid audio format.</value>
   </data>
+  <data name="ShellMenu_SelectFilesFromSameFolder" xml:space="preserve">
+    <value>シェルメニューでは同じフォルダー内のファイルを選択してください。</value>
+  </data>
 </root>

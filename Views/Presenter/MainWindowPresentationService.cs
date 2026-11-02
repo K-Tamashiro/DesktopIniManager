@@ -23,7 +23,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 
-namespace DesktopIniManager.Views;
+namespace DesktopIniManager.Views.Presenter;
 
 [SupportedOSPlatform("windows")]
 internal sealed class MainWindowPresentationService
@@ -56,10 +56,10 @@ internal sealed class MainWindowPresentationService
     private bool _treeDragPreparing;
     private Point _treeDragStart;
     private bool _updatingToggles;
-    private bool differencerSavedOnClose;
+    private bool _differencerSavedOnClose;
 
     /// <summary>Opens or activates the developer differencer window.</summary>
-    private bool savingDifferencerOnClose;
+    private bool _savingDifferencerOnClose;
 
     internal MainWindowPresentationService(MainWindow window, StartupState startup)
     {
@@ -111,7 +111,7 @@ internal sealed class MainWindowPresentationService
             }), DispatcherPriority.Loaded);
         };
         ViewModel.OpenGrepRequested += OpenGrep;
-        ViewModel.PropertyChanged += (sender, args) =>
+        ViewModel.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName == nameof(ViewModel.IsSearching)) SetSearching(ViewModel.IsSearching);
         };
@@ -144,7 +144,7 @@ internal sealed class MainWindowPresentationService
             startup.Solution = null;
         }
 
-        _window.Loaded += (sender, args) =>
+        _window.Loaded += (_, _) =>
         {
             if (startup == null)
             {
@@ -204,7 +204,7 @@ internal sealed class MainWindowPresentationService
     {
         InputManager.Current.PreProcessInput += SwitchWindowShortcut;
         _window.PreviewKeyDown += MainSearchKeyDown;
-        RootBox.HistoryItemApplied += (sender, args) => StartSelectedRootAnalysis();
+        RootBox.HistoryItemApplied += (_, _) => StartSelectedRootAnalysis();
         _window.FolderFilterBox.TextChanged += FolderFilter_TextChanged;
         _window.ResultsTree.SelectedItemChanged += ResultsTree_SelectedItemChanged;
         _window.ResultsTree.AddHandler(TreeViewItem.ExpandedEvent, new RoutedEventHandler(ResultsTree_ItemExpanded),
@@ -250,8 +250,8 @@ internal sealed class MainWindowPresentationService
         _window.TreeTabs.SelectionChanged += TreeTabs_SelectionChanged;
         _window.LanguageBox.SelectionChanged += LanguageBox_SelectionChanged;
         _window.ThemeBox.SelectionChanged += ThemeBox_SelectionChanged;
-        _window.RunScriptButton.Click += (sender, args) => RunScriptCommand();
-        _window.BrowseScriptButton.Click += (sender, args) => BrowseScriptCommand();
+        _window.RunScriptButton.Click += (_, _) => RunScriptCommand();
+        _window.BrowseScriptButton.Click += (_, _) => BrowseScriptCommand();
         _window.ScriptBox.PreviewKeyDown += ScriptBox_PreviewKeyDown;
         _window.RunScriptButton.ToolTip = ScriptText("Main_RunScript",
             "Run  \u2014  execute the command (%d folder / %f file / %n name)");
@@ -767,7 +767,7 @@ internal sealed class MainWindowPresentationService
 
     private void InitializeFileContextMenu(Selector list)
     {
-        list.PreviewMouseRightButtonDown += (sender, args) =>
+        list.PreviewMouseRightButtonDown += (_, args) =>
         {
             _fileContextItem = FileFromElement(args.OriginalSource as DependencyObject);
             // Preserve all selected rows, including when modifiers are held.
@@ -790,7 +790,7 @@ internal sealed class MainWindowPresentationService
                 Header = ScriptText("Main_RunScript", "Run script"),
                 Icon = runIcon
             };
-            run.Click += (s, args) => RunSelectedScript(
+            run.Click += (s, _) => RunSelectedScript(
                 ((s as MenuItem)?.Parent as ContextMenu)?.PlacementTarget is Selector owner
                     ? owner.SelectedItem as FileListItem
                     : list.SelectedItem as FileListItem);
@@ -800,7 +800,7 @@ internal sealed class MainWindowPresentationService
             menu.Items.Add(new Separator());
             var explorer = new MenuItem { Header = "Explorerメニュー" };
             var shellMenuPending = false;
-            explorer.Click += (s, args) =>
+            explorer.Click += (_, _) =>
             {
                 if (shellMenuPending || !explorer.IsEnabled) return;
                 var paths = explorer.Tag as string[];
@@ -868,7 +868,7 @@ internal sealed class MainWindowPresentationService
                     Header = new TextBlock { Text = duplicateName ? target.Path : target.Name },
                     ToolTip = target.Path
                 };
-                choice.Click += (s, args) => OpenFileComparison(source, target);
+                choice.Click += (_, _) => OpenFileComparison(source, target);
                 compare.Items.Add(choice);
             }
         }
@@ -976,7 +976,7 @@ internal sealed class MainWindowPresentationService
                 Filter = "Scripts (*.bat;*.cmd;*.ps1;*.vbs)|*.bat;*.cmd;*.ps1;*.vbs|All files (*.*)|*.*",
                 CheckFileExists = true
             };
-            var current = (ScriptBox.Text ?? string.Empty).Trim();
+            var current = ScriptBox.Text.Trim();
             var first = FirstToken(current);
             if (File.Exists(first))
             {
@@ -999,7 +999,7 @@ internal sealed class MainWindowPresentationService
 
     private void RunScriptCommand()
     {
-        var template = (ScriptBox.Text ?? string.Empty).Trim();
+        var template = ScriptBox.Text.Trim();
         if (string.IsNullOrEmpty(template))
         {
             ViewModel.Status = StringOverlay.Get("Main_ScriptEmpty");
@@ -1156,22 +1156,22 @@ internal sealed class MainWindowPresentationService
 
     private async void OnClosing(object sender, CancelEventArgs e)
     {
-        if (_differencerWindow != null && !differencerSavedOnClose)
+        if (_differencerWindow != null && !_differencerSavedOnClose)
         {
             e.Cancel = true;
-            if (_differencerWindow.IsWorking || savingDifferencerOnClose) return;
-            savingDifferencerOnClose = true;
+            if (_differencerWindow.IsWorking || _savingDifferencerOnClose) return;
+            _savingDifferencerOnClose = true;
             try
             {
                 if (await _differencerWindow.PrepareCloseAsync())
                 {
-                    differencerSavedOnClose = true;
+                    _differencerSavedOnClose = true;
                     _ = _window.Dispatcher.BeginInvoke(new Action(() => _window.Close()));
                 }
             }
             finally
             {
-                savingDifferencerOnClose = false;
+                _savingDifferencerOnClose = false;
             }
 
             return;
@@ -1197,6 +1197,7 @@ internal sealed class MainWindowPresentationService
         }
         catch
         {
+            //
         }
 
         try
@@ -1205,6 +1206,7 @@ internal sealed class MainWindowPresentationService
         }
         catch
         {
+            //
         }
 
         SettingsService.SaveIconLibraryPath(ViewModel.IconLibraryPath);
@@ -1293,6 +1295,7 @@ internal sealed class MainWindowPresentationService
                 }
                 catch
                 {
+                    //
                 }
 
         ViewModel.ResetSettings();
@@ -1464,9 +1467,7 @@ internal sealed class MainWindowPresentationService
         await Dispatcher.Yield(DispatcherPriority.Render);
         FileList.Visibility = Visibility.Collapsed;
         FileIconList.Visibility = Visibility.Visible;
-        FileIconList.ItemsPanel = (ItemsPanelTemplate)FindResource(large ? "FileIconLargePanel" : "FileIconSmallPanel");
-        FileIconList.ItemTemplate =
-            (DataTemplate)FindResource(large ? "FileIconLargeTemplate" : "FileIconSmallTemplate");
+        FileIconList.Tag = large;
         HighlightFileViewButtons(false, large);
         FileIconList.UpdateLayout();
         await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
@@ -1496,9 +1497,9 @@ internal sealed class MainWindowPresentationService
     private void HookPathBox(TextBox box)
     {
         if (box == null) return;
-        box.GotKeyboardFocus += (sender, args) => ShowTextEnd(box);
-        box.LostKeyboardFocus += (sender, args) => ShowTextEnd(box);
-        box.TextChanged += (sender, args) =>
+        box.GotKeyboardFocus += (_, _) => ShowTextEnd(box);
+        box.LostKeyboardFocus += (_, _) => ShowTextEnd(box);
+        box.TextChanged += (_, _) =>
         {
             if (!box.IsKeyboardFocusWithin) ShowTextEnd(box);
         };
@@ -1509,7 +1510,7 @@ internal sealed class MainWindowPresentationService
         if (box == null) return;
         Dispatcher.BeginInvoke(new Action(() =>
         {
-            box.CaretIndex = (box.Text ?? string.Empty).Length;
+            box.CaretIndex = box.Text.Length;
             box.ScrollToHorizontalOffset(Math.Max(0, box.ExtentWidth - box.ViewportWidth));
         }), DispatcherPriority.Loaded);
     }
@@ -2018,6 +2019,7 @@ internal sealed class MainWindowPresentationService
             }
             catch (Exception)
             {
+                // Ignore and fall back to manual search.
             }
 
         string[] editions = { "Enterprise", "Professional", "Community", "BuildTools" };
@@ -2362,7 +2364,7 @@ internal sealed class MainWindowPresentationService
 
     private void RestoreWindowPlacement(string[] arguments)
     {
-        double left = 0, top = 0, width = 0, height = 0;
+        double left, top = 0, width = 0, height = 0;
         var state = 0;
         var fromCommandLine = TryReadArgument(arguments, "--window-left", out left)
                               && TryReadArgument(arguments, "--window-top", out top)
@@ -2442,7 +2444,7 @@ internal sealed class MainWindowPresentationService
         if (_differencerWindow == null)
         {
             _differencerWindow = new DeveloperDifferencerWindow();
-            _differencerWindow.Closed += (s, args) => _differencerWindow = null;
+            _differencerWindow.Closed += (_, _) => _differencerWindow = null;
             OverlayOnMain(_differencerWindow);
             _differencerWindow.Show();
         }
@@ -2475,7 +2477,7 @@ internal sealed class MainWindowPresentationService
         if (_grepWindow == null)
         {
             _grepWindow = new GrepWindow(ViewModel.GetSelectedGrepScopes, scopes);
-            _grepWindow.Closed += (closedSender, args) => _grepWindow = null;
+            _grepWindow.Closed += (_, _) => _grepWindow = null;
             OverlayOnMain(_grepWindow);
             _grepWindow.Show();
         }
@@ -2495,7 +2497,7 @@ internal sealed class MainWindowPresentationService
         public ObservableCollection<MsBuildActionItem> SdkRebuildItems { get; } = new();
     }
 
-    private sealed class MsBuildActionItem
+    internal sealed class MsBuildActionItem
     {
         public string Header { get; set; }
         public string IconGlyph { get; set; }

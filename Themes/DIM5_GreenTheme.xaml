@@ -25,8 +25,8 @@
   <SolidColorBrush x:Key="MoonGlyph" Color="#D9BC45" />
   <SolidColorBrush x:Key="DiffRemoved" Color="#5A2430" />
   <SolidColorBrush x:Key="DiffAdded" Color="#1A3F32" />
-  <SolidColorBrush x:Key="DiffRemovedEmpty" Color="#2C1820" />
-  <SolidColorBrush x:Key="DiffAddedEmpty" Color="#13241C" />
+  <SolidColorBrush x:Key="DiffRemovedEmpty" Color="#24140e" />
+  <SolidColorBrush x:Key="DiffAddedEmpty" Color="#101f18" />
   <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#192C25" />
   <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#192C25" />
   <SolidColorBrush x:Key="{x:Static SystemColors.WindowColorKey}" Color="#192C25" />

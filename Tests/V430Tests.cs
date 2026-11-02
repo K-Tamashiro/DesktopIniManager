@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -113,7 +113,7 @@ internal static class V430Tests
                 async Task WaitForLoad()
                 {
                     var deadline = DateTime.UtcNow.AddSeconds(30);
-                    var busy = typeof(DesktopIniManager.Views.DiffViewWindow).GetField("renderingContent", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    var busy = typeof(DesktopIniManager.Views.DiffViewWindow).GetField("_renderingContent", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                     while ((bool)busy.GetValue(window) && DateTime.UtcNow < deadline) await Task.Delay(10);
                     Check(!(bool)busy.GetValue(window), "initial image load completes");
                 }
@@ -123,8 +123,8 @@ internal static class V430Tests
                     var reload = typeof(DesktopIniManager.Views.DiffViewWindow).GetMethod("LoadContent", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                     Await((Task)reload.Invoke(window, new object[] { true, true }));
                     Check(window.ViewModel.ImageFrameCount == fixture.Item3, "Image reload keeps all frames (" + repeat + ")");
-                    var zoom = (System.Windows.Controls.ScrollViewer)window.FindName("imageControlRow");
-                    var frames = (System.Windows.Controls.StackPanel)window.FindName("gifFrameHost");
+                    var zoom = (System.Windows.Controls.ScrollViewer)window.FindName("ImageControlRow");
+                    var frames = (System.Windows.Controls.StackPanel)window.FindName("GifFrameHost");
                     Check(zoom.Visibility == System.Windows.Visibility.Visible &&
                         (fixture.Item3 > 1 ? frames.Visibility == System.Windows.Visibility.Visible && frames.Children.Count == 1
                             : frames.Visibility == System.Windows.Visibility.Collapsed),
@@ -137,7 +137,7 @@ internal static class V430Tests
                         app.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
                         content.UpdateLayout();
                         var slider = (System.Windows.Controls.Slider)typeof(DesktopIniManager.Views.DiffViewWindow)
-                            .GetField("imageZoom", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).GetValue(window);
+                            .GetField("_imageZoom", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).GetValue(window);
                         var bounds = slider.TransformToAncestor(content).TransformBounds(new System.Windows.Rect(slider.RenderSize));
                         Console.WriteLine($"LAYOUT repeat={repeat} width={width} host={zoom.ActualWidth}x{zoom.ActualHeight} slider={bounds} scroll={zoom.ScrollableWidth}");
                         Check(zoom.ActualWidth > 0 && bounds.Width >= 20 && bounds.Height > 0 &&

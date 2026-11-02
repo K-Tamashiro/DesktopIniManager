@@ -9,13 +9,13 @@ namespace DesktopIniManager.Services;
 
 internal static class WindowActivationService
 {
-    private static readonly ConditionalWeakTable<Window, State> states = new();
-    private static bool installed;
+    private static readonly ConditionalWeakTable<Window, State> States = new();
+    private static bool _installed;
 
     internal static void Install()
     {
-        if (installed) return;
-        installed = true;
+        if (_installed) return;
+        _installed = true;
         EventManager.RegisterClassHandler(typeof(Window), FrameworkElement.LoadedEvent,
             new RoutedEventHandler(OnLoaded));
     }
@@ -23,22 +23,22 @@ internal static class WindowActivationService
     private static void OnLoaded(object sender, RoutedEventArgs args)
     {
         var window = (Window)sender;
-        if (!ReferenceEquals(args.OriginalSource, window) || states.TryGetValue(window, out _)) return;
+        if (!ReferenceEquals(args.OriginalSource, window) || States.TryGetValue(window, out _)) return;
         var state = new State { Owner = window.Owner };
-        states.Add(window, state);
+        States.Add(window, state);
         EventHandler rendered = null;
-        rendered = (s, e) =>
+        rendered = (_, _) =>
         {
             window.ContentRendered -= rendered;
             BringToFront(window);
         };
         window.ContentRendered += rendered;
-        window.Closing += (s, e) =>
+        window.Closing += (_, e) =>
         {
             state.Owner = window.Owner;
             state.Closing = e;
         };
-        window.Closed += (s, e) =>
+        window.Closed += (_, _) =>
         {
             state.Closed = true;
             window.ContentRendered -= rendered;
@@ -51,8 +51,7 @@ internal static class WindowActivationService
     private static bool Available(Window window)
     {
         if (window == null || !window.IsVisible || window.Dispatcher.HasShutdownStarted) return false;
-        State state;
-        return !states.TryGetValue(window, out state) ||
+        return !States.TryGetValue(window, out var state) || state == null ||
                (!state.Closed && (state.Closing == null || state.Closing.Cancel));
     }
 

@@ -5,6 +5,7 @@
     xmlns:history="clr-namespace:DesktopIniManager.Views"
     xmlns:loc="clr-namespace:DesktopIniManager.Properties"
     xmlns:views="clr-namespace:DesktopIniManager.Views"
+    xmlns:models="clr-namespace:DesktopIniManager.Models"
     Title="{loc:L App_Title}"
     Width="1280"
     Height="800"
@@ -15,6 +16,34 @@
     Icon="DesktopIniManager.ico"
     WindowStartupLocation="CenterScreen">
     <Window.Resources>
+        <ItemsPanelTemplate x:Key="FileIconSmallPanel">
+            <views:VirtualizingUniformGrid Columns="3" IsItemsHost="True" />
+        </ItemsPanelTemplate>
+        <ItemsPanelTemplate x:Key="FileIconLargePanel">
+            <views:VirtualizingUniformGrid Columns="2" IsItemsHost="True" />
+        </ItemsPanelTemplate>
+        <DataTemplate x:Key="FileIconSmallTemplate" DataType="{x:Type models:FileListItem}">
+            <StackPanel Margin="2,4" HorizontalAlignment="Stretch">
+                <Border Width="40" Height="40" Padding="3" HorizontalAlignment="Center"
+                        Background="{DynamicResource HeaderBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="1">
+                    <Image Width="32" Height="32" RenderOptions.BitmapScalingMode="HighQuality"
+                           Source="{Binding Icon}" Stretch="Uniform" />
+                </Border>
+                <TextBlock Margin="1,4,1,0" FontSize="11" Text="{Binding Name}" TextAlignment="Center"
+                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" ToolTip="{Binding Path}" />
+            </StackPanel>
+        </DataTemplate>
+        <DataTemplate x:Key="FileIconLargeTemplate" DataType="{x:Type models:FileListItem}">
+            <StackPanel Margin="4,6" HorizontalAlignment="Stretch">
+                <Border Width="72" Height="72" Padding="6" HorizontalAlignment="Center"
+                        Background="{DynamicResource HeaderBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="1">
+                    <Image Width="48" Height="48" RenderOptions.BitmapScalingMode="HighQuality"
+                           Source="{Binding Icon}" Stretch="Uniform" />
+                </Border>
+                <TextBlock Margin="2,6,2,0" FontSize="12" Text="{Binding Name}" TextAlignment="Center"
+                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" ToolTip="{Binding Path}" />
+            </StackPanel>
+        </DataTemplate>
         <BooleanToVisibilityConverter x:Key="MvvmBooleanToVisibility" />
         <ContextMenu x:Key="FolderTreeContextMenu">
             <MenuItem
@@ -1428,41 +1457,18 @@
                                     VirtualizingPanel.IsVirtualizing="True"
                                     VirtualizingPanel.VirtualizationMode="Recycling"
                                     Visibility="Collapsed">
-                                    <ListBox.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <views:VirtualizingUniformGrid Columns="3" IsItemsHost="True" />
-                                        </ItemsPanelTemplate>
-                                    </ListBox.ItemsPanel>
-                                    <ListBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <StackPanel Margin="2,4" HorizontalAlignment="Stretch">
-                                                <Border
-                                                    Width="40"
-                                                    Height="40"
-                                                    Padding="3"
-                                                    HorizontalAlignment="Center"
-                                                    Background="{DynamicResource HeaderBackground}"
-                                                    BorderBrush="{DynamicResource Line}"
-                                                    BorderThickness="1">
-                                                    <Image
-                                                        Width="32"
-                                                        Height="32"
-                                                        RenderOptions.BitmapScalingMode="HighQuality"
-                                                        RenderOptions.EdgeMode="Unspecified"
-                                                        Source="{Binding Icon}"
-                                                        Stretch="Uniform" />
-                                                </Border>
-                                                <TextBlock
-                                                    Margin="1,4,1,0"
-                                                    FontSize="11"
-                                                    Text="{Binding Name}"
-                                                    TextAlignment="Center"
-                                                    TextTrimming="CharacterEllipsis"
-                                                    TextWrapping="NoWrap"
-                                                    ToolTip="{Binding Path}" />
-                                            </StackPanel>
-                                        </DataTemplate>
-                                    </ListBox.ItemTemplate>
+                                    <ListBox.Style>
+                                        <Style TargetType="ListBox">
+                                            <Setter Property="ItemsPanel" Value="{StaticResource FileIconSmallPanel}" />
+                                            <Setter Property="ItemTemplate" Value="{StaticResource FileIconSmallTemplate}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="True">
+                                                    <Setter Property="ItemsPanel" Value="{StaticResource FileIconLargePanel}" />
+                                                    <Setter Property="ItemTemplate" Value="{StaticResource FileIconLargeTemplate}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ListBox.Style>
                                 </ListBox>
                                 <Border
                                     x:Name="FilePanelBusy"

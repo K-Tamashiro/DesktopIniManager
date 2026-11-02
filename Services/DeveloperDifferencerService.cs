@@ -104,7 +104,7 @@ internal enum DiffKind
 
 internal sealed class DiffFile : INotifyPropertyChanged
 {
-    private bool selected;
+    private bool _selected;
     public string RelativePath { get; set; }
     public string Name => Path.GetFileName(RelativePath);
     public DiffStamp Source { get; set; }
@@ -148,11 +148,11 @@ internal sealed class DiffFile : INotifyPropertyChanged
 
     public bool Selected
     {
-        get => selected;
+        get => _selected;
         set
         {
-            if (selected == value) return;
-            selected = value;
+            if (_selected == value) return;
+            _selected = value;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Selected"));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("CanToggleSelection"));
         }
@@ -256,6 +256,7 @@ internal static class DeveloperDifferencerService
     }
 
     /// <summary>Resolves a relative file path while enforcing comparison boundaries.</summary>
+    [return: System.Diagnostics.CodeAnalysis.NotNull]
     public static string SafePath(string root, string relative)
     {
         if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative) || relative.Contains(':') ||
@@ -376,6 +377,7 @@ internal static class DeveloperDifferencerService
         };
     }
 
+    [return: System.Diagnostics.CodeAnalysis.NotNull]
     private static string SafeFolderPath(string root, string relativeFolder)
     {
         if (string.IsNullOrWhiteSpace(relativeFolder) || Path.IsPathRooted(relativeFolder) ||
@@ -532,8 +534,10 @@ internal static class DeveloperDifferencerService
         CancellationToken token,
         IEnumerable<string> disabled = null)
     {
-        var a = new GitIgnoreMatcher(source, disabled);
-        var b = new GitIgnoreMatcher(target, disabled);
+        var disabledArray = disabled?.ToArray();
+
+        var a = new GitIgnoreMatcher(source, disabledArray);
+        var b = new GitIgnoreMatcher(target, disabledArray);
         foreach (var path in left.Keys.Union(right.Keys, StringComparer.OrdinalIgnoreCase).ToArray())
         {
             token.ThrowIfCancellationRequested();
@@ -768,7 +772,7 @@ internal static class DeveloperDifferencerService
         return Convert.ToHexString(xxh128.GetCurrentHash());
     }
 
-    private static bool MatchesSnapshot(string path, DiffStamp stamp, string hash, bool compareTimestamp)
+    private static bool MatchesSnapshot(string path, DiffStamp stamp, string hash)
     {
         // Snapshot validation is independent of the user's comparison filters.
         // Even without a stored hash, reject size/time changes before synchronization.
@@ -826,14 +830,12 @@ internal static class DeveloperDifferencerService
             void ExecuteFile(bool retry)
             {
                 var operation = Operation(file, toTarget);
-                string left = null;
-                string right = null;
                 string from = null;
                 string to = null;
                 try
                 {
-                    left = SafePath(snapshot.SourceRoot, file.RelativePath);
-                    right = SafePath(snapshot.TargetRoot, file.RelativePath);
+                    var left = SafePath(snapshot.SourceRoot, file.RelativePath);
+                    var right = SafePath(snapshot.TargetRoot, file.RelativePath);
                     from = toTarget ? left : right;
                     to = toTarget ? right : left;
                     if (File.Exists(from)) RejectHardLinks(from);
@@ -842,16 +844,16 @@ internal static class DeveloperDifferencerService
                     // desired state. Verify it without overwriting a newly changed file.
                     if (retry && destinationCommitted
                               && MatchesSnapshot(from, toTarget ? file.Source : file.Target,
-                                  toTarget ? file.SourceHash : file.TargetHash, snapshot.CompareTimestamp)
+                                  toTarget ? file.SourceHash : file.TargetHash)
                               && MatchesSnapshot(to, toTarget ? file.Source : file.Target,
-                                  toTarget ? file.SourceHash : file.TargetHash, snapshot.CompareTimestamp))
+                                  toTarget ? file.SourceHash : file.TargetHash))
                     {
                         writeLog(logIndex, "OK " + operation + " " + file.RelativePath);
                         return;
                     }
 
-                    if (!MatchesSnapshot(left, file.Source, file.SourceHash, snapshot.CompareTimestamp) ||
-                        !MatchesSnapshot(right, file.Target, file.TargetHash, snapshot.CompareTimestamp))
+                    if (!MatchesSnapshot(left, file.Source, file.SourceHash) ||
+                        !MatchesSnapshot(right, file.Target, file.TargetHash))
                         throw new IOException("Changed after compare. Compare again.");
                     if (operation == "Delete")
                     {
@@ -860,7 +862,8 @@ internal static class DeveloperDifferencerService
                     }
                     else
                     {
-                        Directory.CreateDirectory(Path.GetDirectoryName(to));
+                        Directory.CreateDirectory(Path.GetDirectoryName(to)
+                                                  ?? throw new IOException("The destination has no parent directory."));
                         var destinationRoot = toTarget ? snapshot.TargetRoot : snapshot.SourceRoot;
                         var temporaryRelative = Path.Combine(Path.GetDirectoryName(file.RelativePath) ?? "",
                             ".dim-sync-" + Guid.NewGuid().ToString("N") + ".tmp");
@@ -872,8 +875,8 @@ internal static class DeveloperDifferencerService
                             File.SetLastWriteTimeUtc(temporary, (toTarget ? file.Source : file.Target).ModifiedUtc);
                             SafePath(snapshot.SourceRoot, file.RelativePath);
                             SafePath(snapshot.TargetRoot, file.RelativePath);
-                            if (!MatchesSnapshot(left, file.Source, file.SourceHash, snapshot.CompareTimestamp) ||
-                                !MatchesSnapshot(right, file.Target, file.TargetHash, snapshot.CompareTimestamp))
+                            if (!MatchesSnapshot(left, file.Source, file.SourceHash) ||
+                                !MatchesSnapshot(right, file.Target, file.TargetHash))
                                 throw new IOException("Changed during copy. Compare again.");
                             if (File.Exists(to))
                             {
@@ -902,7 +905,7 @@ internal static class DeveloperDifferencerService
                     SafePath(snapshot.SourceRoot, file.RelativePath);
                     SafePath(snapshot.TargetRoot, file.RelativePath);
                     if (!MatchesSnapshot(to, toTarget ? file.Source : file.Target,
-                            toTarget ? file.SourceHash : file.TargetHash, snapshot.CompareTimestamp))
+                            toTarget ? file.SourceHash : file.TargetHash))
                         throw new IOException(
                             "Synchronization verification failed: destination timestamp, size or existence differs. Compare again.");
                     writeLog(logIndex, "OK " + operation + " " + file.RelativePath);
@@ -1034,7 +1037,7 @@ internal static class DeveloperDifferencerService
             // A normal accessible file can be opened exclusively for read.
             // A file held by another process with incompatible sharing fails here
             // with ERROR_SHARING_VIOLATION / ERROR_LOCK_VIOLATION.
-            using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None))
+            using (new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None))
             {
             }
 

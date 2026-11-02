@@ -16,13 +16,13 @@ namespace DesktopIniManager.Views;
 
 internal sealed partial class DiffViewWindow
 {
-    private readonly HashSet<int> sourceSelectedEditHunks = new();
-    private readonly HashSet<int> targetSelectedEditHunks = new();
-    private bool savingText, confirmingTextChanges, allowEditedClose;
+    private readonly HashSet<int> _sourceSelectedEditHunks = new();
+    private readonly HashSet<int> _targetSelectedEditHunks = new();
+    private bool _savingText, _confirmingTextChanges, _allowEditedClose;
 
     private HashSet<int> SelectedEditHunks(bool source)
     {
-        return source ? sourceSelectedEditHunks : targetSelectedEditHunks;
+        return source ? _sourceSelectedEditHunks : _targetSelectedEditHunks;
     }
 
     private void InitializeDiffContextMenu()
@@ -56,7 +56,7 @@ internal sealed partial class DiffViewWindow
 
         async Task Copy(bool source)
         {
-            if (hunkId < 0 || renderingContent || savingText || !ViewModel.CanChangeComparison) return;
+            if (hunkId < 0 || _renderingContent || _savingText || !ViewModel.CanChangeComparison) return;
             var selected = SelectedEditHunks(source);
             ViewModel.CopyHunks(selected.Contains(hunkId) ? selected.ToArray() : new[] { hunkId }, source);
             await RenderTextEditsAsync();
@@ -64,22 +64,22 @@ internal sealed partial class DiffViewWindow
 
         copyRight.Click += async (_, _) => await Copy(true);
         copyLeft.Click += async (_, _) => await Copy(false);
-        body.ContextMenu = menu;
-        body.PreviewMouseRightButtonDown += (_, e) =>
+        Body.ContextMenu = menu;
+        Body.PreviewMouseRightButtonDown += (_, e) =>
         {
             hunkId = -1;
-            var pane = e.GetPosition(body).X < body.ActualWidth / 2 ? leftList : rightList;
-            if (ViewModel.IsText && pane != null && !renderingContent)
+            var pane = e.GetPosition(Body).X < Body.ActualWidth / 2 ? _leftList : _rightList;
+            if (ViewModel.IsText && pane != null && !_renderingContent)
             {
                 var scroll = FindScroll(pane);
                 var row = (int)Math.Floor((e.GetPosition(pane).Y + (scroll?.VerticalOffset ?? 0)) / DiffLineHeight);
-                if (row >= 0 && row < lines.Count) hunkId = lines[row].EditHunkId;
+                if (row >= 0 && row < Lines.Count) hunkId = Lines[row].EditHunkId;
             }
 
-            copyRight.IsEnabled = copyLeft.IsEnabled = hunkId >= 0 && ViewModel.CanChangeComparison && !savingText;
+            copyRight.IsEnabled = copyLeft.IsEnabled = hunkId >= 0 && ViewModel.CanChangeComparison && !_savingText;
             // Open without allowing RichTextBox to replace this side's selection.
             e.Handled = true;
-            menu.PlacementTarget = body;
+            menu.PlacementTarget = Body;
             menu.Placement = PlacementMode.MousePoint;
             menu.IsOpen = true;
         };
@@ -97,7 +97,7 @@ internal sealed partial class DiffViewWindow
         };
         button.Click += async (_, _) =>
         {
-            clipboardSource = source;
+            _clipboardSource = source;
             await SaveTextSideAsync(source);
         };
         header.Inlines.Add(new InlineUIContainer(button) { BaselineAlignment = BaselineAlignment.Center });
@@ -110,12 +110,12 @@ internal sealed partial class DiffViewWindow
         {
             case Key.S:
                 e.Handled = true;
-                _ = SaveTextSideAsync(clipboardSource);
+                _ = SaveTextSideAsync(_clipboardSource);
                 return true;
 
             case Key.Z:
                 e.Handled = true;
-                if (!savingText)
+                if (!_savingText)
                 {
                     ViewModel.UndoEdit();
                     _ = RenderTextEditsAsync();
@@ -125,10 +125,10 @@ internal sealed partial class DiffViewWindow
 
             case Key.A:
                 e.Handled = true;
-                var selectedEditHunks = SelectedEditHunks(clipboardSource);
+                var selectedEditHunks = SelectedEditHunks(_clipboardSource);
                 selectedEditHunks.Clear();
-                foreach (var row in lines.Where(r => r.EditHunkId >= 0)) selectedEditHunks.Add(row.EditHunkId);
-                var pane = clipboardSource ? leftList : rightList;
+                foreach (var row in Lines.Where(r => r.EditHunkId >= 0)) selectedEditHunks.Add(row.EditHunkId);
+                var pane = _clipboardSource ? _leftList : _rightList;
                 pane?.SelectAll();
                 RefreshEditArrows();
                 return true;
@@ -139,18 +139,18 @@ internal sealed partial class DiffViewWindow
 
     private void UpdateTextHunkSelection(RichTextBox pane)
     {
-        if (renderingContent || savingText) return;
-        var selectedEditHunks = SelectedEditHunks(pane == leftList);
+        if (_renderingContent || _savingText) return;
+        var selectedEditHunks = SelectedEditHunks(pane == _leftList);
         selectedEditHunks.Clear();
         if (!pane.Selection.IsEmpty)
         {
             var row = 0;
             foreach (var block in pane.Document.Blocks)
             {
-                if (row >= lines.Count) break;
+                if (row >= Lines.Count) break;
                 if (block.ContentEnd.CompareTo(pane.Selection.Start) >= 0 &&
-                    block.ContentStart.CompareTo(pane.Selection.End) < 0 && lines[row].EditHunkId >= 0)
-                    selectedEditHunks.Add(lines[row].EditHunkId);
+                    block.ContentStart.CompareTo(pane.Selection.End) < 0 && Lines[row].EditHunkId >= 0)
+                    selectedEditHunks.Add(Lines[row].EditHunkId);
                 row++;
             }
         }
@@ -161,10 +161,10 @@ internal sealed partial class DiffViewWindow
     private void BuildEditArrows(Canvas viewport, bool source)
     {
         while (viewport.Children.Count > 1) viewport.Children.RemoveAt(1);
-        if (!ViewModel.IsText || lines == null) return;
-        foreach (var row in hunks)
+        if (!ViewModel.IsText || Lines == null) return;
+        foreach (var row in Hunks)
         {
-            var id = lines[row].EditHunkId;
+            var id = Lines[row].EditHunkId;
             if (id < 0) continue;
             var button = new Button
             {
@@ -180,8 +180,8 @@ internal sealed partial class DiffViewWindow
             button.Click += async (_, e) =>
             {
                 e.Handled = true;
-                if (renderingContent || savingText || !ViewModel.CanChangeComparison) return;
-                clipboardSource = source;
+                if (_renderingContent || _savingText || !ViewModel.CanChangeComparison) return;
+                _clipboardSource = source;
                 var selectedEditHunks = SelectedEditHunks(source);
                 if (ViewModel.CanUndoHunk(id, source)) ViewModel.UndoHunk(id, source);
                 else
@@ -202,7 +202,7 @@ internal sealed partial class DiffViewWindow
         var firstBySide = new Dictionary<bool, int>();
         foreach (var button in viewport.Children.OfType<Button>())
         {
-            var (row, id, source) = ((int, int, bool))button.Tag;
+            var (_, id, source) = ((int, int, bool))button.Tag;
             var selectedEditHunks = SelectedEditHunks(source);
             var undo = ViewModel.CanUndoHunk(id, source);
             if (!firstBySide.TryGetValue(source, out var first))
@@ -219,8 +219,8 @@ internal sealed partial class DiffViewWindow
 
     private void RefreshEditArrows()
     {
-        if (leftList?.Tag is Canvas left) UpdateEditArrowAppearance(left);
-        if (rightList?.Tag is Canvas right) UpdateEditArrowAppearance(right);
+        if (_leftList?.Tag is Canvas left) UpdateEditArrowAppearance(left);
+        if (_rightList?.Tag is Canvas right) UpdateEditArrowAppearance(right);
     }
 
     private static void PositionEditArrows(Canvas viewport, double offset)
@@ -234,20 +234,20 @@ internal sealed partial class DiffViewWindow
 
     private Task RenderTextEditsAsync()
     {
-        if (leftList == null || rightList == null) return LoadContent(false, false);
-        var scroll = leftScroll ?? FindScroll(leftList);
+        if (_leftList == null || _rightList == null) return LoadContent(false, false);
+        var scroll = _leftScroll ?? FindScroll(_leftList);
         var vertical = scroll?.VerticalOffset ?? 0;
         var horizontal = scroll?.HorizontalOffset ?? 0;
-        var restoreSourceSelection = !leftList.Selection.IsEmpty;
-        var restoreTargetSelection = !rightList.Selection.IsEmpty;
-        var selectedHunk = current;
-        if (renderedPanes.TryGetValue(true, out var previous) && hunkStart >= 0 && hunkStart < previous.Lines.Count)
+        var restoreSourceSelection = !_leftList.Selection.IsEmpty;
+        var restoreTargetSelection = !_rightList.Selection.IsEmpty;
+        var selectedHunk = Current;
+        if (_renderedPanes.TryGetValue(true, out var previous) && _hunkStart >= 0 && _hunkStart < previous.Lines.Count)
         {
-            var id = previous.Lines[hunkStart].EditHunkId;
-            selectedHunk = hunks.FindIndex(row => lines[row].EditHunkId == id);
+            var id = previous.Lines[_hunkStart].EditHunkId;
+            selectedHunk = Hunks.FindIndex(row => Lines[row].EditHunkId == id);
         }
 
-        renderingContent = true;
+        _renderingContent = true;
         try
         {
             RefreshFoldedPanes(vertical, horizontal, selectedHunk);
@@ -255,28 +255,28 @@ internal sealed partial class DiffViewWindow
             {
                 if (!(side ? restoreSourceSelection : restoreTargetSelection)) continue;
                 var selected = SelectedEditHunks(side);
-                var first = lines.FindIndex(row => selected.Contains(row.EditHunkId));
-                var last = lines.FindLastIndex(row => selected.Contains(row.EditHunkId));
+                var first = Lines.FindIndex(row => selected.Contains(row.EditHunkId));
+                var last = Lines.FindLastIndex(row => selected.Contains(row.EditHunkId));
                 if (first < 0) continue;
-                var pane = side ? leftList : rightList;
+                var pane = side ? _leftList : _rightList;
                 var blocks = pane.Document.Blocks.ToArray();
                 pane.Selection.Select(blocks[first].ContentStart, blocks[last].ContentEnd);
             }
 
-            leftScroll?.ScrollToVerticalOffset(vertical);
-            rightScroll?.ScrollToVerticalOffset(vertical);
-            leftScroll?.ScrollToHorizontalOffset(horizontal);
-            rightScroll?.ScrollToHorizontalOffset(horizontal);
+            _leftScroll?.ScrollToVerticalOffset(vertical);
+            _rightScroll?.ScrollToVerticalOffset(vertical);
+            _leftScroll?.ScrollToHorizontalOffset(horizontal);
+            _rightScroll?.ScrollToHorizontalOffset(horizontal);
         }
         finally
         {
-            renderingContent = false;
+            _renderingContent = false;
         }
 
         RefreshEditArrows();
         foreach (var side in new[] { true, false })
         {
-            var header = side ? sourceHeader : targetHeader;
+            var header = side ? SourceHeader : TargetHeader;
             foreach (var button in header.Inlines.OfType<InlineUIContainer>().Select(i => i.Child).OfType<Button>())
                 button.IsEnabled = ViewModel.IsDirty(side);
         }
@@ -286,14 +286,14 @@ internal sealed partial class DiffViewWindow
 
     private async Task ReloadTextAsync()
     {
-        if (renderingContent || savingText || !ViewModel.CanChangeComparison) return;
+        if (_renderingContent || _savingText || !ViewModel.CanChangeComparison) return;
         if (!await ConfirmTextChangesAsync()) return;
         await ViewModel.ReloadFromDiskAsync();
     }
 
     private async Task RecompareWorkingTextAsync()
     {
-        if (renderingContent || savingText || !ViewModel.CanChangeComparison) return;
+        if (_renderingContent || _savingText || !ViewModel.CanChangeComparison) return;
         if (!ViewModel.IsText)
         {
             await ViewModel.ReloadFromDiskAsync();
@@ -315,9 +315,9 @@ internal sealed partial class DiffViewWindow
 
     private async Task<bool> SaveTextSideAsync(bool source)
     {
-        if (savingText || renderingContent || !ViewModel.CanChangeComparison) return false;
+        if (_savingText || _renderingContent || !ViewModel.CanChangeComparison) return false;
         if (!ViewModel.IsDirty(source)) return true;
-        savingText = true;
+        _savingText = true;
         SetRendering(true);
         try
         {
@@ -342,7 +342,7 @@ internal sealed partial class DiffViewWindow
         }
         finally
         {
-            savingText = false;
+            _savingText = false;
             SetRendering(false);
         }
 
@@ -360,11 +360,11 @@ internal sealed partial class DiffViewWindow
         if (ViewModel.DifferencesOnly) ViewModel.ToggleDifferencesOnly();
         SetRendering(false);
         await LoadContent(false, false);
-        var row = lines.FindIndex(r => (source ? r.LeftNumber : r.RightNumber) == line);
+        var row = Lines.FindIndex(r => (source ? r.LeftNumber : r.RightNumber) == line);
         if (row < 0) return;
-        var pane = source ? leftList : rightList;
+        var pane = source ? _leftList : _rightList;
         pane.Focus();
-        clipboardSource = source;
+        _clipboardSource = source;
         ScrollPaneToLine(pane, row);
         var paragraph = pane.Document.Blocks.ElementAt(row) as Paragraph;
         if (paragraph == null) return;
@@ -398,9 +398,9 @@ internal sealed partial class DiffViewWindow
 
     private async Task<bool> ConfirmTextChangesAsync()
     {
-        if (confirmingTextChanges || savingText) return false;
+        if (_confirmingTextChanges || _savingText) return false;
         if (!ViewModel.HasEdits) return true;
-        confirmingTextChanges = true;
+        _confirmingTextChanges = true;
         try
         {
             var dialog = new Window
@@ -446,7 +446,7 @@ internal sealed partial class DiffViewWindow
         }
         finally
         {
-            confirmingTextChanges = false;
+            _confirmingTextChanges = false;
         }
     }
 }

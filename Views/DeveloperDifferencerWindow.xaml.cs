@@ -17,18 +17,20 @@ using System.Windows.Threading;
 namespace DesktopIniManager.Views;
 
 [SupportedOSPlatform("windows")]
-public partial class DeveloperDifferencerWindow : Window
+public partial class DeveloperDifferencerWindow
 {
     internal DeveloperDifferencerViewModel ViewModel { get; }
+
     internal bool IsWorking
     { get { return ViewModel.IsBusy; } }
+
     private Point _zipDragStart;
     private bool _zipDragFromSource;
     private bool _zipDragging;
     private bool _zipDragArmed;
-    private Task historyLoad = Task.CompletedTask;
-    private Task<bool> closePreparation;
-    private bool closeReady;
+    private Task _historyLoad = Task.CompletedTask;
+    private Task<bool> _closePreparation;
+    private bool _closeReady;
 
     /// <summary>Initializes a new developer differencer window.</summary>
     public DeveloperDifferencerWindow()
@@ -41,8 +43,8 @@ public partial class DeveloperDifferencerWindow : Window
         DataContext = ViewModel;
         SourceBox.HistoryItemApplied += (_, _) => ViewModel.MatchTargetHistory();
         TargetBox.HistoryItemApplied += (_, _) => ViewModel.CancelTargetHistoryMatch();
-        SourceLabelIcon.MouseLeftButtonUp += (sender, args) => ViewModel.RescanRoot(true);
-        TargetLabelIcon.MouseLeftButtonUp += (sender, args) => ViewModel.RescanRoot(false);
+        SourceLabelIcon.MouseLeftButtonUp += (_, _) => ViewModel.RescanRoot(true);
+        TargetLabelIcon.MouseLeftButtonUp += (_, _) => ViewModel.RescanRoot(false);
         ViewModel.ChooseCleanSolutions = ChooseCleanSolutions;
         ViewModel.CleanReportRequested += ShowCleanReport;
         ViewModel.ChooseFolder = (initialPath, title) =>
@@ -58,7 +60,7 @@ public partial class DeveloperDifferencerWindow : Window
         ViewModel.FileProgressRequested += ScrollToProgressFile;
         ViewModel.ComparisonCompleted += () =>
         {
-            pendingProgressRow = null;
+            _pendingProgressRow = null;
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 FindScrollViewer(FolderTree)?.ScrollToTop();
@@ -76,7 +78,7 @@ public partial class DeveloperDifferencerWindow : Window
         };
         ViewModel.CommitRootHistoryRequested += () => { SourceBox.CommitHistory(); TargetBox.CommitHistory(); };
         ViewModel.SyncDirectionIconRequested += UpdateSyncDirectionIcons;
-        ViewModel.PropertyChanged += (s, e) => { if (e.PropertyName == nameof(ViewModel.IsFileBusy)) { if (ViewModel.IsFileBusy) RestartPanelProgress(); else StopPanelProgress(); } };
+        ViewModel.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(ViewModel.IsFileBusy)) { if (ViewModel.IsFileBusy) RestartPanelProgress(); else StopPanelProgress(); } };
         SameFilterIcon.Source = DifferencerStatusIcons.GetFileIcon(DiffKind.Same);
         DifferentFilterIcon.Source = DifferencerStatusIcons.GetFileIcon(DiffKind.Different);
         SourceOnlyFilterIcon.Source = DifferencerStatusIcons.GetFileIcon(DiffKind.SourceOnly);
@@ -110,12 +112,12 @@ public partial class DeveloperDifferencerWindow : Window
         // HistoryTextBox persists Source/Target via HistoryKey.
         Closing += async (s, e) =>
         {
-            if (closeReady) return;
+            if (_closeReady) return;
             e.Cancel = true;
-            if (ViewModel.IsBusy || closePreparation != null) return;
+            if (ViewModel.IsBusy || _closePreparation != null) return;
             if (await PrepareCloseAsync()) _ = Dispatcher.BeginInvoke(new Action(Close));
         };
-        Closed += (s, e) =>
+        Closed += (_, _) =>
         {
             StringOverlay.CultureChanged -= OnCultureChanged;
             ViewModel.Close();
@@ -124,18 +126,18 @@ public partial class DeveloperDifferencerWindow : Window
         PreviewDragEnter += FolderDropPreview;
         PreviewDragOver += FolderDropPreview;
         PreviewDrop += Differencer_Drop;
-        Loaded += async (s, e) =>
+        Loaded += async (_, _) =>
         {
             IsEnabled = false;
             ViewModel.SetFilePanelBusy(false);
-            try { await (historyLoad = ViewModel.RestoreHistoryAsync()); }
-            finally { if (closePreparation == null) IsEnabled = true; }
+            try { await (_historyLoad = ViewModel.RestoreHistoryAsync()); }
+            finally { if (_closePreparation == null) IsEnabled = true; }
         };
         StringOverlay.CultureChanged += OnCultureChanged;
         ViewModel.RestoreState();
     }
 
-    private DiffRow pendingProgressRow;
+    private DiffRow _pendingProgressRow;
 
     private async void IgnoreListButton_Click(object sender, RoutedEventArgs e)
     {
@@ -152,17 +154,17 @@ public partial class DeveloperDifferencerWindow : Window
         }
     }
 
-    private bool progressScrollPending;
+    private bool _progressScrollPending;
 
     private void ScrollToProgressFile(DiffRow row)
     {
-        pendingProgressRow = row;
-        if (progressScrollPending || row == null) return;
-        progressScrollPending = true;
+        _pendingProgressRow = row;
+        if (_progressScrollPending || row == null) return;
+        _progressScrollPending = true;
         Dispatcher.BeginInvoke(new Action(() =>
         {
-            progressScrollPending = false;
-            DiffRow latest = pendingProgressRow;
+            _progressScrollPending = false;
+            DiffRow latest = _pendingProgressRow;
             if (latest == null || !FilesGrid.Items.Contains(latest)) return;
             FilesGrid.ScrollIntoView(latest);
             FindScrollViewer(FilesGrid)?.ScrollToEnd();
@@ -286,20 +288,20 @@ public partial class DeveloperDifferencerWindow : Window
         await ViewModel.LoadPreviewAsync(row);
     }
 
-    private bool changingFolderSelection;
+    private bool _changingFolderSelection;
 
     private void FolderChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
         var folder = e.NewValue as DiffFolder;
-        if (folder == null || changingFolderSelection) return;
+        if (folder == null || _changingFolderSelection) return;
         // The pinned root and scrolling descendants have separate TreeViews.
-        changingFolderSelection = true;
+        _changingFolderSelection = true;
         try
         {
             foreach (var node in ViewModel.Folders.Values) node.Active = ReferenceEquals(node, folder);
             ViewModel.SelectFolder(folder.Path);
         }
-        finally { changingFolderSelection = false; }
+        finally { _changingFolderSelection = false; }
     }
 
     private void ScheduleFolderIntoView(IReadOnlyList<DiffFolder> path)
@@ -316,12 +318,12 @@ public partial class DeveloperDifferencerWindow : Window
 
     private static TreeViewItem ContainerAlongPath(ItemsControl parent, IReadOnlyList<DiffFolder> path)
     {
+        if (parent == null) return null;
         TreeViewItem current = null;
         ItemsControl host = parent;
         foreach (DiffFolder node in path)
         {
             if (node.Path.Length == 0) continue; // Root is displayed in the fixed tree.
-            if (host == null) return current;
             host.ApplyTemplate();
             host.UpdateLayout();
             var item = host.ItemContainerGenerator.ContainerFromItem(node) as TreeViewItem;
@@ -434,23 +436,23 @@ public partial class DeveloperDifferencerWindow : Window
         SaveGridLayout();
     }
 
-    internal Task<bool> PrepareCloseAsync() => closePreparation ??= SaveForCloseAsync();
+    internal Task<bool> PrepareCloseAsync() => _closePreparation ??= SaveForCloseAsync();
 
     private async Task<bool> SaveForCloseAsync()
     {
         IsEnabled = false;
         try
         {
-            await historyLoad;
+            await _historyLoad;
             SaveGridLayout();
             await ViewModel.SaveStateAsync();
-            closeReady = true;
+            _closeReady = true;
             return true;
         }
         catch (Exception ex)
         {
             ViewModel.ShowError(ex);
-            _ = Dispatcher.BeginInvoke(new Action(() => closePreparation = null));
+            _ = Dispatcher.BeginInvoke(new Action(() => _closePreparation = null));
             IsEnabled = true;
             return false;
         }
@@ -499,7 +501,8 @@ public partial class DeveloperDifferencerWindow : Window
     private void OpenDiff(object sender, MouseButtonEventArgs e)
     {
         // Keep the row hit test in the View so headers and scrollbars cannot open a viewer.
-        if (!(ItemsControl.ContainerFromElement(FilesGrid, e.OriginalSource as DependencyObject) is ListViewItem)) return;
+        if (e.OriginalSource is not DependencyObject originalSource ||
+            ItemsControl.ContainerFromElement(FilesGrid, originalSource) is not ListViewItem) return;
         ViewModel.OpenDiffCommand.Execute(null);
     }
 
@@ -605,7 +608,8 @@ public partial class DeveloperDifferencerWindow : Window
 
     private void HistoryTabStrip_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        var item = ItemsControl.ContainerFromElement(sender as ItemsControl, e.OriginalSource as DependencyObject) as ListBoxItem;
+        if (sender is not ItemsControl owner || e.OriginalSource is not DependencyObject originalSource) return;
+        var item = ItemsControl.ContainerFromElement(owner, originalSource) as ListBoxItem;
         if (item?.DataContext == null) return;
         if (ViewModel.DeleteHistoryTabCommand.CanExecute(item.DataContext))
             ViewModel.DeleteHistoryTabCommand.Execute(item.DataContext);

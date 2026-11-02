@@ -105,7 +105,7 @@ internal sealed partial class MainWindowViewModel
 
     internal void SyncAllFoldersSelectedFlag()
     {
-        var items = SelectableFolders();
+        var items = SelectableFolders().ToArray();
         var all = items.Any() && items.All(item => item.IsSelected);
         if (_allFoldersSelected != all)
         {

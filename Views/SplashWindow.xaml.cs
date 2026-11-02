@@ -5,7 +5,7 @@ using System.Windows.Input;
 
 namespace DesktopIniManager.Views;
 
-internal partial class SplashWindow : Window
+internal partial class SplashWindow
 {
     internal event EventHandler SkipStartupAnalysisRequested;
 
@@ -20,7 +20,7 @@ internal partial class SplashWindow : Window
             Height = SystemParameters.WorkArea.Height * 0.9;
             Width = Height * 2;
         }
-        copyright.Text = string.Format(Strings.Splash_Copyright, DateTime.Now.Year);
+        Copyright.Text = string.Format(Strings.Splash_Copyright, DateTime.Now.Year);
     }
 
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
@@ -33,16 +33,16 @@ internal partial class SplashWindow : Window
 
     internal void Report(string message, int completed)
     {
-        if (stage.Text != message) previous.Text = stage.Text;
-        stage.Text = message;
-        if (!progress.IsIndeterminate)
-            progress.Value = completed;
+        if (Stage.Text != message) Previous.Text = Stage.Text;
+        Stage.Text = message;
+        if (!Progress.IsIndeterminate)
+            Progress.Value = completed;
     }
 
     internal void SetBusy(bool busy)
     {
-        progress.IsIndeterminate = busy;
+        Progress.IsIndeterminate = busy;
         if (!busy)
-            progress.Value = Math.Min(progress.Maximum, Math.Max(progress.Value, 3));
+            Progress.Value = Math.Min(Progress.Maximum, Math.Max(Progress.Value, 3));
     }
 }

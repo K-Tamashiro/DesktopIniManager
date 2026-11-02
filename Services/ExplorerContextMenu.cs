@@ -1,3 +1,4 @@
+using DesktopIniManager.Properties;
 using System;
 using System.ComponentModel;
 using System.IO;
@@ -15,7 +16,9 @@ internal static class ExplorerContextMenu
     {
         if (paths == null || paths.Length == 0) return;
         if (paths.Select(Path.GetDirectoryName).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
-            throw new ArgumentException("シェルメニューでは同じフォルダー内のファイルを選択してください。", nameof(paths));
+            throw new ArgumentException(
+                Strings.ShellMenu_SelectFilesFromSameFolder,
+                nameof(paths));
         var pidls = new IntPtr[paths.Length];
         IShellItemArray array = null;
         object context = null;
@@ -34,8 +37,8 @@ internal static class ExplorerContextMenu
             var shell3 = context as IContextMenu3;
             var shell2 = context as IContextMenu2;
             var hwnd = new WindowInteropHelper(owner).EnsureHandle();
-            source = HwndSource.FromHwnd(hwnd);
-            hook = (h, message, w, l, ref handled) =>
+            source = HwndSource.FromHwnd(hwnd) ?? throw new InvalidOperationException("The owner window has no HWND source.");
+            hook = (_, message, w, l, ref handled) =>
             {
                 // Forward only menu messages, never unrelated owner-drawn controls.
                 if (message != 0x117 && message != 0x120 &&
@@ -70,14 +73,14 @@ internal static class ExplorerContextMenu
                     Size = Marshal.SizeOf<InvokeInfo>(),
                     Owner = hwnd,
                     Verb = (IntPtr)(command - 1),
-                    Show = 1
+                    ShowCommand = 1
                 };
                 Marshal.ThrowExceptionForHR(shell.InvokeCommand(ref info));
             }
         }
         finally
         {
-            if (hook != null && source != null) source.RemoveHook(hook);
+            if (hook != null) source.RemoveHook(hook);
             if (menu != IntPtr.Zero) DestroyMenu(menu);
             if (context != null && Marshal.IsComObject(context)) Marshal.ReleaseComObject(context);
             if (array != null) Marshal.ReleaseComObject(array);
@@ -109,7 +112,7 @@ internal static class ExplorerContextMenu
         public int Size;
         public uint Mask;
         public IntPtr Owner, Verb, Parameters, Directory;
-        public int Show;
+        public int ShowCommand;
         public uint HotKey;
         public IntPtr Icon;
     }

@@ -14,6 +14,7 @@ internal static class StringOverlay
     private static readonly Lock Gate = new();
     private static Dictionary<string, string> _map = new(StringComparer.Ordinal);
     private static bool _loaded;
+
     internal static event EventHandler CultureChanged;
 
     internal static CultureInfo ResolveCulture()

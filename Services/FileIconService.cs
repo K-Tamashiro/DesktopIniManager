@@ -64,6 +64,7 @@ internal static class FileIconService
             }
             catch
             {
+                //
             }
 
         return GetTypeIcon(extension);
@@ -75,10 +76,10 @@ internal static class FileIconService
         {
             var attributes = File.GetAttributes(path);
             if ((attributes & FileAttributes.Offline) != 0) return false;
-            const FileAttributes RecallOnDataAccess = (FileAttributes)0x00400000;
-            const FileAttributes RecallOnOpen = (FileAttributes)0x00040000;
-            if ((attributes & RecallOnDataAccess) != 0) return false;
-            if ((attributes & RecallOnOpen) != 0) return false;
+            const FileAttributes recallOnDataAccess = (FileAttributes)0x00400000;
+            const FileAttributes recallOnOpen = (FileAttributes)0x00040000;
+            if ((attributes & recallOnDataAccess) != 0) return false;
+            if ((attributes & recallOnOpen) != 0) return false;
             return true;
         }
         catch

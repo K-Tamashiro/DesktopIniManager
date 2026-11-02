@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -86,9 +86,9 @@ internal static class DiffRegressionTests
             var frame = new DispatcherFrame();
             var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
             DateTime deadline = DateTime.UtcNow.AddSeconds(15);
-            var leftField = typeof(DiffViewWindow).GetField("leftList", BindingFlags.Instance | BindingFlags.NonPublic);
-            var renderingField = typeof(DiffViewWindow).GetField("renderingContent", BindingFlags.Instance | BindingFlags.NonPublic);
-            var progressPanel = (FrameworkElement)viewer.FindName("loadProgressPanel");
+            var leftField = typeof(DiffViewWindow).GetField("_leftList", BindingFlags.Instance | BindingFlags.NonPublic);
+            var renderingField = typeof(DiffViewWindow).GetField("_renderingContent", BindingFlags.Instance | BindingFlags.NonPublic);
+            var progressPanel = (FrameworkElement)viewer.FindName("LoadProgressPanel");
             Require(progressPanel.Visibility == Visibility.Visible, "progress is visible while loading");
             bool responsiveWhileLoading = false;
             viewer.Dispatcher.BeginInvoke(new Action(() =>
@@ -104,7 +104,7 @@ internal static class DiffRegressionTests
             timer.Stop();
             Require(responsiveWhileLoading, "dispatcher responds while diff is loading");
             Require(progressPanel.Visibility == Visibility.Hidden, "progress clears without removing its layout space");
-            var retainedBody = (Grid)viewer.FindName("body");
+            var retainedBody = (Grid)viewer.FindName("Body");
             viewer.UpdateLayout();
             double retainedHeight = retainedBody.ActualHeight;
             var retainedChildren = retainedBody.Children.Cast<UIElement>().ToArray();
@@ -121,7 +121,7 @@ internal static class DiffRegressionTests
             Dispatcher.PushFrame(reloadFrame);
             reloadTimer.Stop();
             Require(reloadTask.IsCompletedSuccessfully, "replacement comparison finishes rendering");
-            foreach (var pair in new[] { ("leftList", "source marker"), ("rightList", "target marker") })
+            foreach (var pair in new[] { ("_leftList", "source marker"), ("_rightList", "target marker") })
             {
                 var pane = typeof(DiffViewWindow).GetField(pair.Item1, BindingFlags.Instance | BindingFlags.NonPublic).GetValue(viewer) as RichTextBox;
                 Require(pane != null, "viewer renders panes: " + viewer.ViewModel.Status);
@@ -130,7 +130,7 @@ internal static class DiffRegressionTests
             }
             Require(viewer.ViewModel.SourceText.EncodingName == "UTF-8" && viewer.ViewModel.TargetText.EncodingName == "UTF-16 LE", "viewer encoding metadata");
             Require(viewer.ViewModel.SourceText.Newlines == "LF" && viewer.ViewModel.TargetText.Newlines == "LF", "LF-only viewer files are not classified as mixed");
-            foreach (string panelName in new[] { "sourceStatusIcons", "targetStatusIcons" })
+            foreach (string panelName in new[] { "SourceStatusIcons", "TargetStatusIcons" })
             {
                 var tips = ((Panel)viewer.FindName(panelName)).Children.OfType<Image>().Select(i => i.ToolTip as string).ToArray();
                 Require(tips.Contains("LF") && !tips.Any(t => t != null && (t.Contains("CRLF") || t.Contains("LF/"))), "LF-only status indicator: " + panelName);
@@ -143,7 +143,7 @@ internal static class DiffRegressionTests
             {
                 viewer.Width = width;
                 viewer.UpdateLayout();
-                foreach (string field in new[] { "leftList", "rightList" })
+                foreach (string field in new[] { "_leftList", "_rightList" })
                 {
                     var pane = (RichTextBox)typeof(DiffViewWindow).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic).GetValue(viewer);
                     Require(Math.Abs(pane.Document.PageWidth - pane.ActualWidth) < 1, "short document fills resized pane: " + field);
@@ -151,7 +151,7 @@ internal static class DiffRegressionTests
             }
             typeof(DiffViewWindow).GetMethod("UpdateHunkOverlay", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(viewer, null);
             viewer.UpdateLayout();
-            var overlay = (System.Windows.Shapes.Path)typeof(DiffViewWindow).GetField("hunkOverlay", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(viewer);
+            var overlay = (System.Windows.Shapes.Path)typeof(DiffViewWindow).GetField("_hunkOverlay", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(viewer);
             Require(overlay.Visibility == Visibility.Visible && overlay.Data != null, "selected hunk overlay is visible");
             Require(overlay.Data.Bounds.Top >= overlay.StrokeThickness / 2 &&
                 overlay.Data.Bounds.Bottom + overlay.StrokeThickness / 2 <= overlay.ActualHeight + 0.1,
@@ -171,7 +171,7 @@ internal static class DiffRegressionTests
             using (var output = File.Create(Path.Combine(AppContext.BaseDirectory, "diff-viewer-preview.png"))) encoder.Save(output);
             if (!viewer.ViewModel.DifferencesOnly) viewer.ViewModel.ToggleDifferencesOnly();
             viewer.RefreshFoldedPanes(0, 0, 0);
-            var rightPane = (RichTextBox)typeof(DiffViewWindow).GetField("rightList", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(viewer);
+            var rightPane = (RichTextBox)typeof(DiffViewWindow).GetField("_rightList", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(viewer);
             for (int cycle = 0; cycle < 3; cycle++)
             {
                 Require(viewer.ViewModel.ExpandFilteredLines(1), "expand viewer block");
@@ -189,7 +189,7 @@ internal static class DiffRegressionTests
                 Require(viewer.ViewModel.CollapseExpandedLines(50) == 1, "collapse viewer block");
                 viewer.RefreshFoldedPanes(0, 0, 0);
                 Require(sourcePane.Document.Blocks.Count == 3 && rightPane.Document.Blocks.Count == 3, "both documents collapsed in place");
-                Require(ReferenceEquals(overlay, typeof(DiffViewWindow).GetField("hunkOverlay", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(viewer)),
+                Require(ReferenceEquals(overlay, typeof(DiffViewWindow).GetField("_hunkOverlay", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(viewer)),
                     "folding retains selection overlay");
             }
             Console.WriteLine("PASS repeated in-place folding retains controls and restores synchronized scrolling");
@@ -203,8 +203,8 @@ internal static class DiffRegressionTests
     private static void VerifyWhitespaceOverlay(DiffViewWindow viewer, RichTextBox pane)
     {
         var overlay = ((Grid)pane.Parent).Children.Cast<FrameworkElement>().Single(e => e.GetType().Name == "WhitespaceOverlay");
-        var spaces = (CheckBox)viewer.FindName("showSpacesBox");
-        var endings = (CheckBox)viewer.FindName("showNewlinesBox");
+        var spaces = (CheckBox)viewer.FindName("ShowSpacesBox");
+        var endings = (CheckBox)viewer.FindName("ShowNewlinesBox");
         bool oldSpaces = viewer.ViewModel.ShowSpaces, oldEndings = viewer.ViewModel.ShowNewlines;
         var document = pane.Document;
         var lines = viewer.ViewModel.Lines;
@@ -399,18 +399,18 @@ internal static class DiffRegressionTests
             var frame = new DispatcherFrame();
             var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30) };
             DateTime deadline = DateTime.UtcNow.AddSeconds(15);
-            timer.Tick += (_, _) => { if (Field<Slider>("imageZoom") != null || DateTime.UtcNow >= deadline) frame.Continue = false; };
+            timer.Tick += (_, _) => { if (Field<Slider>("_imageZoom") != null || DateTime.UtcNow >= deadline) frame.Continue = false; };
             timer.Start(); Dispatcher.PushFrame(frame); timer.Stop();
-            var zoom = Field<Slider>("imageZoom");
+            var zoom = Field<Slider>("_imageZoom");
             Require(zoom != null, "image navigator loaded");
             zoom.Value = 2;
             window.UpdateLayout();
             window.ScrollImagesTo(320, 210);
             window.UpdateLayout();
-            var sourceScroll = Field<ScrollViewer>("leftScroll"); var targetScroll = Field<ScrollViewer>("rightScroll");
+            var sourceScroll = Field<ScrollViewer>("_leftScroll"); var targetScroll = Field<ScrollViewer>("_rightScroll");
             Require(Math.Abs(sourceScroll.HorizontalOffset - 320) < 1 && sourceScroll.HorizontalOffset == targetScroll.HorizontalOffset &&
                 sourceScroll.VerticalOffset == targetScroll.VerticalOffset, "navigator scrolls both panes together");
-            var thumb = Field<System.Windows.Controls.Primitives.Thumb>("imageViewport");
+            var thumb = Field<System.Windows.Controls.Primitives.Thumb>("_imageViewport");
             Require(thumb.Width > 0 && thumb.Width < 160 && Canvas.GetLeft(thumb) > 0, "navigator frame follows zoom and scroll");
             thumb.RaiseEvent(new System.Windows.Controls.Primitives.DragStartedEventArgs(0, 0) { RoutedEvent = System.Windows.Controls.Primitives.Thumb.DragStartedEvent });
             thumb.RaiseEvent(new System.Windows.Controls.Primitives.DragDeltaEventArgs(5, 3) { RoutedEvent = System.Windows.Controls.Primitives.Thumb.DragDeltaEvent });
@@ -418,22 +418,22 @@ internal static class DiffRegressionTests
             Require(sourceScroll.HorizontalOffset > 320 && sourceScroll.HorizontalOffset == targetScroll.HorizontalOffset, "navigator frame drag moves comparison images");
             var detailMethod = typeof(DiffViewWindow).GetMethod("SetImagePointDetails", BindingFlags.NonPublic | BindingFlags.Instance);
             detailMethod.Invoke(window, new object[] { new Point(10, 20), true });
-            var panningField = typeof(DiffViewWindow).GetField("imagePanning", BindingFlags.NonPublic | BindingFlags.Instance);
+            var panningField = typeof(DiffViewWindow).GetField("_imagePanning", BindingFlags.NonPublic | BindingFlags.Instance);
             panningField.SetValue(window, true);
             detailMethod.Invoke(window, new object[] { new Point(600, 300), false });
-            Require(Field<TextBlock>("sourcePixelDetails").Text.Contains("X:10 Y:20"), "drag holds clicked pixel");
+            Require(Field<TextBlock>("_sourcePixelDetails").Text.Contains("X:10 Y:20"), "drag holds clicked pixel");
             panningField.SetValue(window, false);
             detailMethod.Invoke(window, new object[] { new Point(600, 300), false });
-            string details = Field<TextBlock>("sourcePixelDetails").Text;
+            string details = Field<TextBlock>("_sourcePixelDetails").Text;
             Require(details.Contains("X:600 Y:300") && !details.Contains("X:10 Y:20") && !details.Contains("Drag origin"), "mouse-up resumes single hover readout");
-            Require(Field<TextBlock>("targetPixelDetails").Text.Contains("RGB:255,44,88"), "target RGBA sampled independently");
+            Require(Field<TextBlock>("_targetPixelDetails").Text.Contains("RGB:255,44,88"), "target RGBA sampled independently");
             var map = DiffViewWindow.CreateNavigationBitmap(window.ViewModel.SourceImage, window.ViewModel.TargetImage);
             string changed = DiffViewWindow.DescribePixel(map, new Point(50, 22));
             string equal = DiffViewWindow.DescribePixel(DiffViewWindow.CreateNavigationBitmap(window.ViewModel.SourceImage, window.ViewModel.SourceImage), new Point(50, 22));
             Require(changed != equal, "navigation map highlights differing regions");
-            var xorButton = ((Panel)window.FindName("imageToolbar")).Children.OfType<System.Windows.Controls.Primitives.ToggleButton>()
+            var xorButton = ((Panel)window.FindName("ImageToolbar")).Children.OfType<System.Windows.Controls.Primitives.ToggleButton>()
                 .Single(button => (string)button.ToolTip == "Source XOR mode");
-            var targetXorButton = ((Panel)window.FindName("imageToolbar")).Children.OfType<System.Windows.Controls.Primitives.ToggleButton>()
+            var targetXorButton = ((Panel)window.FindName("ImageToolbar")).Children.OfType<System.Windows.Controls.Primitives.ToggleButton>()
                 .Single(button => (string)button.ToolTip == "Target XOR mode");
             Require(xorButton.IsChecked == SettingsService.LoadDiffFlag("source-image-xor", false) &&
                 targetXorButton.IsChecked == SettingsService.LoadDiffFlag("target-image-xor", false), "XOR restores saved choices");
@@ -459,14 +459,14 @@ internal static class DiffRegressionTests
             Require(ReferenceEquals(((Canvas)sourceScroll.Content).Children.OfType<Image>().Single().Source, window.ViewModel.SourceImage) &&
                 ReferenceEquals(((Canvas)targetScroll.Content).Children.OfType<Image>().Single().Source, window.ViewModel.TargetImage), "second XOR click restores original images");
             Require(DiffViewWindow.DescribePixel(window.ViewModel.SourceImage, new Point(-1, 0)).Contains("RGB:\u2014"), "out of bounds pixel is not sampled");
-            var imageBody = (FrameworkElement)window.FindName("body");
+            var imageBody = (FrameworkElement)window.FindName("Body");
             Require(Math.Abs(imageBody.TranslatePoint(new Point(), window).Y - textBodyTop) < 1,
                 "image and text comparison body starts at the same height");
-            var actions = (FrameworkElement)window.FindName("actionsPanel");
-            var zoomHost = (FrameworkElement)window.FindName("imageControlRow");
+            var actions = (FrameworkElement)window.FindName("ActionsPanel");
+            var zoomHost = (FrameworkElement)window.FindName("ImageControlRow");
             Require(Math.Abs(actions.TranslatePoint(new Point(), window).Y - zoomHost.TranslatePoint(new Point(), window).Y) < 10,
                 "zoom remains alongside action buttons");
-            Require(Field<TextBlock>("sourcePixelDetails").ActualHeight <= 56, "pixel readout has fixed compact height");
+            Require(Field<TextBlock>("_sourcePixelDetails").ActualHeight <= 56, "pixel readout has fixed compact height");
             var render = new System.Windows.Media.Imaging.RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
             render.Render(window);
             var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder(); encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(render));
@@ -474,10 +474,10 @@ internal static class DiffRegressionTests
             window.ScrollImagesTo(double.MaxValue, double.MaxValue); window.UpdateLayout();
             Require(sourceScroll.HorizontalOffset <= sourceScroll.ScrollableWidth && sourceScroll.VerticalOffset <= sourceScroll.ScrollableHeight, "map navigation clamps at image edges");
             var retainedImages = ((Grid)imageBody).Children.Cast<UIElement>().ToArray();
-            var toolbar = (Panel)window.FindName("imageToolbar");
+            var toolbar = (Panel)window.FindName("ImageToolbar");
             xorButton.IsChecked = true;
             var retainedToolbar = toolbar.Children.Cast<UIElement>().ToArray();
-            var retainedNavigator = Field<Canvas>("imageNavigator");
+            var retainedNavigator = Field<Canvas>("_imageNavigator");
             bool blankFrame = false;
             EventHandler observeFrame = (_, _) =>
             {
@@ -489,7 +489,7 @@ internal static class DiffRegressionTests
                 var reload = (System.Threading.Tasks.Task)typeof(DiffViewWindow).GetMethod("LoadContent", BindingFlags.Instance | BindingFlags.NonPublic)
                     .Invoke(window, new object[] { true, true });
                 Require(retainedImages.SequenceEqual(((Grid)imageBody).Children.Cast<UIElement>()) &&
-                    retainedToolbar.SequenceEqual(toolbar.Children.Cast<UIElement>()) && ReferenceEquals(retainedNavigator, Field<Canvas>("imageNavigator")) &&
+                    retainedToolbar.SequenceEqual(toolbar.Children.Cast<UIElement>()) && ReferenceEquals(retainedNavigator, Field<Canvas>("_imageNavigator")) &&
                     zoomHost.Visibility == Visibility.Visible, "image reload retains panes, zoom controls and navigator while reading");
                 var reloadFrame = new DispatcherFrame();
                 var reloadTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(20) };
@@ -499,16 +499,16 @@ internal static class DiffRegressionTests
                 Dispatcher.PushFrame(reloadFrame);
                 reloadTimer.Stop();
                 Require(reload.IsCompletedSuccessfully && !blankFrame, "image reload completes without an empty frame");
-                Require(Field<Slider>("imageZoom").Value < 1, "replacement image is fitted before load completes");
+                Require(Field<Slider>("_imageZoom").Value < 1, "replacement image is fitted before load completes");
                 var restoredXor = toolbar.Children.OfType<System.Windows.Controls.Primitives.ToggleButton>().Single(button => (string)button.ToolTip == "Source XOR mode");
                 Require(restoredXor.IsChecked == true && ((Image)restoredXor.Content).Opacity == 1, "XOR mode survives image reload");
-                var reloadedXor = (System.Windows.Media.Imaging.BitmapSource)((Canvas)Field<ScrollViewer>("leftScroll").Content).Children.OfType<Image>().Single().Source;
+                var reloadedXor = (System.Windows.Media.Imaging.BitmapSource)((Canvas)Field<ScrollViewer>("_leftScroll").Content).Children.OfType<Image>().Single().Source;
                 Require(DiffViewWindow.DescribePixel(reloadedXor, new Point(600, 300)).Contains("RGB:155,0,0"), "reloaded image still displays XOR pixels");
                 var reopened = new DiffViewWindow(snapshot, snapshot.Files[0], left, right);
                 try
                 {
                     bool SavedField(string name) => (bool)typeof(DiffViewWindow).GetField(name, BindingFlags.NonPublic | BindingFlags.Instance).GetValue(reopened);
-                    Require(SavedField("sourceImageXorMode") && !SavedField("targetImageXorMode"), "new window restores independent XOR choices");
+                    Require(SavedField("_sourceImageXorMode") && !SavedField("_targetImageXorMode"), "new window restores independent XOR choices");
                 }
                 finally { reopened.Close(); }
             }

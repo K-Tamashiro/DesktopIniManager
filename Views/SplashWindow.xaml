@@ -27,7 +27,7 @@
                 Text="{loc:L Splash_Initializing}"
                 TextTrimming="CharacterEllipsis" />
             <TextBlock
-                x:Name="stage"
+                x:Name="Stage"
                 Canvas.Left="377"
                 Canvas.Top="548"
                 Width="850"
@@ -37,7 +37,7 @@
                 Text="{loc:L Splash_LoadingSettings}"
                 TextTrimming="CharacterEllipsis" />
             <TextBlock
-                x:Name="previous"
+                x:Name="Previous"
                 Canvas.Left="377"
                 Canvas.Top="603"
                 Width="850"
@@ -46,7 +46,7 @@
                 Foreground="#9CAFC5"
                 TextTrimming="CharacterEllipsis" />
             <ProgressBar
-                x:Name="progress"
+                x:Name="Progress"
                 Canvas.Left="377"
                 Canvas.Top="676"
                 Width="700"
@@ -56,7 +56,7 @@
                 Maximum="4"
                 Minimum="0" />
             <TextBlock
-                x:Name="copyright"
+                x:Name="Copyright"
                 Canvas.Left="1090"
                 Canvas.Top="786"
                 Width="630"

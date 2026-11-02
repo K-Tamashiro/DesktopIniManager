@@ -15,6 +15,51 @@ using System.Threading.Tasks;
 
 internal static class DiffEditingTests
 {
+    internal static int RunIconModes()
+    {
+        var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        var xml = new System.Xml.XmlDocument();
+        xml.Load(Path.Combine(AppContext.BaseDirectory, "TestAssets", "App.xaml"));
+        var ns = new System.Xml.XmlNamespaceManager(xml.NameTable);
+        ns.AddNamespace("p", "http://schemas.microsoft.com/winfx/2006/xaml/presentation");
+        var resources = xml.SelectSingleNode("p:Application/p:Application.Resources/p:ResourceDictionary", ns).OuterXml;
+        var context = new ParserContext();
+        context.XmlnsDictionary.Add("x", "http://schemas.microsoft.com/winfx/2006/xaml");
+        app.Resources = (ResourceDictionary)XamlReader.Parse(
+            resources.Replace("Source=\"Themes/", "Source=\"/DesktopIniManager;component/Themes/"), context);
+        System.Threading.SynchronizationContext.SetSynchronizationContext(
+            new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
+        // Keep the window unopened so this check cannot persist the user's layout on close.
+        var window = new DesktopIniManager.MainWindow(new StartupState { Theme = "Dark" });
+        var model = window.ViewModel;
+        var list = (ListBox)window.FindName("FileIconList");
+        foreach (var columns in new[] { 2, 3, 2 })
+        {
+            var command = columns == 2 ? model.FileIconLargeCommand : model.FileIconSmallCommand;
+            command.Execute(null);
+            var frame = new DispatcherFrame();
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(15) };
+            var deadline = DateTime.UtcNow.AddSeconds(20);
+            timer.Tick += (_, _) =>
+            {
+                if (!model.IsFileBusy || DateTime.UtcNow >= deadline) frame.Continue = false;
+            };
+            timer.Start();
+            Dispatcher.PushFrame(frame);
+            timer.Stop();
+            Check(!model.IsFileBusy, "icon mode switch completes");
+            Check(list.Visibility == Visibility.Visible, "icon list becomes visible");
+            var panel = (VirtualizingUniformGrid)list.ItemsPanel.LoadContent();
+            Check(panel.Columns == columns, "icon mode uses " + columns + " columns");
+            var item = (StackPanel)list.ItemTemplate.LoadContent();
+            var image = (Image)((Border)item.Children[0]).Child;
+            Check(image.Width == (columns == 2 ? 48 : 32), "icon mode uses matching image size");
+        }
+        model.FileListViewCommand.Execute(null);
+        Check(list.Visibility == Visibility.Collapsed, "list mode can be restored");
+        return 0;
+    }
+
     internal static int RunViewer()
     {
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
@@ -45,51 +90,53 @@ internal static class DiffEditingTests
             timer.Start(); Dispatcher.PushFrame(frame); timer.Stop(); Check(done(), "UI operation completes");
         }
         void Wait(Task task) { Pump(() => task.IsCompleted); task.GetAwaiter().GetResult(); }
-        Button[] Arrows(bool source) => ((Canvas)((RichTextBox)Field(source ? "leftList" : "rightList")).Tag).Children.OfType<Button>().ToArray();
-        Button Save(bool source) => ((TextBlock)window.FindName(source ? "sourceHeader" : "targetHeader")).Inlines.OfType<InlineUIContainer>().Select(c => c.Child).OfType<Button>().Single();
+        Button[] Arrows(bool source) => ((Canvas)((RichTextBox)Field(source ? "_leftList" : "_rightList")).Tag).Children.OfType<Button>().ToArray();
+        Button Save(bool source) => ((TextBlock)window.FindName(source ? "SourceHeader" : "TargetHeader")).Inlines.OfType<InlineUIContainer>().Select(c => c.Child).OfType<Button>().Single();
         try
         {
             window.ViewModel.CompareCase = true;
-            window.Show(); Pump(() => Field("leftList") != null && !(bool)Field("renderingContent"));
+            window.ViewModel.CompareNewlines = false;
+            window.ViewModel.CompareSpaces = false;
+            window.Show(); Pump(() => Field("_leftList") != null && !(bool)Field("_renderingContent"));
             var model = window.ViewModel;
             model.ShowSpaces = model.ShowNewlines = true;
-            ((CheckBox)window.FindName("showSpacesBox")).IsChecked = true;
-            ((CheckBox)window.FindName("showNewlinesBox")).IsChecked = true;
-            var originalLeftPane = (RichTextBox)Field("leftList");
-            var originalRightPane = (RichTextBox)Field("rightList");
+            ((CheckBox)window.FindName("ShowSpacesBox")).SetCurrentValue(System.Windows.Controls.Primitives.ToggleButton.IsCheckedProperty, true);
+            ((CheckBox)window.FindName("ShowNewlinesBox")).SetCurrentValue(System.Windows.Controls.Primitives.ToggleButton.IsCheckedProperty, true);
+            var originalLeftPane = (RichTextBox)Field("_leftList");
+            var originalRightPane = (RichTextBox)Field("_rightList");
             var originalLeftDocument = originalLeftPane.Document;
             var originalRightDocument = originalRightPane.Document;
             var retainedCommon = originalLeftDocument.Blocks.ElementAt(1);
             Check(Arrows(true).Length == 3 && Arrows(false).Length == 3, "arrows exist in both gutters");
             Check(!Save(true).IsEnabled && !Save(false).IsEnabled, "save buttons disabled initially");
             System.Windows.Media.Color FirstBackground(bool source) =>
-                ((System.Windows.Media.SolidColorBrush)((RichTextBox)Field(source ? "leftList" : "rightList")).Document.Blocks.FirstBlock.Background).Color;
+                ((System.Windows.Media.SolidColorBrush)((RichTextBox)Field(source ? "_leftList" : "_rightList")).Document.Blocks.FirstBlock.Background).Color;
             var sourceBackground = FirstBackground(true);
             var targetBackground = FirstBackground(false);
-            var selected = (System.Collections.Generic.HashSet<int>)Field("sourceSelectedEditHunks"); selected.UnionWith(new[] { 0, 1, 2 });
-            var targetSelected = (System.Collections.Generic.HashSet<int>)Field("targetSelectedEditHunks"); targetSelected.Add(1);
+            var selected = (System.Collections.Generic.HashSet<int>)Field("_sourceSelectedEditHunks"); selected.UnionWith(new[] { 0, 1, 2 });
+            var targetSelected = (System.Collections.Generic.HashSet<int>)Field("_targetSelectedEditHunks"); targetSelected.Add(1);
             originalLeftPane.SelectAll();
             var targetSecondHunk = originalRightDocument.Blocks.ElementAt(model.Lines.FindIndex(row => row.EditHunkId == 1));
             originalRightPane.Selection.Select(targetSecondHunk.ContentStart, targetSecondHunk.ContentEnd);
             Call("RefreshEditArrows");
             Check(Arrows(true)[0].IsEnabled && Arrows(true).Skip(1).All(x => !x.IsEnabled), "only first selected arrow is clickable");
             Check(Arrows(false).All(x => x.IsEnabled), "Source multi-selection does not group Target arrows");
-            Arrows(true)[0].RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Pump(() => !(bool)Field("renderingContent"));
+            Arrows(true)[0].RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Pump(() => !(bool)Field("_renderingContent"));
             Check(model.IsDirty(false) && !model.IsDirty(true), "copy dirties only destination");
             var copiedBackground = FirstBackground(false);
-            Check(FirstBackground(true).R == (byte)(sourceBackground.R * 0.7) && copiedBackground.R == (byte)(targetBackground.R * 0.7) &&
-                copiedBackground.G == (byte)(targetBackground.G * 0.7) && copiedBackground.B == (byte)(targetBackground.B * 0.7),
-                "copied block darkens both backgrounds by 30 percent");
-            Check(ReferenceEquals(originalLeftPane, Field("leftList")) && ReferenceEquals(originalRightPane, Field("rightList")) &&
+            Check(FirstBackground(true).R == (byte)(sourceBackground.R * 0.5) && copiedBackground.R == (byte)(targetBackground.R * 0.5) &&
+                copiedBackground.G == (byte)(targetBackground.G * 0.5) && copiedBackground.B == (byte)(targetBackground.B * 0.5),
+                "copied block darkens both backgrounds by 50 percent");
+            Check(ReferenceEquals(originalLeftPane, Field("_leftList")) && ReferenceEquals(originalRightPane, Field("_rightList")) &&
                 ReferenceEquals(originalLeftDocument, originalLeftPane.Document) && ReferenceEquals(originalRightDocument, originalRightPane.Document) &&
                 ReferenceEquals(retainedCommon, originalLeftDocument.Blocks.ElementAt(1)), "copy retains panes, documents and unrelated rows");
             Check(selected.SetEquals(new[] { 0, 1, 2 }) && targetSelected.SetEquals(new[] { 1 }), "copy preserves independent selections");
             Check(!originalLeftPane.Selection.IsEmpty && !originalRightPane.Selection.IsEmpty, "copy preserves both visible selections");
-            Check(model.ShowSpaces && model.ShowNewlines && ((CheckBox)window.FindName("showSpacesBox")).IsChecked == true &&
-                ((CheckBox)window.FindName("showNewlinesBox")).IsChecked == true, "copy preserves whitespace and newline display");
+            Check(model.ShowSpaces && model.ShowNewlines && ((CheckBox)window.FindName("ShowSpacesBox")).IsChecked == true &&
+                ((CheckBox)window.FindName("ShowNewlinesBox")).IsChecked == true, "copy preserves whitespace and newline display");
             Check(Arrows(true).All(x => x.IsEnabled) && model.CanUndoHunk(0, true) && model.CanUndoHunk(2, true), "each copied hunk has independent undo arrow");
             Check(Save(false).IsEnabled && !Save(true).IsEnabled && File.ReadAllBytes(b).SequenceEqual(originalB), "save enablement and no implicit write");
-            Arrows(true)[0].RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Pump(() => !(bool)Field("renderingContent"));
+            Arrows(true)[0].RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Pump(() => !(bool)Field("_renderingContent"));
             Check(DiffViewModel.Text(model.TargetText).StartsWith("target1") && DiffViewModel.Text(model.TargetText).Contains("source2"), "arrow selectively undoes first copy");
             model.UndoEdit(); Wait((Task)Call("RenderTextEditsAsync"));
             Check(!model.HasEdits && !Save(false).IsEnabled, "sequential undo clears remaining group");
@@ -121,8 +168,8 @@ internal static class DiffEditingTests
             Wait((Task)Call("ReloadTextAsync"));
             if (!model.DifferencesOnly) model.ToggleDifferencesOnly();
             window.RefreshFoldedPanes(0, 0, 0);
-            var leftPane = (RichTextBox)Field("leftList");
-            var rightPane = (RichTextBox)Field("rightList");
+            var leftPane = (RichTextBox)Field("_leftList");
+            var rightPane = (RichTextBox)Field("_rightList");
             var doc = leftPane.Document;
             var first = doc.Blocks.FirstBlock;
             var last = doc.Blocks.LastBlock;
@@ -154,33 +201,63 @@ internal static class DiffEditingTests
                     model.ToggleDifferencesOnly();
                     Wait((Task)Call("LoadContent", false, false));
                 }
-                var paneBefore = (RichTextBox)Field("leftList");
+                var paneBefore = (RichTextBox)Field("_leftList");
                 paneBefore.ScrollToVerticalOffset(hunkView ? 0 : 220);
-                ((RichTextBox)Field("rightList")).ScrollToVerticalOffset(hunkView ? 0 : 220);
+                ((RichTextBox)Field("_rightList")).ScrollToVerticalOffset(hunkView ? 0 : 220);
                 window.UpdateLayout();
                 var offsetBefore = paneBefore.VerticalOffset;
                 var rowsBefore = paneBefore.Document.Blocks.ToArray();
                 model.ShowSpaces = hunkView;
                 model.ShowNewlines = !hunkView;
-                ((CheckBox)window.FindName("showSpacesBox")).IsChecked = hunkView;
-                ((CheckBox)window.FindName("showNewlinesBox")).IsChecked = !hunkView;
+                ((CheckBox)window.FindName("ShowSpacesBox")).SetCurrentValue(System.Windows.Controls.Primitives.ToggleButton.IsCheckedProperty, hunkView);
+                ((CheckBox)window.FindName("ShowNewlinesBox")).SetCurrentValue(System.Windows.Controls.Primitives.ToggleButton.IsCheckedProperty, !hunkView);
                 var watch = System.Diagnostics.Stopwatch.StartNew();
                 model.CopyHunks(new[] { 0 }, true);
                 Wait((Task)Call("RenderTextEditsAsync"));
                 Console.WriteLine("COPY hunkView=" + hunkView + " ms=" + watch.ElapsedMilliseconds);
-                Check(ReferenceEquals(paneBefore, Field("leftList")) &&
+                Check(ReferenceEquals(paneBefore, Field("_leftList")) &&
                     rowsBefore.Skip(1).SequenceEqual(paneBefore.Document.Blocks.Skip(1)), "single copy retains every unrelated row");
                 Check(Math.Abs(paneBefore.VerticalOffset - offsetBefore) < 1, "copy keeps the viewport fixed");
                 Check(model.ShowSpaces == hunkView && model.ShowNewlines == !hunkView &&
-                    ((CheckBox)window.FindName("showSpacesBox")).IsChecked == hunkView &&
-                    ((CheckBox)window.FindName("showNewlinesBox")).IsChecked == !hunkView,
+                    ((CheckBox)window.FindName("ShowSpacesBox")).IsChecked == hunkView &&
+                    ((CheckBox)window.FindName("ShowNewlinesBox")).IsChecked == !hunkView,
                     "copy retains marker switches in Hunk and All views");
                 model.UndoEdit();
                 Wait((Task)Call("RenderTextEditsAsync"));
             }
-            var contextMenu = ((Grid)window.FindName("body")).ContextMenu;
-            Check(ReferenceEquals(((RichTextBox)Field("leftList")).ContextMenu, contextMenu) &&
-                ReferenceEquals(((RichTextBox)Field("rightList")).ContextMenu, contextMenu), "both panes use the block context menu instead of the RichTextBox default");
+            File.WriteAllText(a, "source text\ncommon words\nsource end");
+            File.WriteAllText(b, "target text\ncommon words\ntarget end");
+            if (model.DifferencesOnly) model.ToggleDifferencesOnly();
+            Wait((Task)Call("ReloadTextAsync"));
+            var spaceOption = (CheckBox)window.FindName("ShowSpacesBox");
+            var newlineOption = (CheckBox)window.FindName("ShowNewlinesBox");
+            var clickCheckbox = typeof(System.Windows.Controls.Primitives.ToggleButton).GetMethod("OnClick", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (spaceOption.IsChecked != true) clickCheckbox.Invoke(spaceOption, null);
+            if (newlineOption.IsChecked != true) clickCheckbox.Invoke(newlineOption, null);
+            void CheckRenderedMarkers(string operation)
+            {
+                bool idle = false;
+                window.Dispatcher.BeginInvoke(new Action(() => idle = true), DispatcherPriority.ApplicationIdle);
+                Pump(() => idle);
+                Check(model.ShowSpaces && model.ShowNewlines && spaceOption.IsChecked == true && newlineOption.IsChecked == true,
+                    operation + ": checkbox and model stay ON");
+                foreach (bool source in new[] { true, false })
+                {
+                    var pane = (RichTextBox)Field(source ? "_leftList" : "_rightList");
+                    var overlay = ((Grid)pane.Parent).Children.Cast<FrameworkElement>().Single(element => element.GetType().Name == "WhitespaceOverlay");
+                    int marks = (int)overlay.GetType().GetProperty("LastDrawnMarkCount", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(overlay);
+                    Console.WriteLine(operation + " source=" + source + " drawn=" + marks);
+                    Check(marks >= 5, operation + ": actual WPF render retains space and newline markers");
+                }
+            }
+            CheckRenderedMarkers("before copy");
+            Arrows(true)[0].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            CheckRenderedMarkers("after arrow copy");
+            Arrows(true)[0].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            CheckRenderedMarkers("after arrow undo");
+            var contextMenu = ((Grid)window.FindName("Body")).ContextMenu;
+            Check(ReferenceEquals(((RichTextBox)Field("_leftList")).ContextMenu, contextMenu) &&
+                ReferenceEquals(((RichTextBox)Field("_rightList")).ContextMenu, contextMenu), "both panes use the block context menu instead of the RichTextBox default");
             var clipboardMenu = (MenuItem)contextMenu.Items[0];
             Check((string)clipboardMenu.Header == "クリップボード" && clipboardMenu.Items.Count == 2 &&
                 clipboardMenu.Items.Cast<MenuItem>().All(item => item.Icon is Image) &&
@@ -189,7 +266,7 @@ internal static class DiffEditingTests
             int DrawEof(bool source)
             {
                 window.UpdateLayout();
-                var pane = (RichTextBox)Field(source ? "leftList" : "rightList");
+                var pane = (RichTextBox)Field(source ? "_leftList" : "_rightList");
                 var overlay = ((Grid)pane.Parent).Children.Cast<FrameworkElement>().Single(item => item.GetType().Name == "WhitespaceOverlay");
                 var visual = new System.Windows.Media.DrawingVisual();
                 using (var drawing = visual.RenderOpen())
@@ -205,7 +282,7 @@ internal static class DiffEditingTests
                 File.WriteAllText(b, "last" + ending);
                 if (model.DifferencesOnly) model.ToggleDifferencesOnly();
                 Wait((Task)Call("ReloadTextAsync"));
-                var cached = (System.Collections.IDictionary)Field("renderedPanes");
+                var cached = (System.Collections.IDictionary)Field("_renderedPanes");
                 foreach (bool source in new[] { true, false })
                 {
                     var state = cached[source];
@@ -230,6 +307,24 @@ internal static class DiffEditingTests
             eofPng.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(eofBitmap));
             using (var stream = File.Create(Path.Combine(root, "eof.png"))) eofPng.Save(stream);
             Console.WriteLine("EOF SCREENSHOT " + Path.Combine(root, "eof.png"));
+            foreach (bool source in new[] { true, false })
+            {
+                File.WriteAllText(a, source ? "last" : "last\r\n");
+                File.WriteAllText(b, source ? "last\r\n" : "last");
+                if (model.DifferencesOnly) model.ToggleDifferencesOnly();
+                Wait((Task)Call("ReloadTextAsync"));
+                model.CopyHunks(model.Lines.Where(row => row.EditHunkId >= 0).Select(row => row.EditHunkId).Distinct().ToArray(), source);
+                Wait((Task)Call("RenderTextEditsAsync"));
+                Check(model.IsDirty(!source) && Save(!source).IsEnabled, "EOF copy enables destination Save");
+                model.UndoEdit();
+                Wait((Task)Call("RenderTextEditsAsync"));
+                Check(!model.HasEdits && model.ShowNewlines && ((CheckBox)window.FindName("ShowNewlinesBox")).IsChecked == true,
+                    "EOF undo restores original and retains newline display in All view");
+                model.CopyHunks(model.Lines.Where(row => row.EditHunkId >= 0).Select(row => row.EditHunkId).Distinct().ToArray(), source);
+                Wait((Task)Call("RenderTextEditsAsync"));
+                Wait((Task)Call("SaveTextSideAsync", !source));
+                Check(File.ReadAllText(source ? b : a) == "last" && !model.HasEdits, "saved EOF copy removes final CRLF");
+            }
             File.WriteAllText(b, "external edit", new UTF8Encoding(true));
             Wait((Task)Call("ReloadTextAsync"));
             Check(model.TargetText.EncodingName == "UTF-8" && model.TargetText.HasBom &&
@@ -239,6 +334,59 @@ internal static class DiffEditingTests
             Check(sync.FindResource("SourceColor") is System.Windows.Media.Brush &&
                 sync.FindResource("TargetColor") is System.Windows.Media.Brush, "sync dialog resolves both direction brushes without owner resources");
             sync.Close();
+            foreach (bool toTarget in new[] { true, false })
+            foreach (bool zipMode in new[] { true, false })
+            {
+                bool displayed = false;
+                var cancelSync = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30) };
+                cancelSync.Tick += (_, _) =>
+                {
+                    var confirmation = app.Windows.OfType<SynchronizeConfirmWindow>().FirstOrDefault(dialog => dialog.IsVisible);
+                    if (confirmation == null) return;
+                    displayed = true;
+                    confirmation.DialogResult = false;
+                };
+                cancelSync.Start();
+                try
+                {
+                    Check(!SynchronizeConfirmWindow.Confirm(window, "test", snapshot.Files.ToArray(), Array.Empty<DiffFolderSync>(),
+                        toTarget, root, root, zipMode, out _, out _) && displayed, "sync/ZIP confirmation opens in both directions without resource or Brush errors");
+                }
+                finally { cancelSync.Stop(); }
+            }
+            foreach (bool toTarget in new[] { true, false })
+            {
+                var sourceRoot = Path.Combine(root, "sync-source");
+                var targetRoot = Path.Combine(root, "sync-target");
+                Directory.CreateDirectory(sourceRoot);
+                Directory.CreateDirectory(targetRoot);
+                var sourceFile = Path.Combine(sourceRoot, "payload.txt");
+                var targetFile = Path.Combine(targetRoot, "payload.txt");
+                File.WriteAllText(sourceFile, toTarget ? "synchronized data" : "old");
+                File.WriteAllText(targetFile, toTarget ? "old" : "synchronized data");
+                var syncSnapshot = new DiffSnapshot { SourceRoot = sourceRoot, TargetRoot = targetRoot };
+                syncSnapshot.Files.Add(new DiffFile
+                {
+                    RelativePath = "payload.txt", Source = DiffStamp.Read(sourceFile), Target = DiffStamp.Read(targetFile)
+                });
+                var acceptSync = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30) };
+                acceptSync.Tick += (_, _) =>
+                {
+                    var confirmation = app.Windows.OfType<SynchronizeConfirmWindow>().FirstOrDefault(dialog => dialog.IsVisible);
+                    if (confirmation == null) return;
+                    ((Button)confirmation.FindName("SyncButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                };
+                acceptSync.Start();
+                try
+                {
+                    Check(SynchronizeConfirmWindow.Confirm(window, "test", syncSnapshot.Files.ToArray(), Array.Empty<DiffFolderSync>(),
+                        toTarget, sourceRoot, targetRoot), "actual synchronization confirmation accepts");
+                }
+                finally { acceptSync.Stop(); }
+                var syncLog = DeveloperDifferencerService.Synchronize(syncSnapshot, syncSnapshot.Files, toTarget);
+                Check(syncLog.Count == 1 && syncLog[0].StartsWith("OK ") &&
+                    File.ReadAllText(toTarget ? targetFile : sourceFile) == "synchronized data", "synchronization copies actual file in both directions");
+            }
 
             model.CopyHunks(new[] { 0 }, true);
             Check(model.HasEdits, "close regression starts with unsaved edits");
@@ -260,7 +408,7 @@ internal static class DiffEditingTests
             discard.Stop();
             Check(File.ReadAllBytes(b).SequenceEqual(diskBeforeClose), "Discard closes without writing disk");
         }
-        finally { typeof(DiffViewWindow).GetField("allowEditedClose", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(window, true); window.Close(); app.Shutdown(); }
+        finally { typeof(DiffViewWindow).GetField("_allowEditedClose", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(window, true); window.Close(); app.Shutdown(); }
         return 0;
     }
     private static void Check(bool condition, string name)
@@ -323,8 +471,7 @@ internal static class DiffEditingTests
             session.Copy(session.Rows().Where(r => r.EditHunkId >= 0).Select(r => r.EditHunkId).Distinct().ToArray(), true);
             var text = DiffViewModel.Text(session.Document(false));
             Check(!text.Contains("sameextra"), "EOF insertion does not concatenate lines");
-            if (pair.Item1 == "new\n" && pair.Item2 == "old") Check(text == "new", "no final newline retained");
-            if (pair.Item1 == "new" && pair.Item2 == "old\n") Check(text == "new\n", "final newline retained");
+            Check(text == pair.Item1, "copy transfers donor EOF and final newline");
             session.UndoLast();
             Check(DiffViewModel.Text(session.Document(false)) == pair.Item2, "EOF undo: " + pair);
         }

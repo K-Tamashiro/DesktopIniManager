@@ -62,7 +62,7 @@ internal static class FolderTreeStateService
         if (ids.TryGetValue(image, out var index)) return index;
 
         BitmapSource frozenCopy = null;
-        var dispatcher = bitmap?.Dispatcher
+        var dispatcher = bitmap.Dispatcher
                          ?? Application.Current?.Dispatcher;
 
         var createAndFreeze = () =>
@@ -139,6 +139,7 @@ internal static class FolderTreeStateService
         }
         catch
         {
+            // Ignore errors when trying to delete the state file
         }
     }
 
@@ -153,7 +154,8 @@ internal static class FolderTreeStateService
 
     internal static void Save(FolderTreeState state)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(StatePath));
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(StatePath))
+                                  ?? throw new IOException("The tree state path has no parent directory."));
         var temporary = StatePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {

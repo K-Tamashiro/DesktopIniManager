@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:history="clr-namespace:DesktopIniManager.Views"
     xmlns:loc="clr-namespace:DesktopIniManager.Properties"
+    xmlns:models="clr-namespace:DesktopIniManager.ViewModels"
     Title="{loc:L Grep_Title}"
     Width="1280"
     Height="800"
@@ -273,7 +274,7 @@
             </Setter>
             <Setter Property="ItemTemplate">
                 <Setter.Value>
-                    <DataTemplate>
+                    <DataTemplate DataType="{x:Type models:GrepHistoryTab}">
                         <StackPanel Background="Transparent" Orientation="Horizontal">
                             <StackPanel.ContextMenu>
                                 <ContextMenu>
@@ -913,12 +914,14 @@
                     TextWrapping="Wrap" />
                 <TextBlock
                     Grid.Column="2"
+                    Grid.Row="0"
                     Margin="0,0,0,3"
                     FontSize="10"
                     Foreground="{DynamicResource Muted}"
                     Text="{loc:L Grep_Editor}" />
                 <TextBlock
                     Grid.Column="3"
+                    Grid.Row="0"
                     Margin="8,0,0,3"
                     FontSize="10"
                     Foreground="{DynamicResource Muted}"

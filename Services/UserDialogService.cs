@@ -10,18 +10,18 @@ internal interface IUserDialogService
 
 internal sealed class UserDialogService : IUserDialogService
 {
-    private readonly Window owner;
+    private readonly Window _owner;
 
     public UserDialogService(Window owner)
     {
-        this.owner = owner;
+        this._owner = owner;
     }
 
     public MessageBoxResult Show(string message, string title,
         MessageBoxButton buttons = MessageBoxButton.OK, MessageBoxImage image = MessageBoxImage.None)
     {
-        return owner.IsVisible
-            ? MessageBox.Show(owner, message, title, buttons, image)
+        return _owner.IsVisible
+            ? MessageBox.Show(_owner, message, title, buttons, image)
             : MessageBox.Show(message, title, buttons, image);
     }
 }

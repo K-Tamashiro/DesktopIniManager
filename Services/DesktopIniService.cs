@@ -82,12 +82,12 @@ internal sealed class DesktopIniService
     {
         if (folders == null) return;
 
-        const uint ShcneUpdateItem = 0x00002000;
-        const uint ShcneUpdateDir = 0x00001000;
-        const uint ShcneAssocChanged = 0x08000000;
-        const uint ShcnfPathW = 0x0005;
-        const uint ShcnfFlush = 0x1000;
-        const uint ShcnfIdList = 0x0000;
+        const uint shcneUpdateItem = 0x00002000;
+        const uint shcneUpdateDir = 0x00001000;
+        const uint shcneAssocChanged = 0x08000000;
+        const uint shcnfPathW = 0x0005;
+        const uint shcnfFlush = 0x1000;
+        const uint shcnfIdList = 0x0000;
 
         var changed = folders
             .Where(folder => !string.IsNullOrWhiteSpace(folder))
@@ -97,7 +97,7 @@ internal sealed class DesktopIniService
         if (changed.Length == 0) return;
 
         foreach (var folder in changed)
-            SHChangeNotify(ShcneUpdateItem, ShcnfPathW, folder, null);
+            SHChangeNotify(shcneUpdateItem, shcnfPathW, folder, null);
 
         foreach (var parent in changed
                      .Select(folder =>
@@ -105,10 +105,10 @@ internal sealed class DesktopIniService
                              Path.AltDirectorySeparatorChar)))
                      .Where(parent => !string.IsNullOrEmpty(parent))
                      .Distinct(StringComparer.OrdinalIgnoreCase))
-            SHChangeNotify(ShcneUpdateDir, ShcnfPathW, parent, null);
+            SHChangeNotify(shcneUpdateDir, shcnfPathW, parent, null);
 
         // Flush once after all changed folders have been queued.
-        SHChangeNotify(ShcneAssocChanged, ShcnfIdList | ShcnfFlush, null, null);
+        SHChangeNotify(shcneAssocChanged, shcnfIdList | shcnfFlush, null, null);
     }
 
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]

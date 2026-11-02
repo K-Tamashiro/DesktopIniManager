@@ -214,7 +214,7 @@ internal sealed partial class MainWindowViewModel
                 _physicalFileScanComplete = true;
             }
 
-            Dispatcher.BeginInvoke(new Action(() =>
+            _dispatcher.BeginInvoke(new Action(() =>
             {
                 if (TreeViewIndex == 0 && string.Equals(
                         NormalizeComparePath(FilePanelPath),
@@ -239,7 +239,7 @@ internal sealed partial class MainWindowViewModel
             _physicalFileCache.AddRange(published);
         }
 
-        Dispatcher.BeginInvoke(new Action(() =>
+        _dispatcher.BeginInvoke(new Action(() =>
         {
             if (token.IsCancellationRequested || TreeViewIndex != 0 || string.IsNullOrEmpty(FilePanelPath)) return;
 
@@ -311,7 +311,6 @@ internal sealed partial class MainWindowViewModel
         {
             if (TreeViewIndex == 0) _physicalCurrent = folder;
             else if (TreeViewIndex == 1) _solutionCurrent = folder;
-            else _searchCurrent = folder;
         }
 
         FilePanelTitle = folder == null ? Strings.Common_Files : string.Format(Strings.Main_FilesHeader, folder.Name);
@@ -889,7 +888,7 @@ internal sealed partial class MainWindowViewModel
     internal static string NormalizeFolderPath(string path)
     {
         var fullPath = Path.GetFullPath(path);
-        var root = Path.GetPathRoot(fullPath);
+        var root = Path.GetPathRoot(fullPath) ?? string.Empty;
         return fullPath.Length == root.Length
             ? fullPath
             : fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);

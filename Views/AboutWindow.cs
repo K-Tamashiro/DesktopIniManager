@@ -117,7 +117,7 @@ internal sealed class AboutWindow : Window
         {
             var text = new TextBlock { Margin = new Thickness(0, 3, 0, 0) };
             var link = new Hyperlink(new Run(linkLabel));
-            link.SetResourceReference(Hyperlink.ForegroundProperty, "Accent");
+            link.SetResourceReference(TextElement.ForegroundProperty, "Accent");
             link.Click += (_, _) => ShowLicense(name, license);
             text.Inlines.Add(link);
             item.Children.Add(text);

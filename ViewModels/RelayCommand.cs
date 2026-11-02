@@ -6,23 +6,23 @@ namespace DesktopIniManager.ViewModels;
 
 public sealed class ParameterCommand : ICommand
 {
-    private readonly Func<bool> canExecute;
-    private readonly Action<object> execute;
+    private readonly Func<bool> _canExecute;
+    private readonly Action<object> _execute;
 
     public ParameterCommand(Action<object> execute, Func<bool> canExecute = null)
     {
-        this.execute = execute;
-        this.canExecute = canExecute;
+        this._execute = execute;
+        this._canExecute = canExecute;
     }
 
     public bool CanExecute(object parameter)
     {
-        return canExecute?.Invoke() ?? true;
+        return _canExecute?.Invoke() ?? true;
     }
 
     public void Execute(object parameter)
     {
-        if (CanExecute(parameter)) execute(parameter);
+        if (CanExecute(parameter)) _execute(parameter);
     }
 
     public event EventHandler CanExecuteChanged;
@@ -35,23 +35,23 @@ public sealed class ParameterCommand : ICommand
 
 public sealed class RelayCommand : ICommand
 {
-    private readonly Func<bool> canExecute;
-    private readonly Action execute;
+    private readonly Func<bool> _canExecute;
+    private readonly Action _execute;
 
     public RelayCommand(Action execute, Func<bool> canExecute = null)
     {
-        this.execute = execute;
-        this.canExecute = canExecute;
+        this._execute = execute;
+        this._canExecute = canExecute;
     }
 
     public bool CanExecute(object parameter)
     {
-        return canExecute?.Invoke() ?? true;
+        return _canExecute?.Invoke() ?? true;
     }
 
     public void Execute(object parameter)
     {
-        if (CanExecute(parameter)) execute();
+        if (CanExecute(parameter)) _execute();
     }
 
     public event EventHandler CanExecuteChanged;
@@ -64,21 +64,21 @@ public sealed class RelayCommand : ICommand
 
 public sealed class AsyncRelayCommand : ICommand
 {
-    private readonly Func<bool> canExecute;
-    private readonly Func<Task> execute;
-    private readonly Action<Exception> onError;
-    private bool running;
+    private readonly Func<bool> _canExecute;
+    private readonly Func<Task> _execute;
+    private readonly Action<Exception> _onError;
+    private bool _running;
 
     public AsyncRelayCommand(Func<Task> execute, Action<Exception> onError, Func<bool> canExecute = null)
     {
-        this.execute = execute;
-        this.onError = onError;
-        this.canExecute = canExecute;
+        this._execute = execute;
+        this._onError = onError;
+        this._canExecute = canExecute;
     }
 
     public bool CanExecute(object parameter)
     {
-        return !running && (canExecute?.Invoke() ?? true);
+        return !_running && (_canExecute?.Invoke() ?? true);
     }
 
     public async void Execute(object parameter)
@@ -91,19 +91,19 @@ public sealed class AsyncRelayCommand : ICommand
     public async Task ExecuteAsync()
     {
         if (!CanExecute(null)) return;
-        running = true;
+        _running = true;
         NotifyCanExecuteChanged();
         try
         {
-            await execute();
+            await _execute();
         }
         catch (Exception ex)
         {
-            onError(ex);
+            _onError(ex);
         }
         finally
         {
-            running = false;
+            _running = false;
             NotifyCanExecuteChanged();
         }
     }

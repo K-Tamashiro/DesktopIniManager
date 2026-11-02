@@ -7,6 +7,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using DesktopIniManager.Services;
 using DesktopIniManager.Views;
+using DesktopIniManager.Views.Presenter;
 
 internal static class InputHistoryTests
 {

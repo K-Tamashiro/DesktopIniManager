@@ -1,4 +1,4 @@
-﻿using DesktopIniManager.ViewModels;
+using DesktopIniManager.ViewModels;
 using DesktopIniManager.Services;
 using DesktopIniManager.Views;
 using System;
@@ -363,7 +363,7 @@ internal static class DifferencerTests
                 var imageView = new DiffViewWindow(imageSnapshot, imageSnapshot.Files[0]) { Left = -10000, Top = -10000, WindowStartupLocation = WindowStartupLocation.Manual, ShowInTaskbar = false };
                 imageView.Show();
                 var imageWait = System.Diagnostics.Stopwatch.StartNew();
-                var imageStatus = (TextBlock)typeof(DiffViewWindow).GetField("status", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(imageView);
+                var imageStatus = (TextBlock)typeof(DiffViewWindow).GetField("Status", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(imageView);
                 while (!imageStatus.Text.StartsWith("Source:") && imageWait.ElapsedMilliseconds < 5000)
                 {
                     var imageFrame = new DispatcherFrame();
@@ -371,7 +371,7 @@ internal static class DifferencerTests
                     imageTimer.Tick += (s, e) => { imageTimer.Stop(); imageFrame.Continue = false; };
                     imageTimer.Start(); Dispatcher.PushFrame(imageFrame);
                 }
-                var imageBody = (Grid)typeof(DiffViewWindow).GetField("body", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(imageView);
+                var imageBody = (Grid)typeof(DiffViewWindow).GetField("Body", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(imageView);
                 var imagePanes = imageBody.Children.OfType<ScrollViewer>().ToArray();
                 Check(imagePanes.Length == 2 && imageStatus.Text.StartsWith("Source:"), "image preview opens two large panes with one side missing");
                 var leftImageCanvas = (Canvas)imagePanes[0].Content;

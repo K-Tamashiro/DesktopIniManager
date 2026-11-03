@@ -1,4 +1,4 @@
-# DesktopIniManager v4.5.7 Release
+﻿# DesktopIniManager v4.6.0 Release
 
 DesktopIniManager (DIM) is a Windows workspace for exploring development folders and Visual Studio solutions, finding files, running scoped searches, comparing folders, viewing differences, and managing folder icons through `desktop.ini`.
 
@@ -8,7 +8,7 @@ DesktopIniManager (DIM) is a Windows workspace for exploring development folders
 
 ## Download and setup
 
-Download **DesktopIniManager-v4.5.7-win-x64.zip** from the v4.5.7 Release GitHub release assets, not GitHub's source-code archive. The matching `.zip.sha256` contains the SHA-256 checksum.
+Download **DesktopIniManager-v4.6.0-win-x64.zip** from the v4.6.0 Release GitHub release assets, not GitHub's source-code archive. The matching `.zip.sha256` contains the SHA-256 checksum.
 
 - Windows 10 or 11, x64; .NET 10 Desktop Runtime (x64) installed separately.
 - Visual Studio Build Tools / MSBuild or .NET SDK for solution builds.
@@ -16,13 +16,25 @@ Download **DesktopIniManager-v4.5.7-win-x64.zip** from the v4.5.7 Release GitHub
 
 Extract into a fresh folder and run **DesktopIniManager.exe**. Keep the DLLs, JSON, Assets and Languages together. ExcelDataReader and PdfPig libraries are required for Document Grep.
 
-## What's new in v4.5.7 Release
+## What's new in v4.6.0 Release
+
+**Text DIFF VIEW now supports bidirectional HUNK-level merge operations.** Copy a difference block from Source to Target or from Target to Source using the arrow controls beside each HUNK. After copying, the corresponding control changes to Undo until the changes are saved.
+
+- Copy selected difference blocks in either direction, without requiring an external merge tool.
+- Undo copied changes before saving; save modified text files using the save controls.
+- Inspect whitespace, line endings, and EOF markers when reviewing text differences.
+- Choose the text DIFF font family and size; improved scrolling and visual alignment.
+- Text editing and saving are limited to text DIFF VIEW. Image, video, and audio comparison modes remain inspection-only.
+
+![Text DIFF VIEW with merge controls](docs/images/2026-11-03_23h06_36.png)
+
+## Previous release: v4.5.7
 
 Added **Explorerメニュー** (Explorer menu) to the main file context menu in both list and icon views. Click it to close DIM's menu and open the classic Windows shell context menu. Available commands include **Open with**, **Create shortcut**, and compatible shell extensions when provided for the selection.
 
 Supports a single file or multiple files in the same folder. The entry is disabled for selections spanning different folders or when no target file is available. This is a click action, not a hover submenu. Menu contents depend on file associations and installed applications and may differ from File Explorer. Selected shell commands can modify files, including shortcut creation, renaming, or deletion when available.
 
-## Previous release: v4.5.6
+## Earlier release: v4.5.6
 
 - Added independent Source and Target delay controls to Video and Audio DIFF VIEW. Adjust timing in 0.1-second steps, including negative offsets, to compare recordings with different starting points.
 - Video DIFF VIEW now provides individual audio volume and mute controls, six playback speeds, and synchronized seeking. Dragging the shared seek slider pauses playback temporarily and resumes from the selected position; each video seek is limited to its own duration.
@@ -42,7 +54,7 @@ Supports a single file or multiple files in the same folder. The entry is disabl
 - Fixed single-root folder row; folder-name search highlighting; resizable, remembered panes and columns.
 - Developer Differencer with independent modification time, size, attributes/BOM and XXH128 checks.
 - `.gitignore`-aware comparison, filtering, synchronization and relative-path ZIP export.
-- Read-only DIFF VIEW for text, images/animated GIF, video, and WAV/MP3 audio.
+- Text DIFF VIEW with HUNK-level copying, Undo and Save; read-only image/animated GIF, video and WAV/MP3 audio DIFF modes.
 - Audio PCM-sample difference highlighting, A–B repeat, independent delay adjustment, synchronized playback and six selectable playback speeds.
 
 ## Main window
@@ -69,7 +81,7 @@ Comparison respects `.gitignore` rules under either selected root, including `*`
 Layouts have been adjusted across the DIFF VIEW modes in v4.5.6.
 
 
-Launch as a standalone read-only two-file viewer:
+Launch as a standalone two-file DIFF VIEW:
 
 ```text
 DesktopIniManager.exe -diff "C:\work\Source.txt" "C:\work\Target.txt"
@@ -88,7 +100,7 @@ Git difftool configuration:
     prompt = false
 ```
 
-In GitKraken select **Git Config Default**. DIM does not edit or merge content. The text view provides syntax highlighting, original line numbers, Source/Target colored frames, a difference map, inline and whitespace differences, line-ending markers and loading progress. The ≠ / ※ controls (or Ctrl+0) toggle differences-only and all-lines views; the last mode is saved.
+In GitKraken select **Git Config Default**. Text DIFF VIEW supports bidirectional HUNK copying, Undo and Save. The text view provides syntax highlighting, original line numbers, Source/Target colored frames, a difference map, inline and whitespace differences, line-ending markers and loading progress. The ≠ / ※ controls (or Ctrl+0) toggle differences-only and all-lines views; the last mode is saved.
 
 ## Image DIFF VIEW
 
@@ -132,7 +144,7 @@ DIM1–DIM5 are independent processes. **In Use** identifies the current slot, *
 
 Freeware by Tamayan / ZEBRASOFT. [Website](http://dim.zebrasoft.co.jp/) · [Repository and issues](https://github.com/K-Tamashiro/DesktopIniManager) · tamayan@zebrasoft.co.jp.
 
-` scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> ` packages prebuilt v4.5.7 binaries; omitting that option runs `dotnet publish`. Archives and checksums are written to `release/`.
+` scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> ` packages prebuilt v4.6.0 binaries; omitting that option runs `dotnet publish`. Archives and checksums are written to `release/`.
 
 ## Keyboard shortcuts and startup options
 

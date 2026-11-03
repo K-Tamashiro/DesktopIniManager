@@ -1,6 +1,6 @@
-﻿using System;
+﻿using DesktopIniManager.Services;
+using System;
 using System.Windows.Media;
-using DesktopIniManager.Services;
 
 namespace DesktopIniManager.Models;
 

@@ -13,7 +13,7 @@ internal sealed class InputHistoryStore
 
     internal InputHistoryStore(string directory)
     {
-        this._directory = directory;
+        _directory = directory;
     }
 
     private string FilePath(string key)

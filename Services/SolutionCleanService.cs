@@ -15,8 +15,8 @@ internal static class SolutionCleanService
 {
     internal static bool ContainsRunningApplication(string solution, string applicationDirectory = null)
     {
-        var root = Path.GetFullPath(Path.GetDirectoryName(solution)).TrimEnd(Path.DirectorySeparatorChar) +
-                   Path.DirectorySeparatorChar;
+        var root = Path.GetFullPath(Path.GetDirectoryName(solution) ?? string.Empty)
+            .TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
         var application =
             Path.GetFullPath(applicationDirectory ?? AppDomain.CurrentDomain.BaseDirectory)
                 .TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
@@ -96,7 +96,7 @@ internal static class SolutionCleanService
         return false;
     }
 
-    internal static string FindMSBuild()
+    internal static string FindMsBuild()
     {
         var vswhere = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
             "Microsoft Visual Studio", "Installer", "vswhere.exe");
@@ -128,9 +128,9 @@ internal static class SolutionCleanService
     private static int Run(string executable, string arguments, string directory, out string output, bool utf8 = false)
     {
         var log = new StringBuilder();
-        using (var process = new Process
+        using (var process = new Process())
         {
-            StartInfo = new ProcessStartInfo(executable, arguments)
+            process.StartInfo = new ProcessStartInfo(executable, arguments)
             {
                 WorkingDirectory = directory,
                 UseShellExecute = false,
@@ -139,9 +139,8 @@ internal static class SolutionCleanService
                 RedirectStandardError = true,
                 StandardOutputEncoding = utf8 ? Encoding.UTF8 : null,
                 StandardErrorEncoding = utf8 ? Encoding.UTF8 : null
-            }
-        })
-        {
+            };
+
             DataReceivedEventHandler append = (_, e) =>
             {
                 if (e.Data != null)
@@ -150,6 +149,7 @@ internal static class SolutionCleanService
                         log.AppendLine(e.Data);
                     }
             };
+
             process.OutputDataReceived += append;
             process.ErrorDataReceived += append;
             process.Start();

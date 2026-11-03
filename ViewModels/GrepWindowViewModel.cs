@@ -29,8 +29,9 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         new("code", @"--goto ""{file}:{line}:{column}""")
     };
 
-    private readonly Dispatcher _dispatcher;
     private readonly IUserDialogService _dialogs;
+
+    private readonly Dispatcher _dispatcher;
     private readonly DispatcherTimer _resultTimer;
     private readonly Func<IReadOnlyList<string>> _scopeProvider;
     private bool _allScopesSelected = true;

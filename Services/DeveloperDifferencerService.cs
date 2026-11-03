@@ -3,6 +3,7 @@ using Microsoft.Win32.SafeHandles;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Compression;
 using System.IO.Hashing;
@@ -256,7 +257,7 @@ internal static class DeveloperDifferencerService
     }
 
     /// <summary>Resolves a relative file path while enforcing comparison boundaries.</summary>
-    [return: System.Diagnostics.CodeAnalysis.NotNull]
+    [return: NotNull]
     public static string SafePath(string root, string relative)
     {
         if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative) || relative.Contains(':') ||
@@ -377,7 +378,7 @@ internal static class DeveloperDifferencerService
         };
     }
 
-    [return: System.Diagnostics.CodeAnalysis.NotNull]
+    [return: NotNull]
     private static string SafeFolderPath(string root, string relativeFolder)
     {
         if (string.IsNullOrWhiteSpace(relativeFolder) || Path.IsPathRooted(relativeFolder) ||
@@ -1207,18 +1208,11 @@ internal static class DeveloperDifferencerService
             }
             catch
             {
+                // Ignore cleanup failures; the temp file is not critical.
             }
         }
 
         return log;
-    }
-
-    private static bool IsUnder(string relativePath, string folder)
-    {
-        if (string.IsNullOrEmpty(relativePath) || string.IsNullOrEmpty(folder)) return false;
-        var path = relativePath.Replace('/', '\\');
-        var prefix = folder.Replace('/', '\\').TrimEnd('\\') + "\\";
-        return path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string ZipRootFolderName(string root)

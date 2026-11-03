@@ -15,6 +15,28 @@ using System.Threading.Tasks;
 
 internal static class DiffEditingTests
 {
+    internal static int RunMenuPreview()
+    {
+        var app = new Application();
+        var file = Path.Combine(AppContext.BaseDirectory, "menu-preview.txt");
+        File.WriteAllText(file, "Native submenu preview");
+        var status = new TextBlock { Text = "Right-click here to test Explorer Menu", Margin = new Thickness(30) };
+        var window = new Window { Title = "DIM native submenu verification", Width = 800, Height = 600, Content = status };
+        window.MouseRightButtonUp += (_, e) =>
+        {
+            ExplorerContextMenu.Show(window, new[] { file }, window.PointToScreen(e.GetPosition(window)),
+                new[]
+                {
+                    new ExplorerContextMenu.CommandItem("DIM test command", () => status.Text = "DIM command executed"),
+                    new ExplorerContextMenu.CommandItem("SELECT Compare", null, Children: new[]
+                    {
+                        new ExplorerContextMenu.CommandItem("Comparison test", () => status.Text = "Comparison command executed")
+                    })
+                });
+        };
+        return app.Run(window);
+    }
+
     internal static int RunIconModes()
     {
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
@@ -57,6 +79,38 @@ internal static class DiffEditingTests
         }
         model.FileListViewCommand.Execute(null);
         Check(list.Visibility == Visibility.Collapsed, "list mode can be restored");
+        ResultHistoryStore.DirectoryPath = Path.Combine(Path.GetTempPath(), "dim-tab-" + Guid.NewGuid().ToString("N"));
+        var comparison = new DeveloperDifferencerWindow();
+        var tab = new ComparisonHistoryTab { Title = "Close this tab", Snapshot = new DiffSnapshot() };
+        comparison.ViewModel.HistoryTabs.Add(tab);
+        var tabs = new ListBox
+        {
+            Style = (Style)comparison.Resources["HistoryTabStrip"],
+            DataContext = comparison.ViewModel,
+            ItemsSource = comparison.ViewModel.HistoryTabs
+        };
+        var tabHost = new Window { Content = tabs, Width = 800, Height = 100, Left = -20000, Top = -20000,
+            ShowInTaskbar = false, ShowActivated = false, WindowStartupLocation = WindowStartupLocation.Manual };
+        tabHost.Show();
+        tabs.Measure(new Size(800, 100));
+        tabs.Arrange(new Rect(0, 0, 800, 100));
+        tabs.UpdateLayout();
+        tabs.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+        static Button FindCloseButton(DependencyObject parent)
+        {
+            if (parent is Button { Content: "×" } button) return button;
+            for (var index = 0; index < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); index++)
+            {
+                var found = FindCloseButton(System.Windows.Media.VisualTreeHelper.GetChild(parent, index));
+                if (found != null) return found;
+            }
+            return null;
+        }
+        var closeButton = FindCloseButton(tabs);
+        Check(closeButton?.Command == comparison.ViewModel.DeleteHistoryTabCommand, "tab close resolves command across the item template");
+        typeof(System.Windows.Controls.Primitives.ButtonBase).GetMethod("OnClick", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(closeButton, null);
+        Check(!comparison.ViewModel.HistoryTabs.Contains(tab), "tab close button removes the actual history tab");
+        tabHost.Close();
         return 0;
     }
 
@@ -121,6 +175,7 @@ internal static class DiffEditingTests
             Call("RefreshEditArrows");
             Check(Arrows(true)[0].IsEnabled && Arrows(true).Skip(1).All(x => !x.IsEnabled), "only first selected arrow is clickable");
             Check(Arrows(false).All(x => x.IsEnabled), "Source multi-selection does not group Target arrows");
+            originalLeftPane.Focus();
             Arrows(true)[0].RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Pump(() => !(bool)Field("_renderingContent"));
             Check(model.IsDirty(false) && !model.IsDirty(true), "copy dirties only destination");
             var copiedBackground = FirstBackground(false);
@@ -130,8 +185,9 @@ internal static class DiffEditingTests
             Check(ReferenceEquals(originalLeftPane, Field("_leftList")) && ReferenceEquals(originalRightPane, Field("_rightList")) &&
                 ReferenceEquals(originalLeftDocument, originalLeftPane.Document) && ReferenceEquals(originalRightDocument, originalRightPane.Document) &&
                 ReferenceEquals(retainedCommon, originalLeftDocument.Blocks.ElementAt(1)), "copy retains panes, documents and unrelated rows");
-            Check(selected.SetEquals(new[] { 0, 1, 2 }) && targetSelected.SetEquals(new[] { 1 }), "copy preserves independent selections");
-            Check(!originalLeftPane.Selection.IsEmpty && !originalRightPane.Selection.IsEmpty, "copy preserves both visible selections");
+            Check(selected.Count == 0 && targetSelected.SetEquals(new[] { 1 }), "copy clears only the executing side selection");
+            Check(originalLeftPane.Selection.IsEmpty && !originalRightPane.Selection.IsEmpty, "copy retains the opposite visible selection");
+            Check(!originalLeftPane.IsKeyboardFocusWithin, "copy releases the executing pane keyboard focus");
             Check(model.ShowSpaces && model.ShowNewlines && ((CheckBox)window.FindName("ShowSpacesBox")).IsChecked == true &&
                 ((CheckBox)window.FindName("ShowNewlinesBox")).IsChecked == true, "copy preserves whitespace and newline display");
             Check(Arrows(true).All(x => x.IsEnabled) && model.CanUndoHunk(0, true) && model.CanUndoHunk(2, true), "each copied hunk has independent undo arrow");
@@ -249,6 +305,44 @@ internal static class DiffEditingTests
                     Console.WriteLine(operation + " source=" + source + " drawn=" + marks);
                     Check(marks >= 5, operation + ": actual WPF render retains space and newline markers");
                 }
+            }
+            var fontSettingsPath = Path.Combine(AppSlot.Directory, "diff-font.txt");
+            var previousFontSettings = File.Exists(fontSettingsPath) ? File.ReadAllBytes(fontSettingsPath) : null;
+            try
+            {
+                var fontFamilyBox = (ComboBox)window.FindName("TextFontFamilyBox");
+                var fontSizeBox = (ComboBox)window.FindName("TextFontSizeBox");
+                var fontPane = (RichTextBox)Field("_leftList");
+                var fontDocument = fontPane.Document;
+                var fontRows = fontDocument.Blocks.ToArray();
+                fontFamilyBox.SelectedItem = "Arial";
+                fontSizeBox.SelectedItem = 24.0;
+                CheckRenderedMarkers("after font change");
+                Check(fontPane.FontFamily.Source == "Arial" && fontPane.FontSize == 24 &&
+                    fontPane.Document.Blocks.FirstBlock.FontSize == 24, "font applies immediately to actual document text");
+                Check(ReferenceEquals(fontDocument, fontPane.Document) && fontRows.SequenceEqual(fontDocument.Blocks),
+                    "font change retains document and paragraphs");
+                var gutter = (TextBlock)((Canvas)fontPane.Tag).Children[0];
+                Check(gutter.FontSize == 24 && gutter.LineHeight == fontDocument.LineHeight &&
+                    fontDocument.LineHeight > 22 && Arrows(true)[0].Height == fontDocument.LineHeight,
+                    "font change keeps row numbers and copy arrows aligned");
+                Arrows(true)[0].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                CheckRenderedMarkers("font change then copy");
+                Arrows(true)[0].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                CheckRenderedMarkers("font change then undo");
+                var reopened = new DiffViewWindow(snapshot, snapshot.Files[0], a, b);
+                Check((string)((ComboBox)reopened.FindName("TextFontFamilyBox")).SelectedItem == "Arial" &&
+                    (double)((ComboBox)reopened.FindName("TextFontSizeBox")).SelectedItem == 24,
+                    "new viewer restores saved family and size");
+                reopened.Close();
+                fontFamilyBox.SelectedItem = "Consolas";
+                fontSizeBox.SelectedItem = 13.0;
+                CheckRenderedMarkers("restored font");
+            }
+            finally
+            {
+                if (previousFontSettings == null) File.Delete(fontSettingsPath);
+                else File.WriteAllBytes(fontSettingsPath, previousFontSettings);
             }
             CheckRenderedMarkers("before copy");
             Arrows(true)[0].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -429,6 +523,25 @@ internal static class DiffEditingTests
         DiffEditSession Session(DiffViewModel.TextDocument left, DiffViewModel.TextDocument right) =>
             new(left, right, DiffTextService.Compare(left.Lines, right.Lines, false, false, left.Endings, right.Endings));
         var utf8 = new UTF8Encoding(false, true);
+        var sourceBlock = "Start();\nif (CanStart())\n{\n    RunNew();\n}\nTail();\nsourceEnd";
+        var targetBlock = "Start();\nif (CanResume())\n{\n    RunOld();\n}\nTail();\ntargetEnd";
+        var braceSource = Doc(a, sourceBlock, utf8);
+        var braceTarget = Doc(b, targetBlock, utf8);
+        var braceSession = Session(braceSource, braceTarget);
+        var braceRows = braceSession.Rows();
+        Check(braceRows[1].EditHunkId == braceRows[3].EditHunkId && braceRows[2].EditHunkId >= 0,
+            "a lone brace does not split a conditional replacement into separate hunks");
+        braceSession.Copy(new[] { braceRows[1].EditHunkId }, true);
+        Check(DiffViewModel.Text(braceSession.Document(false)) == sourceBlock.Replace("sourceEnd", "targetEnd"),
+            "partial hunk copy replaces the whole conditional and preserves the unrelated change");
+        braceSession.UndoLast();
+        Check(DiffViewModel.Text(braceSession.Document(false)) == targetBlock, "structural hunk undo restores exact original text");
+        var insertedBlock = new[] { "Start();", "{", "    if (!CanStart())", "    {", "        return;", "    }", "    Run();", "}", "Tail();" };
+        var originalBlock = new[] { "Start();", "{", "    Run();", "}", "Tail();" };
+        var insertedRows = DiffTextService.Compare(insertedBlock, originalBlock);
+        Check(insertedRows.Single(row => row.Left == "    Run();").Right == "    Run();" &&
+              insertedRows.Where(row => row.LeftNumber >= 3 && row.LeftNumber <= 6).All(row => row.RightNumber == 0),
+            "inserted nested braces stay with their conditional instead of matching the enclosing block");
         var left = Doc(a, "a\nkeep\nb\nkeep2\nc\n", utf8);
         var right = Doc(b, "x\r\nkeep\r\ny\r\nkeep2\r\nz\r\n", utf8);
         // Ignore newline differences here to keep three independent hunks.

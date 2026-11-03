@@ -722,8 +722,8 @@ internal sealed class AudioOverview : Control
 
     internal AudioOverview(AudioEnvelope[] envelopes, double duration)
     {
-        this._envelopes = envelopes;
-        this._duration = duration;
+        _envelopes = envelopes;
+        _duration = duration;
         ClipToBounds = true;
         ToolTip = "Source / Target — click waveform to seek; output level at right";
     }
@@ -806,7 +806,8 @@ internal sealed class AudioOverview : Control
             if (_viewportMoved)
             {
                 var delta = pixels / width * _duration;
-                ViewportDragged?.Invoke(Math.Clamp(_viewportDragStart + delta, 0, Math.Max(0, _duration - _viewDuration)));
+                ViewportDragged?.Invoke(Math.Clamp(_viewportDragStart + delta, 0,
+                    Math.Max(0, _duration - _viewDuration)));
             }
 
             e.Handled = true;
@@ -1152,8 +1153,8 @@ internal sealed class AudioTimeline : Grid
 
         Add("", current.Channels + " ch", current.Channels != other?.Channels);
         Add("", TimeSpan.FromSeconds(current.Duration).ToString(@"hh\:mm\:ss\.fff"),
-            different: (long)Math.Round(current.Duration * 1000) !=
-                       (long)Math.Round((other?.Duration ?? 0) * 1000));
+            (long)Math.Round(current.Duration * 1000) !=
+            (long)Math.Round((other?.Duration ?? 0) * 1000));
         Add("Sample Rate: ", Number(current.SampleRate / 1000.0, "0.0##") + " kHz",
             current.SampleRate != other?.SampleRate);
         Add("Bit Depth: ",
@@ -1296,7 +1297,7 @@ internal sealed class AudioWaveform : WaveformControl
     internal void SetDifferences(AudioDifferences value, bool enabled, bool source = true)
     {
         _differences = value;
-        this._source = source;
+        _source = source;
         _differenceLayer = null;
         _layerKey = default;
         ShowDifferences = enabled;

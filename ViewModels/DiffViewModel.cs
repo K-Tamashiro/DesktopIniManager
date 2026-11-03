@@ -1,4 +1,6 @@
-﻿using System;
+﻿using DesktopIniManager.Properties;
+using DesktopIniManager.Services;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -8,8 +10,6 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media.Imaging;
-using DesktopIniManager.Properties;
-using DesktopIniManager.Services;
 
 namespace DesktopIniManager.ViewModels;
 
@@ -620,7 +620,8 @@ internal sealed partial class DiffViewModel : ObservableObject
                     jis = true;
             encoding = jis
                 ? CodePagesEncodingProvider.Instance.GetEncoding(50220, EncoderFallback.ExceptionFallback,
-                    DecoderFallback.ExceptionFallback) ?? throw new NotSupportedException("ISO-2022-JP encoding is unavailable.")
+                      DecoderFallback.ExceptionFallback) ??
+                  throw new NotSupportedException("ISO-2022-JP encoding is unavailable.")
                 : DetectUnicodeEncoding(bytes) ?? new UTF8Encoding(false, true);
         }
 
@@ -632,7 +633,8 @@ internal sealed partial class DiffViewModel : ObservableObject
         catch (DecoderFallbackException) when (preamble == 0 && encoding.CodePage == 65001)
         {
             encoding = CodePagesEncodingProvider.Instance.GetEncoding(932, EncoderFallback.ExceptionFallback,
-                DecoderFallback.ExceptionFallback) ?? throw new NotSupportedException("Shift-JIS encoding is unavailable.");
+                           DecoderFallback.ExceptionFallback) ??
+                       throw new NotSupportedException("Shift-JIS encoding is unavailable.");
             text = encoding.GetString(bytes);
         }
 
@@ -748,7 +750,7 @@ internal sealed partial class DiffViewModel : ObservableObject
     {
         var clean = Regex.Replace(info ?? string.Empty, @"(\d{2}:\d{2}:\d{2})\.\d+", "$1");
         var kept = new List<string>();
-        foreach (var line in clean.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+        foreach (var line in clean.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
         {
             var text = line.Trim();
             if (text.IndexOf('/') >= 0 || text.EndsWith("bytes", StringComparison.OrdinalIgnoreCase))

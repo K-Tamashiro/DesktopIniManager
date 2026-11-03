@@ -14,14 +14,13 @@ internal static class FileIconService
     private static readonly Dictionary<string, ImageSource> TypeIcons = new(StringComparer.OrdinalIgnoreCase);
 
     private static readonly string[] ImageExtensions =
-        { ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tif", ".tiff", ".ico" };
+        [".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tif", ".tiff", ".ico"];
 
     public static ImageSource GetTypeIcon(string extension)
     {
         lock (TypeIcons)
         {
-            ImageSource cached;
-            if (TypeIcons.TryGetValue(extension ?? "", out cached)) return cached;
+            if (TypeIcons.TryGetValue(extension ?? "", out ImageSource cached)) return cached;
 
             var info = new ShellFileInfo();
             SHGetFileInfo("file" + extension, 0x80, ref info, (uint)Marshal.SizeOf(typeof(ShellFileInfo)),

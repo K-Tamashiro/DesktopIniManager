@@ -17,8 +17,8 @@ namespace DesktopIniManager.ViewModels;
 
 internal sealed partial class MainWindowViewModel : ObservableObject
 {
-    private readonly Dispatcher _dispatcher;
     private readonly IUserDialogService _dialogs;
+    private readonly Dispatcher _dispatcher;
     private readonly ObservableCollection<FolderMatch> _results = new();
     private readonly ObservableCollection<FolderMatch> _searchRoots = new();
     private readonly ObservableCollection<FolderMatch> _solutionRoots = new();
@@ -53,13 +53,13 @@ internal sealed partial class MainWindowViewModel : ObservableObject
     private ImageSource _selectedIconPreview;
     private bool _solutionView;
     private string _status = Strings.Common_Ready;
-    private IEnumerable<FolderMatch> _treeItems;
     private bool _treeCompact;
+    private IEnumerable<FolderMatch> _treeItems;
 
     internal MainWindowViewModel(StartupState startup, Dispatcher dispatcher, IUserDialogService dialogs)
     {
         _startup = startup;
-        this._dispatcher = dispatcher;
+        _dispatcher = dispatcher;
         _dialogs = dialogs;
         FolderMatch.SelectionChanged += RefreshScopedLabel;
         InitializeInteractionCommands();
@@ -473,28 +473,26 @@ internal sealed partial class MainWindowViewModel : ObservableObject
     internal IReadOnlyList<string> ContainedFileNames(FolderMatch folder)
     {
         if (folder == null || string.IsNullOrEmpty(folder.Path))
-            return Array.Empty<string>();
+            return [];
 
         if (_pathIndex != null)
         {
             var node = _pathIndex.Find(folder.Path);
             if (node != null && node.Files != null)
-                return node.Files
+                return [.. node.Files
                     .Select(file => Path.GetFileName(file.Path))
-                    .OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase)
-                    .ToList();
+                    .OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase)];
         }
 
         if (string.Equals(FilePanelPath, folder.Path, StringComparison.OrdinalIgnoreCase) && Files.Count > 0)
-            return Files
+            return [.. Files
                 .Where(file => string.Equals(
                     NormalizeComparePath(Path.GetDirectoryName(file.Path)),
                     NormalizeComparePath(folder.Path), StringComparison.OrdinalIgnoreCase))
                 .Select(file => file.Name)
-                .OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase)
-                .ToList();
+                .OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase)];
 
-        return Array.Empty<string>();
+        return [];
     }
 
     internal void ShowError(string message, Exception ex)
@@ -504,27 +502,15 @@ internal sealed partial class MainWindowViewModel : ObservableObject
             MessageBoxImage.Error);
     }
 
-    internal sealed class StandardSearchResult
+    internal sealed class StandardSearchResult(VolumePathIndex paths, List<FolderMatch> matches)
     {
-        public StandardSearchResult(VolumePathIndex paths, List<FolderMatch> matches)
-        {
-            Paths = paths;
-            Matches = matches;
-        }
-
-        public VolumePathIndex Paths { get; }
-        public List<FolderMatch> Matches { get; }
+        public VolumePathIndex Paths { get; } = paths;
+        public List<FolderMatch> Matches { get; } = matches;
     }
 
-    private sealed class TreeBuildResult
+    private sealed class TreeBuildResult(List<FolderMatch> items, List<FolderMatch> roots)
     {
-        public TreeBuildResult(List<FolderMatch> items, List<FolderMatch> roots)
-        {
-            Items = items;
-            Roots = roots;
-        }
-
-        public List<FolderMatch> Items { get; }
-        public List<FolderMatch> Roots { get; }
+        public List<FolderMatch> Items { get; } = items;
+        public List<FolderMatch> Roots { get; } = roots;
     }
 }

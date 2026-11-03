@@ -373,7 +373,8 @@
                                         Background="{DynamicResource CardBackground}"
                                         BorderBrush="{DynamicResource InputLine}"
                                         BorderThickness="1">
-                                        <ScrollViewer MaxHeight="200">
+                                        <ScrollViewer MaxHeight="200"
+                                                      CanContentScroll="True">
                                             <ItemsPresenter />
                                         </ScrollViewer>
                                     </Border>

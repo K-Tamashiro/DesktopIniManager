@@ -1,7 +1,9 @@
+using DesktopIniManager.Properties;
+using DesktopIniManager.Services;
+using DesktopIniManager.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -20,16 +22,13 @@ using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
-using DesktopIniManager.Properties;
-using DesktopIniManager.Services;
-using DesktopIniManager.ViewModels;
 using Path = System.Windows.Shapes.Path;
 
 namespace DesktopIniManager.Views;
 
 internal sealed partial class DiffViewWindow
 {
-    private const double DiffLineHeight = 22;
+    private double DiffLineHeight => Math.Ceiling(Math.Max(22, _textFontSize * _textFontFamily.LineSpacing + 4));
 
     private const double StatusIconHeight = 36;
 
@@ -85,6 +84,7 @@ internal sealed partial class DiffViewWindow
     {
         ViewModel = new DiffViewModel(snapshot, file, new UserDialogService(this), sourcePath, targetPath);
         InitializeComponent();
+        InitializeTextFontControls();
         Icon = DifferencerStatusIcons.GetCustomIcon(52) ?? Icon;
         DataContext = ViewModel;
         CloseButton.Command = ViewModel.CloseCommand;
@@ -270,6 +270,7 @@ internal sealed partial class DiffViewWindow
         _renderingContent = value;
         LoadProgressPanel.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
         ActionsPanel.IsEnabled = FileNavigationPanel.IsEnabled = !value;
+        TextFontPanel.IsEnabled = !value;
         Body.IsHitTestVisible = !value;
         ImageToolbar.IsHitTestVisible = ImageDetails.IsHitTestVisible = !value;
     }
@@ -479,6 +480,7 @@ internal sealed partial class DiffViewWindow
 
     private void BuildToolbar()
     {
+        TextFontPanel.Visibility = ViewModel.IsText ? Visibility.Visible : Visibility.Collapsed;
         MarkerOptions.Visibility = ViewModel.IsImage || ViewModel.IsVideo || ViewModel.IsAudio
             ? Visibility.Collapsed
             : Visibility.Visible;
@@ -909,36 +911,13 @@ internal sealed partial class DiffViewWindow
         }
     }
 
-    private double MeasureSharedTextWidth()
-    {
-        if (Lines == null || Lines.Count == 0) return 0;
-
-        var longest = string.Empty;
-        foreach (var line in Lines)
-        {
-            var left = (line.Left ?? string.Empty).Replace("\t", "    ");
-            var right = (line.Right ?? string.Empty).Replace("\t", "    ");
-            if (left.Length > longest.Length) longest = left;
-            if (right.Length > longest.Length) longest = right;
-        }
-
-        // Reserve room for an ending marker without changing layout when toggled.
-        longest += "  ";
-
-        var typeface = new Typeface(new FontFamily("Consolas, Yu Gothic UI, Meiryo UI"), FontStyles.Normal,
-            FontWeights.Normal, FontStretches.Normal);
-        var formatted = new FormattedText(longest, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface, 13,
-            Brushes.Black, VisualTreeHelper.GetDpi(this).PixelsPerDip);
-        return formatted.WidthIncludingTrailingWhitespace + 24;
-    }
-
     private FrameworkElement MakeHost(bool sourceSide, out RichTextBox box)
     {
-        var font = new FontFamily("Consolas, Yu Gothic UI, Meiryo UI");
+        var font = _textFontFamily;
         var gutter = new TextBlock
         {
             FontFamily = font,
-            FontSize = 13,
+            FontSize = _textFontSize,
             LineHeight = DiffLineHeight,
             LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
             TextAlignment = TextAlignment.Right,
@@ -1013,7 +992,7 @@ internal sealed partial class DiffViewWindow
             BorderThickness = new Thickness(0),
             Padding = new Thickness(0),
             FontFamily = font,
-            FontSize = 13,
+            FontSize = _textFontSize,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
             VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
             AutoWordSelection = false
@@ -1167,7 +1146,7 @@ internal sealed partial class DiffViewWindow
 
                 originalRow += line.FilteredLineCount;
                 paragraph.Inlines.Add(new Run(text));
-                paragraph.FontSize = 10;
+                paragraph.FontSize = _textFontSize * 10 / 13;
                 paragraph.SetResourceReference(TextElement.ForegroundProperty, "Muted");
                 paragraph.SetResourceReference(TextElement.BackgroundProperty,
                     TryFindResource("DiffFilteredBackground") != null ? "DiffFilteredBackground" : "HeaderBackground");
@@ -1963,15 +1942,18 @@ internal sealed partial class DiffViewWindow
         zoomLabel.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
         // Fit images and icons to the viewport when first opened.
         bool fitToWindow = true, fitting = false;
-        void Fit()
+        void Fit(double fitWidth, double fitHeight)
         {
-            if (!fitToWindow || width <= 0 || height <= 0) return;
+            if (!fitToWindow || fitWidth <= 0 || fitHeight <= 0) return;
+
             var viewportWidth = Math.Min(_leftScroll.ViewportWidth, _rightScroll.ViewportWidth);
             var viewportHeight = Math.Min(_leftScroll.ViewportHeight, _rightScroll.ViewportHeight);
             if (viewportWidth <= 0 || viewportHeight <= 0) return;
-            var scale = Math.Min(viewportWidth / width, viewportHeight / height);
+
+            var scale = Math.Min(viewportWidth / fitWidth, viewportHeight / fitHeight);
             scale = Math.Min(1.0, scale);
             if (scale <= 0) return;
+
             fitting = true;
             zoom.Value = Math.Max(zoom.Minimum, Math.Min(zoom.Maximum, scale));
             fitting = false;
@@ -2076,10 +2058,12 @@ internal sealed partial class DiffViewWindow
             for (var column = 0; column < chromeRow.Children.Count; column++)
                 Grid.SetColumn(chromeRow.Children[column], column);
             toolbar.Children.Add(chrome);
+            var fitWidth = width;
+            var fitHeight = height;
             AddIconActionButton(buttons, DifferencerStatusIcons.GetCustomIcon(72), StringOverlay.Get("Diff_Fit"), () =>
             {
                 fitToWindow = true;
-                Fit();
+                Fit(fitWidth, fitHeight);
             });
             AddIconActionButton(buttons, DifferencerStatusIcons.GetCustomIcon(73), "100%", () =>
             {
@@ -2316,14 +2300,14 @@ internal sealed partial class DiffViewWindow
         };
         _imageFitHandler = (_, _) =>
         {
-            Fit();
+            Fit(width, height);
             UpdateImageNavigation();
         };
         Body.SizeChanged += _imageFitHandler;
         // Complete layout and fitting in the same dispatcher turn as the swap.
         // Yielding here would expose the initial 100% image before its fitted size.
         Body.UpdateLayout();
-        Fit();
+        Fit(width, height);
         Body.UpdateLayout();
         UpdateImageNavigation();
         return Task.CompletedTask;
@@ -2548,7 +2532,7 @@ internal sealed partial class DiffViewWindow
         return button;
     }
 
-    private Button AddIconActionButton(Panel panel, ImageSource icon, string text, Action action)
+    private void AddIconActionButton(Panel panel, ImageSource icon, string text, Action action)
     {
         var image = new Image
         {
@@ -2568,7 +2552,6 @@ internal sealed partial class DiffViewWindow
         AutomationProperties.SetName(button, text ?? string.Empty);
         button.Click += (_, _) => action();
         panel.Children.Add(button);
-        return button;
     }
 
     private sealed record RenderedPane(

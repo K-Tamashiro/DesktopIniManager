@@ -119,14 +119,17 @@
                             BorderBrush="Transparent"
                             BorderThickness="2,0,0,0"
                             TextElement.Foreground="{TemplateBinding Foreground}">
-                            <GridViewRowPresenter Columns="{TemplateBinding GridView.ColumnCollection}" Content="{TemplateBinding Content}" />
+                            <GridViewRowPresenter Columns="{TemplateBinding GridView.ColumnCollection}"
+                                                  Content="{TemplateBinding Content}" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource AccentSoft}" />
+                                <Setter TargetName="RowBorder" Property="Background"
+                                        Value="{DynamicResource AccentSoft}" />
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource ThemeSelected}" />
+                                <Setter TargetName="RowBorder" Property="Background"
+                                        Value="{DynamicResource ThemeSelected}" />
                                 <Setter TargetName="RowBorder" Property="BorderBrush" Value="{DynamicResource Accent}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -134,7 +137,7 @@
                 </Setter.Value>
             </Setter>
             <Style.Triggers>
-                <DataTrigger Binding="{Binding Path=(vm:DiffRow.IsDirectInSelectedFolder)}" Value="True">
+                <DataTrigger Binding="{Binding Path=IsDirectInSelectedFolder}" Value="True">
                     <Setter Property="Foreground" Value="{DynamicResource Ink}" />
                 </DataTrigger>
             </Style.Triggers>
@@ -156,7 +159,8 @@
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}">
                             <Grid>
-                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" />
+                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalAlignment="Center" />
                                 <Thumb
                                     x:Name="PART_HeaderGripper"
                                     Width="6"
@@ -172,7 +176,8 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource AccentSoft}" />
+                                <Setter TargetName="HeaderBorder" Property="Background"
+                                        Value="{DynamicResource AccentSoft}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -180,8 +185,8 @@
             </Setter>
         </Style>
         <Style x:Key="FolderItemStyle" TargetType="TreeViewItem">
-            <Setter Property="IsExpanded" Value="{Binding Path=(vm:DiffFolder.Expanded), Mode=TwoWay}" />
-            <Setter Property="IsSelected" Value="{Binding Path=(vm:DiffFolder.Active), Mode=TwoWay}" />
+            <Setter Property="IsExpanded" Value="{Binding Path=Expanded, Mode=TwoWay}" />
+            <Setter Property="IsSelected" Value="{Binding Path=Active, Mode=TwoWay}" />
             <Setter Property="Foreground" Value="{DynamicResource Ink}" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -246,8 +251,8 @@
             </Style.Triggers>
         </Style>
         <Style x:Key="FrozenFolderItemStyle" TargetType="TreeViewItem">
-            <Setter Property="IsExpanded" Value="{Binding Path=(vm:DiffFolder.Expanded), Mode=TwoWay}" />
-            <Setter Property="IsSelected" Value="{Binding Path=(vm:DiffFolder.Active), Mode=TwoWay}" />
+            <Setter Property="IsExpanded" Value="{Binding Path=Expanded, Mode=TwoWay}" />
+            <Setter Property="IsSelected" Value="{Binding Path=Active, Mode=TwoWay}" />
             <Setter Property="Foreground" Value="{DynamicResource Ink}" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -362,11 +367,13 @@
                             BorderBrush="{DynamicResource Line}"
                             BorderThickness="1,1,1,0"
                             CornerRadius="5,5,0,0">
-                            <ContentPresenter TextElement.FontWeight="{TemplateBinding FontWeight}" TextElement.Foreground="{TemplateBinding Foreground}" />
+                            <ContentPresenter TextElement.FontWeight="{TemplateBinding FontWeight}"
+                                              TextElement.Foreground="{TemplateBinding Foreground}" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="TabChrome" Property="Background" Value="{DynamicResource HistoryTabSelectedBackground}" />
+                                <Setter TargetName="TabChrome" Property="Background"
+                                        Value="{DynamicResource HistoryTabSelectedBackground}" />
                                 <Setter Property="Foreground" Value="{DynamicResource HistoryTabSelectedForeground}" />
                                 <Setter Property="FontWeight" Value="Bold" />
                             </Trigger>
@@ -419,7 +426,8 @@
                                                 Text="&#xE74D;" />
                                         </MenuItem.Icon>
                                     </MenuItem>
-                                    <MenuItem Click="DeleteOtherHistoryTabs_Click" Header="{loc:L History_DeleteOtherTabs}">
+                                    <MenuItem Click="DeleteOtherHistoryTabs_Click"
+                                              Header="{loc:L History_DeleteOtherTabs}">
                                         <MenuItem.Icon>
                                             <TextBlock
                                                 HorizontalAlignment="Center"
@@ -443,7 +451,7 @@
                                 Padding="3,0"
                                 Background="Transparent"
                                 BorderThickness="0"
-                                Command="{Binding DataContext.DeleteHistoryTabCommand, ElementName=HistoryTabStrip}"
+                                Command="{Binding DataContext.DeleteHistoryTabCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                 CommandParameter="{Binding}"
                                 Content="&#x00D7;"
                                 Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
@@ -994,7 +1002,8 @@
                             </Style>
                         </TreeView.Style>
                         <TreeView.ItemTemplate>
-                            <HierarchicalDataTemplate DataType="{x:Type vm:DiffFolder}" ItemsSource="{Binding DisplayChildren}">
+                            <HierarchicalDataTemplate DataType="{x:Type vm:DiffFolder}"
+                                                      ItemsSource="{Binding DisplayChildren}">
                                 <Grid ToolTip="{Binding Path}">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
@@ -1019,7 +1028,9 @@
                                                 <Setter Property="Height" Value="48" />
                                                 <Setter Property="Margin" Value="5,3" />
                                                 <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding Path=DataContext.(vm:DeveloperDifferencerViewModel.TreeCompact), RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                    <DataTrigger
+                                                        Binding="{Binding Path=DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        Value="True">
                                                         <Setter Property="Width" Value="22" />
                                                         <Setter Property="Height" Value="22" />
                                                         <Setter Property="Margin" Value="3,1" />
@@ -1038,7 +1049,9 @@
                                             <Style TargetType="TextBlock">
                                                 <Setter Property="FontSize" Value="14" />
                                                 <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding Path=DataContext.(vm:DeveloperDifferencerViewModel.TreeCompact), RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                    <DataTrigger
+                                                        Binding="{Binding Path=DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        Value="True">
                                                         <Setter Property="FontSize" Value="11" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
@@ -1141,7 +1154,8 @@
                             VirtualizingStackPanel.IsVirtualizing="True"
                             VirtualizingStackPanel.VirtualizationMode="Recycling">
                             <ListView.Resources>
-                                <Style x:Key="{x:Static GridView.GridViewScrollViewerStyleKey}" TargetType="{x:Type ScrollViewer}">
+                                <Style x:Key="{x:Static GridView.GridViewScrollViewerStyleKey}"
+                                       TargetType="{x:Type ScrollViewer}">
                                     <Setter Property="Focusable" Value="False" />
                                     <Setter Property="Template">
                                         <Setter.Value>
@@ -1235,10 +1249,14 @@
                                                     VerticalAlignment="Center"
                                                     IsChecked="{Binding File.Selected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                                                     <CheckBox.Style>
-                                                        <Style BasedOn="{StaticResource {x:Type CheckBox}}" TargetType="CheckBox">
-                                                            <Setter Property="IsEnabled" Value="{Binding File.CanToggleSelection}" />
+                                                        <Style BasedOn="{StaticResource {x:Type CheckBox}}"
+                                                               TargetType="CheckBox">
+                                                            <Setter Property="IsEnabled"
+                                                                    Value="{Binding File.CanToggleSelection}" />
                                                             <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsEnabled, ElementName=RootControls}" Value="False">
+                                                                <DataTrigger
+                                                                    Binding="{Binding IsEnabled, ElementName=RootControls}"
+                                                                    Value="False">
                                                                     <Setter Property="IsEnabled" Value="False" />
                                                                 </DataTrigger>
                                                             </Style.Triggers>
@@ -1300,14 +1318,16 @@
                                     <GridViewColumn Width="125" Header="{loc:L Common_Source}">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate DataType="{x:Type vm:DiffRow}">
-                                                <ContentControl Content="{Binding Source}" ContentTemplate="{StaticResource SideTemplate}" />
+                                                <ContentControl Content="{Binding Source}"
+                                                                ContentTemplate="{StaticResource SideTemplate}" />
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
                                     <GridViewColumn Width="125" Header="{loc:L Common_Target}">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate DataType="{x:Type vm:DiffRow}">
-                                                <ContentControl Content="{Binding Target}" ContentTemplate="{StaticResource SideTemplate}" />
+                                                <ContentControl Content="{Binding Target}"
+                                                                ContentTemplate="{StaticResource SideTemplate}" />
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>

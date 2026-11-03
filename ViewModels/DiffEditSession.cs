@@ -1,7 +1,7 @@
+using DesktopIniManager.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using DesktopIniManager.Services;
 using TextDocument = DesktopIniManager.ViewModels.DiffViewModel.TextDocument;
 
 namespace DesktopIniManager.ViewModels;
@@ -76,7 +76,9 @@ internal sealed class DiffEditSession
 
             group.Add(new Edit
             {
-                Block = block, DestinationSource = !fromSource, Before = before,
+                Block = block,
+                DestinationSource = !fromSource,
+                Before = before,
                 BeforeFinalNewline = isLast ? hadFinalNewline : null
             });
             if (isLast)

@@ -47,7 +47,9 @@ public class WaveformControl : Control
     public double AmplitudeScale { get; private set; } = 1;
 
     public bool IsPanning => _pressed && _dragged;
+
     public event Action<double> PositionClicked;
+
     public event Action ViewChanged;
 
     public void Load(string path)
@@ -75,7 +77,7 @@ public class WaveformControl : Control
         _loadVersion++;
         Data = value;
         _timelineDuration = totalDuration;
-            _cachedGeometry = Array.Empty<Geometry>();
+        _cachedGeometry = Array.Empty<Geometry>();
         _geometryKey = default;
         _position = 0;
         _highlightStart = _highlightDuration = 0;

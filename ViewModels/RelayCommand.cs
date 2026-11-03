@@ -11,8 +11,8 @@ public sealed class ParameterCommand : ICommand
 
     public ParameterCommand(Action<object> execute, Func<bool> canExecute = null)
     {
-        this._execute = execute;
-        this._canExecute = canExecute;
+        _execute = execute;
+        _canExecute = canExecute;
     }
 
     public bool CanExecute(object parameter)
@@ -40,8 +40,8 @@ public sealed class RelayCommand : ICommand
 
     public RelayCommand(Action execute, Func<bool> canExecute = null)
     {
-        this._execute = execute;
-        this._canExecute = canExecute;
+        _execute = execute;
+        _canExecute = canExecute;
     }
 
     public bool CanExecute(object parameter)
@@ -71,9 +71,9 @@ public sealed class AsyncRelayCommand : ICommand
 
     public AsyncRelayCommand(Func<Task> execute, Action<Exception> onError, Func<bool> canExecute = null)
     {
-        this._execute = execute;
-        this._onError = onError;
-        this._canExecute = canExecute;
+        _execute = execute;
+        _onError = onError;
+        _canExecute = canExecute;
     }
 
     public bool CanExecute(object parameter)

@@ -23,6 +23,22 @@ internal static class SettingsService
     private static string MainWindowPlacementPath => Path.Combine(SettingsDirectory, "main-window.txt");
     private static string MainListLayoutPath => Path.Combine(SettingsDirectory, "main-list-layout.txt");
 
+    internal static (string Family, double Size) LoadDiffFont()
+    {
+        var parts = ReadSetting(Path.Combine(SettingsDirectory, "diff-font.txt"), string.Empty).Split('\n');
+        var family = parts[0].Trim();
+        var size = parts.Length > 1 &&
+                   double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) &&
+                   double.IsFinite(parsed) && parsed is >= 8 and <= 72 ? parsed : 13;
+        return (string.IsNullOrWhiteSpace(family) ? "Consolas" : family, size);
+    }
+
+    internal static void SaveDiffFont(string family, double size)
+    {
+        WriteSetting(Path.Combine(SettingsDirectory, "diff-font.txt"),
+            family + "\n" + size.ToString("R", CultureInfo.InvariantCulture));
+    }
+
     public static double[] LoadMainListLayout()
     {
         var text = ReadSetting(MainListLayoutPath, null);

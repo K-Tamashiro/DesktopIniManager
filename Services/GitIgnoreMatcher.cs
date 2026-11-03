@@ -28,8 +28,8 @@ internal sealed class GitIgnoreMatcher
 
     internal GitIgnoreMatcher(string root, IEnumerable<string> disabled = null)
     {
-        this._root = root;
-        this._disabled = new HashSet<string>(disabled ?? Array.Empty<string>(), StringComparer.Ordinal);
+        _root = root;
+        _disabled = new HashSet<string>(disabled ?? Array.Empty<string>(), StringComparer.Ordinal);
     }
 
     internal List<GitIgnoreRuleInfo> Entries { get; } = new();

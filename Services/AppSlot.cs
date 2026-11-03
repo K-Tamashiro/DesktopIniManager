@@ -125,4 +125,11 @@ internal static class AppSlot
         {
         }
     }
+
+    public static void Release()
+    {
+        _slotMutex?.ReleaseMutex();
+        _slotMutex?.Dispose();
+        _slotMutex = null;
+    }
 }

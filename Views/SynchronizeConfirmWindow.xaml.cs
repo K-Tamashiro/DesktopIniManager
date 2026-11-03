@@ -1,4 +1,7 @@
-﻿using System;
+﻿using DesktopIniManager.Properties;
+using DesktopIniManager.Services;
+using DesktopIniManager.ViewModels;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -6,9 +9,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
-using DesktopIniManager.Properties;
-using DesktopIniManager.Services;
-using DesktopIniManager.ViewModels;
 
 namespace DesktopIniManager.Views;
 
@@ -196,7 +196,7 @@ internal partial class SynchronizeConfirmWindow
             VerticalAlignment = VerticalAlignment.Center
         });
         content.Children.Add(new TextBlock
-            { Text = label, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center });
+        { Text = label, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center });
         return content;
     }
 

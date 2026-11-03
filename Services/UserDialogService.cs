@@ -14,7 +14,7 @@ internal sealed class UserDialogService : IUserDialogService
 
     public UserDialogService(Window owner)
     {
-        this._owner = owner;
+        _owner = owner;
     }
 
     public MessageBoxResult Show(string message, string title,

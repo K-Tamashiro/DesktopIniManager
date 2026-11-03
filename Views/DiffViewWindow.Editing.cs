@@ -60,6 +60,7 @@ internal sealed partial class DiffViewWindow
             var selected = SelectedEditHunks(source);
             ViewModel.CopyHunks(selected.Contains(hunkId) ? selected.ToArray() : new[] { hunkId }, source);
             await RenderTextEditsAsync();
+            ClearCopiedHunkSelection(source);
         }
 
         copyRight.Click += async (_, _) => await Copy(true);
@@ -183,11 +184,13 @@ internal sealed partial class DiffViewWindow
                 if (_renderingContent || _savingText || !ViewModel.CanChangeComparison) return;
                 _clipboardSource = source;
                 var selectedEditHunks = SelectedEditHunks(source);
-                if (ViewModel.CanUndoHunk(id, source)) ViewModel.UndoHunk(id, source);
+                var undo = ViewModel.CanUndoHunk(id, source);
+                if (undo) ViewModel.UndoHunk(id, source);
                 else
                     ViewModel.CopyHunks(selectedEditHunks.Contains(id) ? selectedEditHunks.ToArray() : new[] { id },
                         source);
                 await RenderTextEditsAsync();
+                if (!undo) ClearCopiedHunkSelection(source);
             };
             viewport.Children.Add(button);
             Canvas.SetLeft(button, 0);
@@ -223,11 +226,30 @@ internal sealed partial class DiffViewWindow
         if (_rightList?.Tag is Canvas right) UpdateEditArrowAppearance(right);
     }
 
-    private static void PositionEditArrows(Canvas viewport, double offset)
+    private void ClearCopiedHunkSelection(bool source)
+    {
+        var pane = source ? _leftList : _rightList;
+        SelectedEditHunks(source).Clear();
+        if (pane != null)
+        {
+            var position = pane.Selection.Start;
+            pane.Selection.Select(position, position);
+            if (pane.IsKeyboardFocusWithin)
+            {
+                FocusManager.SetFocusedElement(this, null);
+                Keyboard.ClearFocus();
+            }
+        }
+
+        RefreshEditArrows();
+    }
+
+    private void PositionEditArrows(Canvas viewport, double offset)
     {
         foreach (var button in viewport.Children.OfType<Button>())
         {
             var (row, _, _) = ((int, int, bool))button.Tag;
+            button.Height = DiffLineHeight;
             Canvas.SetTop(button, row * DiffLineHeight - offset);
         }
     }

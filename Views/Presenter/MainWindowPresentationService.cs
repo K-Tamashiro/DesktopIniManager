@@ -22,11 +22,12 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
+using System.Windows.Data;
 
 namespace DesktopIniManager.Views.Presenter;
 
 [SupportedOSPlatform("windows")]
-internal sealed class MainWindowPresentationService
+public sealed class MainWindowPresentationService
 {
     private static readonly HashSet<string> ScriptExtensions =
         new(StringComparer.OrdinalIgnoreCase) { ".ps1", ".bat", ".cmd", ".vbs" };
@@ -38,6 +39,7 @@ internal sealed class MainWindowPresentationService
 
     private readonly MainWindow _window;
     private bool _analyzeSelectedRoot;
+    private bool _differencerSavedOnClose;
 
     private DeveloperDifferencerWindow _differencerWindow;
     private FileListItem _fileContextItem;
@@ -48,6 +50,10 @@ internal sealed class MainWindowPresentationService
 
     private bool _languageReady;
     private bool _largeFileIcons;
+
+    /// <summary>Opens or activates the developer differencer window.</summary>
+    private bool _savingDifferencerOnClose;
+
     private bool _searchModeActive;
     private bool _syncingTreeFromFile;
 
@@ -56,10 +62,6 @@ internal sealed class MainWindowPresentationService
     private bool _treeDragPreparing;
     private Point _treeDragStart;
     private bool _updatingToggles;
-    private bool _differencerSavedOnClose;
-
-    /// <summary>Opens or activates the developer differencer window.</summary>
-    private bool _savingDifferencerOnClose;
 
     internal MainWindowPresentationService(MainWindow window, StartupState startup)
     {
@@ -226,14 +228,36 @@ internal sealed class MainWindowPresentationService
         var treeMenu = _window.Resources["FolderTreeContextMenu"] as ContextMenu;
         if (treeMenu != null)
         {
+            var style = CreateBuildConfigurationItemStyle();
+
             var buildMenu = FindTaggedMenuItem(treeMenu, "dim-msbuild-build");
             var rebuildMenu = FindTaggedMenuItem(treeMenu, "dim-msbuild-rebuild");
-            if (buildMenu != null) buildMenu.ItemsSource = _msBuildMenu.BuildItems;
-            if (rebuildMenu != null) rebuildMenu.ItemsSource = _msBuildMenu.RebuildItems;
             var sdkBuildMenu = FindTaggedMenuItem(treeMenu, "dim-sdk-build");
             var sdkRebuildMenu = FindTaggedMenuItem(treeMenu, "dim-sdk-rebuild");
-            if (sdkBuildMenu != null) sdkBuildMenu.ItemsSource = _msBuildMenu.SdkBuildItems;
-            if (sdkRebuildMenu != null) sdkRebuildMenu.ItemsSource = _msBuildMenu.SdkRebuildItems;
+
+            if (buildMenu != null)
+            {
+                buildMenu.ItemContainerStyle = style;
+                buildMenu.ItemsSource = _msBuildMenu.BuildItems;
+            }
+
+            if (rebuildMenu != null)
+            {
+                rebuildMenu.ItemContainerStyle = style;
+                rebuildMenu.ItemsSource = _msBuildMenu.RebuildItems;
+            }
+
+            if (sdkBuildMenu != null)
+            {
+                sdkBuildMenu.ItemContainerStyle = style;
+                sdkBuildMenu.ItemsSource = _msBuildMenu.SdkBuildItems;
+            }
+
+            if (sdkRebuildMenu != null)
+            {
+                sdkRebuildMenu.ItemContainerStyle = style;
+                sdkRebuildMenu.ItemsSource = _msBuildMenu.SdkRebuildItems;
+            }
         }
 
         _window.FileList.SelectionChanged += FileList_SelectionChanged;
@@ -774,120 +798,65 @@ internal sealed class MainWindowPresentationService
             if (_fileContextItem != null && IsFileSelected(list, _fileContextItem))
                 args.Handled = true;
         };
-        if (list.ContextMenu == null)
-        {
-            var runIcon = new TextBlock
-            {
-                FontFamily = new FontFamily("Segoe MDL2 Assets"),
-                FontSize = 15,
-                Text = "\uE768",
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            runIcon.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
-            var run = new MenuItem
-            {
-                Header = ScriptText("Main_RunScript", "Run script"),
-                Icon = runIcon
-            };
-            run.Click += (s, _) => RunSelectedScript(
-                ((s as MenuItem)?.Parent as ContextMenu)?.PlacementTarget is Selector owner
-                    ? owner.SelectedItem as FileListItem
-                    : list.SelectedItem as FileListItem);
-            var menu = new ContextMenu();
-            menu.Items.Add(run);
-            menu.Items.Add(new MenuItem { Header = "SELECT Compare" });
-            menu.Items.Add(new Separator());
-            var explorer = new MenuItem { Header = "Explorerメニュー" };
-            var shellMenuPending = false;
-            explorer.Click += (_, _) =>
-            {
-                if (shellMenuPending || !explorer.IsEnabled) return;
-                var paths = explorer.Tag as string[];
-                if (paths == null || paths.Length == 0) return;
-                var position = explorer.PointToScreen(new Point(explorer.ActualWidth, 0));
-                shellMenuPending = true;
-                menu.IsOpen = false;
-                // Let WPF release its popup capture before entering the native menu loop.
-                Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    try
-                    {
-                        ExplorerContextMenu.Show(_window, paths, position);
-                    }
-                    catch (Exception ex)
-                    {
-                        ViewModel.ShowError("Explorerメニューを開けませんでした。", ex);
-                    }
-                    finally
-                    {
-                        shellMenuPending = false;
-                    }
-                }), DispatcherPriority.Input);
-            };
-            menu.Items.Add(explorer);
-            list.ContextMenu = menu;
-        }
+        // A placeholder enables ContextMenuOpening; the complete popup is native.
+        list.ContextMenu ??= new ContextMenu();
     }
 
     private void FileList_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
-        var list = sender as Selector;
-        if (list == null) return;
-        var file = list.SelectedItem as FileListItem;
-        var canRun = file != null && ScriptExtensions.Contains(file.Extension ?? string.Empty);
-
-        if (list.ContextMenu.Items.Count > 0 && list.ContextMenu.Items[0] is MenuItem item)
+        if (sender is not Selector list) return;
+        e.Handled = true;
+        var selectedFile = list.SelectedItem as FileListItem;
+        var source = e.CursorLeft < 0 ? selectedFile : _fileContextItem;
+        var items = new List<ExplorerContextMenu.CommandItem>
         {
-            item.Header = StringOverlay.Get("Main_RunScript");
-            item.IsEnabled = canRun;
-        }
-
-        var compare = (MenuItem)list.ContextMenu.Items[1];
-        compare.Items.Clear();
-        var source = e.CursorLeft < 0 ? file : _fileContextItem;
+            new(StringOverlay.Get("Main_RunScript"), () => RunSelectedScript(source),
+                source != null && ScriptExtensions.Contains(source.Extension ?? string.Empty))
+        };
         if (source != null && list.Items.Contains(source))
         {
             var visibleFiles = list.Items.Cast<FileListItem>().ToList();
-            var selected = visibleFiles
-                .Where(candidate => IsFileSelected(list, candidate)).ToList();
-            // A search hit compares with all other hits, regardless of selection.
-            // Files merely shown alongside the hits are not search results.
+            var selected = visibleFiles.Where(candidate => IsFileSelected(list, candidate)).ToList();
             var candidates = source.IsSearchMatch
                 ? visibleFiles.Where(candidate => candidate.IsSearchMatch).ToList()
-                : selected.Count > 1 && selected.Contains(source)
-                    ? selected
-                    : new List<FileListItem>();
+                : selected.Count > 1 && selected.Contains(source) ? selected : new List<FileListItem>();
+            var comparisons = new List<ExplorerContextMenu.CommandItem>();
             foreach (var target in candidates.Where(candidate =>
                          !string.Equals(candidate.Path, source.Path, StringComparison.OrdinalIgnoreCase)))
             {
                 var duplicateName = candidates.Count(candidate =>
                     string.Equals(candidate.Name, target.Name, StringComparison.OrdinalIgnoreCase)) > 1;
-                var choice = new MenuItem
-                {
-                    Header = new TextBlock { Text = duplicateName ? target.Path : target.Name },
-                    ToolTip = target.Path
-                };
-                choice.Click += (_, _) => OpenFileComparison(source, target);
-                compare.Items.Add(choice);
+                comparisons.Add(new ExplorerContextMenu.CommandItem(
+                    (duplicateName ? target.Path : target.Name).Replace("&", "&&"),
+                    () => OpenFileComparison(source, target)));
             }
+            if (comparisons.Count > 0)
+                items.Add(new ExplorerContextMenu.CommandItem("SELECT Compare", null, Children: comparisons));
         }
 
-        compare.Visibility = compare.Items.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        var explorer = (MenuItem)list.ContextMenu.Items[3];
-        var shellFiles = source == null
-            ? new List<FileListItem>()
+        var shellFiles = source == null ? new List<FileListItem>()
             : IsFileSelected(list, source)
                 ? list.Items.Cast<FileListItem>().Where(candidate => IsFileSelected(list, candidate)).ToList()
                 : new List<FileListItem> { source };
-        explorer.Tag = shellFiles.Select(candidate => candidate.Path)
+        var paths = shellFiles.Select(candidate => candidate.Path)
             .Where(path => !string.IsNullOrWhiteSpace(path)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-        var shellPaths = (string[])explorer.Tag;
-        var sameFolder = shellPaths.Select(path => Path.GetDirectoryName(path))
-            .Distinct(StringComparer.OrdinalIgnoreCase).Count() <= 1;
-        explorer.IsEnabled = shellPaths.Length > 0 && sameFolder;
-        explorer.ToolTip = sameFolder ? null : "同じフォルダー内のファイルを選択してください。";
-        ToolTipService.SetShowOnDisabled(explorer, true);
+        if (paths.Select(Path.GetDirectoryName).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
+            paths = Array.Empty<string>();
+        var position = list.PointToScreen(e.CursorLeft < 0
+            ? new Point(16, 16) : Mouse.GetPosition(list));
+        // One native menu loop owns both DIM commands and the shell submenu, so
+        // hovering back to the parent, Left Arrow and Escape retain normal behavior.
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            try
+            {
+                ExplorerContextMenu.Show(_window, paths, position, items);
+            }
+            catch (Exception ex)
+            {
+                ViewModel.ShowError(Strings.Main_OpenFileFailed, ex);
+            }
+        }), DispatcherPriority.Input);
     }
 
     private void OpenFileComparison(FileListItem source, FileListItem target)
@@ -1321,20 +1290,6 @@ internal sealed class MainWindowPresentationService
         RefreshSelectedIconPreview();
         ScheduleResetCaption();
     }
-
-    private static void RestoreWindowPlacement(Window window, Rect bounds, WindowState state)
-    {
-        if (window == null || bounds.IsEmpty) return;
-        window.WindowStartupLocation = WindowStartupLocation.Manual;
-        window.WindowState = WindowState.Normal;
-        window.Left = bounds.Left;
-        window.Top = bounds.Top;
-        window.Width = Math.Max(window.MinWidth, bounds.Width);
-        window.Height = Math.Max(window.MinHeight, bounds.Height);
-        window.WindowState = state == WindowState.Minimized ? WindowState.Minimized : state;
-    }
-
-    // --- MainWindowPresentationService.Appearance.cs ---
 
     private void CompactTree()
     {
@@ -1912,18 +1867,6 @@ internal sealed class MainWindowPresentationService
         return null;
     }
 
-    private static TextBlock MsBuildMenuIcon(string glyph)
-    {
-        return new TextBlock
-        {
-            Text = glyph,
-            FontFamily = new FontFamily("Segoe MDL2 Assets"),
-            FontSize = 15,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-    }
-
     private void RunMsBuild(string solutionFile, string configurationPair, string target)
     {
         if (ViewModel.TreeViewIndex != 1) return;
@@ -2077,22 +2020,6 @@ internal sealed class MainWindowPresentationService
         }
 
         return null;
-    }
-
-    private static void RemoveTaggedMenuItems(ItemsControl menu)
-    {
-        RemoveTaggedMenuItems(menu, "dim-msbuild");
-    }
-
-    private static void RemoveTaggedMenuItems(ItemsControl menu, string tag)
-    {
-        if (menu == null) return;
-        for (var i = menu.Items.Count - 1; i >= 0; i--)
-        {
-            var item = menu.Items[i] as FrameworkElement;
-            if (item != null && Equals(item.Tag, tag))
-                menu.Items.RemoveAt(i);
-        }
     }
 
     private static string FindSolutionFile(string directory)
@@ -2309,23 +2236,6 @@ internal sealed class MainWindowPresentationService
         return null;
     }
 
-    private static bool TryGetFlatIndex(IEnumerable<FolderMatch> nodes, FolderMatch target, ref int index)
-    {
-        foreach (var node in nodes)
-        {
-            if (node.IsHidden || node.IsFilterHidden)
-                continue;
-            if (ReferenceEquals(node, target))
-                return true;
-            index++;
-            if (node.IsExpanded && node.Children.Count > 0
-                                && TryGetFlatIndex(node.Children, target, ref index))
-                return true;
-        }
-
-        return false;
-    }
-
     private static void ScrollTreeItemIntoView(TreeView tree, TreeViewItem item)
     {
         if (tree == null || item == null) return;
@@ -2497,7 +2407,7 @@ internal sealed class MainWindowPresentationService
         public ObservableCollection<MsBuildActionItem> SdkRebuildItems { get; } = new();
     }
 
-    internal sealed class MsBuildActionItem
+    public sealed class MsBuildActionItem
     {
         public string Header { get; set; }
         public string IconGlyph { get; set; }
@@ -2519,5 +2429,19 @@ internal sealed class MainWindowPresentationService
                 return icon;
             }
         }
+    }
+
+    private static Style CreateBuildConfigurationItemStyle()
+    {
+        var style = new Style(typeof(MenuItem))
+        {
+            BasedOn = (Style)Application.Current.FindResource(typeof(MenuItem))
+        };
+
+        style.Setters.Add(new Setter(HeaderedItemsControl.HeaderProperty, new Binding(nameof(MsBuildActionItem.Header))));
+        style.Setters.Add(new Setter(MenuItem.CommandProperty, new Binding(nameof(MsBuildActionItem.Command))));
+        style.Setters.Add(new Setter(MenuItem.IconProperty, new Binding(nameof(MsBuildActionItem.MenuIcon))));
+
+        return style;
     }
 }

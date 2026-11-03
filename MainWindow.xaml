@@ -6,6 +6,12 @@
     xmlns:loc="clr-namespace:DesktopIniManager.Properties"
     xmlns:views="clr-namespace:DesktopIniManager.Views"
     xmlns:models="clr-namespace:DesktopIniManager.Models"
+    xmlns:vm="clr-namespace:DesktopIniManager.ViewModels"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    x:Name="MainWindowRoot"
+    d:DataContext="{d:DesignInstance Type=vm:MainWindowViewModel, IsDesignTimeCreatable=False}"
     Title="{loc:L App_Title}"
     Width="1280"
     Height="800"
@@ -25,7 +31,8 @@
         <DataTemplate x:Key="FileIconSmallTemplate" DataType="{x:Type models:FileListItem}">
             <StackPanel Margin="2,4" HorizontalAlignment="Stretch">
                 <Border Width="40" Height="40" Padding="3" HorizontalAlignment="Center"
-                        Background="{DynamicResource HeaderBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="1">
+                        Background="{DynamicResource HeaderBackground}" BorderBrush="{DynamicResource Line}"
+                        BorderThickness="1">
                     <Image Width="32" Height="32" RenderOptions.BitmapScalingMode="HighQuality"
                            Source="{Binding Icon}" Stretch="Uniform" />
                 </Border>
@@ -36,7 +43,8 @@
         <DataTemplate x:Key="FileIconLargeTemplate" DataType="{x:Type models:FileListItem}">
             <StackPanel Margin="4,6" HorizontalAlignment="Stretch">
                 <Border Width="72" Height="72" Padding="6" HorizontalAlignment="Center"
-                        Background="{DynamicResource HeaderBackground}" BorderBrush="{DynamicResource Line}" BorderThickness="1">
+                        Background="{DynamicResource HeaderBackground}" BorderBrush="{DynamicResource Line}"
+                        BorderThickness="1">
                     <Image Width="48" Height="48" RenderOptions.BitmapScalingMode="HighQuality"
                            Source="{Binding Icon}" Stretch="Uniform" />
                 </Border>
@@ -45,10 +53,12 @@
             </StackPanel>
         </DataTemplate>
         <BooleanToVisibilityConverter x:Key="MvvmBooleanToVisibility" />
-        <ContextMenu x:Key="FolderTreeContextMenu">
+        <ContextMenu x:Key="FolderTreeContextMenu"
+                     DataContext="{Binding PlacementTarget.(FrameworkElement.Tag), RelativeSource={RelativeSource Self}}"
+                     d:DataContext="{d:DesignInstance Type=vm:MainWindowViewModel, IsDesignTimeCreatable=False}">
             <MenuItem
-                Command="{Binding PlacementTarget.Tag.UseAsSearchLocationCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
-                CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+                Command="{Binding UseAsSearchLocationCommand}"
+                CommandParameter="{Binding PlacementTarget.(FrameworkElement.DataContext), RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
                 Header="{loc:L Main_UseAsSearchLocation}">
                 <MenuItem.Icon>
                     <TextBlock
@@ -61,8 +71,8 @@
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem
-                Command="{Binding PlacementTarget.Tag.OpenExplorerCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
-                CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+                Command="{Binding OpenExplorerCommand}"
+                CommandParameter="{Binding PlacementTarget.(FrameworkElement.DataContext), RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
                 Header="{loc:L Main_OpenInExplorer}">
                 <MenuItem.Icon>
                     <TextBlock
@@ -75,8 +85,8 @@
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem
-                Command="{Binding PlacementTarget.Tag.TreeToEditorCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
-                CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+                Command="{Binding TreeToEditorCommand}"
+                CommandParameter="{Binding PlacementTarget.(FrameworkElement.DataContext), RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
                 Header="{loc:L Main_TreeToEditor}">
                 <MenuItem.Icon>
                     <TextBlock
@@ -89,8 +99,8 @@
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem
-                Command="{Binding PlacementTarget.Tag.TreeFilesToEditorCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
-                CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+                Command="{Binding TreeFilesToEditorCommand}"
+                CommandParameter="{Binding PlacementTarget.(FrameworkElement.DataContext), RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
                 Header="{loc:L Main_TreeFilesToEditor}">
                 <MenuItem.Icon>
                     <TextBlock
@@ -103,7 +113,7 @@
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem
-                Command="{Binding PlacementTarget.Tag.FileListToEditorCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+                Command="{Binding FileListToEditorCommand}"
                 Header="{loc:L Main_FileListToEditor}">
                 <MenuItem.Icon>
                     <TextBlock
@@ -116,8 +126,8 @@
                 </MenuItem.Icon>
             </MenuItem>
             <MenuItem
-                Command="{Binding PlacementTarget.Tag.GrepFolderCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
-                CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+                Command="{Binding GrepFolderCommand}"
+                CommandParameter="{Binding PlacementTarget.(FrameworkElement.DataContext), RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
                 Header="{loc:L Main_GrepThisFolder}">
                 <MenuItem.Icon>
                     <TextBlock
@@ -134,16 +144,6 @@
                 Header="Build"
                 Tag="dim-build"
                 Visibility="Collapsed">
-                <MenuItem.Resources>
-                    <Style
-                        x:Key="BuildConfigurationItem"
-                        BasedOn="{StaticResource {x:Type MenuItem}}"
-                        TargetType="MenuItem">
-                        <Setter Property="Header" Value="{Binding Header}" />
-                        <Setter Property="Command" Value="{Binding Command}" />
-                        <Setter Property="Icon" Value="{Binding MenuIcon}" />
-                    </Style>
-                </MenuItem.Resources>
                 <MenuItem.Icon>
                     <TextBlock
                         FontFamily="Segoe MDL2 Assets"
@@ -161,7 +161,6 @@
                     </MenuItem.Icon>
                     <MenuItem
                         Header="Build"
-                        ItemContainerStyle="{StaticResource BuildConfigurationItem}"
                         Tag="dim-msbuild-build">
                         <MenuItem.Icon>
                             <TextBlock
@@ -173,7 +172,6 @@
                     </MenuItem>
                     <MenuItem
                         Header="Rebuild"
-                        ItemContainerStyle="{StaticResource BuildConfigurationItem}"
                         Tag="dim-msbuild-rebuild">
                         <MenuItem.Icon>
                             <TextBlock
@@ -194,7 +192,6 @@
                     </MenuItem.Icon>
                     <MenuItem
                         Header="Build"
-                        ItemContainerStyle="{StaticResource BuildConfigurationItem}"
                         Tag="dim-sdk-build">
                         <MenuItem.Icon>
                             <TextBlock
@@ -206,7 +203,6 @@
                     </MenuItem>
                     <MenuItem
                         Header="Rebuild"
-                        ItemContainerStyle="{StaticResource BuildConfigurationItem}"
                         Tag="dim-sdk-rebuild">
                         <MenuItem.Icon>
                             <TextBlock
@@ -234,7 +230,7 @@
                             BorderThickness="2,0,0,0"
                             TextElement.Foreground="{TemplateBinding Foreground}">
                             <GridViewRowPresenter
-                                Columns="{Binding View.Columns, RelativeSource={RelativeSource AncestorType={x:Type ListView}}}"
+                                Columns="{TemplateBinding GridView.ColumnCollection}"
                                 Content="{TemplateBinding Content}" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -253,12 +249,6 @@
                 </Setter.Value>
             </Setter>
             <Style.Triggers>
-                <DataTrigger Binding="{Binding IsDirectChild}" Value="False">
-                    <Setter Property="Foreground" Value="{DynamicResource Muted}" />
-                </DataTrigger>
-                <DataTrigger Binding="{Binding IsSearchMatch}" Value="True">
-                    <Setter Property="Background" Value="{DynamicResource ThemeSelected}" />
-                </DataTrigger>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="{DynamicResource HeaderBackground}" />
                 </Trigger>
@@ -347,12 +337,6 @@
                 </Setter.Value>
             </Setter>
             <Style.Triggers>
-                <DataTrigger Binding="{Binding IsDirectChild}" Value="False">
-                    <Setter Property="Foreground" Value="{DynamicResource Muted}" />
-                </DataTrigger>
-                <DataTrigger Binding="{Binding IsSearchMatch}" Value="True">
-                    <Setter Property="Background" Value="{DynamicResource ThemeSelected}" />
-                </DataTrigger>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="{DynamicResource HeaderBackground}" />
                 </Trigger>
@@ -1096,7 +1080,8 @@
                                     </Style>
                                 </TreeView.Style>
                                 <TreeView.ItemTemplate>
-                                    <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                                    <HierarchicalDataTemplate DataType="{x:Type models:FolderMatch}"
+                                                              ItemsSource="{Binding Children}">
                                         <Grid
                                             Margin="0"
                                             Background="{Binding Background, RelativeSource={RelativeSource AncestorType={x:Type TreeViewItem}}}"
@@ -1128,7 +1113,7 @@
                                                         <Setter Property="Margin" Value="5,3" />
                                                         <Style.Triggers>
                                                             <DataTrigger
-                                                                Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                Binding="{Binding DataContext.TreeCompact, ElementName=MainWindowRoot}"
                                                                 Value="True">
                                                                 <Setter Property="Width" Value="22" />
                                                                 <Setter Property="Height" Value="22" />
@@ -1144,7 +1129,7 @@
                                                         <Setter Property="Margin" Value="0,5,5,5" />
                                                         <Style.Triggers>
                                                             <DataTrigger
-                                                                Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                Binding="{Binding DataContext.TreeCompact, ElementName=MainWindowRoot}"
                                                                 Value="True">
                                                                 <Setter Property="Margin" Value="0,1,4,1" />
                                                             </DataTrigger>
@@ -1160,7 +1145,7 @@
                                                             <Setter Property="FontSize" Value="15" />
                                                             <Style.Triggers>
                                                                 <DataTrigger
-                                                                    Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    Binding="{Binding DataContext.TreeCompact, ElementName=MainWindowRoot}"
                                                                     Value="True">
                                                                     <Setter Property="FontSize" Value="12" />
                                                                 </DataTrigger>
@@ -1177,7 +1162,7 @@
                                                             <Setter Property="FontSize" Value="12" />
                                                             <Style.Triggers>
                                                                 <DataTrigger
-                                                                    Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    Binding="{Binding DataContext.TreeCompact, ElementName=MainWindowRoot}"
                                                                     Value="True">
                                                                     <Setter Property="FontSize" Value="10.5" />
                                                                 </DataTrigger>
@@ -1195,7 +1180,7 @@
                                                             <Setter Property="FontSize" Value="11" />
                                                             <Style.Triggers>
                                                                 <DataTrigger
-                                                                    Binding="{Binding DataContext.TreeCompact, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    Binding="{Binding DataContext.TreeCompact, ElementName=MainWindowRoot}"
                                                                     Value="True">
                                                                     <Setter Property="FontSize" Value="10" />
                                                                 </DataTrigger>
@@ -1257,6 +1242,7 @@
                                                             </ToggleButton.Style>
                                                         </ToggleButton>
                                                         <Border
+                                                            Grid.Row="0"
                                                             Grid.Column="1"
                                                             HorizontalAlignment="Stretch"
                                                             Background="{TemplateBinding Background}">
@@ -1297,6 +1283,7 @@
                             </TreeView>
                             <Border
                                 x:Name="TreePanelBusy"
+                                Grid.Row="0"
                                 Grid.RowSpan="2"
                                 Background="{DynamicResource OverlayScrim}"
                                 IsHitTestVisible="True"
@@ -1403,7 +1390,7 @@
                                                 Width="36"
                                                 Header="">
                                                 <GridViewColumn.CellTemplate>
-                                                    <DataTemplate>
+                                                    <DataTemplate DataType="{x:Type models:FileListItem}">
                                                         <Image
                                                             Width="24"
                                                             Height="24"
@@ -1418,7 +1405,7 @@
                                                 Width="205"
                                                 Header="{loc:L Common_Name}">
                                                 <GridViewColumn.CellTemplate>
-                                                    <DataTemplate>
+                                                    <DataTemplate DataType="{x:Type models:FileListItem}">
                                                         <TextBlock
                                                             VerticalAlignment="Center"
                                                             Text="{Binding Name}"
@@ -1432,7 +1419,7 @@
                                                 Width="62"
                                                 Header="{loc:L Common_Type}">
                                                 <GridViewColumn.CellTemplate>
-                                                    <DataTemplate>
+                                                    <DataTemplate DataType="{x:Type models:FileListItem}">
                                                         <TextBlock
                                                             VerticalAlignment="Center"
                                                             Text="{Binding Extension}"
@@ -1445,7 +1432,7 @@
                                 </ListView>
                                 <ListBox
                                     x:Name="FileIconList"
-                                    Grid.Row="1"
+                                    Grid.Row="0"
                                     Background="{DynamicResource CardBackground}"
                                     BorderThickness="0"
                                     Foreground="{DynamicResource Ink}"
@@ -1460,11 +1447,16 @@
                                     <ListBox.Style>
                                         <Style TargetType="ListBox">
                                             <Setter Property="ItemsPanel" Value="{StaticResource FileIconSmallPanel}" />
-                                            <Setter Property="ItemTemplate" Value="{StaticResource FileIconSmallTemplate}" />
+                                            <Setter Property="ItemTemplate"
+                                                    Value="{StaticResource FileIconSmallTemplate}" />
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="True">
-                                                    <Setter Property="ItemsPanel" Value="{StaticResource FileIconLargePanel}" />
-                                                    <Setter Property="ItemTemplate" Value="{StaticResource FileIconLargeTemplate}" />
+                                                <DataTrigger
+                                                    Binding="{Binding Tag, RelativeSource={RelativeSource Self}}"
+                                                    Value="True">
+                                                    <Setter Property="ItemsPanel"
+                                                            Value="{StaticResource FileIconLargePanel}" />
+                                                    <Setter Property="ItemTemplate"
+                                                            Value="{StaticResource FileIconLargeTemplate}" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
@@ -1600,6 +1592,7 @@
             </ProgressBar>
             <StackPanel
                 Grid.Row="1"
+                Grid.Column="0"
                 VerticalAlignment="Center"
                 Orientation="Horizontal">
                 <Button
@@ -1634,7 +1627,7 @@
                         Margin="0,0,8,0"
                         Style="{StaticResource LanguageComboStyle}">
                         <ComboBox.ItemTemplate>
-                            <DataTemplate>
+                            <DataTemplate DataType="{x:Type models:LanguageChoice}">
                                 <StackPanel Orientation="Horizontal">
                                     <Image
                                         Width="16"

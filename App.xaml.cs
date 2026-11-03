@@ -2,7 +2,8 @@
 using DesktopIniManager.Services;
 using DesktopIniManager.Views;
 using System;
-using System.Globalization;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,18 +18,19 @@ public partial class App
 
     protected override async void OnStartup(StartupEventArgs e)
     {
-        bool externalDiff = ExternalDiffLaunch.IsRequested(e.Args);
+        var externalDiff = ExternalDiffLaunch.IsRequested(e.Args);
         // Standalone viewers use the default slot-1 settings without acquiring
         // a slot mutex or installing its front-request listener.
-        if (!externalDiff && !AppSlot.TryAcquire(e.Args, out string slotFailure))
+        if (!externalDiff && !AppSlot.TryAcquire(e.Args, out var slotFailure))
         {
             MessageBox.Show(slotFailure, "desktop.ini Manager", MessageBoxButton.OK, MessageBoxImage.Information);
             Shutdown();
             return;
         }
+
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         WindowActivationService.Install();
-        CultureInfo ui = StringOverlay.ResolveCulture();
+        var ui = StringOverlay.ResolveCulture();
         StringOverlay.Load(ui);
         Strings.Culture = ui;
         Thread.CurrentThread.CurrentUICulture = ui;
@@ -39,12 +41,16 @@ public partial class App
             StartExternalDiff(e.Args);
             return;
         }
+
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         SplashWindow splash = null;
         try
         {
             splash = new SplashWindow();
-            splash.Closed += (_, _) => { if (!_startupReady) Shutdown(); };
+            splash.Closed += (_, _) =>
+            {
+                if (!_startupReady) Shutdown();
+            };
             splash.Show();
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             var progress = new Progress<Tuple<string, int>>(step => splash.Report(step.Item1, step.Item2));
@@ -60,7 +66,7 @@ public partial class App
             {
                 splash.Report(Strings.Splash_BuildingWorkspace, 3);
                 splash.SetBusy(true);
-                System.ComponentModel.PropertyChangedEventHandler onStatus = (_, args) =>
+                PropertyChangedEventHandler onStatus = (_, args) =>
                 {
                     if (args.PropertyName == nameof(main.ViewModel.Status)
                         && !string.IsNullOrWhiteSpace(main.ViewModel.Status))
@@ -77,9 +83,14 @@ public partial class App
                     splash.SetBusy(false);
                 }
             }
+
             var rendered = new TaskCompletionSource<bool>();
             EventHandler onRendered = null;
-            onRendered = (_, _) => { main.ContentRendered -= onRendered; rendered.TrySetResult(true); };
+            onRendered = (_, _) =>
+            {
+                main.ContentRendered -= onRendered;
+                rendered.TrySetResult(true);
+            };
             main.ContentRendered += onRendered;
             main.Show();
             await rendered.Task;
@@ -91,7 +102,9 @@ public partial class App
         }
         catch (Exception ex)
         {
-            MessageBox.Show(string.Format(Strings.App_StartFailed, ErrorMessages.English(ex)), Strings.App_ProductName, MessageBoxButton.OK, MessageBoxImage.Error);
+            LogException(ex);
+            MessageBox.Show(string.Format(Strings.App_StartFailed, ErrorMessages.English(ex)), Strings.App_ProductName,
+                MessageBoxButton.OK, MessageBoxImage.Error);
             _startupReady = true;
             splash?.Close();
             Shutdown(1);
@@ -118,6 +131,7 @@ public partial class App
         }
         catch (Exception ex)
         {
+            LogException(ex);
             MessageBox.Show(ErrorMessages.English(ex) + "\n\n" + ExternalDiffLaunch.Usage,
                 "DIM DIFF VIEW", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(1);
@@ -126,8 +140,24 @@ public partial class App
 
     private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
+        LogException(e.Exception);
         MessageBox.Show(string.Format(Strings.App_Unhandled, ErrorMessages.English(e.Exception)),
             Strings.App_Title, MessageBoxButton.OK, MessageBoxImage.Error);
         e.Handled = true;
+    }
+
+    private static void LogException(Exception exception)
+    {
+        Trace.TraceError("{0}", exception);
+        try
+        {
+            Directory.CreateDirectory(AppSlot.Root);
+            File.WriteAllText(Path.Combine(AppSlot.Root, "last-error.log"),
+                $"{DateTimeOffset.Now:O}{Environment.NewLine}{Environment.ProcessPath}{Environment.NewLine}{exception}");
+        }
+        catch (Exception logError) when (logError is IOException or UnauthorizedAccessException)
+        {
+            Trace.TraceError("Could not write the exception log: {0}", logError);
+        }
     }
 }

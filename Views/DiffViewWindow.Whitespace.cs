@@ -1,3 +1,4 @@
+using DesktopIniManager.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -7,7 +8,6 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Threading;
-using DesktopIniManager.ViewModels;
 
 namespace DesktopIniManager.Views;
 
@@ -18,7 +18,7 @@ internal sealed partial class DiffViewWindow
         foreach (var pane in new[] { _leftList, _rightList })
             if (pane?.Parent is Grid grid)
                 foreach (var overlay in grid.Children.OfType<WhitespaceOverlay>())
-                    overlay.InvalidateVisual();
+                    overlay.RefreshMarkers();
     }
 
     // Cache character offsets once. No display markers are inserted into the document.
@@ -27,14 +27,14 @@ internal sealed partial class DiffViewWindow
         internal readonly string Ending;
         internal readonly int Length;
         internal readonly List<(int Offset, string Glyph)> Marks = new();
-        internal readonly Paragraph Paragraph;
+        private readonly Paragraph _paragraph;
         private readonly Run[] _runs;
         private readonly int[] _starts;
         internal bool IsEndOfFile;
 
         internal WhitespaceRow(Paragraph paragraph, string original, string ending)
         {
-            Paragraph = paragraph;
+            _paragraph = paragraph;
             _runs = paragraph.Inlines.OfType<Run>().ToArray();
             _starts = new int[_runs.Length];
             var offset = 0;
@@ -67,7 +67,7 @@ internal sealed partial class DiffViewWindow
 
         internal TextPointer Position(int offset)
         {
-            if (_runs.Length == 0) return Paragraph.ContentStart.GetInsertionPosition(LogicalDirection.Forward);
+            if (_runs.Length == 0) return _paragraph.ContentStart.GetInsertionPosition(LogicalDirection.Forward);
             var index = Array.BinarySearch(_starts, offset);
             if (index < 0) index = Math.Max(0, ~index - 1);
             return _runs[index].ContentStart
@@ -78,8 +78,13 @@ internal sealed partial class DiffViewWindow
     private sealed class WhitespaceOverlay : FrameworkElement
     {
         private readonly Dictionary<string, FormattedText> _glyphs = new();
+        private sealed record CachedRow(DrawingGroup Drawing, double HorizontalOffset, double VerticalOffset,
+            int MarkCount, int EofCount);
+
+        private readonly Dictionary<int, CachedRow> _cachedRows = new();
         private readonly DiffViewModel _model;
         private readonly RichTextBox _pane;
+        private double DiffLineHeight => _pane.Document.LineHeight;
         private double _glyphDpi;
         private bool _refreshPending;
         private IReadOnlyList<WhitespaceRow> _rows = Array.Empty<WhitespaceRow>();
@@ -92,17 +97,35 @@ internal sealed partial class DiffViewWindow
             ClipToBounds = true;
             pane.AddHandler(ScrollViewer.ScrollChangedEvent,
                 new ScrollChangedEventHandler((_, _) => RefreshAfterLayout()), true);
-            pane.SizeChanged += (_, _) => RefreshAfterLayout();
+            pane.SizeChanged += (_, _) =>
+            {
+                _cachedRows.Clear();
+                RefreshAfterLayout();
+            };
             Loaded += (_, _) => RefreshAfterLayout();
         }
 
-        internal int LastVisibleRowCount { get; private set; }
-        internal int LastDrawnMarkCount { get; private set; }
-        internal int LastDrawnEofCount { get; private set; }
+        private int LastVisibleRowCount { get; set; }
+        private int LastDrawnMarkCount { get; set; }
+        private int LastDrawnEofCount { get; set; }
+
+        internal void RefreshMarkers()
+        {
+            _cachedRows.Clear();
+            InvalidateVisual();
+        }
+
+        internal void RefreshFont()
+        {
+            _glyphs.Clear();
+            _cachedRows.Clear();
+            RefreshAfterLayout();
+        }
 
         internal void SetRows(IReadOnlyList<WhitespaceRow> value)
         {
             _rows = value;
+            _cachedRows.Clear();
             RefreshAfterLayout();
         }
 
@@ -132,6 +155,7 @@ internal sealed partial class DiffViewWindow
             if (Math.Abs(_glyphDpi - dpi) > 0.0001)
             {
                 _glyphs.Clear();
+                _cachedRows.Clear();
                 _glyphDpi = dpi;
             }
 
@@ -144,14 +168,40 @@ internal sealed partial class DiffViewWindow
             for (var i = first; i < last; i++)
             {
                 LastVisibleRowCount++;
+                if (!_cachedRows.TryGetValue(i, out var cached))
+                {
                 var row = _rows[i];
+                    var position = row.Position(0);
+                    if (position == null || !position.HasValidLayout) continue;
+
+                    var marksBefore = LastDrawnMarkCount;
+                    var eofBefore = LastDrawnEofCount;
+                    var group = new DrawingGroup();
+                    using (var context = group.Open())
+                    {
                 if (_model.ShowSpaces)
                     foreach (var mark in row.Marks)
-                        DrawMark(drawing, row, mark.Offset, mark.Glyph, false, dpi);
+                                DrawMark(context, row, mark.Offset, mark.Glyph, false, dpi);
                 if (_model.ShowNewlines && row.Ending != null)
-                    DrawMark(drawing, row, row.Length, row.Ending, true, dpi);
+                            DrawMark(context, row, row.Length, row.Ending, true, dpi);
                 if (_model.ShowNewlines && row.IsEndOfFile)
-                    DrawMark(drawing, row, row.Length, "[EOF]", true, dpi);
+                            DrawMark(context, row, row.Length, "[EOF]", true, dpi);
+                    }
+
+                    cached = new CachedRow(group, scroll.HorizontalOffset, scroll.VerticalOffset,
+                        LastDrawnMarkCount - marksBefore, LastDrawnEofCount - eofBefore);
+                    _cachedRows.Add(i, cached);
+                    LastDrawnMarkCount = marksBefore;
+                    LastDrawnEofCount = eofBefore;
+                }
+
+                drawing.PushTransform(new TranslateTransform(
+                    cached.HorizontalOffset - scroll.HorizontalOffset,
+                    cached.VerticalOffset - scroll.VerticalOffset));
+                drawing.DrawDrawing(cached.Drawing);
+                drawing.Pop();
+                LastDrawnMarkCount += cached.MarkCount;
+                LastDrawnEofCount += cached.EofCount;
             }
 
             drawing.Pop();
@@ -165,7 +215,6 @@ internal sealed partial class DiffViewWindow
             var rect = position.GetCharacterRect(LogicalDirection.Forward);
             if (rect.IsEmpty) return;
             var point = _pane.TranslatePoint(rect.TopLeft, this);
-            if (point.X < -30 || point.X > ActualWidth || point.Y < -DiffLineHeight || point.Y > ActualHeight) return;
             if (glyph == "[EOF]")
             {
                 var icon = DifferencerStatusIcons.GetCustomIcon(155);

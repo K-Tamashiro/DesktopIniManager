@@ -24,66 +24,66 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
     private readonly Dictionary<string, DiffFolder> _folders = new(StringComparer.OrdinalIgnoreCase);
     private readonly Func<string, DiffSnapshot, ISynchronizationLog> _openLog;
     private readonly SemaphoreSlim _previewWorkers = new(2);
+    private bool _appliedShowBin;
+    private bool _appliedShowObj;
+    private bool _bulk;
     private string _busyMessage = "Please wait\u2026";
+    private HashSet<string> _cachedVisibleFolders;
     private bool _canCancel;
     private bool _canFilter;
     private bool _canRefresh;
     private bool _canSynchronize;
     private bool _checkedOnlyFilter;
+    private bool _closed;
     private bool _compareAttributes;
+    private CancellationTokenSource _compareCts;
     private bool _compareSize = true;
     private bool _compareTimestamp = true;
+    private bool _comparing;
+    private DiffIndex[] _comparisonIndexes;
     private string _countLabel = string.Empty;
+    private HashSet<string> _disabledIgnoreRules = new(StringComparer.Ordinal);
     private IEnumerable<DiffRow> _fileItems;
     private string _filePanelTitle = "Files";
     private IReadOnlyList<DiffFolder> _folderItems;
     private bool _isBusy;
     private bool _isFileBusy;
     private bool _isProgressVisible;
+    private DiffKind _kindMask = DiffKind.Differences;
+    private Task _pendingRootLink = Task.CompletedTask;
     private bool _preciseCompare;
+    private int _previewInFlight;
+    private CancellationTokenSource _previewScope = new();
     private bool _progressIndeterminate;
     private double _progressMaximum = 1;
     private double _progressValue;
-    private bool _selectAllFiles;
-    private bool _appliedShowBin;
-    private bool _showDifferent = true;
-    private bool _appliedShowObj;
-    private bool _showSame;
-    private bool _showSourceOnly = true;
-    private bool _showTargetOnly = true;
-    private string _sourcePath = string.Empty;
-    private string _status = "Ready";
-    private string _targetPath = string.Empty;
-    private bool _bulk;
-    private HashSet<string> _cachedVisibleFolders;
-    private bool _closed;
-    private CancellationTokenSource _compareCts;
-    private bool _comparing;
-    private DiffIndex[] _comparisonIndexes;
-    private HashSet<string> _disabledIgnoreRules = new(StringComparer.Ordinal);
-    private DiffKind _kindMask = DiffKind.Differences;
-    private Task _pendingRootLink = Task.CompletedTask;
-    private int _previewInFlight;
-    private CancellationTokenSource _previewScope = new();
 
     private int _rootLinkVersion;
     private List<DiffRow> _rows = new();
+    private bool _selectAllFiles;
     private string _selectedFolder = "";
     private DiffRow _selectedRow;
+    private bool _showDifferent = true;
     private bool _showObj, _showBin;
+    private bool _showSame;
+    private bool _showSourceOnly = true;
+    private bool _showTargetOnly = true;
     private PendingIndex _sourceIndex, _targetIndex;
+    private string _sourcePath = string.Empty;
+    private string _status = "Ready";
     private ObservableCollection<DiffRow> _streamingRows;
     private bool _syncingTreeFromFile;
+    private string _targetPath = string.Empty;
     private bool _treeCompact = SettingsService.LoadTreeCompact();
     private string _treeSource;
 
     internal DeveloperDifferencerViewModel(IUserDialogService dialogs, Dispatcher dispatcher,
         ConfirmSyncCallback confirmSync, Func<string, DiffSnapshot, ISynchronizationLog> openLog)
     {
-        this._dialogs = dialogs;
-        this._dispatcher = dispatcher;
-        this._confirmSync = confirmSync;
-        this._openLog = openLog;
+        _dialogs = dialogs;
+        _dispatcher = dispatcher;
+        _confirmSync = confirmSync;
+        _openLog = openLog;
         BrowseSourceCommand = new RelayCommand(() => BrowseFolder(true), () => !IsBusy);
         BrowseTargetCommand = new RelayCommand(() => BrowseFolder(false), () => !IsBusy);
         CloseCommand = new RelayCommand(() => CloseRequested?.Invoke(), () => !IsBusy);
@@ -961,7 +961,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
 
             InvalidateIndexes();
             var configurations = selection.Configurations;
-            var msbuild = await Task.Run(() => SolutionCleanService.FindMSBuild());
+            var msbuild = await Task.Run(() => SolutionCleanService.FindMsBuild());
             ClearComparisonView();
             IsProgressVisible = true;
             ProgressIndeterminate = true;
@@ -1083,7 +1083,8 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         foreach (var folder in _folders.Values)
             folder.RefreshIcon();
 
-        Status = _folders[""].CountFor(DiffKind.Differences) + " differences / " + _folders[""].CountFor(DiffKind.Same) +
+        Status = _folders[""].CountFor(DiffKind.Differences) + " differences / " +
+                 _folders[""].CountFor(DiffKind.Same) +
                  " identical (OBJ/BIN filters applied). Check items to synchronize.";
     }
 
@@ -1152,9 +1153,9 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
     internal void ApplyCategoryFilter()
     {
         _kindMask = (ShowSame ? DiffKind.Same : 0) |
-                   (ShowDifferent ? DiffKind.Different : 0) |
-                   (ShowSourceOnly ? DiffKind.SourceOnly : 0) |
-                   (ShowTargetOnly ? DiffKind.TargetOnly : 0);
+                    (ShowDifferent ? DiffKind.Different : 0) |
+                    (ShowSourceOnly ? DiffKind.SourceOnly : 0) |
+                    (ShowTargetOnly ? DiffKind.TargetOnly : 0);
         if (Snapshot != null) ApplyKindFilter();
     }
 
@@ -1716,11 +1717,11 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         await Dispatcher.Yield(DispatcherPriority.Background);
 
         var visible = await Task.Run(() => _rows.Where(r => IncludeBuildFolderFile(r.File) &&
-                                                           (r.File.Kind & _kindMask) != 0 &&
-                                                           (_selectedFolder.Length == 0 ||
-                                                            r.File.RelativePath.StartsWith(_selectedFolder + "\\",
-                                                                StringComparison.OrdinalIgnoreCase)) &&
-                                                           (!_checkedOnlyFilter || r.File.Selected))
+                                                            (r.File.Kind & _kindMask) != 0 &&
+                                                            (_selectedFolder.Length == 0 ||
+                                                             r.File.RelativePath.StartsWith(_selectedFolder + "\\",
+                                                                 StringComparison.OrdinalIgnoreCase)) &&
+                                                            (!_checkedOnlyFilter || r.File.Selected))
             .ToList(), token);
         token.ThrowIfCancellationRequested();
 
@@ -2201,7 +2202,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         public PendingIndex(string path, IEnumerable<string> disabled)
         {
             Path = path;
-            this._disabled = disabled.ToArray();
+            _disabled = disabled.ToArray();
             Task = BuildAsync(path);
         }
 

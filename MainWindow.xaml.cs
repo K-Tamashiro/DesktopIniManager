@@ -19,7 +19,7 @@ namespace DesktopIniManager;
 
 public partial class MainWindow
 {
-    private static readonly string[] SlotBorderColors = { "#4DA3FF", "#F0C14A", "#B07CFF", "#FF6B6B", "#3DDC97" };
+    private static readonly string[] SlotBorderColors = ["#4DA3FF", "#F0C14A", "#B07CFF", "#FF6B6B", "#3DDC97"];
     private readonly string[] _displayedSlotStates = new string[5];
     private readonly SemaphoreSlim _folderIconWorkers = new(4);
     private readonly MainWindowPresentationService _presentation;
@@ -32,6 +32,7 @@ public partial class MainWindow
     {
         ThemeService.Apply(startup?.Theme ?? SettingsService.LoadTheme());
         InitializeComponent();
+        ApplyFileItemStyles();
         ClearQueryButton.Click += (_, _) =>
             Dispatcher.BeginInvoke(new Action(() => QueryBox.Focus()), DispatcherPriority.Input);
         ClearFolderFilterButton.Click += (_, _) =>
@@ -54,20 +55,65 @@ public partial class MainWindow
         {
             slotTimer.Stop();
             SaveListLayout();
+            AppSlot.Release();
         };
     }
 
     internal MainWindowViewModel ViewModel => _presentation.ViewModel;
+
+    private void ApplyFileItemStyles()
+    {
+        FileList.ItemContainerStyle = CreateFileItemStyle(
+            (Style)FindResource("FileListItemStyle"),
+            typeof(ListViewItem));
+
+        FileIconList.ItemContainerStyle = CreateFileItemStyle(
+            (Style)FindResource("FileIconItemStyle"),
+            typeof(ListBoxItem));
+    }
+
+    private static Style CreateFileItemStyle(Style baseStyle, Type targetType)
+    {
+        var style = new Style(targetType, baseStyle);
+
+        var directChildTrigger = new DataTrigger
+        {
+            Binding = new Binding(nameof(FileListItem.IsDirectChild)),
+            Value = false
+        };
+
+        directChildTrigger.Setters.Add(
+            new Setter(ForegroundProperty,
+                Application.Current.FindResource("Muted")));
+
+        style.Triggers.Add(directChildTrigger);
+
+        var searchMatchTrigger = new DataTrigger
+        {
+            Binding = new Binding(nameof(FileListItem.IsSearchMatch)),
+            Value = true
+        };
+
+        searchMatchTrigger.Setters.Add(
+            new Setter(BackgroundProperty,
+                Application.Current.FindResource("ThemeSelected")));
+
+        style.Triggers.Add(searchMatchTrigger);
+
+        return style;
+    }
 
     private void AboutTitle_Click(object sender, RoutedEventArgs e)
     {
         new AboutWindow { Owner = this, Icon = Icon }.ShowDialog();
     }
 
-    private void LaunchSlot(int slot)
+    private static void LaunchSlot(int slot)
     {
         var state = AppSlot.StateText(slot);
+
         if (state == "In Use") return;
+
         if (state == "Open")
         {
             AppSlot.Activate(slot);
@@ -108,9 +154,9 @@ public partial class MainWindow
             buttons[index].ApplyTemplate();
             var mark = buttons[index].Template.FindName("SlotMark", buttons[index]) as Border;
             var folder = buttons[index].Template.FindName("SlotFolder", buttons[index]) as Path;
-            if (mark != null) mark.Opacity = state == "In Use" ? 0.55 : 0.18;
-            if (folder != null) folder.Visibility = state == "In Use" ? Visibility.Visible : Visibility.Collapsed;
-            if (mark != null && folder != null) _displayedSlotStates[index] = state;
+            mark?.SetCurrentValue(OpacityProperty, state == "In Use" ? 0.55 : 0.18);
+            folder?.SetCurrentValue(VisibilityProperty, state == "In Use" ? Visibility.Visible : Visibility.Collapsed);
+            if (mark is not null && folder is not null) _displayedSlotStates[index] = state;
         }
     }
 
@@ -134,45 +180,61 @@ public partial class MainWindow
     {
         if (FolderPaneColumn.ActualWidth <= 0 || FilePaneColumn.ActualWidth <= 0) return;
         var columns = new[] { FileIconColumn, FileNameColumn, FileTypeColumn };
-        SettingsService.SaveMainListLayout(new[] { FolderPaneColumn.ActualWidth, FilePaneColumn.ActualWidth }
-            .Concat(columns.Select(column => double.IsNaN(column.Width) ? column.ActualWidth : column.Width))
-            .ToArray());
+        SettingsService.SaveMainListLayout(
+        [
+            FolderPaneColumn.ActualWidth, FilePaneColumn.ActualWidth,
+            .. columns.Select(column => double.IsNaN(column.Width) ? column.ActualWidth : column.Width)
+        ]);
     }
 
     private void FolderIcon_Loaded(object sender, RoutedEventArgs e)
     {
-        RefreshFolderIcon((Image)sender);
+        _ = RefreshFolderIcon((Image)sender);
     }
 
     private void FolderIcon_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
-        if (((Image)sender).IsLoaded) RefreshFolderIcon((Image)sender);
+        if (((Image)sender).IsLoaded)
+            _ = RefreshFolderIcon((Image)sender);
     }
 
     private void FolderIcon_TargetUpdated(object sender, DataTransferEventArgs e)
     {
-        if (((Image)sender).IsLoaded) RefreshFolderIcon((Image)sender);
+        if (((Image)sender).IsLoaded)
+            _ = RefreshFolderIcon((Image)sender);
     }
 
-    private async void RefreshFolderIcon(Image image)
+    private async Task RefreshFolderIcon(Image image)
     {
-        if (!(image.DataContext is FolderMatch folder) || folder.IsLazyPlaceholder ||
-            !folder.IsActionable || !string.IsNullOrEmpty(folder.SolutionFile) ||
-            (folder.Reason ?? "").StartsWith("Solution", StringComparison.OrdinalIgnoreCase)) return;
-        var original = folder.IconPreview;
-        var reason = folder.Reason;
-        await _folderIconWorkers.WaitAsync();
         try
         {
-            if (!image.IsLoaded || !ReferenceEquals(image.DataContext, folder)) return;
-            var icon = await Task.Run(() => FolderIconService.GetStateIcon(folder.Path, reason));
-            // A user may have applied an icon or changed selection while the directory was read.
-            if (icon != null && image.IsLoaded && ReferenceEquals(image.DataContext, folder) &&
-                folder.Reason == reason && ReferenceEquals(folder.IconPreview, original)) folder.IconPreview = icon;
+            if (image.DataContext is not FolderMatch folder || folder.IsLazyPlaceholder ||
+                !folder.IsActionable || !string.IsNullOrEmpty(folder.SolutionFile) ||
+                (folder.Reason ?? "").StartsWith("Solution", StringComparison.OrdinalIgnoreCase)) return;
+
+            var original = folder.IconPreview;
+            var reason = folder.Reason;
+
+            await _folderIconWorkers.WaitAsync();
+            try
+            {
+                if (!image.IsLoaded || !ReferenceEquals(image.DataContext, folder)) return;
+
+                var icon = await Task.Run(() => FolderIconService.GetStateIcon(folder.Path, reason));
+
+                // A user may have applied an icon or changed selection while the directory was read.
+                if (icon is not null && image.IsLoaded && ReferenceEquals(image.DataContext, folder) &&
+                    folder.Reason == reason && ReferenceEquals(folder.IconPreview, original))
+                    folder.IconPreview = icon;
+            }
+            finally
+            {
+                _folderIconWorkers.Release();
+            }
         }
-        finally
+        catch (Exception ex)
         {
-            _folderIconWorkers.Release();
+            Debug.WriteLine(ex);
         }
     }
 }

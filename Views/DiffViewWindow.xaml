@@ -142,7 +142,7 @@
                                 Margin="8,0,0,0">
                         <ComboBox x:Name="TextFontFamilyBox"
                                   Width="210"
-                                  ToolTip="Font"
+                                  ToolTip="{loc:L Diff_FontFamily}"
                                   Style="{StaticResource LanguageComboStyle}"
                                   VirtualizingPanel.IsVirtualizing="True"
                                   VirtualizingPanel.VirtualizationMode="Recycling"
@@ -160,7 +160,7 @@
                                   Width="90"
                                   MinWidth="90"
                                   Margin="6,0,0,0"
-                                  ToolTip="フォントサイズ"
+                                  ToolTip="{loc:L Diff_FontSize}"
                                   Style="{StaticResource LanguageComboStyle}">
                             <ComboBox.RenderTransform>
                                 <TranslateTransform Y="-4" />

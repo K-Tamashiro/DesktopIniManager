@@ -9,6 +9,7 @@ internal static class Program
             if (args.Length > 0 && args[0] == "menu") return DiffEditingTests.RunMenuPreview();
             if (args.Length > 0 && args[0] == "icons") return DiffEditingTests.RunIconModes();
             if (args.Length > 0 && args[0] == "viewer") return DiffEditingTests.RunViewer();
+            if (args.Length > 0 && args[0] == "markers") return DiffEditingTests.RunViewer(true);
             if (args.Length > 0 && args[0] == "regression") return DiffRegressionTests.Run();
             return DiffEditingTests.Run();
         }

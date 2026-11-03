@@ -26,7 +26,7 @@ internal sealed partial class DiffViewWindow
     {
         internal readonly string Ending;
         internal readonly int Length;
-        internal readonly List<(int Offset, string Glyph)> Marks = new();
+        internal readonly List<(int Offset, string Glyph)> Marks = [];
         private readonly Paragraph _paragraph;
         private readonly Run[] _runs;
         private readonly int[] _starts;
@@ -35,7 +35,7 @@ internal sealed partial class DiffViewWindow
         internal WhitespaceRow(Paragraph paragraph, string original, string ending)
         {
             _paragraph = paragraph;
-            _runs = paragraph.Inlines.OfType<Run>().ToArray();
+            _runs = [.. paragraph.Inlines.OfType<Run>()];
             _starts = new int[_runs.Length];
             var offset = 0;
             for (var i = 0; i < _runs.Length; i++)
@@ -86,8 +86,9 @@ internal sealed partial class DiffViewWindow
         private readonly RichTextBox _pane;
         private double DiffLineHeight => _pane.Document.LineHeight;
         private double _glyphDpi;
+        private bool _lightBackground;
         private bool _refreshPending;
-        private IReadOnlyList<WhitespaceRow> _rows = Array.Empty<WhitespaceRow>();
+        private IReadOnlyList<WhitespaceRow> _rows = [];
 
         internal WhitespaceOverlay(RichTextBox pane, DiffViewModel model)
         {
@@ -152,11 +153,13 @@ internal sealed partial class DiffViewWindow
             var scroll = FindScroll(_pane);
             if (scroll == null || scroll.ViewportHeight <= 0) return;
             var dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
-            if (Math.Abs(_glyphDpi - dpi) > 0.0001)
+            var light = GetWindow(_pane) is DiffViewWindow window && !window.IsDarkBackground();
+            if (Math.Abs(_glyphDpi - dpi) > 0.0001 || _lightBackground != light)
             {
                 _glyphs.Clear();
                 _cachedRows.Clear();
                 _glyphDpi = dpi;
+                _lightBackground = light;
             }
 
             // The comparison uses fixed-height, unwrapped rows.
@@ -170,21 +173,21 @@ internal sealed partial class DiffViewWindow
                 LastVisibleRowCount++;
                 if (!_cachedRows.TryGetValue(i, out var cached))
                 {
-                var row = _rows[i];
+                    var row = _rows[i];
                     var position = row.Position(0);
-                    if (position == null || !position.HasValidLayout) continue;
+                    if (position is not { HasValidLayout: true }) continue;
 
                     var marksBefore = LastDrawnMarkCount;
                     var eofBefore = LastDrawnEofCount;
                     var group = new DrawingGroup();
                     using (var context = group.Open())
                     {
-                if (_model.ShowSpaces)
-                    foreach (var mark in row.Marks)
+                        if (_model.ShowSpaces)
+                            foreach (var mark in row.Marks)
                                 DrawMark(context, row, mark.Offset, mark.Glyph, false, dpi);
-                if (_model.ShowNewlines && row.Ending != null)
+                        if (_model.ShowNewlines && row.Ending != null)
                             DrawMark(context, row, row.Length, row.Ending, true, dpi);
-                if (_model.ShowNewlines && row.IsEndOfFile)
+                        if (_model.ShowNewlines && row.IsEndOfFile)
                             DrawMark(context, row, row.Length, "[EOF]", true, dpi);
                     }
 
@@ -211,7 +214,7 @@ internal sealed partial class DiffViewWindow
             double dpi)
         {
             var position = row.Position(offset);
-            if (position == null || !position.HasValidLayout) return;
+            if (position is not { HasValidLayout: true }) return;
             var rect = position.GetCharacterRect(LogicalDirection.Forward);
             if (rect.IsEmpty) return;
             var point = _pane.TranslatePoint(rect.TopLeft, this);
@@ -228,11 +231,10 @@ internal sealed partial class DiffViewWindow
                 }
             }
 
-            var light = GetWindow(_pane) is DiffViewWindow window && !window.IsDarkBackground();
             Brush foreground = !newline ? Brushes.Gray :
                 glyph == "\u2193" ? Brushes.RoyalBlue :
-                glyph == "\u21B2" && light ? Brushes.DarkRed : Brushes.Gold;
-            var key = (newline ? "n" : "s") + glyph + (light ? "light" : "dark");
+                glyph == "\u21B2" && _lightBackground ? Brushes.DarkRed : Brushes.Gold;
+            var key = (newline ? "n" : "s") + glyph;
             if (!_glyphs.TryGetValue(key, out var text))
             {
                 text = new FormattedText(glyph, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,

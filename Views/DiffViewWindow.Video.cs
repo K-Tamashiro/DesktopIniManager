@@ -44,8 +44,9 @@ internal sealed partial class DiffViewWindow
         const double unit = 1024.0;
         if (bytes >= unit * unit * unit) return $"{bytes / (unit * unit * unit):0.##} GB";
         if (bytes >= unit * unit) return $"{bytes / (unit * unit):0.##} MB";
-        if (bytes >= unit) return $"{bytes / unit:0.##} KB";
-        return $"{bytes} B";
+        return bytes >= unit
+            ? $"{bytes / unit:0.##} KB"
+            : $"{bytes:0} B";
     }
 
     private void ResetMediaController()
@@ -147,11 +148,10 @@ internal sealed partial class DiffViewWindow
         {
             _leftVideoScale.ScaleX = _leftVideoScale.ScaleY = e.NewValue;
             _rightVideoScale.ScaleX = _rightVideoScale.ScaleY = e.NewValue;
-            zoomLabel.Text = string.Format("{0:0}%", e.NewValue * 100);
+            zoomLabel.Text = $"{e.NewValue * 100:0}%";
         };
 
-        var wrapper = ImageToolbar as Panel;
-        if (wrapper != null)
+        if (ImageToolbar is Panel wrapper)
         {
             wrapper.Children.Clear();
             var chrome = new Border
@@ -193,8 +193,8 @@ internal sealed partial class DiffViewWindow
                 _videoSpeed = speed;
                 _leftMedia.SpeedRatio = _rightMedia.SpeedRatio = speed;
             }));
-            AddIconActionButton(wrapper, DifferencerStatusIcons.GetCustomIcon(72), StringOverlay.Get("Diff_Fit"),
-                () => FitVideosToViewport());
+            AddIconActionButton(wrapper, DifferencerStatusIcons.GetCustomIcon(72),
+                StringOverlay.Get("Diff_Fit"), FitVideosToViewport);
             AddIconActionButton(wrapper, DifferencerStatusIcons.GetCustomIcon(73), "100%", () => { zoom.Value = 1; });
             wrapper.Visibility = Visibility.Visible;
             ImageControlRow.Visibility = Visibility.Visible;
@@ -650,12 +650,13 @@ internal sealed partial class DiffViewWindow
             var position = VideoPosition;
             _videoDelays[side] = value;
             UpdateVideoSeekRange();
-            if (_videoSeek != null)
-            {
-                var clamped = Math.Clamp(position, _videoSeek.Minimum, _videoSeek.Maximum);
-                if (Math.Abs(clamped - position) > double.Epsilon) SeekVideo(clamped);
-                else ApplyVideoSidePosition(side, clamped);
-            }
+            if (_videoSeek == null) return;
+
+            var clamped = Math.Clamp(position, _videoSeek.Minimum, _videoSeek.Maximum);
+            if (Math.Abs(clamped - position) > double.Epsilon)
+                SeekVideo(clamped);
+            else
+                ApplyVideoSidePosition(side, clamped);
         });
         picker.IsEnabled = File.Exists(ViewModel.GetPath(source));
         return picker;

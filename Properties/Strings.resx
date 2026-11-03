@@ -1320,6 +1320,27 @@ Cancel: select a different tab without searching</value>
   <data name="Diff_SaveTarget" xml:space="preserve">
     <value>Save Target (Ctrl+S when Target is active)</value>
   </data>
+  <data name="Diff_Clipboard" xml:space="preserve">
+    <value>Clipboard</value>
+  </data>
+  <data name="Diff_PasteSource" xml:space="preserve">
+    <value>Paste to Source</value>
+  </data>
+  <data name="Diff_PasteTarget" xml:space="preserve">
+    <value>Paste to Target</value>
+  </data>
+  <data name="Diff_CopyRight" xml:space="preserve">
+    <value>Copy to Right</value>
+  </data>
+  <data name="Diff_CopyLeft" xml:space="preserve">
+    <value>Copy to Left</value>
+  </data>
+  <data name="Diff_FontFamily" xml:space="preserve">
+    <value>Font</value>
+  </data>
+  <data name="Diff_FontSize" xml:space="preserve">
+    <value>Font size</value>
+  </data>
   <data name="Diff_CopyToTarget" xml:space="preserve">
     <value>Copy hunk(s) to Target</value>
   </data>

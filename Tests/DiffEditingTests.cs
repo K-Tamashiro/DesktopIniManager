@@ -114,7 +114,7 @@ internal static class DiffEditingTests
         return 0;
     }
 
-    internal static int RunViewer()
+    internal static int RunViewer(bool markersOnly = false)
     {
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         System.Threading.SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
@@ -161,6 +161,8 @@ internal static class DiffEditingTests
             var originalLeftDocument = originalLeftPane.Document;
             var originalRightDocument = originalRightPane.Document;
             var retainedCommon = originalLeftDocument.Blocks.ElementAt(1);
+            if (!markersOnly)
+            {
             Check(Arrows(true).Length == 3 && Arrows(false).Length == 3, "arrows exist in both gutters");
             Check(!Save(true).IsEnabled && !Save(false).IsEnabled, "save buttons disabled initially");
             System.Windows.Media.Color FirstBackground(bool source) =>
@@ -281,6 +283,7 @@ internal static class DiffEditingTests
                 model.UndoEdit();
                 Wait((Task)Call("RenderTextEditsAsync"));
             }
+            }
             File.WriteAllText(a, "source text\ncommon words\nsource end");
             File.WriteAllText(b, "target text\ncommon words\ntarget end");
             if (model.DifferencesOnly) model.ToggleDifferencesOnly();
@@ -318,6 +321,24 @@ internal static class DiffEditingTests
                 fontFamilyBox.SelectedItem = "Arial";
                 fontSizeBox.SelectedItem = 24.0;
                 CheckRenderedMarkers("after font change");
+                var fontOverlay = ((Grid)fontPane.Parent).Children.Cast<FrameworkElement>()
+                    .Single(element => element.GetType().Name == "WhitespaceOverlay");
+                var cachedRows = (System.Collections.IDictionary)fontOverlay.GetType()
+                    .GetField("_cachedRows", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(fontOverlay);
+                var cachedFirstRow = cachedRows[0];
+                fontOverlay.InvalidateVisual();
+                CheckRenderedMarkers("cached redraw");
+                Check(ReferenceEquals(cachedFirstRow, cachedRows[0]), "redraw reuses cached row drawing without recalculating character positions");
+                var originalPageWidth = fontDocument.PageWidth;
+                fontDocument.PageWidth = 2000;
+                fontPane.UpdateLayout();
+                fontPane.ScrollToHorizontalOffset(150);
+                CheckRenderedMarkers("cached horizontal scroll");
+                Check(fontPane.HorizontalOffset > 0 && ReferenceEquals(cachedFirstRow, cachedRows[0]),
+                    "horizontal scrolling translates the cached drawing");
+                fontPane.ScrollToHorizontalOffset(0);
+                fontDocument.PageWidth = originalPageWidth;
+                CheckRenderedMarkers("cached scroll back");
                 Check(fontPane.FontFamily.Source == "Arial" && fontPane.FontSize == 24 &&
                     fontPane.Document.Blocks.FirstBlock.FontSize == 24, "font applies immediately to actual document text");
                 Check(ReferenceEquals(fontDocument, fontPane.Document) && fontRows.SequenceEqual(fontDocument.Blocks),
@@ -353,10 +374,11 @@ internal static class DiffEditingTests
             Check(ReferenceEquals(((RichTextBox)Field("_leftList")).ContextMenu, contextMenu) &&
                 ReferenceEquals(((RichTextBox)Field("_rightList")).ContextMenu, contextMenu), "both panes use the block context menu instead of the RichTextBox default");
             var clipboardMenu = (MenuItem)contextMenu.Items[0];
-            Check((string)clipboardMenu.Header == "クリップボード" && clipboardMenu.Items.Count == 2 &&
+            Check((string)clipboardMenu.Header == DesktopIniManager.Properties.StringOverlay.Get("Diff_Clipboard") && clipboardMenu.Items.Count == 2 &&
                 clipboardMenu.Items.Cast<MenuItem>().All(item => item.Icon is Image) &&
-                (string)((MenuItem)contextMenu.Items[2]).Header == "右にコピー" &&
-                (string)((MenuItem)contextMenu.Items[3]).Header == "左にコピー", "context menu has clipboard submenu and both copy directions with icons");
+                (string)((MenuItem)contextMenu.Items[2]).Header == DesktopIniManager.Properties.StringOverlay.Get("Diff_CopyRight") &&
+                (string)((MenuItem)contextMenu.Items[3]).Header == DesktopIniManager.Properties.StringOverlay.Get("Diff_CopyLeft"), "context menu has clipboard submenu and both copy directions with icons");
+            if (markersOnly) return 0;
             int DrawEof(bool source)
             {
                 window.UpdateLayout();

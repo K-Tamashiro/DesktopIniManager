@@ -16,8 +16,8 @@ namespace DesktopIniManager.Views;
 
 internal sealed partial class DiffViewWindow
 {
-    private readonly HashSet<int> _sourceSelectedEditHunks = new();
-    private readonly HashSet<int> _targetSelectedEditHunks = new();
+    private readonly HashSet<int> _sourceSelectedEditHunks = [];
+    private readonly HashSet<int> _targetSelectedEditHunks = [];
     private bool _savingText, _confirmingTextChanges, _allowEditedClose;
 
     private HashSet<int> SelectedEditHunks(bool source)
@@ -38,17 +38,17 @@ internal sealed partial class DiffViewWindow
             };
         }
 
-        var clipboard = new MenuItem { Header = "クリップボード" };
-        var pasteSource = Item("Sourceに貼付", 4);
-        var pasteTarget = Item("Targetに貼付", 5);
+        var clipboard = new MenuItem { Header = StringOverlay.Get("Diff_Clipboard") };
+        var pasteSource = Item(StringOverlay.Get("Diff_PasteSource"), 4);
+        var pasteTarget = Item(StringOverlay.Get("Diff_PasteTarget"), 5);
         pasteSource.Click += async (_, _) => await PasteClipboardAsync(true);
         pasteTarget.Click += async (_, _) => await PasteClipboardAsync(false);
         clipboard.Items.Add(pasteSource);
         clipboard.Items.Add(pasteTarget);
         menu.Items.Add(clipboard);
         menu.Items.Add(new Separator());
-        var copyRight = Item("右にコピー", 153);
-        var copyLeft = Item("左にコピー", 151);
+        var copyRight = Item(StringOverlay.Get("Diff_CopyRight"), 153);
+        var copyLeft = Item(StringOverlay.Get("Diff_CopyLeft"), 151);
         menu.Items.Add(copyRight);
         menu.Items.Add(copyLeft);
         menu.Items.Add(new Separator());

@@ -266,13 +266,49 @@ internal sealed partial class MainWindowViewModel
     {
         if (string.IsNullOrEmpty(selectedFolder)) return;
         var searchKeys = GetFileSearchKeys();
+        var scope = FolderScope.Create(selectedFolder);
         foreach (var path in paths)
         {
-            if (!IsPathUnder(path, selectedFolder) || !_displayedPhysicalFiles.Add(path)) continue;
+            if (!scope.Contains(path) || !_displayedPhysicalFiles.Add(path)) continue;
             Files.Add(new FileListItem(path, searchKeys, selectedFolder));
         }
 
         FileListCountLabel = string.Format(Strings.Main_NItems, Files.Count);
+    }
+
+    /// <summary>
+    ///     Normalizes the folder once for many <see cref="IsPathUnder" /> tests. Enumerated paths that
+    ///     already start with the normalized prefix are accepted without normalizing them again.
+    /// </summary>
+    private readonly struct FolderScope
+    {
+        private readonly string _folder;
+        private readonly string _normalized;
+        private readonly string _prefix;
+
+        private FolderScope(string folder, string normalized)
+        {
+            _folder = folder;
+            _normalized = normalized;
+            _prefix = normalized?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                      + Path.DirectorySeparatorChar;
+        }
+
+        internal static FolderScope Create(string folder)
+        {
+            return new FolderScope(folder, string.IsNullOrWhiteSpace(folder) ? null : NormalizeComparePath(folder));
+        }
+
+        internal bool Contains(string path)
+        {
+            if (_normalized == null || string.IsNullOrWhiteSpace(path)) return false;
+            // Fast path for paths produced by enumeration: absolute, no "." or ".." segments.
+            if (path.StartsWith(_prefix, StringComparison.OrdinalIgnoreCase) &&
+                path.IndexOf(Path.AltDirectorySeparatorChar) < 0 &&
+                path.IndexOf("\\.", _prefix.Length - 1, StringComparison.Ordinal) < 0)
+                return true;
+            return IsPathUnder(path, _folder);
+        }
     }
 
     private static bool IsPathUnder(string path, string folder)
@@ -361,7 +397,8 @@ internal sealed partial class MainWindowViewModel
                 {
                     scanRoot = _physicalFileScanRoot;
                     complete = _physicalFileScanComplete;
-                    cached = _physicalFileCache.Where(path => IsPathUnder(path, folderPath)).ToArray();
+                    var scope = FolderScope.Create(folderPath);
+                    cached = _physicalFileCache.Where(path => scope.Contains(path)).ToArray();
                 }
 
                 var selectedRoot = string.Equals(

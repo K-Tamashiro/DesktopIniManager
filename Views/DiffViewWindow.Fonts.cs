@@ -85,6 +85,7 @@ internal sealed partial class DiffViewWindow
 
             DrawMap();
             UpdateHunkOverlay();
+            PositionPatchMoveButtons();
             SettingsService.SaveDiffFont(family, size);
         }
         catch (Exception ex)

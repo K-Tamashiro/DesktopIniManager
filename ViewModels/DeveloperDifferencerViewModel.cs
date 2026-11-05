@@ -1993,10 +1993,11 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
 
     internal void Filter()
     {
+        var folderPrefix = _selectedFolder + "\\";
         var visible = _rows.Where(r =>
             IncludeBuildFolderFile(r.File) && (r.File.Kind & _kindMask) != 0 &&
             (_selectedFolder.Length == 0 ||
-             r.File.RelativePath.StartsWith(_selectedFolder + "\\", StringComparison.OrdinalIgnoreCase)) &&
+             r.File.RelativePath.StartsWith(folderPrefix, StringComparison.OrdinalIgnoreCase)) &&
             (!_checkedOnlyFilter || r.File.Selected)).ToList();
         MarkDirectFileRows(visible);
         visible = OrderSelectedFolderFirst(visible);

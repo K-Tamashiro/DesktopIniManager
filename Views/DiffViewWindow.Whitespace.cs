@@ -26,13 +26,17 @@ internal sealed partial class DiffViewWindow
     {
         internal readonly string Ending;
         internal readonly int Length;
-        internal readonly List<(int Offset, string Glyph)> Marks = [];
+        internal readonly List<(int Offset, string Glyph, bool Changed)> Marks = [];
+        internal bool HasChangedMarks;
         private readonly Paragraph _paragraph;
         private readonly Run[] _runs;
         private readonly int[] _starts;
         internal bool IsEndOfFile;
 
-        internal WhitespaceRow(Paragraph paragraph, string original, string ending)
+        // changes: the row's inline-difference mask in display columns (tabs
+        // expanded), or null. Changed whitespace is invisible as red text, so it
+        // is drawn as a red marker here instead, whether or not spaces are shown.
+        internal WhitespaceRow(Paragraph paragraph, string original, string ending, bool[] changes = null)
         {
             _paragraph = paragraph;
             _runs = [.. paragraph.Inlines.OfType<Run>()];
@@ -45,23 +49,37 @@ internal sealed partial class DiffViewWindow
             }
 
             if (original == null) return; // A folded summary or missing side.
+            // Run lengths already include the display expansion of tabs. Only
+            // scan indentation; body whitespace must remain ordinary text.
+            Length = offset;
             offset = 0;
+            var indentation = true;
+            bool Changed(int column) => changes != null && column < changes.Length && changes[column];
             foreach (var c in original)
             {
-                if (c == '\t')
+                if (c is not ('\t' or '\u0020' or '\u3000'))
                 {
-                    Marks.Add((offset, "\u003E"));
-                    for (var n = 1; n < 4; n++) Marks.Add((offset + n, "\uFF65"));
-                    offset += 4;
+                    indentation = false;
+                    // Body text has no markers; stop once no changed column can follow.
+                    if (changes == null) break;
+                    offset++;
                     continue;
                 }
 
-                if (c == '\u0020') Marks.Add((offset, "\uFF65"));
-                else if (c == '\u3000') Marks.Add((offset, "\u25AF"));
-                offset++;
+                var width = c == '\t' ? 4 : 1;
+                for (var n = 0; n < width; n++)
+                {
+                    var column = offset + n;
+                    var changed = Changed(column);
+                    if (!indentation && !changed) continue;
+                    Marks.Add((column, c == '\t' && n == 0 ? "\u003E" : c == '\u3000' ? "\u25AF" : "\uFF65",
+                        changed));
+                    HasChangedMarks |= changed;
+                }
+
+                offset += width;
             }
 
-            Length = offset;
             Ending = ending switch { "\r\n" => "\u21B2", "\n" => "\u2193", "\r" => "\u240D", _ => null };
         }
 
@@ -89,6 +107,7 @@ internal sealed partial class DiffViewWindow
         private bool _lightBackground;
         private bool _refreshPending;
         private IReadOnlyList<WhitespaceRow> _rows = [];
+        private bool _hasChangedMarks;
 
         internal WhitespaceOverlay(RichTextBox pane, DiffViewModel model)
         {
@@ -126,6 +145,7 @@ internal sealed partial class DiffViewWindow
         internal void SetRows(IReadOnlyList<WhitespaceRow> value)
         {
             _rows = value;
+            _hasChangedMarks = value.Any(row => row.HasChangedMarks);
             _cachedRows.Clear();
             RefreshAfterLayout();
         }
@@ -149,7 +169,7 @@ internal sealed partial class DiffViewWindow
         {
             base.OnRender(drawing);
             LastVisibleRowCount = LastDrawnMarkCount = LastDrawnEofCount = 0;
-            if ((!_model.ShowSpaces && !_model.ShowNewlines) || _rows.Count == 0) return;
+            if ((!_model.ShowSpaces && !_model.ShowNewlines && !_hasChangedMarks) || _rows.Count == 0) return;
             var scroll = FindScroll(_pane);
             if (scroll == null || scroll.ViewportHeight <= 0) return;
             var dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
@@ -182,8 +202,10 @@ internal sealed partial class DiffViewWindow
                     var group = new DrawingGroup();
                     using (var context = group.Open())
                     {
-                        if (_model.ShowSpaces)
-                            foreach (var mark in row.Marks)
+                        foreach (var mark in row.Marks)
+                            if (mark.Changed)
+                                DrawChangedMark(context, row, mark.Offset, mark.Glyph, dpi);
+                            else if (_model.ShowSpaces)
                                 DrawMark(context, row, mark.Offset, mark.Glyph, false, dpi);
                         if (_model.ShowNewlines && row.Ending != null)
                             DrawMark(context, row, row.Length, row.Ending, true, dpi);
@@ -208,6 +230,39 @@ internal sealed partial class DiffViewWindow
             }
 
             drawing.Pop();
+        }
+
+        private static readonly Brush ChangedSpaceFill = Freeze(new SolidColorBrush(Color.FromArgb(96, 255, 0, 0)));
+
+        private static Brush Freeze(Brush brush)
+        {
+            brush.Freeze();
+            return brush;
+        }
+
+        // Inline difference on whitespace: a translucent red cell plus a red marker glyph.
+        private void DrawChangedMark(DrawingContext drawing, WhitespaceRow row, int offset, string glyph, double dpi)
+        {
+            var position = row.Position(offset);
+            if (position is not { HasValidLayout: true }) return;
+            var rect = position.GetCharacterRect(LogicalDirection.Forward);
+            if (rect.IsEmpty) return;
+            var next = row.Position(offset + 1);
+            var width = next is { HasValidLayout: true } ? next.GetCharacterRect(LogicalDirection.Backward).X - rect.X : 0;
+            if (width <= 0) width = _pane.FontSize / 2;
+            var point = _pane.TranslatePoint(rect.TopLeft, this);
+            drawing.DrawRectangle(ChangedSpaceFill, null, new Rect(point.X, point.Y, width, rect.Height));
+            var key = "c" + glyph;
+            if (!_glyphs.TryGetValue(key, out var text))
+            {
+                text = new FormattedText(glyph, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
+                    new Typeface(_pane.FontFamily, FontStyles.Normal, FontWeights.Bold, FontStretches.Normal),
+                    _pane.FontSize, Brushes.Red, dpi);
+                _glyphs.Add(key, text);
+            }
+
+            drawing.DrawText(text, new Point(point.X, point.Y + (rect.Height - text.Height)));
+            LastDrawnMarkCount++;
         }
 
         private void DrawMark(DrawingContext drawing, WhitespaceRow row, int offset, string glyph, bool newline,

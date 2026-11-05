@@ -85,6 +85,18 @@ internal sealed partial class DiffViewWindow
         ViewModel = new DiffViewModel(snapshot, file, new UserDialogService(this), sourcePath, targetPath);
         InitializeComponent();
         InitializeTextFontControls();
+        // The fold state is saved on every change and restored for the next window.
+        ToolbarToggle.IsExpanded = SettingsService.LoadDiffFlag("toolbar-expanded", true);
+        ToolbarToggle.Expanded += (_, _) =>
+        {
+            SettingsService.SaveDiffFlag("toolbar-expanded", true);
+            UpdateToolbarFold();
+        };
+        ToolbarToggle.Collapsed += (_, _) =>
+        {
+            SettingsService.SaveDiffFlag("toolbar-expanded", false);
+            UpdateToolbarFold();
+        };
         Icon = DifferencerStatusIcons.GetCustomIcon(52) ?? Icon;
         DataContext = ViewModel;
         CloseButton.Command = ViewModel.CloseCommand;
@@ -225,8 +237,24 @@ internal sealed partial class DiffViewWindow
     private List<int> Hunks => ViewModel.Hunks;
     private List<DiffLine> Lines => ViewModel.Lines;
 
-    private string SyntaxExtension =>
-        System.IO.Path.GetExtension(ViewModel.File?.RelativePath ?? string.Empty).ToLowerInvariant();
+    // Evaluated several times per rendered row; recompute only when the file changes.
+    private string _syntaxSourcePath;
+    private string _syntaxExtension = string.Empty;
+
+    private string SyntaxExtension
+    {
+        get
+        {
+            var path = ViewModel.CurrentPatch?.Entry.RelativePath ?? ViewModel.File?.RelativePath ?? string.Empty;
+            if (!ReferenceEquals(path, _syntaxSourcePath))
+            {
+                _syntaxSourcePath = path;
+                _syntaxExtension = System.IO.Path.GetExtension(path).ToLowerInvariant();
+            }
+
+            return _syntaxExtension;
+        }
+    }
 
     private int Current
     {
@@ -271,6 +299,7 @@ internal sealed partial class DiffViewWindow
         LoadProgressPanel.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
         ActionsPanel.IsEnabled = FileNavigationPanel.IsEnabled = !value;
         TextFontPanel.IsEnabled = !value;
+        PatchControls.IsEnabled = !value;
         Body.IsHitTestVisible = !value;
         ImageToolbar.IsHitTestVisible = ImageDetails.IsHitTestVisible = !value;
     }
@@ -456,6 +485,7 @@ internal sealed partial class DiffViewWindow
 
     private async Task PasteClipboardAsync(bool sourceSide)
     {
+        if (ViewModel.IsPatch) return;
         if (_renderingContent || _windowClosed || !ViewModel.CanChangeComparison) return;
         if (!await ConfirmTextChangesAsync()) return;
         var accepted = false;
@@ -478,13 +508,33 @@ internal sealed partial class DiffViewWindow
         if (accepted && !_windowClosed) await LoadContent();
     }
 
+    // Text and patch views can fold the external diff row and the toolbar row;
+    // image, video and audio views always show them.
+    private void UpdateToolbarFold()
+    {
+        ToolbarToggle.Visibility = ViewModel.IsText ? Visibility.Visible : Visibility.Collapsed;
+        ToolbarArea.Visibility = !ViewModel.IsText || ToolbarToggle.IsExpanded ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     private void BuildToolbar()
     {
+        UpdateToolbarFold();
+        UpdatePatchControls();
         TextFontPanel.Visibility = ViewModel.IsText ? Visibility.Visible : Visibility.Collapsed;
         MarkerOptions.Visibility = ViewModel.IsImage || ViewModel.IsVideo || ViewModel.IsAudio
             ? Visibility.Collapsed
             : Visibility.Visible;
         ActionsPanel.Children.Clear();
+        if (ViewModel.DesignerHeaderRowCount > 0)
+        {
+            var designer = new Button { Content = "Form header", Padding = new Thickness(8, 4, 8, 4), Margin = new Thickness(2) };
+            designer.Click += async (_, _) =>
+            {
+                ViewModel.ToggleDesignerHeader();
+                await LoadContent(false, false);
+            };
+            ActionsPanel.Children.Add(designer);
+        }
         FileNavigationPanel.Children.Clear();
         if (!ViewModel.IsImage && !ViewModel.IsVideo && !ViewModel.IsAudio)
         {
@@ -509,7 +559,7 @@ internal sealed partial class DiffViewWindow
         {
             AddComparisonButton(ViewModel.CompareCase ? 116 : 119, "Compare case",
                 () => ViewModel.CompareCase = !ViewModel.CompareCase);
-            AddComparisonButton(ViewModel.CompareSpaces ? 117 : 120, "Compare spaces / tabs",
+            AddComparisonButton(ViewModel.CompareSpaces ? 117 : 120, "Compare spaces / tabs (off: ignore leading/trailing, body runs = one space)",
                 () => ViewModel.CompareSpaces = !ViewModel.CompareSpaces);
             AddComparisonButton(ViewModel.CompareNewlines ? 118 : 121, "Compare line endings",
                 () => ViewModel.CompareNewlines = !ViewModel.CompareNewlines);
@@ -584,7 +634,7 @@ internal sealed partial class DiffViewWindow
     {
         if (panel == null) return;
         panel.Children.Clear();
-        var file = ViewModel.File;
+        var file = ViewModel.HeaderFile;
         if (file == null) return;
         foreach (var index in StatusIconIndexes(file, sourceSide))
             panel.Children.Add(StatusIcon(index));
@@ -620,7 +670,17 @@ internal sealed partial class DiffViewWindow
             }
         }
 
-        panel.Children.Add(StatusIcon(sourceSide ? 111 : 112));
+        panel.Children.Add(StatusIcon(sourceSide ? ViewModel.IsPatch ? 160 : 111 : 112));
+    }
+
+    // Image color of the patch (Source) side in Patch View.
+    private static readonly SolidColorBrush PatchBrush = CreatePatchBrush();
+
+    private static SolidColorBrush CreatePatchBrush()
+    {
+        var brush = new SolidColorBrush(Colors.DarkGreen);
+        brush.Freeze();
+        return brush;
     }
 
     private void UpdateDetachedFileNames()
@@ -638,6 +698,19 @@ internal sealed partial class DiffViewWindow
 
         Update(SourceFileNameText, ViewModel.GetPath(true));
         Update(TargetFileNameText, ViewModel.GetPath(false));
+        // The patch side uses the patch image color instead of the Source color.
+        if (ViewModel.IsPatch)
+        {
+            SourceFileNameBorder.BorderBrush = PatchBrush;
+            // Outline only: white on a dark card, dark green on a light card.
+            if (IsDarkBackground()) SourceFileNameText.Foreground = Brushes.White;
+            else SourceFileNameText.Foreground = PatchBrush;
+        }
+        else
+        {
+            SourceFileNameBorder.SetResourceReference(Border.BorderBrushProperty, "SourceColor");
+            SourceFileNameText.SetResourceReference(TextBlock.ForegroundProperty, "SourceColor");
+        }
     }
 
     private void UpdateEncodingHeaders()
@@ -654,7 +727,9 @@ internal sealed partial class DiffViewWindow
                     ? source ? ViewModel.SourceImageFormat : ViewModel.TargetImageFormat
                     : document?.EncodingName;
             if (string.IsNullOrEmpty(label)) return;
-            var color = source ? Color.FromRgb(255, 210, 64) : Color.FromRgb(64, 190, 255);
+            var patch = source && ViewModel.IsPatch;
+            var color = patch ? PatchBrush.Color
+                : source ? Color.FromRgb(255, 210, 64) : Color.FromRgb(64, 190, 255);
             var differs = ViewModel.IsAudio || ViewModel.IsVideo
                 ? !string.Equals(System.IO.Path.GetExtension(ViewModel.GetPath(true)),
                     System.IO.Path.GetExtension(ViewModel.GetPath(false)), StringComparison.OrdinalIgnoreCase)
@@ -676,7 +751,9 @@ internal sealed partial class DiffViewWindow
                 {
                     Text = label,
                     FontWeight = FontWeights.SemiBold,
-                    Foreground = differs ? Brushes.Black : brush
+                    // Filled patch labels use white; outlined ones white on dark, dark green on light.
+                    Foreground = patch ? differs || IsDarkBackground() ? Brushes.White : brush
+                        : differs ? Brushes.Black : brush
                 }
             })
             { BaselineAlignment = BaselineAlignment.Center });
@@ -775,6 +852,7 @@ internal sealed partial class DiffViewWindow
             case 125: return "LARGE";
             case 111: return "Source";
             case 112: return "Target";
+            case 160: return "PATCH";
             default: return string.Empty;
         }
     }
@@ -804,6 +882,7 @@ internal sealed partial class DiffViewWindow
             BuildToolbar();
             UpdateSideStatusIcons();
             _leftList = _rightList = null;
+            _patchMoveButtons = null;
             _leftScroll = _rightScroll = null;
             _imageZoom = null;
             _map = null;
@@ -973,10 +1052,12 @@ internal sealed partial class DiffViewWindow
         var markers = new WhitespaceOverlay(box, ViewModel);
         Grid.SetColumn(markers, 1);
         grid.Children.Add(markers);
+        if (sourceSide) AddPatchMoveButtons(grid, box);
         BuildEditArrows(gutterViewport, sourceSide);
 
         var host = new Border { Child = grid, BorderThickness = new Thickness(5) };
         host.SetResourceReference(Border.BorderBrushProperty, sourceSide ? "SourceColor" : "TargetColor");
+        if (sourceSide && ViewModel.IsPatch) host.BorderBrush = Brushes.LimeGreen;
         host.SetResourceReference(Border.BackgroundProperty, "CardBackground");
         return host;
     }
@@ -1018,6 +1099,7 @@ internal sealed partial class DiffViewWindow
 
     private async Task PopulatePaneAsync(RichTextBox box, bool sourceSide, bool responsive, bool incremental = false)
     {
+        _syntaxDark = IsDarkBackground();
         _renderedPanes.TryGetValue(sourceSide, out var previous);
         incremental &= previous != null;
         var previousRows = incremental
@@ -1201,7 +1283,10 @@ internal sealed partial class DiffViewWindow
                 ? endings[lineNumber - 1]
                 : string.Empty;
             markerRows.Add(new WhitespaceRow(paragraph,
-                    line.FilteredLineCount > 0 ? null : sourceSide ? line.Left : line.Right, ending)
+                    line.FilteredLineCount > 0 ? null : sourceSide ? line.Left : line.Right, ending,
+                    ViewModel.CompareCase && line.Kind == DiffLineKind.Modified && line.FilteredLineCount == 0
+                        ? sourceSide ? line.LeftChanges : line.RightChanges
+                        : null)
             { IsEndOfFile = IsEof(line) });
         }
 
@@ -1402,10 +1487,17 @@ internal sealed partial class DiffViewWindow
         AddPlainRun(paragraph, text, plain, text.Length - plain);
     }
 
+    private static readonly Regex XmlTokenPattern =
+        new("<!--.*?-->|</?[^>]+>|&[A-Za-z0-9#]+;", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    private static readonly Regex JsonTokenPattern =
+        new(@"""(?:\\.|[^""\\])*""|\b(?:true|false|null)\b|-?\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
     private void AddXmlRuns(Paragraph paragraph, string text)
     {
         var pos = 0;
-        foreach (Match match in Regex.Matches(text, "<!--.*?-->|</?[^>]+>|&[A-Za-z0-9#]+;"))
+        foreach (Match match in XmlTokenPattern.Matches(text))
         {
             AddPlainRun(paragraph, text, pos, match.Index - pos);
             AddColoredRun(paragraph, match.Value,
@@ -1419,8 +1511,7 @@ internal sealed partial class DiffViewWindow
     private void AddJsonRuns(Paragraph paragraph, string text)
     {
         var pos = 0;
-        foreach (Match match in Regex.Matches(text,
-                     @"""(?:\\.|[^""\\])*""|\b(?:true|false|null)\b|-?\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b"))
+        foreach (Match match in JsonTokenPattern.Matches(text))
         {
             AddPlainRun(paragraph, text, pos, match.Index - pos);
             var kind = match.Value.StartsWith("\"", StringComparison.Ordinal) ? "string" :
@@ -1437,16 +1528,36 @@ internal sealed partial class DiffViewWindow
         if (paragraph != null && length > 0) paragraph.Inlines.Add(new Run(text.Substring(start, length)));
     }
 
+    // Theme lookup is done once per pane render; brushes are frozen and shared by every run.
+    private bool _syntaxDark = true;
+
+    private static readonly Brush DarkCommentBrush = FrozenBrush(106, 153, 85);
+    private static readonly Brush LightCommentBrush = FrozenBrush(0, 128, 0);
+    private static readonly Brush DarkStringBrush = FrozenBrush(206, 145, 120);
+    private static readonly Brush LightStringBrush = FrozenBrush(163, 21, 21);
+    private static readonly Brush DarkNumberBrush = FrozenBrush(181, 206, 168);
+    private static readonly Brush LightNumberBrush = FrozenBrush(9, 134, 88);
+    private static readonly Brush DarkKeywordBrush = FrozenBrush(86, 156, 214);
+    private static readonly Brush LightKeywordBrush = FrozenBrush(0, 0, 255);
+
+    private static Brush FrozenBrush(byte r, byte g, byte b)
+    {
+        var brush = new SolidColorBrush(Color.FromRgb(r, g, b));
+        brush.Freeze();
+        return brush;
+    }
+
     private void AddColoredRun(Paragraph paragraph, string text, string kind)
     {
         if (paragraph == null) return;
-        var run = new Run(text);
-        var dark = IsDarkBackground();
-        var color = kind == "comment" ? dark ? Color.FromRgb(106, 153, 85) : Color.FromRgb(0, 128, 0) :
-            kind == "string" ? dark ? Color.FromRgb(206, 145, 120) : Color.FromRgb(163, 21, 21) :
-            kind == "number" ? dark ? Color.FromRgb(181, 206, 168) : Color.FromRgb(9, 134, 88) :
-            dark ? Color.FromRgb(86, 156, 214) : Color.FromRgb(0, 0, 255);
-        run.Foreground = new SolidColorBrush(color);
+        var dark = _syntaxDark;
+        var run = new Run(text)
+        {
+            Foreground = kind == "comment" ? dark ? DarkCommentBrush : LightCommentBrush :
+                kind == "string" ? dark ? DarkStringBrush : LightStringBrush :
+                kind == "number" ? dark ? DarkNumberBrush : LightNumberBrush :
+                dark ? DarkKeywordBrush : LightKeywordBrush
+        };
         paragraph.Inlines.Add(run);
     }
 
@@ -1481,6 +1592,12 @@ internal sealed partial class DiffViewWindow
         var y = e.GetPosition(box).Y + scroll.VerticalOffset;
         var index = (int)Math.Floor(y / DiffLineHeight);
         if (index < 0 || index >= Lines.Count) return;
+        if (Lines[index].IsDesignerHeader)
+        {
+            e.Handled = true;
+            if (ViewModel.ExpandFilteredLines(index)) _ = LoadContent(false, false);
+            return;
+        }
         if (ViewModel.DifferencesOnly && Lines[index].Kind == DiffLineKind.Unchanged)
         {
             e.Handled = true;
@@ -1501,6 +1618,7 @@ internal sealed partial class DiffViewWindow
             return;
         }
 
+        // Unchanged rows (patch context included) are never part of a hunk.
         if (Lines[index].Kind == DiffLineKind.Unchanged) return;
         SelectHunk(index, false);
     }
@@ -1536,6 +1654,7 @@ internal sealed partial class DiffViewWindow
                     else _hunkStart = _hunkEnd = -1;
                     DrawMap();
                     UpdateHunkOverlay();
+                    RefreshPatchMoveButtons();
                 }
                 finally
                 {
@@ -1565,12 +1684,13 @@ internal sealed partial class DiffViewWindow
         gutter.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         viewport.Width = Math.Max(viewport.Width, gutter.DesiredSize.Width);
         // Folding only changes displayed row positions, not edit hunk identities.
+        // A patch hunk can span several changed runs; its arrow stays on the first.
         var rowsByHunk = Hunks.Where(row => Lines[row].EditHunkId >= 0)
-            .ToDictionary(row => Lines[row].EditHunkId);
+            .GroupBy(row => Lines[row].EditHunkId).ToDictionary(group => group.Key, group => group.First());
         foreach (var button in viewport.Children.OfType<Button>())
         {
-            var (_, id, _) = ((int, int, bool))button.Tag;
-            button.Tag = (rowsByHunk[id], id, source);
+            var (row, id, _) = ((int, int, bool))button.Tag;
+            button.Tag = (rowsByHunk.TryGetValue(id, out var moved) ? moved : row, id, source);
         }
 
         PositionEditArrows(viewport, -Canvas.GetTop(gutter));
@@ -1585,7 +1705,11 @@ internal sealed partial class DiffViewWindow
     {
         if (Lines == null || index < 0 || index >= Lines.Count) return;
         var start = index;
-        while (start > 0 && Lines[start - 1].Kind != DiffLineKind.Unchanged)
+        int end;
+        // The frame is exactly one run of changed rows. In a patch, runs of
+        // different ids are separate hunks even when adjacent.
+        bool SameRun(int a, int b) => !ViewModel.IsPatch || Lines[a].EditHunkId == Lines[b].EditHunkId;
+        while (start > 0 && Lines[start - 1].Kind != DiffLineKind.Unchanged && SameRun(start - 1, start))
             start--;
         if (Lines[start].Kind == DiffLineKind.Unchanged)
         {
@@ -1595,8 +1719,8 @@ internal sealed partial class DiffViewWindow
             if (start >= Lines.Count) return;
         }
 
-        var end = start + 1;
-        while (end < Lines.Count && Lines[end].Kind != DiffLineKind.Unchanged)
+        end = start + 1;
+        while (end < Lines.Count && Lines[end].Kind != DiffLineKind.Unchanged && SameRun(end, start))
             end++;
 
         _hunkStart = start;
@@ -1793,7 +1917,8 @@ internal sealed partial class DiffViewWindow
         foreach (var start in Hunks)
         {
             var end = start + 1;
-            while (end < Lines.Count && Lines[end].Kind != DiffLineKind.Unchanged) end++;
+            while (end < Lines.Count && Lines[end].Kind != DiffLineKind.Unchanged &&
+                   (!ViewModel.IsPatch || Lines[end].EditHunkId == Lines[start].EditHunkId)) end++;
             var kind = Lines[start].Kind;
             var mapWidth = Math.Max(0, _map.ActualWidth);
             var halfWidth = mapWidth / 2.0;

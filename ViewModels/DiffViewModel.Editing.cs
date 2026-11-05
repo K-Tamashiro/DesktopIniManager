@@ -15,21 +15,29 @@ internal sealed partial class DiffViewModel
     private TextDocument _originalSource, _originalTarget;
     internal Func<Task<bool>> ConfirmChangesRequested { get; set; }
     internal bool IsText => !IsImage && !IsVideo && !IsAudio;
-    internal bool HasEdits => IsDirty(true) || IsDirty(false);
+    internal bool HasEdits => IsPatch ? HasPatchEdits : IsDirty(true) || IsDirty(false);
 
     internal bool IsDirty(bool source)
     {
+        if (IsPatch) return !source && CurrentPatch?.IsDirty == true;
         return IsText && (source ? SourceText : TargetText) is { } current &&
                (source ? _originalSource : _originalTarget) is { } original && Text(current) != Text(original);
     }
 
     internal bool CanUndoHunk(int id, bool fromSource)
     {
-        return _edits?.CanUndo(id, fromSource) == true;
+        return IsPatch ? fromSource && CurrentPatch.IsRunApplied(id) : _edits?.CanUndo(id, fromSource) == true;
     }
 
     internal void CopyHunks(IEnumerable<int> ids, bool fromSource)
     {
+        if (IsPatch)
+        {
+            if (!CanChangeComparison || !fromSource) return;
+            CurrentPatch.CopyRuns(ids);
+            RefreshPatchRows();
+            return;
+        }
         if (!CanChangeComparison || !IsText || _edits == null) return;
         _edits.Copy(ids, fromSource);
         ApplyEdits();
@@ -37,6 +45,11 @@ internal sealed partial class DiffViewModel
 
     internal void UndoHunk(int id, bool fromSource)
     {
+        if (IsPatch)
+        {
+            if (CanChangeComparison && fromSource) { CurrentPatch.UndoRun(id); RefreshPatchRows(); }
+            return;
+        }
         if (!CanChangeComparison || _edits == null) return;
         _edits.UndoHunk(id, fromSource);
         ApplyEdits();
@@ -44,6 +57,11 @@ internal sealed partial class DiffViewModel
 
     internal void UndoEdit()
     {
+        if (IsPatch)
+        {
+            if (CanChangeComparison) { CurrentPatch.Undo(); RefreshPatchRows(); }
+            return;
+        }
         if (!CanChangeComparison || _edits == null) return;
         _edits.UndoLast();
         ApplyEdits();
@@ -104,6 +122,11 @@ internal sealed partial class DiffViewModel
 
     internal async Task SaveTextAsync(bool source)
     {
+        if (IsPatch)
+        {
+            if (!source && CanChangeComparison) SavePatchTarget();
+            return;
+        }
         if (!CanChangeComparison || !IsDirty(source)) return;
         var document = source ? SourceText : TargetText;
         var original = source ? _originalSource : _originalTarget;

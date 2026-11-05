@@ -1,6 +1,7 @@
 ﻿using FastVolumeIndex;
 using Microsoft.Win32.SafeHandles;
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
@@ -8,9 +9,11 @@ using System.IO;
 using System.IO.Compression;
 using System.IO.Hashing;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace DesktopIniManager.Services;
 
@@ -231,11 +234,22 @@ internal static class DeveloperDifferencerService
         ".vscode"
     };
 
+    private static readonly HashSet<string>.AlternateLookup<ReadOnlySpan<char>> IgnoredDirectoryLookup =
+        IgnoredDirectories.GetAlternateLookup<ReadOnlySpan<char>>();
+
     /// <summary>Returns whether a path enters a protected metadata directory.</summary>
     public static bool Protected(string path)
     {
-        return path.Replace('/', '\\').Split('\\')
-            .Any(p => IgnoredDirectories.Contains(p.TrimEnd(' ', '.')));
+        // Allocation-free: this runs for every enumerated and classified path.
+        var rest = path.AsSpan();
+        while (true)
+        {
+            var separator = rest.IndexOfAny('\\', '/');
+            var segment = (separator < 0 ? rest : rest[..separator]).TrimEnd(" .");
+            if (IgnoredDirectoryLookup.Contains(segment)) return true;
+            if (separator < 0) return false;
+            rest = rest[(separator + 1)..];
+        }
     }
 
     /// <summary>Normalizes and validates a comparison root directory.</summary>
@@ -260,16 +274,21 @@ internal static class DeveloperDifferencerService
     [return: NotNull]
     public static string SafePath(string root, string relative)
     {
-        if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative) || relative.Contains(':') ||
-            Protected(relative) ||
-            relative.Replace('/', '\\').Split('\\').Any(p =>
-                p == ".." || p == "." || p.Length == 0 || p.EndsWith(" ") || p.EndsWith(".")))
-            throw new IOException("Protected or invalid relative path: " + relative);
+        ValidateRelative(relative);
         var path = Path.GetFullPath(Path.Combine(root, relative));
         if (!path.StartsWith(root.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase) || Protected(path))
             throw new IOException("Refused a path outside the root or inside .git.");
         CheckComponents(path);
         return path;
+    }
+
+    private static void ValidateRelative(string relative)
+    {
+        if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative) || relative.Contains(':') ||
+            Protected(relative) ||
+            relative.Replace('/', '\\').Split('\\').Any(p =>
+                p == ".." || p == "." || p.Length == 0 || p.EndsWith(" ") || p.EndsWith(".")))
+            throw new IOException("Protected or invalid relative path: " + relative);
     }
 
     private static void CheckComponents(string path)
@@ -336,8 +355,9 @@ internal static class DeveloperDifferencerService
                 // Protected entries still count for the physical empty-folder indicator.
                 nonEmptyFolders?.Add(directoryRelative);
                 var path = Path.Combine(directory, entry.Name);
-                var relative = RelativeFromRoot(root, path);
-                if (Protected(relative) ||
+                var relative = ChildRelative(root, directoryRelative, path, entry.Name);
+                // Ancestors were checked before this directory was queued; only the new segment can be protected.
+                if (IsProtectedName(entry.Name) ||
                     ignore.IsIgnored(relative, (entry.Attributes & FileAttributes.Directory) != 0)) continue;
                 if ((entry.Attributes & FileAttributes.Directory) != 0)
                 {
@@ -392,6 +412,22 @@ internal static class DeveloperDifferencerService
             throw new IOException("Refused a folder outside the root or inside .git.");
         CheckComponents(path);
         return path;
+    }
+
+    private static bool IsProtectedName(string name)
+    {
+        return IgnoredDirectoryLookup.Contains(name.AsSpan().TrimEnd(" ."));
+    }
+
+    /// <summary>
+    ///     Builds the root-relative path of an enumerated child without calling GetFullPath per entry.
+    ///     Names that Win32 normalization would alter (trailing dot or space) keep the original path.
+    /// </summary>
+    private static string ChildRelative(string root, string directoryRelative, string path, string name)
+    {
+        if (name.Length == 0 || name[^1] == '.' || name[^1] == ' ')
+            return RelativeFromRoot(root, path);
+        return directoryRelative.Length == 0 ? name : directoryRelative + "\\" + name;
     }
 
     private static string RelativeFromRoot(string root, string path)
@@ -567,12 +603,13 @@ internal static class DeveloperDifferencerService
         if (!Directory.Exists(directory)) return;
         folders.Add(relativeFolder);
 
+        var directoryRelative = RelativeFromRoot(root, directory);
         foreach (var entry in VolumePathIndex.EnumerateNativeDirectory(directory, token))
         {
             token.ThrowIfCancellationRequested();
             var path = Path.Combine(directory, entry.Name);
-            var relative = RelativeFromRoot(root, path);
-            if (Protected(relative)) continue;
+            var relative = ChildRelative(root, directoryRelative, path, entry.Name);
+            if (IsProtectedName(entry.Name)) continue;
             if ((entry.Attributes & FileAttributes.Directory) != 0)
             {
                 folders.Add(relative);
@@ -584,6 +621,23 @@ internal static class DeveloperDifferencerService
                 : new DiffStamp { Size = entry.Size, ModifiedUtc = entry.ModifiedUtc };
             if (stamp != null) files[relative] = stamp;
         }
+    }
+
+    private const int ClassifyChunkSize = 128;
+
+    // Content reads (BOM, XXH128, re-stat) overlap well on SSDs and network shares;
+    // keep the degree small so spinning disks are not thrashed.
+    private static readonly ParallelOptions ContentReadOptions = new() { MaxDegreeOfParallelism = 4 };
+
+    private sealed class ClassifyWork
+    {
+        public DiffStamp Source, Target;
+        public string SourcePath, TargetPath;
+        public bool? SourceBom, TargetBom;
+        public string SourceHash, TargetHash;
+        public DiffStamp SourceNow, TargetNow;
+        public bool IsProtected, HashMissing;
+        public ExceptionDispatchInfo Error;
     }
 
     internal static List<DiffFile> Classify(Dictionary<string, DiffStamp> left, Dictionary<string, DiffStamp> right,
@@ -600,72 +654,119 @@ internal static class DeveloperDifferencerService
         var paths = left.Keys.Union(right.Keys, StringComparer.OrdinalIgnoreCase).ToArray();
         if (pathComparison != null) Array.Sort(paths, pathComparison);
         else Array.Sort(paths, StringComparer.OrdinalIgnoreCase);
-        for (var index = 0; index < paths.Length; index++)
+        var readsContent = compareAttributes || preciseCompare;
+        var work = new ClassifyWork[ClassifyChunkSize];
+
+        for (var chunkStart = 0; chunkStart < paths.Length; chunkStart += ClassifyChunkSize)
         {
             token.ThrowIfCancellationRequested();
-            var path = paths[index];
-            if (progress != null && index % 128 == 0)
-                progress.Report(ReportCompare("Classifying differences\u2026", index, paths.Length));
-            if (Protected(path)) continue;
-            DiffStamp a, b;
-            left.TryGetValue(path, out a);
-            right.TryGetValue(path, out b);
-            string sourceHash = null, targetHash = null;
-            var sourceBom = compareAttributes && a != null
-                ? HasBom(SafeAttributePath(sourceRoot, path, sourceValidatedFolders))
-                : false;
+            var count = Math.Min(ClassifyChunkSize, paths.Length - chunkStart);
 
-            var targetBom = compareAttributes && b != null
-                ? HasBom(SafeAttributePath(targetRoot, path, targetValidatedFolders))
-                : false;
-            if (ShouldHash(a, b, compareTimestamp, compareSize, compareAttributes, sourceBom, targetBom,
-                    preciseCompare))
+            // 1) Sequential: stamps and path validation (the folder caches are not thread-safe).
+            for (var j = 0; j < count; j++)
             {
-                sourceHash = HashFile(SafePath(sourceRoot, path), token);
-                targetHash = HashFile(SafePath(targetRoot, path), token);
-                if (sourceHash == null || targetHash == null)
+                var path = paths[chunkStart + j];
+                var item = work[j] = new ClassifyWork();
+                if (Protected(path))
                 {
-                    progress?.Report(ReportCompare("Skipped changed file: " + path, index + 1, paths.Length));
+                    item.IsProtected = true;
                     continue;
+                }
+
+                left.TryGetValue(path, out item.Source);
+                right.TryGetValue(path, out item.Target);
+                if (!readsContent) continue;
+                try
+                {
+                    if (item.Source != null)
+                        item.SourcePath = ValidatedFilePath(sourceRoot, path, sourceValidatedFolders);
+                    if (item.Target != null)
+                        item.TargetPath = ValidatedFilePath(targetRoot, path, targetValidatedFolders);
+                }
+                catch (Exception ex)
+                {
+                    item.Error = ExceptionDispatchInfo.Capture(ex);
                 }
             }
 
-            if (preciseCompare)
-                // Files may disappear or change between enumeration and hashing
-                // (desktop.ini is a common example). Never interpret a vanished
-                // source as an instruction to delete its destination.
-                // Exclude this stale entry; a fresh comparison will pick it up.
-                if (!DiffStamp.Same(a, a == null ? null : DiffStamp.Read(SafePath(sourceRoot, path)), true) ||
-                    !DiffStamp.Same(b, b == null ? null : DiffStamp.Read(SafePath(targetRoot, path)), true))
+            // 2) Parallel: file content reads. Failures are rethrown in path order below.
+            if (readsContent)
+            {
+                Parallel.For(0, count, ContentReadOptions, j =>
+                {
+                    var item = work[j];
+                    if (item.IsProtected || item.Error != null || token.IsCancellationRequested) return;
+                    try
+                    {
+                        ReadContent(item, preciseCompare, compareTimestamp, compareSize, compareAttributes, token);
+                    }
+                    catch (Exception ex)
+                    {
+                        item.Error = ExceptionDispatchInfo.Capture(ex);
+                    }
+                });
+                token.ThrowIfCancellationRequested();
+            }
+
+            // 3) Sequential: classification, batching and progress in the original order.
+            for (var j = 0; j < count; j++)
+            {
+                var index = chunkStart + j;
+                var path = paths[index];
+                var item = work[j];
+                work[j] = null;
+                if (progress != null && index % 128 == 0)
+                    progress.Report(ReportCompare("Classifying differences\u2026", index, paths.Length));
+                if (item.IsProtected) continue;
+                item.Error?.Throw();
+                var a = item.Source;
+                var b = item.Target;
+                var sourceBom = compareAttributes && a != null ? item.SourceBom : false;
+                var targetBom = compareAttributes && b != null ? item.TargetBom : false;
+                if (item.HashMissing)
                 {
                     progress?.Report(ReportCompare("Skipped changed file: " + path, index + 1, paths.Length));
                     continue;
                 }
 
-            if (includeSame || !DiffStamp.Same(a, b, compareTimestamp, compareSize) ||
-                (preciseCompare && sourceHash != targetHash) || sourceBom != targetBom || sourceBom == null ||
-                targetBom == null)
-            {
-                var file = new DiffFile
+                if (preciseCompare)
+                    // Files may disappear or change between enumeration and hashing
+                    // (desktop.ini is a common example). Never interpret a vanished
+                    // source as an instruction to delete its destination.
+                    // Exclude this stale entry; a fresh comparison will pick it up.
+                    if (!DiffStamp.Same(a, item.SourceNow, true) || !DiffStamp.Same(b, item.TargetNow, true))
+                    {
+                        progress?.Report(ReportCompare("Skipped changed file: " + path, index + 1, paths.Length));
+                        continue;
+                    }
+
+                var sourceHash = item.SourceHash;
+                var targetHash = item.TargetHash;
+                if (includeSame || !DiffStamp.Same(a, b, compareTimestamp, compareSize) ||
+                    (preciseCompare && sourceHash != targetHash) || sourceBom != targetBom || sourceBom == null ||
+                    targetBom == null)
                 {
-                    RelativePath = path,
-                    Source = a,
-                    Target = b,
-                    CompareTimestamp = compareTimestamp,
-                    PreciseCompare = preciseCompare,
-                    CompareSize = compareSize,
-                    SourceHash = sourceHash,
-                    TargetHash = targetHash,
-                    CompareAttributes = compareAttributes,
-                    SourceBom = sourceBom,
-                    TargetBom = targetBom
-                };
-                files.Add(file);
-                batch?.Add(file);
-                if (batch?.Count >= 128)
-                {
-                    onBatch(batch.ToArray());
-                    batch.Clear();
+                    var file = new DiffFile
+                    {
+                        RelativePath = path,
+                        Source = a,
+                        Target = b,
+                        CompareTimestamp = compareTimestamp,
+                        PreciseCompare = preciseCompare,
+                        CompareSize = compareSize,
+                        SourceHash = sourceHash,
+                        TargetHash = targetHash,
+                        CompareAttributes = compareAttributes,
+                        SourceBom = sourceBom,
+                        TargetBom = targetBom
+                    };
+                    files.Add(file);
+                    batch?.Add(file);
+                    if (batch?.Count >= 128)
+                    {
+                        onBatch(batch.ToArray());
+                        batch.Clear();
+                    }
                 }
             }
         }
@@ -676,6 +777,30 @@ internal static class DeveloperDifferencerService
         return files;
     }
 
+    private static void ReadContent(ClassifyWork item, bool preciseCompare, bool compareTimestamp,
+        bool compareSize, bool compareAttributes, CancellationToken token)
+    {
+        var a = item.Source;
+        var b = item.Target;
+        item.SourceBom = compareAttributes && a != null ? HasBom(item.SourcePath) : false;
+        item.TargetBom = compareAttributes && b != null ? HasBom(item.TargetPath) : false;
+        if (ShouldHash(a, b, compareTimestamp, compareSize, compareAttributes, item.SourceBom, item.TargetBom,
+                preciseCompare))
+        {
+            item.SourceHash = HashFile(item.SourcePath, token);
+            item.TargetHash = HashFile(item.TargetPath, token);
+            if (item.SourceHash == null || item.TargetHash == null)
+            {
+                item.HashMissing = true;
+                return;
+            }
+        }
+
+        if (!preciseCompare) return;
+        item.SourceNow = a == null ? null : DiffStamp.Read(item.SourcePath);
+        item.TargetNow = b == null ? null : DiffStamp.Read(item.TargetPath);
+    }
+
     internal static bool ShouldHash(DiffStamp source, DiffStamp target, bool compareTimestamp, bool compareSize,
         bool compareAttributes, bool? sourceBom, bool? targetBom, bool preciseCompare)
     {
@@ -684,52 +809,32 @@ internal static class DeveloperDifferencerService
                (!compareAttributes || (sourceBom.HasValue && targetBom.HasValue && sourceBom == targetBom));
     }
 
-    private static string SafeAttributePath(
-        string root,
-        string relative,
-        HashSet<string> validatedFolders)
+    /// <summary>
+    ///     Resolves a file inside a comparison root for read-only content checks.
+    ///     The first file of each folder receives the full <see cref="SafePath" /> check of every ancestor;
+    ///     later files in that folder validate the relative name and their own final component only.
+    /// </summary>
+    private static string ValidatedFilePath(string root, string relative, HashSet<string> validatedFolders)
     {
         var folder = Path.GetDirectoryName(relative) ?? "";
+        if (validatedFolders.Add(folder)) return SafePath(root, relative);
 
-        if (!validatedFolders.Contains(folder))
-        {
-            // 親階層の検証は初回だけ行う。
-            // 実体のないファイルはHasBom側で読取り不可と判定する。
-            string validated;
-
-            try
-            {
-                validated = SafePath(root, relative);
-            }
-            catch (FileNotFoundException)
-            {
-                validated = Path.GetFullPath(Path.Combine(root, relative));
-            }
-            catch (DirectoryNotFoundException)
-            {
-                validated = Path.GetFullPath(Path.Combine(root, relative));
-            }
-
-            validatedFolders.Add(folder);
-            return validated;
-        }
-
+        ValidateRelative(relative);
         var path = Path.GetFullPath(Path.Combine(root, relative));
-
+        if (!path.StartsWith(root.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase))
+            throw new IOException("Refused a path outside the root or inside .git.");
         try
         {
-            var attributes = File.GetAttributes(path);
-
-            if ((attributes & FileAttributes.ReparsePoint) != 0)
+            if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
                 throw new IOException("Reparse points are excluded: " + path);
         }
         catch (FileNotFoundException)
         {
-            // HasBomで読取り不可として扱う。
+            // Treated as unreadable/changed by the content checks.
         }
         catch (DirectoryNotFoundException)
         {
-            // HasBomで読取り不可として扱う。
+            // Treated as unreadable/changed by the content checks.
         }
 
         return path;
@@ -757,17 +862,30 @@ internal static class DeveloperDifferencerService
         }
     }
 
+    private const int HashBufferSize = 131072;
+
     internal static string HashFile(string path, CancellationToken token = default)
     {
         if (string.IsNullOrEmpty(path) || !File.Exists(path)) return null;
         var xxh128 = new XxHash128();
-        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 131072);
-        var buffer = new byte[131072];
-        int count;
-        while ((count = stream.Read(buffer, 0, buffer.Length)) > 0)
+        // bufferSize 0: reads are already large, so skip FileStream's own 128 KB buffer.
+        // The work buffer is pooled; a fresh 128 KB array per file lands on the LOH
+        // and drives frequent gen-2 collections when many files are hashed.
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 0,
+            FileOptions.SequentialScan);
+        var buffer = ArrayPool<byte>.Shared.Rent(HashBufferSize);
+        try
         {
-            token.ThrowIfCancellationRequested();
-            xxh128.Append(buffer.AsSpan(0, count));
+            int count;
+            while ((count = stream.Read(buffer, 0, HashBufferSize)) > 0)
+            {
+                token.ThrowIfCancellationRequested();
+                xxh128.Append(buffer.AsSpan(0, count));
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
         }
 
         return Convert.ToHexString(xxh128.GetCurrentHash());

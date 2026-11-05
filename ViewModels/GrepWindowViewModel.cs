@@ -78,7 +78,7 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         Results.Filter = MatchListFilter;
         Results.GroupDescriptions.Add(new PropertyGroupDescription(nameof(GrepMatch.GroupPath)));
         _resultTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(50), DispatcherPriority.Background,
-            (_, _) => DrainPendingMatches(20), _dispatcher);
+            (_, _) => DrainPendingMatches(LiveDrainBudget), _dispatcher);
         _resultTimer.Stop();
         InitializeHistoryCommands();
     }
@@ -632,15 +632,22 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         NotifyListCommands();
     }
 
-    private void DrainPendingMatches(int maximum)
+    // Drain by elapsed time instead of a fixed item count. A fixed 20 items per 50 ms tick
+    // capped the display at 400 matches per second even when the search had finished.
+    private static readonly TimeSpan LiveDrainBudget = TimeSpan.FromMilliseconds(15);
+    private static readonly TimeSpan FinalDrainBudget = TimeSpan.FromMilliseconds(40);
+
+    private void DrainPendingMatches(TimeSpan budget)
     {
         var count = 0;
+        var watch = Stopwatch.StartNew();
         GrepMatch match;
         GrepMatch last = null;
-        while (count++ < maximum && _pendingMatches.TryDequeue(out match))
+        while (_pendingMatches.TryDequeue(out match))
         {
             Matches.Add(match);
             last = match;
+            if ((++count & 15) == 0 && watch.Elapsed >= budget) break;
         }
 
         if (last != null)
@@ -655,7 +662,7 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         while (!_pendingMatches.IsEmpty)
         {
             token.ThrowIfCancellationRequested();
-            DrainPendingMatches(30);
+            DrainPendingMatches(FinalDrainBudget);
             await Dispatcher.Yield(DispatcherPriority.Background);
         }
     }

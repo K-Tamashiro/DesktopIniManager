@@ -9,3 +9,4 @@ obj/
 *.log
 desktop.ini
 /release/
+artifacts/

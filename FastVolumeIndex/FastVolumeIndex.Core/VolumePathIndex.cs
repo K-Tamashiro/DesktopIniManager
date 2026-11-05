@@ -100,9 +100,13 @@ public sealed partial class VolumePathIndex
         foreach (var node in nodes.Values.OrderBy(node => node.Path.Length).ToArray())
         {
             if (ReferenceEquals(node, root)) continue;
-            var parentPath = Normalize(Path.GetDirectoryName(node.Path));
+            // Node paths are already normalized, so their directory name normally is a key as-is;
+            // fall back to full normalization (GetFullPath) only when it is not.
+            var directoryName = Path.GetDirectoryName(node.Path);
             VolumePathNode parent;
-            if (!nodes.TryGetValue(parentPath, out parent) || !parent.IsDirectory) continue;
+            if ((directoryName == null || !nodes.TryGetValue(directoryName, out parent)) &&
+                !nodes.TryGetValue(Normalize(directoryName), out parent)) continue;
+            if (!parent.IsDirectory) continue;
             node.Parent = parent;
             node.Depth = parent.Depth + 1;
             if (node.IsDirectory) parent.MutableDirectories.Add(node);
@@ -169,12 +173,14 @@ public sealed class VolumePathNode
     internal VolumePathNode(string path, FileAttributes attributes, bool forceDirectory = false)
     {
         Path = path;
+        // Computed once: Name is read in sort comparers and search loops for every node.
+        Name = System.IO.Path.GetFileName(path.TrimEnd(System.IO.Path.DirectorySeparatorChar));
         Attributes = attributes;
         IsDirectory = forceDirectory || (attributes & FileAttributes.Directory) != 0;
     }
 
     public string Path { get; }
-    public string Name => System.IO.Path.GetFileName(Path.TrimEnd(System.IO.Path.DirectorySeparatorChar));
+    public string Name { get; }
     public bool IsDirectory { get; }
     public bool IsReparsePoint => (Attributes & FileAttributes.ReparsePoint) != 0;
     public int Depth { get; internal set; }

@@ -1,4 +1,4 @@
-﻿# DesktopIniManager v4.6.0 Release
+﻿# DesktopIniManager v4.7.0 PreRelease
 
 DesktopIniManager (DIM) is a Windows workspace for exploring development folders and Visual Studio solutions, finding files, running scoped searches, comparing folders, viewing differences, and managing folder icons through `desktop.ini`.
 
@@ -8,7 +8,7 @@ DesktopIniManager (DIM) is a Windows workspace for exploring development folders
 
 ## Download and setup
 
-Download **DesktopIniManager-v4.6.0-win-x64.zip** from the v4.6.0 Release GitHub release assets, not GitHub's source-code archive. The matching `.zip.sha256` contains the SHA-256 checksum.
+Download **DesktopIniManager-v4.7.0-win-x64.zip** from the v4.7.0 PreRelease GitHub release assets, not GitHub's source-code archive. The matching `.zip.sha256` contains the SHA-256 checksum.
 
 - Windows 10 or 11, x64; .NET 10 Desktop Runtime (x64) installed separately.
 - Visual Studio Build Tools / MSBuild or .NET SDK for solution builds.
@@ -16,7 +16,29 @@ Download **DesktopIniManager-v4.6.0-win-x64.zip** from the v4.6.0 Release GitHub
 
 Extract into a fresh folder and run **DesktopIniManager.exe**. Keep the DLLs, JSON, Assets and Languages together. ExcelDataReader and PdfPig libraries are required for Document Grep.
 
-## What's new in v4.6.0 Release
+## What's new in v4.7.0 PreRelease
+
+**Patch View: inspect and apply unified / Git patches inside DIFF VIEW.** Open a `.patch` or `.diff` file and DIM lists every changed file. Without a target, DIM previews each file as before → after. With the actual repository file as target, DIM shows the patch's post-change text on the left and the real file on the right, and applies changes hunk by hunk. DIM parses the patch itself and never runs `git apply` or any other patch command.
+
+- Open from the **Open patch / diff** button in Developer Differencer (the comparison Target root becomes the repository root), from the **Patch…** button (icon 159) in DIFF VIEW, or by dropping a patch onto DIFF VIEW.
+- `git format-patch` mail headers are decoded; the commit title, author and message appear in a collapsible **Commit message** panel.
+- For a dropped patch, select any repository file with **Target…** (icon 75): DIM matches it against every patch path, sets the repository root and selects that file. **Repository…** sets the root directly. Once the root is known, the Patch and Target selectors stay synchronized.
+- Each hunk is located like `git apply`: at the patch line number, adjusted by earlier hunks' drift, otherwise at the nearest matching position. Hunks already contained in the target are recognized, and context mismatches are reported in the status bar.
+- A HUNK is one run of changed rows; unchanged context is never inside the frame. The arrow applies exactly that run, and an applied run stays visible with an Undo arrow. Up/down controls move the whole patch hunk by one line when its position needs correction.
+- Whitespace and line-ending options follow the text comparison rules. CRLF information carried in the patch is preserved, so CRLF/LF-only differences fold when line endings are ignored.
+- Working text and undo history are kept per file while switching files. Saving keeps the target's encoding, BOM and line endings; new-file entries can be saved with a chosen encoding and line ending. Deletion patches save an empty file instead of deleting it. Binary, mode-only and symbolic-link entries are shown as unsupported; paths escaping the repository are rejected. UTF-8 and Shift-JIS patch lines and Git octal-escaped paths are decoded.
+
+**Text DIFF VIEW comparison rules**
+
+- With spaces ignored, leading and trailing whitespace is ignored and each run of spaces/tabs inside a line counts as one space. The presence of a space is still significant: `( - 4)` and `( -4)` differ.
+- With line endings ignored, newline-only rows no longer join hunks. They stay as standalone unchanged rows, fold in the differences-only view, and split the surrounding hunks on both sides.
+- Copying a single hunk also synchronizes an adjacent newline-only gap; copying the hunks on both sides of a gap together produces one contiguous block without it. Newline-only rows matching on both sides are kept.
+- Inline differences mark changed whitespace with a red marker, even when space markers are hidden.
+- VB6 `.frm` files fold the form designer section before `Option Explicit` into one expandable row.
+
+**Performance:** faster Code Grep for literal queries, allocation-free `.gitignore` literal rules, cached folder-search display checks, and faster Developer Differencer enumeration and classification.
+
+## Previous release: v4.6.0 Release
 
 **Text DIFF VIEW now supports bidirectional HUNK-level merge operations.** Copy a difference block from Source to Target or from Target to Source using the arrow controls beside each HUNK. After copying, the corresponding control changes to Undo until the changes are saved.
 
@@ -28,7 +50,7 @@ Extract into a fresh folder and run **DesktopIniManager.exe**. Keep the DLLs, JS
 
 ![Text DIFF VIEW with merge controls](docs/images/2026-11-03_23h06_36.png)
 
-## Previous release: v4.5.7
+## Earlier release: v4.5.7
 
 Added **Explorerメニュー** (Explorer menu) to the main file context menu in both list and icon views. Click it to close DIM's menu and open the classic Windows shell context menu. Available commands include **Open with**, **Create shortcut**, and compatible shell extensions when provided for the selection.
 
@@ -54,7 +76,7 @@ Supports a single file or multiple files in the same folder. The entry is disabl
 - Fixed single-root folder row; folder-name search highlighting; resizable, remembered panes and columns.
 - Developer Differencer with independent modification time, size, attributes/BOM and XXH128 checks.
 - `.gitignore`-aware comparison, filtering, synchronization and relative-path ZIP export.
-- Text DIFF VIEW with HUNK-level copying, Undo and Save; read-only image/animated GIF, video and WAV/MP3 audio DIFF modes.
+- Text DIFF VIEW with HUNK-level copying, Undo and Save; Patch View for unified / Git patches; read-only image/animated GIF, video and WAV/MP3 audio DIFF modes.
 - Audio PCM-sample difference highlighting, A–B repeat, independent delay adjustment, synchronized playback and six selectable playback speeds.
 
 ## Main window
@@ -102,6 +124,12 @@ Git difftool configuration:
 
 In GitKraken select **Git Config Default**. Text DIFF VIEW supports bidirectional HUNK copying, Undo and Save. The text view provides syntax highlighting, original line numbers, Source/Target colored frames, a difference map, inline and whitespace differences, line-ending markers and loading progress. The ≠ / ※ controls (or Ctrl+0) toggle differences-only and all-lines views; the last mode is saved.
 
+## Patch View
+
+Open a `.patch` / `.diff` file from Developer Differencer (**Open patch / diff**), with **Patch…** in DIFF VIEW, or by dropping it. The Patch selector lists the changed files; the Target selector follows it once the repository root is known (comparison Target root, **Target…** with any repository file, or **Repository…**). Without an actual target the view previews before → after and shows no apply arrows. With a target, the left pane is the patch's post-change text and the right pane is the actual file; apply runs left to right only.
+
+Hunks are located at the nearest matching position like `git apply`. The status bar reports applied hunks, hunks already in the target and context mismatches. Select a HUNK and hover over its frame to show the up/down controls, which move the whole patch hunk by one line. Close or switch files freely: per-file working text and undo are retained, and DIM asks to save, discard or cancel when closing with unsaved changes.
+
 ## Image DIFF VIEW
 
 BMP, JPG/JPEG, PNG, GIF and TIFF/TIF are displayed side by side using nearest-neighbor scaling from 5% to 1600%. A pixel grid appears only at 1600%. ARGB values and coordinates appear at the pointer. Source and Target can independently toggle XOR overlays. Animated GIFs have a frame slider for composed still-frame comparison, respecting frame disposal and transparency.
@@ -144,7 +172,7 @@ DIM1–DIM5 are independent processes. **In Use** identifies the current slot, *
 
 Freeware by Tamayan / ZEBRASOFT. [Website](http://dim.zebrasoft.co.jp/) · [Repository and issues](https://github.com/K-Tamashiro/DesktopIniManager) · tamayan@zebrasoft.co.jp.
 
-` scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> ` packages prebuilt v4.6.0 binaries; omitting that option runs `dotnet publish`. Archives and checksums are written to `release/`.
+` scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> ` packages prebuilt v4.7.0 binaries; omitting that option runs `dotnet publish`. Archives and checksums are written to `release/`.
 
 ## Keyboard shortcuts and startup options
 

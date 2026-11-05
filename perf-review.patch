@@ -1,0 +1,1295 @@
+diff -ruN a/DesktopIniManager.csproj b/DesktopIniManager.csproj
+--- a/DesktopIniManager.csproj	2026-11-05 05:37:49.001213918 +0900
++++ b/DesktopIniManager.csproj	2026-11-05 05:37:49.004887037 +0900
+@@ -15,6 +15,8 @@
+     <UseWindowsForms>true</UseWindowsForms>
+     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+     <SelfContained>false</SelfContained>
++    <!-- Precompile to native code on publish: shorter startup (less JIT for the WPF UI). -->
++    <PublishReadyToRun>true</PublishReadyToRun>
+   </PropertyGroup>
+   <PropertyGroup>
+     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+diff -ruN a/FastVolumeIndex/FastVolumeIndex.Core/VolumePathIndex.cs b/FastVolumeIndex/FastVolumeIndex.Core/VolumePathIndex.cs
+--- a/FastVolumeIndex/FastVolumeIndex.Core/VolumePathIndex.cs	2026-11-05 05:37:49.001151939 +0900
++++ b/FastVolumeIndex/FastVolumeIndex.Core/VolumePathIndex.cs	2026-11-05 05:37:49.006909577 +0900
+@@ -100,9 +100,13 @@
+         foreach (var node in nodes.Values.OrderBy(node => node.Path.Length).ToArray())
+         {
+             if (ReferenceEquals(node, root)) continue;
+-            var parentPath = Normalize(Path.GetDirectoryName(node.Path));
++            // Node paths are already normalized, so their directory name normally is a key as-is;
++            // fall back to full normalization (GetFullPath) only when it is not.
++            var directoryName = Path.GetDirectoryName(node.Path);
+             VolumePathNode parent;
+-            if (!nodes.TryGetValue(parentPath, out parent) || !parent.IsDirectory) continue;
++            if ((directoryName == null || !nodes.TryGetValue(directoryName, out parent)) &&
++                !nodes.TryGetValue(Normalize(directoryName), out parent)) continue;
++            if (!parent.IsDirectory) continue;
+             node.Parent = parent;
+             node.Depth = parent.Depth + 1;
+             if (node.IsDirectory) parent.MutableDirectories.Add(node);
+@@ -169,12 +173,14 @@
+     internal VolumePathNode(string path, FileAttributes attributes, bool forceDirectory = false)
+     {
+         Path = path;
++        // Computed once: Name is read in sort comparers and search loops for every node.
++        Name = System.IO.Path.GetFileName(path.TrimEnd(System.IO.Path.DirectorySeparatorChar));
+         Attributes = attributes;
+         IsDirectory = forceDirectory || (attributes & FileAttributes.Directory) != 0;
+     }
+ 
+     public string Path { get; }
+-    public string Name => System.IO.Path.GetFileName(Path.TrimEnd(System.IO.Path.DirectorySeparatorChar));
++    public string Name { get; }
+     public bool IsDirectory { get; }
+     public bool IsReparsePoint => (Attributes & FileAttributes.ReparsePoint) != 0;
+     public int Depth { get; internal set; }
+diff -ruN a/Properties/StringOverlay.cs b/Properties/StringOverlay.cs
+--- a/Properties/StringOverlay.cs	2026-11-05 05:37:48.998302281 +0900
++++ b/Properties/StringOverlay.cs	2026-11-05 05:37:49.007619762 +0900
+@@ -15,6 +15,10 @@
+     private static Dictionary<string, string> _map = new(StringComparer.Ordinal);
+     private static bool _loaded;
+ 
++    // Two-letter language of the loaded overlay. Get() is called for every
++    // localized string, so it must not probe culture.txt on disk each time.
++    private static string _language;
++
+     internal static event EventHandler CultureChanged;
+ 
+     internal static CultureInfo ResolveCulture()
+@@ -38,7 +42,9 @@
+     {
+         lock (Gate)
+         {
+-            _map = ReadMap(culture ?? CultureInfo.GetCultureInfo("en"));
++            culture ??= CultureInfo.GetCultureInfo("en");
++            _map = ReadMap(culture);
++            _language = culture.TwoLetterISOLanguageName;
+             _loaded = true;
+         }
+     }
+@@ -86,18 +92,22 @@
+     internal static string Get(string key)
+     {
+         Dictionary<string, string> current;
++        string language;
+         lock (Gate)
+         {
+             if (!_loaded)
+             {
+-                _map = ReadMap(ResolveCulture());
++                var culture = ResolveCulture();
++                _map = ReadMap(culture);
++                _language = culture.TwoLetterISOLanguageName;
+                 _loaded = true;
+             }
+ 
+             current = _map;
++            language = _language;
+         }
+ 
+-        var builtin = Builtin(key);
++        var builtin = Builtin(key, language);
+         if (!string.IsNullOrEmpty(builtin)) return builtin;
+         if (current.TryGetValue(key, out string value) && !string.IsNullOrEmpty(value))
+             return Unescape(value);
+@@ -106,9 +116,8 @@
+         return Strings.ResourceManager.GetString(key, CultureInfo.InvariantCulture) ?? key;
+     }
+ 
+-    private static string Builtin(string key)
++    private static string Builtin(string key, string language)
+     {
+-        var language = ResolveCulture().TwoLetterISOLanguageName;
+         if (key == "Main_IconRemove" || key == "Main_IconReset")
+         {
+             if (language == "ja") return "アイコンリセット";
+diff -ruN a/Services/CodeGrepService.cs b/Services/CodeGrepService.cs
+--- a/Services/CodeGrepService.cs	2026-11-05 05:37:48.998619164 +0900
++++ b/Services/CodeGrepService.cs	2026-11-05 05:37:49.008631707 +0900
+@@ -35,21 +35,26 @@
+         var processed = 0;
+         var skipped = 0;
+         var matcher = BuildMatcher(query, regex, matchCase, wholeWord);
++        // A literal (escaped) pattern cannot use ^/$ or span lines, so a match anywhere in the
++        // whole text is exactly a match in some line. User regexes are always tested per line.
++        var prefilter = regex ? null : matcher;
+         var options = new ParallelOptions { CancellationToken = token, MaxDegreeOfParallelism = 4 };
+ 
+         Parallel.ForEach(files, options, file =>
+         {
+             try
+             {
+-                if (new FileInfo(file).Length > 64L * 1024 * 1024)
++                var lines = ReadLines(file, prefilter, out var tooLarge);
++                if (tooLarge)
+                 {
+                     Interlocked.Increment(ref skipped);
+                     return;
+                 }
+ 
++                if (lines == null) return; // The literal query does not occur in this file.
+                 var scope = FindScope(file, orderedScopes);
+                 var lineNumber = 0;
+-                foreach (var line in ReadLines(file))
++                foreach (var line in lines)
+                 {
+                     options.CancellationToken.ThrowIfCancellationRequested();
+                     lineNumber++;
+@@ -154,31 +159,79 @@
+         }
+     }
+ 
+-    private static IEnumerable<string> ReadLines(string path)
++    private const long MaximumFileSize = 64L * 1024 * 1024;
++
++    // Files up to this size are read whole so a literal query can reject non-matching files
++    // without splitting them into lines; larger files are still streamed line by line.
++    private const long WholeReadLimit = 4L * 1024 * 1024;
++
++    /// <summary>
++    ///     Opens the file once for size, encoding detection and reading. Returns null when the
++    ///     whole-text prefilter proves the file has no match.
++    /// </summary>
++    private static IEnumerable<string> ReadLines(string path, Regex prefilter, out bool tooLarge)
++    {
++        var stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
++        try
++        {
++            var length = stream.Length;
++            tooLarge = length > MaximumFileSize;
++            if (tooLarge)
++            {
++                stream.Dispose();
++                return null;
++            }
++
++            var encoding = DetectEncoding(stream);
++            stream.Position = 0;
++            var reader = new StreamReader(stream, encoding, true);
++            if (prefilter == null || length > WholeReadLimit) return StreamLines(reader);
++            string text;
++            using (reader)
++            {
++                text = reader.ReadToEnd();
++            }
++
++            return prefilter.IsMatch(text) ? TextLines(text) : null;
++        }
++        catch
++        {
++            stream.Dispose();
++            throw;
++        }
++    }
++
++    private static IEnumerable<string> StreamLines(StreamReader reader)
+     {
+-        var encoding = DetectEncoding(path);
+-        using (var reader = new StreamReader(path, encoding, true))
++        using (reader)
+         {
+             string line;
+             while ((line = reader.ReadLine()) != null) yield return line;
+         }
+     }
+ 
+-    private static Encoding DetectEncoding(string path)
++    private static IEnumerable<string> TextLines(string text)
++    {
++        // StringReader.ReadLine splits exactly like StreamReader.ReadLine (CR, LF, CRLF).
++        using var reader = new StringReader(text);
++        string line;
++        while ((line = reader.ReadLine()) != null) yield return line;
++    }
++
++    private static Encoding DetectEncoding(Stream stream)
+     {
+         var sample = new byte[4096];
+-        int count;
+-        using (var stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+-        {
+-            count = stream.Read(sample, 0, sample.Length);
+-        }
++        var count = stream.ReadAtLeast(sample, sample.Length, false);
+ 
+         if (count >= 2 && sample[0] == 0xFF && sample[1] == 0xFE) return Encoding.Unicode;
+         if (count >= 2 && sample[0] == 0xFE && sample[1] == 0xFF) return Encoding.BigEndianUnicode;
+         if (count >= 3 && sample[0] == 0xEF && sample[1] == 0xBB && sample[2] == 0xBF) return Encoding.UTF8;
+         try
+         {
+-            new UTF8Encoding(false, true).GetString(sample, 0, count);
++            // Do not flush when the sample was cut at 4096 bytes: a multi-byte character split
++            // at the boundary is incomplete, not invalid, and must not force Shift-JIS.
++            new UTF8Encoding(false, true).GetDecoder()
++                .GetCharCount(sample, 0, count, count < sample.Length);
+             return new UTF8Encoding(false);
+         }
+         catch (DecoderFallbackException)
+diff -ruN a/Services/DeveloperDifferencerService.cs b/Services/DeveloperDifferencerService.cs
+--- a/Services/DeveloperDifferencerService.cs	2026-11-05 05:37:48.998780548 +0900
++++ b/Services/DeveloperDifferencerService.cs	2026-11-05 05:37:49.009691604 +0900
+@@ -1,6 +1,7 @@
+ ﻿using FastVolumeIndex;
+ using Microsoft.Win32.SafeHandles;
+ using System;
++using System.Buffers;
+ using System.Collections.Generic;
+ using System.ComponentModel;
+ using System.Diagnostics.CodeAnalysis;
+@@ -8,9 +9,11 @@
+ using System.IO.Compression;
+ using System.IO.Hashing;
+ using System.Linq;
++using System.Runtime.ExceptionServices;
+ using System.Runtime.InteropServices;
+ using System.Runtime.InteropServices.ComTypes;
+ using System.Threading;
++using System.Threading.Tasks;
+ 
+ namespace DesktopIniManager.Services;
+ 
+@@ -231,11 +234,22 @@
+         ".vscode"
+     };
+ 
++    private static readonly HashSet<string>.AlternateLookup<ReadOnlySpan<char>> IgnoredDirectoryLookup =
++        IgnoredDirectories.GetAlternateLookup<ReadOnlySpan<char>>();
++
+     /// <summary>Returns whether a path enters a protected metadata directory.</summary>
+     public static bool Protected(string path)
+     {
+-        return path.Replace('/', '\\').Split('\\')
+-            .Any(p => IgnoredDirectories.Contains(p.TrimEnd(' ', '.')));
++        // Allocation-free: this runs for every enumerated and classified path.
++        var rest = path.AsSpan();
++        while (true)
++        {
++            var separator = rest.IndexOfAny('\\', '/');
++            var segment = (separator < 0 ? rest : rest[..separator]).TrimEnd(" .");
++            if (IgnoredDirectoryLookup.Contains(segment)) return true;
++            if (separator < 0) return false;
++            rest = rest[(separator + 1)..];
++        }
+     }
+ 
+     /// <summary>Normalizes and validates a comparison root directory.</summary>
+@@ -260,11 +274,7 @@
+     [return: NotNull]
+     public static string SafePath(string root, string relative)
+     {
+-        if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative) || relative.Contains(':') ||
+-            Protected(relative) ||
+-            relative.Replace('/', '\\').Split('\\').Any(p =>
+-                p == ".." || p == "." || p.Length == 0 || p.EndsWith(" ") || p.EndsWith(".")))
+-            throw new IOException("Protected or invalid relative path: " + relative);
++        ValidateRelative(relative);
+         var path = Path.GetFullPath(Path.Combine(root, relative));
+         if (!path.StartsWith(root.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase) || Protected(path))
+             throw new IOException("Refused a path outside the root or inside .git.");
+@@ -272,6 +282,15 @@
+         return path;
+     }
+ 
++    private static void ValidateRelative(string relative)
++    {
++        if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative) || relative.Contains(':') ||
++            Protected(relative) ||
++            relative.Replace('/', '\\').Split('\\').Any(p =>
++                p == ".." || p == "." || p.Length == 0 || p.EndsWith(" ") || p.EndsWith(".")))
++            throw new IOException("Protected or invalid relative path: " + relative);
++    }
++
+     private static void CheckComponents(string path)
+     {
+         // Do not follow junctions, symbolic links or other reparse points while
+@@ -336,8 +355,9 @@
+                 // Protected entries still count for the physical empty-folder indicator.
+                 nonEmptyFolders?.Add(directoryRelative);
+                 var path = Path.Combine(directory, entry.Name);
+-                var relative = RelativeFromRoot(root, path);
+-                if (Protected(relative) ||
++                var relative = ChildRelative(root, directoryRelative, path, entry.Name);
++                // Ancestors were checked before this directory was queued; only the new segment can be protected.
++                if (IsProtectedName(entry.Name) ||
+                     ignore.IsIgnored(relative, (entry.Attributes & FileAttributes.Directory) != 0)) continue;
+                 if ((entry.Attributes & FileAttributes.Directory) != 0)
+                 {
+@@ -394,6 +414,22 @@
+         return path;
+     }
+ 
++    private static bool IsProtectedName(string name)
++    {
++        return IgnoredDirectoryLookup.Contains(name.AsSpan().TrimEnd(" ."));
++    }
++
++    /// <summary>
++    ///     Builds the root-relative path of an enumerated child without calling GetFullPath per entry.
++    ///     Names that Win32 normalization would alter (trailing dot or space) keep the original path.
++    /// </summary>
++    private static string ChildRelative(string root, string directoryRelative, string path, string name)
++    {
++        if (name.Length == 0 || name[^1] == '.' || name[^1] == ' ')
++            return RelativeFromRoot(root, path);
++        return directoryRelative.Length == 0 ? name : directoryRelative + "\\" + name;
++    }
++
+     private static string RelativeFromRoot(string root, string path)
+     {
+         var normalizedRoot = root.TrimEnd('\\') + "\\";
+@@ -567,12 +603,13 @@
+         if (!Directory.Exists(directory)) return;
+         folders.Add(relativeFolder);
+ 
++        var directoryRelative = RelativeFromRoot(root, directory);
+         foreach (var entry in VolumePathIndex.EnumerateNativeDirectory(directory, token))
+         {
+             token.ThrowIfCancellationRequested();
+             var path = Path.Combine(directory, entry.Name);
+-            var relative = RelativeFromRoot(root, path);
+-            if (Protected(relative)) continue;
++            var relative = ChildRelative(root, directoryRelative, path, entry.Name);
++            if (IsProtectedName(entry.Name)) continue;
+             if ((entry.Attributes & FileAttributes.Directory) != 0)
+             {
+                 folders.Add(relative);
+@@ -586,6 +623,23 @@
+         }
+     }
+ 
++    private const int ClassifyChunkSize = 128;
++
++    // Content reads (BOM, XXH128, re-stat) overlap well on SSDs and network shares;
++    // keep the degree small so spinning disks are not thrashed.
++    private static readonly ParallelOptions ContentReadOptions = new() { MaxDegreeOfParallelism = 4 };
++
++    private sealed class ClassifyWork
++    {
++        public DiffStamp Source, Target;
++        public string SourcePath, TargetPath;
++        public bool? SourceBom, TargetBom;
++        public string SourceHash, TargetHash;
++        public DiffStamp SourceNow, TargetNow;
++        public bool IsProtected, HashMissing;
++        public ExceptionDispatchInfo Error;
++    }
++
+     internal static List<DiffFile> Classify(Dictionary<string, DiffStamp> left, Dictionary<string, DiffStamp> right,
+         bool includeSame = false, bool compareTimestamp = true, CancellationToken token = default,
+         IProgress<DiffProgress> progress = null, int offset = 0,
+@@ -600,72 +654,119 @@
+         var paths = left.Keys.Union(right.Keys, StringComparer.OrdinalIgnoreCase).ToArray();
+         if (pathComparison != null) Array.Sort(paths, pathComparison);
+         else Array.Sort(paths, StringComparer.OrdinalIgnoreCase);
+-        for (var index = 0; index < paths.Length; index++)
++        var readsContent = compareAttributes || preciseCompare;
++        var work = new ClassifyWork[ClassifyChunkSize];
++
++        for (var chunkStart = 0; chunkStart < paths.Length; chunkStart += ClassifyChunkSize)
+         {
+             token.ThrowIfCancellationRequested();
+-            var path = paths[index];
+-            if (progress != null && index % 128 == 0)
+-                progress.Report(ReportCompare("Classifying differences\u2026", index, paths.Length));
+-            if (Protected(path)) continue;
+-            DiffStamp a, b;
+-            left.TryGetValue(path, out a);
+-            right.TryGetValue(path, out b);
+-            string sourceHash = null, targetHash = null;
+-            var sourceBom = compareAttributes && a != null
+-                ? HasBom(SafeAttributePath(sourceRoot, path, sourceValidatedFolders))
+-                : false;
+-
+-            var targetBom = compareAttributes && b != null
+-                ? HasBom(SafeAttributePath(targetRoot, path, targetValidatedFolders))
+-                : false;
+-            if (ShouldHash(a, b, compareTimestamp, compareSize, compareAttributes, sourceBom, targetBom,
+-                    preciseCompare))
+-            {
+-                sourceHash = HashFile(SafePath(sourceRoot, path), token);
+-                targetHash = HashFile(SafePath(targetRoot, path), token);
+-                if (sourceHash == null || targetHash == null)
++            var count = Math.Min(ClassifyChunkSize, paths.Length - chunkStart);
++
++            // 1) Sequential: stamps and path validation (the folder caches are not thread-safe).
++            for (var j = 0; j < count; j++)
++            {
++                var path = paths[chunkStart + j];
++                var item = work[j] = new ClassifyWork();
++                if (Protected(path))
+                 {
+-                    progress?.Report(ReportCompare("Skipped changed file: " + path, index + 1, paths.Length));
++                    item.IsProtected = true;
+                     continue;
+                 }
++
++                left.TryGetValue(path, out item.Source);
++                right.TryGetValue(path, out item.Target);
++                if (!readsContent) continue;
++                try
++                {
++                    if (item.Source != null)
++                        item.SourcePath = ValidatedFilePath(sourceRoot, path, sourceValidatedFolders);
++                    if (item.Target != null)
++                        item.TargetPath = ValidatedFilePath(targetRoot, path, targetValidatedFolders);
++                }
++                catch (Exception ex)
++                {
++                    item.Error = ExceptionDispatchInfo.Capture(ex);
++                }
+             }
+ 
+-            if (preciseCompare)
+-                // Files may disappear or change between enumeration and hashing
+-                // (desktop.ini is a common example). Never interpret a vanished
+-                // source as an instruction to delete its destination.
+-                // Exclude this stale entry; a fresh comparison will pick it up.
+-                if (!DiffStamp.Same(a, a == null ? null : DiffStamp.Read(SafePath(sourceRoot, path)), true) ||
+-                    !DiffStamp.Same(b, b == null ? null : DiffStamp.Read(SafePath(targetRoot, path)), true))
++            // 2) Parallel: file content reads. Failures are rethrown in path order below.
++            if (readsContent)
++            {
++                Parallel.For(0, count, ContentReadOptions, j =>
++                {
++                    var item = work[j];
++                    if (item.IsProtected || item.Error != null || token.IsCancellationRequested) return;
++                    try
++                    {
++                        ReadContent(item, preciseCompare, compareTimestamp, compareSize, compareAttributes, token);
++                    }
++                    catch (Exception ex)
++                    {
++                        item.Error = ExceptionDispatchInfo.Capture(ex);
++                    }
++                });
++                token.ThrowIfCancellationRequested();
++            }
++
++            // 3) Sequential: classification, batching and progress in the original order.
++            for (var j = 0; j < count; j++)
++            {
++                var index = chunkStart + j;
++                var path = paths[index];
++                var item = work[j];
++                work[j] = null;
++                if (progress != null && index % 128 == 0)
++                    progress.Report(ReportCompare("Classifying differences\u2026", index, paths.Length));
++                if (item.IsProtected) continue;
++                item.Error?.Throw();
++                var a = item.Source;
++                var b = item.Target;
++                var sourceBom = compareAttributes && a != null ? item.SourceBom : false;
++                var targetBom = compareAttributes && b != null ? item.TargetBom : false;
++                if (item.HashMissing)
+                 {
+                     progress?.Report(ReportCompare("Skipped changed file: " + path, index + 1, paths.Length));
+                     continue;
+                 }
+ 
+-            if (includeSame || !DiffStamp.Same(a, b, compareTimestamp, compareSize) ||
+-                (preciseCompare && sourceHash != targetHash) || sourceBom != targetBom || sourceBom == null ||
+-                targetBom == null)
+-            {
+-                var file = new DiffFile
+-                {
+-                    RelativePath = path,
+-                    Source = a,
+-                    Target = b,
+-                    CompareTimestamp = compareTimestamp,
+-                    PreciseCompare = preciseCompare,
+-                    CompareSize = compareSize,
+-                    SourceHash = sourceHash,
+-                    TargetHash = targetHash,
+-                    CompareAttributes = compareAttributes,
+-                    SourceBom = sourceBom,
+-                    TargetBom = targetBom
+-                };
+-                files.Add(file);
+-                batch?.Add(file);
+-                if (batch?.Count >= 128)
++                if (preciseCompare)
++                    // Files may disappear or change between enumeration and hashing
++                    // (desktop.ini is a common example). Never interpret a vanished
++                    // source as an instruction to delete its destination.
++                    // Exclude this stale entry; a fresh comparison will pick it up.
++                    if (!DiffStamp.Same(a, item.SourceNow, true) || !DiffStamp.Same(b, item.TargetNow, true))
++                    {
++                        progress?.Report(ReportCompare("Skipped changed file: " + path, index + 1, paths.Length));
++                        continue;
++                    }
++
++                var sourceHash = item.SourceHash;
++                var targetHash = item.TargetHash;
++                if (includeSame || !DiffStamp.Same(a, b, compareTimestamp, compareSize) ||
++                    (preciseCompare && sourceHash != targetHash) || sourceBom != targetBom || sourceBom == null ||
++                    targetBom == null)
+                 {
+-                    onBatch(batch.ToArray());
+-                    batch.Clear();
++                    var file = new DiffFile
++                    {
++                        RelativePath = path,
++                        Source = a,
++                        Target = b,
++                        CompareTimestamp = compareTimestamp,
++                        PreciseCompare = preciseCompare,
++                        CompareSize = compareSize,
++                        SourceHash = sourceHash,
++                        TargetHash = targetHash,
++                        CompareAttributes = compareAttributes,
++                        SourceBom = sourceBom,
++                        TargetBom = targetBom
++                    };
++                    files.Add(file);
++                    batch?.Add(file);
++                    if (batch?.Count >= 128)
++                    {
++                        onBatch(batch.ToArray());
++                        batch.Clear();
++                    }
+                 }
+             }
+         }
+@@ -676,6 +777,30 @@
+         return files;
+     }
+ 
++    private static void ReadContent(ClassifyWork item, bool preciseCompare, bool compareTimestamp,
++        bool compareSize, bool compareAttributes, CancellationToken token)
++    {
++        var a = item.Source;
++        var b = item.Target;
++        item.SourceBom = compareAttributes && a != null ? HasBom(item.SourcePath) : false;
++        item.TargetBom = compareAttributes && b != null ? HasBom(item.TargetPath) : false;
++        if (ShouldHash(a, b, compareTimestamp, compareSize, compareAttributes, item.SourceBom, item.TargetBom,
++                preciseCompare))
++        {
++            item.SourceHash = HashFile(item.SourcePath, token);
++            item.TargetHash = HashFile(item.TargetPath, token);
++            if (item.SourceHash == null || item.TargetHash == null)
++            {
++                item.HashMissing = true;
++                return;
++            }
++        }
++
++        if (!preciseCompare) return;
++        item.SourceNow = a == null ? null : DiffStamp.Read(item.SourcePath);
++        item.TargetNow = b == null ? null : DiffStamp.Read(item.TargetPath);
++    }
++
+     internal static bool ShouldHash(DiffStamp source, DiffStamp target, bool compareTimestamp, bool compareSize,
+         bool compareAttributes, bool? sourceBom, bool? targetBom, bool preciseCompare)
+     {
+@@ -684,52 +809,32 @@
+                (!compareAttributes || (sourceBom.HasValue && targetBom.HasValue && sourceBom == targetBom));
+     }
+ 
+-    private static string SafeAttributePath(
+-        string root,
+-        string relative,
+-        HashSet<string> validatedFolders)
++    /// <summary>
++    ///     Resolves a file inside a comparison root for read-only content checks.
++    ///     The first file of each folder receives the full <see cref="SafePath" /> check of every ancestor;
++    ///     later files in that folder validate the relative name and their own final component only.
++    /// </summary>
++    private static string ValidatedFilePath(string root, string relative, HashSet<string> validatedFolders)
+     {
+         var folder = Path.GetDirectoryName(relative) ?? "";
++        if (validatedFolders.Add(folder)) return SafePath(root, relative);
+ 
+-        if (!validatedFolders.Contains(folder))
+-        {
+-            // 親階層の検証は初回だけ行う。
+-            // 実体のないファイルはHasBom側で読取り不可と判定する。
+-            string validated;
+-
+-            try
+-            {
+-                validated = SafePath(root, relative);
+-            }
+-            catch (FileNotFoundException)
+-            {
+-                validated = Path.GetFullPath(Path.Combine(root, relative));
+-            }
+-            catch (DirectoryNotFoundException)
+-            {
+-                validated = Path.GetFullPath(Path.Combine(root, relative));
+-            }
+-
+-            validatedFolders.Add(folder);
+-            return validated;
+-        }
+-
++        ValidateRelative(relative);
+         var path = Path.GetFullPath(Path.Combine(root, relative));
+-
++        if (!path.StartsWith(root.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase))
++            throw new IOException("Refused a path outside the root or inside .git.");
+         try
+         {
+-            var attributes = File.GetAttributes(path);
+-
+-            if ((attributes & FileAttributes.ReparsePoint) != 0)
++            if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+                 throw new IOException("Reparse points are excluded: " + path);
+         }
+         catch (FileNotFoundException)
+         {
+-            // HasBomで読取り不可として扱う。
++            // Treated as unreadable/changed by the content checks.
+         }
+         catch (DirectoryNotFoundException)
+         {
+-            // HasBomで読取り不可として扱う。
++            // Treated as unreadable/changed by the content checks.
+         }
+ 
+         return path;
+@@ -757,17 +862,30 @@
+         }
+     }
+ 
++    private const int HashBufferSize = 131072;
++
+     internal static string HashFile(string path, CancellationToken token = default)
+     {
+         if (string.IsNullOrEmpty(path) || !File.Exists(path)) return null;
+         var xxh128 = new XxHash128();
+-        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 131072);
+-        var buffer = new byte[131072];
+-        int count;
+-        while ((count = stream.Read(buffer, 0, buffer.Length)) > 0)
++        // bufferSize 0: reads are already large, so skip FileStream's own 128 KB buffer.
++        // The work buffer is pooled; a fresh 128 KB array per file lands on the LOH
++        // and drives frequent gen-2 collections when many files are hashed.
++        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 0,
++            FileOptions.SequentialScan);
++        var buffer = ArrayPool<byte>.Shared.Rent(HashBufferSize);
++        try
+         {
+-            token.ThrowIfCancellationRequested();
+-            xxh128.Append(buffer.AsSpan(0, count));
++            int count;
++            while ((count = stream.Read(buffer, 0, HashBufferSize)) > 0)
++            {
++                token.ThrowIfCancellationRequested();
++                xxh128.Append(buffer.AsSpan(0, count));
++            }
++        }
++        finally
++        {
++            ArrayPool<byte>.Shared.Return(buffer);
+         }
+ 
+         return Convert.ToHexString(xxh128.GetCurrentHash());
+diff -ruN a/Services/Diff.cs b/Services/Diff.cs
+--- a/Services/Diff.cs	2026-11-05 05:37:48.999054057 +0900
++++ b/Services/Diff.cs	2026-11-05 05:37:49.012872892 +0900
+@@ -32,8 +32,20 @@
+         ArgumentNullException.ThrowIfNull(linesB);
+         var codeMap = new Dictionary<string, int>(linesA.Length + linesB.Length, StringComparer.Ordinal);
+ 
+-        var dataA = new DiffData(EncodeLines(linesA, codeMap, trimSpace, ignoreSpace, ignoreCase));
+-        var dataB = new DiffData(EncodeLines(linesB, codeMap, trimSpace, ignoreSpace, ignoreCase));
++        return DiffCodes(EncodeLines(linesA, codeMap, trimSpace, ignoreSpace, ignoreCase),
++            EncodeLines(linesB, codeMap, trimSpace, ignoreSpace, ignoreCase));
++    }
++
++    /// <summary>
++    ///     Computes differences between two sequences of equality codes (equal values mean equal items).
++    ///     Callers that already have comparable integers, such as characters, avoid string keys.
++    /// </summary>
++    public static Item[] DiffCodes(int[] codesA, int[] codesB)
++    {
++        ArgumentNullException.ThrowIfNull(codesA);
++        ArgumentNullException.ThrowIfNull(codesB);
++        var dataA = new DiffData(codesA);
++        var dataB = new DiffData(codesB);
+ 
+         var max = dataA.Length + dataB.Length + 1;
+         var downVector = new int[2 * max + 2];
+diff -ruN a/Services/DiffTextService.cs b/Services/DiffTextService.cs
+--- a/Services/DiffTextService.cs	2026-11-05 05:37:48.999006822 +0900
++++ b/Services/DiffTextService.cs	2026-11-05 05:37:49.013549551 +0900
+@@ -82,7 +82,10 @@
+ 
+     private static bool IsStructuralLine(string text)
+     {
+-        return text.All(character => char.IsWhiteSpace(character) || "{}()[];,".Contains(character));
++        foreach (var character in text)
++            if (!char.IsWhiteSpace(character) && "{}()[];,".IndexOf(character) < 0)
++                return false;
++        return true;
+     }
+ 
+     private static Diff.Item[] AlignLines(string[] left, string[] right)
+@@ -104,6 +107,26 @@
+ 
+         var leftPositions = UniqueLines(left);
+         var rightPositions = UniqueLines(right);
++
++        // Encode every line once; each gap between anchors is then diffed as integer codes
++        // instead of re-hashing the same strings per gap.
++        var codeMap = new Dictionary<string, int>(left.Length + right.Length, StringComparer.Ordinal);
++
++        int[] Encode(string[] lines)
++        {
++            var codes = new int[lines.Length];
++            for (var i = 0; i < lines.Length; i++)
++            {
++                if (!codeMap.TryGetValue(lines[i], out var code))
++                    codeMap.Add(lines[i], code = codeMap.Count + 1);
++                codes[i] = code;
++            }
++
++            return codes;
++        }
++
++        var leftCodes = Encode(left);
++        var rightCodes = Encode(right);
+         var candidates = new List<(int Left, int Right)>();
+         for (var index = 0; index < left.Length; index++)
+             if (leftPositions.TryGetValue(left[index], out var position) && position == index &&
+@@ -140,7 +163,8 @@
+         foreach (var anchor in anchors)
+         {
+             if (anchor.Left > leftStart || anchor.Right > rightStart)
+-                foreach (var difference in Diff.DiffLines(left[leftStart..anchor.Left], right[rightStart..anchor.Right]))
++                foreach (var difference in Diff.DiffCodes(leftCodes[leftStart..anchor.Left],
++                             rightCodes[rightStart..anchor.Right]))
+                     differences.Add(difference with
+                     {
+                         StartA = difference.StartA + leftStart,
+@@ -280,12 +304,19 @@
+         return rows;
+     }
+ 
++    private static int[] CharacterCodes(string text)
++    {
++        var codes = new int[text.Length];
++        for (var i = 0; i < text.Length; i++) codes[i] = text[i];
++        return codes;
++    }
++
+     private static (bool[] Left, bool[] Right) CompareCharacters(string left, string right, bool ignoreSpaces)
+     {
+         left = left.Replace("\t", "    ");
+         right = right.Replace("\t", "    ");
+-        var changes = Diff.DiffLines(left.Select(c => c.ToString()).ToArray(),
+-            right.Select(c => c.ToString()).ToArray());
++        // Characters are their own equality codes: no per-character strings.
++        var changes = Diff.DiffCodes(CharacterCodes(left), CharacterCodes(right));
+         var a = new bool[left.Length];
+         var b = new bool[right.Length];
+         var leftIndent = left.Length - left.TrimStart(' ', '\u3000').Length;
+diff -ruN a/Services/DocumentGrepService.cs b/Services/DocumentGrepService.cs
+--- a/Services/DocumentGrepService.cs	2026-11-05 05:37:48.998369025 +0900
++++ b/Services/DocumentGrepService.cs	2026-11-05 05:37:49.014132502 +0900
+@@ -139,7 +139,8 @@
+                     row++;
+                     for (var column = 0; column < reader.FieldCount; column++)
+                     {
+-                        var value = reader.GetValue(column).ToString();
++                        // Empty cells return null.
++                        var value = reader.GetValue(column)?.ToString();
+                         if (string.IsNullOrEmpty(value)) continue;
+                         var match = matcher.Match(value);
+                         if (!match.Success) continue;
+@@ -159,6 +160,8 @@
+         using (var zip = new ZipArchive(stream, ZipArchiveMode.Read))
+         {
+             var strings = ReadSharedStrings(zip, token);
++            // Shared strings are referenced by many cells; match each one at most once.
++            var sharedMatches = new Match[strings.Count];
+             foreach (var sheet in ReadSheets(zip))
+             {
+                 token.ThrowIfCancellationRequested();
+@@ -176,9 +179,17 @@
+                         var type = reader.GetAttribute("t");
+                         var value = ReadCellValue(reader);
+                         if (string.IsNullOrEmpty(value)) continue;
++                        Match match;
+                         if (type == "s" && int.TryParse(value, out var index) && index >= 0 && index < strings.Count)
++                        {
+                             value = strings[index];
+-                        var match = matcher.Match(value);
++                            match = sharedMatches[index] ??= matcher.Match(value);
++                        }
++                        else
++                        {
++                            match = matcher.Match(value);
++                        }
++
+                         if (!match.Success) continue;
+                         var row = RowOf(address);
+                         var column = ColumnOf(address);
+@@ -227,18 +238,19 @@
+     {
+         if (reader.IsEmptyElement) return null;
+         string value = null;
+-        var inline = new StringBuilder();
++        StringBuilder inline = null; // Only inline-string cells need it.
+         using (var subtree = reader.ReadSubtree())
+         {
+             while (subtree.Read())
+             {
+                 if (subtree.NodeType != XmlNodeType.Element) continue;
+                 if (subtree.LocalName == "v") value = subtree.ReadElementContentAsString();
+-                else if (subtree.LocalName == "t") inline.Append(subtree.ReadElementContentAsString());
++                else if (subtree.LocalName == "t")
++                    (inline ??= new StringBuilder()).Append(subtree.ReadElementContentAsString());
+             }
+         }
+ 
+-        return inline.Length > 0 ? inline.ToString() : value;
++        return inline is { Length: > 0 } ? inline.ToString() : value;
+     }
+ 
+     private static List<SheetRef> ReadSheets(ZipArchive zip)
+diff -ruN a/Services/FastFolderSearchService.cs b/Services/FastFolderSearchService.cs
+--- a/Services/FastFolderSearchService.cs	2026-11-05 05:37:48.999031901 +0900
++++ b/Services/FastFolderSearchService.cs	2026-11-05 05:37:49.014771437 +0900
+@@ -18,11 +18,19 @@
+             .Select(value => value.Trim().TrimStart('*')).Where(value => value.Length > 0)
+             .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+         var gitMode = keys.Any(key => string.Equals(key.TrimStart('.'), "git", StringComparison.OrdinalIgnoreCase));
++        // Displayability depends only on ancestors; remember it per folder for this search.
++        var displayable = new Dictionary<VolumePathNode, bool>();
++
++        bool IsVisible(VolumePathNode node)
++        {
++            return IsDisplayable(node, displayable);
++        }
++
+         if (keys.Length == 0 || gitMode)
+             foreach (var node in paths.Directories)
+             {
+                 token.ThrowIfCancellationRequested();
+-                if (IsDisplayable(node)) Add(matches, node.Path, "Folder");
++                if (IsVisible(node)) Add(matches, node.Path, "Folder");
+             }
+         else
+             foreach (var key in keys)
+@@ -35,8 +43,10 @@
+                     {
+                         if (!NameMatches(entry.Name, key, fileNameQuery)) continue;
+                         var folder = FolderPathOf(entry);
+-                        var folderNode = !string.IsNullOrEmpty(folder) ? paths.Find(folder) : null;
+-                        if (folderNode != null && IsDisplayable(folderNode))
++                        // The linked node is the indexed folder itself; avoid Find's GetFullPath per match.
++                        var folderNode = entry.IsDirectory ? entry : entry.Parent;
++                        if (folderNode == null && !string.IsNullOrEmpty(folder)) folderNode = paths.Find(folder);
++                        if (folderNode != null && IsVisible(folderNode))
+                         {
+                             Add(matches, folder, "Name: " + key);
+                             if (entry.IsDirectory) matches[folder].IsSearchMatch = true;
+@@ -47,12 +57,12 @@
+                 var extension = "." + key.TrimStart('.');
+                 foreach (var group in paths.FindFiles(new[] { extension })
+                              .GroupBy(FolderPathOf, StringComparer.OrdinalIgnoreCase))
+-                    if (!string.IsNullOrEmpty(group.Key) && IsDisplayable(paths.Find(group.Key)))
++                    if (!string.IsNullOrEmpty(group.Key) && IsVisible(paths.Find(group.Key)))
+                         Add(matches, group.Key, "Contents: " + extension + " \u00D7 " + group.Count());
+             }
+ 
+         foreach (var path in matches.Keys.ToArray())
+-            AddAncestors(matches, paths, path);
++            AddAncestors(matches, paths, path, displayable);
+         return matches.Values.OrderBy(item => item.Path, StringComparer.OrdinalIgnoreCase).ToList();
+     }
+ 
+@@ -100,7 +110,8 @@
+     }
+ 
+     private static void AddAncestors(
+-        Dictionary<string, FolderMatch> matches, VolumePathIndex paths, string path)
++        Dictionary<string, FolderMatch> matches, VolumePathIndex paths, string path,
++        Dictionary<VolumePathNode, bool> displayable)
+     {
+         var current = path;
+         while (!string.IsNullOrEmpty(current)
+@@ -113,23 +124,22 @@
+                 && !string.Equals(parentPath, paths.RootPath, StringComparison.OrdinalIgnoreCase))
+                 break;
+             var node = paths.Find(parentPath);
+-            if (node != null && IsDisplayable(node)) Add(matches, parentPath, "Folder");
++            if (node != null && IsDisplayable(node, displayable)) Add(matches, parentPath, "Folder");
+             current = parentPath;
+         }
+     }
+ 
+-    private static bool IsDisplayable(VolumePathNode node)
++    private static bool IsDisplayable(VolumePathNode node, Dictionary<VolumePathNode, bool> cache)
+     {
+-        while (node != null)
+-        {
+-            if ((node.Attributes & FileAttributes.Hidden) != 0) return false;
+-            if (string.Equals(node.Name, ".git", StringComparison.OrdinalIgnoreCase) ||
+-                string.Equals(node.Name, ".vs", StringComparison.OrdinalIgnoreCase) ||
+-                string.Equals(node.Name, ".vscode", StringComparison.OrdinalIgnoreCase)) return false;
+-            node = node.Parent;
+-        }
+-
+-        return true;
++        if (node == null) return true;
++        if (cache.TryGetValue(node, out var known)) return known;
++        var result = (node.Attributes & FileAttributes.Hidden) == 0 &&
++                     !string.Equals(node.Name, ".git", StringComparison.OrdinalIgnoreCase) &&
++                     !string.Equals(node.Name, ".vs", StringComparison.OrdinalIgnoreCase) &&
++                     !string.Equals(node.Name, ".vscode", StringComparison.OrdinalIgnoreCase) &&
++                     IsDisplayable(node.Parent, cache);
++        cache[node] = result;
++        return result;
+     }
+ 
+     /// <summary>Summarizes development artifacts found in each indexed folder.</summary>
+diff -ruN a/Services/GitIgnoreMatcher.cs b/Services/GitIgnoreMatcher.cs
+--- a/Services/GitIgnoreMatcher.cs	2026-11-05 05:37:48.998752476 +0900
++++ b/Services/GitIgnoreMatcher.cs	2026-11-05 05:37:49.015352179 +0900
+@@ -102,7 +102,7 @@
+             {
+                 var local = scope.Length == 0 ? relative : relative.Substring(scope.Length + 1);
+                 foreach (var rule in Load(scope))
+-                    if ((!rule.DirectoryOnly || directory) && rule.Pattern.IsMatch(local))
++                    if ((!rule.DirectoryOnly || directory) && rule.IsMatch(local))
+                         ignored = !rule.Negated;
+                 if (scope == parent) break;
+                 var next = parent.IndexOf('/', scope.Length == 0 ? 0 : scope.Length + 1);
+@@ -145,8 +145,12 @@
+             if (expression == null) continue;
+             try
+             {
+-                var regex = new Regex((anchored ? "^" : "(?:^|/)") + expression + "$",
+-                    RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
++                // Common literal and "*.ext" rules are matched without a regex (see Rule.IsMatch).
++                var kind = LiteralKind(pattern, anchored);
++                var regex = kind != MatchKind.Regex
++                    ? null
++                    : new Regex((anchored ? "^" : "(?:^|/)") + expression + "$",
++                        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1));
+                 if (!negate)
+                 {
+                     var entry = new GitIgnoreRuleInfo { Scope = scope, Pattern = original };
+@@ -154,7 +158,8 @@
+                     if (_disabled.Contains(entry.Key)) continue;
+                 }
+ 
+-                result.Add(new Rule(regex, directoryOnly, negate));
++                result.Add(new Rule(regex, kind == MatchKind.Suffix ? pattern.Substring(1) : pattern, kind,
++                    directoryOnly, negate));
+             }
+             catch (ArgumentException)
+             {
+@@ -243,5 +248,46 @@
+         return result.ToString();
+     }
+ 
+-    private sealed record Rule(Regex Pattern, bool DirectoryOnly, bool Negated);
++    private static MatchKind LiteralKind(string pattern, bool anchored)
++    {
++        if (pattern.AsSpan().IndexOfAny("*?[\\") < 0)
++            return anchored ? MatchKind.Exact : MatchKind.Segment;
++        if (!anchored && pattern.Length > 1 && pattern[0] == '*' && pattern.AsSpan(1).IndexOfAny("*?[\\/") < 0)
++            return MatchKind.Suffix;
++        return MatchKind.Regex;
++    }
++
++    private enum MatchKind
++    {
++        Regex,
++
++        // Anchored literal: ^literal$
++        Exact,
++
++        // Unanchored literal: (?:^|/)literal$
++        Segment,
++
++        // Unanchored "*literal" without '/': (?:^|/)[^/]*literal$, i.e. the path ends with literal.
++        Suffix
++    }
++
++    // Git for Windows defaults to core.ignorecase=true, so rules match case-insensitively.
++    private sealed record Rule(Regex Pattern, string Literal, MatchKind Kind, bool DirectoryOnly, bool Negated)
++    {
++        public bool IsMatch(string local)
++        {
++            switch (Kind)
++            {
++                case MatchKind.Exact:
++                    return string.Equals(local, Literal, StringComparison.OrdinalIgnoreCase);
++                case MatchKind.Segment:
++                    return local.EndsWith(Literal, StringComparison.OrdinalIgnoreCase) &&
++                           (local.Length == Literal.Length || local[local.Length - Literal.Length - 1] == '/');
++                case MatchKind.Suffix:
++                    return local.EndsWith(Literal, StringComparison.OrdinalIgnoreCase);
++                default:
++                    return Pattern.IsMatch(local);
++            }
++        }
++    }
+ }
+\ No newline at end of file
+diff -ruN a/ViewModels/DeveloperDifferencerViewModel.cs b/ViewModels/DeveloperDifferencerViewModel.cs
+--- a/ViewModels/DeveloperDifferencerViewModel.cs	2026-11-05 05:37:48.999121866 +0900
++++ b/ViewModels/DeveloperDifferencerViewModel.cs	2026-11-05 05:37:49.016062624 +0900
+@@ -1993,10 +1993,11 @@
+ 
+     internal void Filter()
+     {
++        var folderPrefix = _selectedFolder + "\\";
+         var visible = _rows.Where(r =>
+             IncludeBuildFolderFile(r.File) && (r.File.Kind & _kindMask) != 0 &&
+             (_selectedFolder.Length == 0 ||
+-             r.File.RelativePath.StartsWith(_selectedFolder + "\\", StringComparison.OrdinalIgnoreCase)) &&
++             r.File.RelativePath.StartsWith(folderPrefix, StringComparison.OrdinalIgnoreCase)) &&
+             (!_checkedOnlyFilter || r.File.Selected)).ToList();
+         MarkDirectFileRows(visible);
+         visible = OrderSelectedFolderFirst(visible);
+diff -ruN a/ViewModels/DiffViewModel.cs b/ViewModels/DiffViewModel.cs
+--- a/ViewModels/DiffViewModel.cs	2026-11-05 05:37:48.999616860 +0900
++++ b/ViewModels/DiffViewModel.cs	2026-11-05 05:37:49.018750423 +0900
+@@ -243,6 +243,7 @@
+         }
+         else
+         {
++            var filteredFormat = StringOverlay.Get("Diff_FilteredLines");
+             for (var i = designerCount; i < _allLines.Count; i++)
+             {
+                 if (_allLines[i].Kind != DiffLineKind.Unchanged || IsPatch && _allLines[i].EditHunkId >= 0)
+@@ -261,7 +262,7 @@
+                     continue;
+                 }
+ 
+-                var label = string.Format(StringOverlay.Get("Diff_FilteredLines"), count);
++                var label = string.Format(filteredFormat, count);
+                 visible.Add(new DiffLine
+                 {
+                     Kind = DiffLineKind.Unchanged,
+diff -ruN a/ViewModels/GrepWindowViewModel.cs b/ViewModels/GrepWindowViewModel.cs
+--- a/ViewModels/GrepWindowViewModel.cs	2026-11-05 05:37:48.999837280 +0900
++++ b/ViewModels/GrepWindowViewModel.cs	2026-11-05 05:37:49.019922687 +0900
+@@ -78,7 +78,7 @@
+         Results.Filter = MatchListFilter;
+         Results.GroupDescriptions.Add(new PropertyGroupDescription(nameof(GrepMatch.GroupPath)));
+         _resultTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(50), DispatcherPriority.Background,
+-            (_, _) => DrainPendingMatches(20), _dispatcher);
++            (_, _) => DrainPendingMatches(LiveDrainBudget), _dispatcher);
+         _resultTimer.Stop();
+         InitializeHistoryCommands();
+     }
+@@ -632,15 +632,22 @@
+         NotifyListCommands();
+     }
+ 
+-    private void DrainPendingMatches(int maximum)
++    // Drain by elapsed time instead of a fixed item count. A fixed 20 items per 50 ms tick
++    // capped the display at 400 matches per second even when the search had finished.
++    private static readonly TimeSpan LiveDrainBudget = TimeSpan.FromMilliseconds(15);
++    private static readonly TimeSpan FinalDrainBudget = TimeSpan.FromMilliseconds(40);
++
++    private void DrainPendingMatches(TimeSpan budget)
+     {
+         var count = 0;
++        var watch = Stopwatch.StartNew();
+         GrepMatch match;
+         GrepMatch last = null;
+-        while (count++ < maximum && _pendingMatches.TryDequeue(out match))
++        while (_pendingMatches.TryDequeue(out match))
+         {
+             Matches.Add(match);
+             last = match;
++            if ((++count & 15) == 0 && watch.Elapsed >= budget) break;
+         }
+ 
+         if (last != null)
+@@ -655,7 +662,7 @@
+         while (!_pendingMatches.IsEmpty)
+         {
+             token.ThrowIfCancellationRequested();
+-            DrainPendingMatches(30);
++            DrainPendingMatches(FinalDrainBudget);
+             await Dispatcher.Yield(DispatcherPriority.Background);
+         }
+     }
+diff -ruN a/ViewModels/MainWindowViewModel.Files.cs b/ViewModels/MainWindowViewModel.Files.cs
+--- a/ViewModels/MainWindowViewModel.Files.cs	2026-11-05 05:37:49.000014660 +0900
++++ b/ViewModels/MainWindowViewModel.Files.cs	2026-11-05 05:37:49.021406074 +0900
+@@ -266,15 +266,51 @@
+     {
+         if (string.IsNullOrEmpty(selectedFolder)) return;
+         var searchKeys = GetFileSearchKeys();
++        var scope = FolderScope.Create(selectedFolder);
+         foreach (var path in paths)
+         {
+-            if (!IsPathUnder(path, selectedFolder) || !_displayedPhysicalFiles.Add(path)) continue;
++            if (!scope.Contains(path) || !_displayedPhysicalFiles.Add(path)) continue;
+             Files.Add(new FileListItem(path, searchKeys, selectedFolder));
+         }
+ 
+         FileListCountLabel = string.Format(Strings.Main_NItems, Files.Count);
+     }
+ 
++    /// <summary>
++    ///     Normalizes the folder once for many <see cref="IsPathUnder" /> tests. Enumerated paths that
++    ///     already start with the normalized prefix are accepted without normalizing them again.
++    /// </summary>
++    private readonly struct FolderScope
++    {
++        private readonly string _folder;
++        private readonly string _normalized;
++        private readonly string _prefix;
++
++        private FolderScope(string folder, string normalized)
++        {
++            _folder = folder;
++            _normalized = normalized;
++            _prefix = normalized?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
++                      + Path.DirectorySeparatorChar;
++        }
++
++        internal static FolderScope Create(string folder)
++        {
++            return new FolderScope(folder, string.IsNullOrWhiteSpace(folder) ? null : NormalizeComparePath(folder));
++        }
++
++        internal bool Contains(string path)
++        {
++            if (_normalized == null || string.IsNullOrWhiteSpace(path)) return false;
++            // Fast path for paths produced by enumeration: absolute, no "." or ".." segments.
++            if (path.StartsWith(_prefix, StringComparison.OrdinalIgnoreCase) &&
++                path.IndexOf(Path.AltDirectorySeparatorChar) < 0 &&
++                path.IndexOf("\\.", _prefix.Length - 1, StringComparison.Ordinal) < 0)
++                return true;
++            return IsPathUnder(path, _folder);
++        }
++    }
++
+     private static bool IsPathUnder(string path, string folder)
+     {
+         if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(folder)) return false;
+@@ -361,7 +397,8 @@
+                 {
+                     scanRoot = _physicalFileScanRoot;
+                     complete = _physicalFileScanComplete;
+-                    cached = _physicalFileCache.Where(path => IsPathUnder(path, folderPath)).ToArray();
++                    var scope = FolderScope.Create(folderPath);
++                    cached = _physicalFileCache.Where(path => scope.Contains(path)).ToArray();
+                 }
+ 
+                 var selectedRoot = string.Equals(
+diff -ruN a/Views/DiffViewWindow.xaml.cs b/Views/DiffViewWindow.xaml.cs
+--- a/Views/DiffViewWindow.xaml.cs	2026-11-05 05:37:49.000269306 +0900
++++ b/Views/DiffViewWindow.xaml.cs	2026-11-05 05:37:49.022751526 +0900
+@@ -225,8 +225,24 @@
+     private List<int> Hunks => ViewModel.Hunks;
+     private List<DiffLine> Lines => ViewModel.Lines;
+ 
+-    private string SyntaxExtension =>
+-        System.IO.Path.GetExtension(ViewModel.CurrentPatch?.Entry.RelativePath ?? ViewModel.File?.RelativePath ?? string.Empty).ToLowerInvariant();
++    // Evaluated several times per rendered row; recompute only when the file changes.
++    private string _syntaxSourcePath;
++    private string _syntaxExtension = string.Empty;
++
++    private string SyntaxExtension
++    {
++        get
++        {
++            var path = ViewModel.CurrentPatch?.Entry.RelativePath ?? ViewModel.File?.RelativePath ?? string.Empty;
++            if (!ReferenceEquals(path, _syntaxSourcePath))
++            {
++                _syntaxSourcePath = path;
++                _syntaxExtension = System.IO.Path.GetExtension(path).ToLowerInvariant();
++            }
++
++            return _syntaxExtension;
++        }
++    }
+ 
+     private int Current
+     {
+@@ -1038,6 +1054,7 @@
+ 
+     private async Task PopulatePaneAsync(RichTextBox box, bool sourceSide, bool responsive, bool incremental = false)
+     {
++        _syntaxDark = IsDarkBackground();
+         _renderedPanes.TryGetValue(sourceSide, out var previous);
+         incremental &= previous != null;
+         var previousRows = incremental
+@@ -1422,10 +1439,17 @@
+         AddPlainRun(paragraph, text, plain, text.Length - plain);
+     }
+ 
++    private static readonly Regex XmlTokenPattern =
++        new("<!--.*?-->|</?[^>]+>|&[A-Za-z0-9#]+;", RegexOptions.Compiled | RegexOptions.CultureInvariant);
++
++    private static readonly Regex JsonTokenPattern =
++        new(@"""(?:\\.|[^""\\])*""|\b(?:true|false|null)\b|-?\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b",
++            RegexOptions.Compiled | RegexOptions.CultureInvariant);
++
+     private void AddXmlRuns(Paragraph paragraph, string text)
+     {
+         var pos = 0;
+-        foreach (Match match in Regex.Matches(text, "<!--.*?-->|</?[^>]+>|&[A-Za-z0-9#]+;"))
++        foreach (Match match in XmlTokenPattern.Matches(text))
+         {
+             AddPlainRun(paragraph, text, pos, match.Index - pos);
+             AddColoredRun(paragraph, match.Value,
+@@ -1439,8 +1463,7 @@
+     private void AddJsonRuns(Paragraph paragraph, string text)
+     {
+         var pos = 0;
+-        foreach (Match match in Regex.Matches(text,
+-                     @"""(?:\\.|[^""\\])*""|\b(?:true|false|null)\b|-?\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b"))
++        foreach (Match match in JsonTokenPattern.Matches(text))
+         {
+             AddPlainRun(paragraph, text, pos, match.Index - pos);
+             var kind = match.Value.StartsWith("\"", StringComparison.Ordinal) ? "string" :
+@@ -1457,16 +1480,36 @@
+         if (paragraph != null && length > 0) paragraph.Inlines.Add(new Run(text.Substring(start, length)));
+     }
+ 
++    // Theme lookup is done once per pane render; brushes are frozen and shared by every run.
++    private bool _syntaxDark = true;
++
++    private static readonly Brush DarkCommentBrush = FrozenBrush(106, 153, 85);
++    private static readonly Brush LightCommentBrush = FrozenBrush(0, 128, 0);
++    private static readonly Brush DarkStringBrush = FrozenBrush(206, 145, 120);
++    private static readonly Brush LightStringBrush = FrozenBrush(163, 21, 21);
++    private static readonly Brush DarkNumberBrush = FrozenBrush(181, 206, 168);
++    private static readonly Brush LightNumberBrush = FrozenBrush(9, 134, 88);
++    private static readonly Brush DarkKeywordBrush = FrozenBrush(86, 156, 214);
++    private static readonly Brush LightKeywordBrush = FrozenBrush(0, 0, 255);
++
++    private static Brush FrozenBrush(byte r, byte g, byte b)
++    {
++        var brush = new SolidColorBrush(Color.FromRgb(r, g, b));
++        brush.Freeze();
++        return brush;
++    }
++
+     private void AddColoredRun(Paragraph paragraph, string text, string kind)
+     {
+         if (paragraph == null) return;
+-        var run = new Run(text);
+-        var dark = IsDarkBackground();
+-        var color = kind == "comment" ? dark ? Color.FromRgb(106, 153, 85) : Color.FromRgb(0, 128, 0) :
+-            kind == "string" ? dark ? Color.FromRgb(206, 145, 120) : Color.FromRgb(163, 21, 21) :
+-            kind == "number" ? dark ? Color.FromRgb(181, 206, 168) : Color.FromRgb(9, 134, 88) :
+-            dark ? Color.FromRgb(86, 156, 214) : Color.FromRgb(0, 0, 255);
+-        run.Foreground = new SolidColorBrush(color);
++        var dark = _syntaxDark;
++        var run = new Run(text)
++        {
++            Foreground = kind == "comment" ? dark ? DarkCommentBrush : LightCommentBrush :
++                kind == "string" ? dark ? DarkStringBrush : LightStringBrush :
++                kind == "number" ? dark ? DarkNumberBrush : LightNumberBrush :
++                dark ? DarkKeywordBrush : LightKeywordBrush
++        };
+         paragraph.Inlines.Add(run);
+     }
+ 

@@ -90,12 +90,22 @@ internal sealed partial class DiffViewModel : ObservableObject
     public string Title => IsEmpty
         ? StringOverlay.Get("Diff_Heading")
         : string.Format(StringOverlay.Get("Diff_TitleFile"),
-            !IsDetachedComparison
-                ? File.RelativePath
-                : Path.GetFileName(_sourcePath) + " \u2194 " + Path.GetFileName(_targetPath));
+            IsPatch
+                ? Path.GetFileName(GetPath(true)) + " \u2194 " + Path.GetFileName(GetPath(false) ?? string.Empty)
+                : !IsDetachedComparison
+                    ? File.RelativePath
+                    : Path.GetFileName(_sourcePath) + " \u2194 " + Path.GetFileName(_targetPath));
 
-    public string SourceHeader => HeaderMeta(File.SourceInfo);
-    public string TargetHeader => HeaderMeta(File.TargetInfo);
+    /// <summary>
+    ///     File whose stamps feed the side headers and status icons. In Patch View the
+    ///     target is the actual file resolved from the patch's relative path, not the
+    ///     comparison entry the patch was opened with (which is left unchanged).
+    /// </summary>
+    internal DiffFile HeaderFile => IsPatch && _patchHeaderFile != null ? _patchHeaderFile : File;
+    private DiffFile _patchHeaderFile;
+
+    public string SourceHeader => HeaderMeta(HeaderFile.SourceInfo);
+    public string TargetHeader => HeaderMeta(HeaderFile.TargetInfo);
     public bool IsImage => DiffMedia.IsImage(File.RelativePath);
     public bool IsVideo => DiffMedia.IsVideo(File.RelativePath);
     public bool IsAudio => DiffMedia.IsAudio(File.RelativePath);
@@ -192,8 +202,15 @@ internal sealed partial class DiffViewModel : ObservableObject
 
     internal bool ExpandFilteredLines(int index)
     {
-        if (!CanChangeComparison || !DifferencesOnly || Lines == null || index < 0 || index >= Lines.Count ||
+        if (!CanChangeComparison || Lines == null || index < 0 || index >= Lines.Count ||
             Lines[index].FilteredLineCount == 0) return false;
+        if (Lines[index].IsDesignerHeader)
+        {
+            _designerHeaderExpanded = true;
+            UpdateDisplayedLines();
+            return true;
+        }
+        if (!DifferencesOnly) return false;
         var originalStart = 0;
         for (var i = 0; i < index; i++) originalStart += Math.Max(1, Lines[i].FilteredLineCount);
         _expandedEqualBlocks.Add(originalStart);
@@ -208,7 +225,9 @@ internal sealed partial class DiffViewModel : ObservableObject
         var originalIndex = 0;
         for (var i = 0; i < index; i++) originalIndex += Math.Max(1, Lines[i].FilteredLineCount);
         var start = originalIndex;
-        while (start > 0 && _allLines[start - 1].Kind == DiffLineKind.Unchanged) start--;
+        // Walk back exactly as UpdateDisplayedLines groups rows: never into the folded designer header.
+        var first = DesignerHeaderRowCount;
+        while (start > first && _allLines[start - 1].Kind == DiffLineKind.Unchanged) start--;
         if (!_expandedEqualBlocks.Remove(start)) return -1;
         var collapsedIndex = index - (originalIndex - start);
         UpdateDisplayedLines();
@@ -217,15 +236,29 @@ internal sealed partial class DiffViewModel : ObservableObject
 
     private void UpdateDisplayedLines()
     {
+        var designerCount = DesignerHeaderRowCount;
+        var visible = new List<DiffLine>();
+        if (designerCount > 0)
+        {
+            if (_designerHeaderExpanded) visible.AddRange(_allLines.Take(designerCount));
+            else
+            {
+                var changed = _allLines.Take(designerCount).Any(row => row.Kind != DiffLineKind.Unchanged);
+                var label = $"— VB6 form designer: {designerCount} lines{(changed ? " / differences" : "")} —";
+                visible.Add(new DiffLine { Left = label, Right = label, FilteredLineCount = designerCount,
+                    IsDesignerHeader = true, FilteredAnchor = _allLines[0] });
+            }
+        }
         if (!DifferencesOnly)
         {
-            Lines = _allLines;
+            Lines = designerCount == 0 ? _allLines : visible.Concat(_allLines.Skip(designerCount)).ToList();
         }
         else
         {
-            var visible = new List<DiffLine>();
-            for (var i = 0; i < _allLines.Count; i++)
+            var filteredFormat = StringOverlay.Get("Diff_FilteredLines");
+            for (var i = designerCount; i < _allLines.Count; i++)
             {
+                // Patch rows fold like text rows: unchanged context inside a hunk is not a difference.
                 if (_allLines[i].Kind != DiffLineKind.Unchanged)
                 {
                     visible.Add(_allLines[i]);
@@ -241,7 +274,7 @@ internal sealed partial class DiffViewModel : ObservableObject
                     continue;
                 }
 
-                var label = string.Format(StringOverlay.Get("Diff_FilteredLines"), count);
+                var label = string.Format(filteredFormat, count);
                 visible.Add(new DiffLine
                 {
                     Kind = DiffLineKind.Unchanged,
@@ -257,8 +290,12 @@ internal sealed partial class DiffViewModel : ObservableObject
 
         Hunks.Clear();
         CurrentHunk = -1;
+        // A hunk is a run of changed rows; unchanged rows are never inside one.
+        // In a patch, each run has its own id (PatchFileState.Runs), so adjacent
+        // runs of different patch hunks stay separate.
         for (var i = 0; i < Lines.Count; i++)
-            if (Lines[i].Kind != DiffLineKind.Unchanged && (i == 0 || Lines[i - 1].Kind == DiffLineKind.Unchanged))
+            if (Lines[i].Kind != DiffLineKind.Unchanged &&
+                (i == 0 || Lines[i - 1].Kind == DiffLineKind.Unchanged || IsPatch && Lines[i - 1].EditHunkId != Lines[i].EditHunkId))
                 Hunks.Add(i);
         OnPropertyChanged(nameof(Lines));
         OnPropertyChanged(nameof(Hunks));
@@ -300,6 +337,7 @@ internal sealed partial class DiffViewModel : ObservableObject
     {
         if (_closed || _loadingContent) return false;
         _loadingContent = true;
+        if (!PatchDocument.IsPatch(GetPath(true))) { Patch = null; PatchFiles = []; _loadedPatchPath = null; }
         ResetContent();
         RefreshFileDetails();
         SourceImage = TargetImage = null;
@@ -311,7 +349,11 @@ internal sealed partial class DiffViewModel : ObservableObject
         try
         {
             if (DiffMedia.IsBinary(File.RelativePath)) throw new InvalidDataException(DiffMedia.BinaryMessage);
-            if (IsVideo || IsAudio)
+            if (PatchDocument.IsPatch(GetPath(true)))
+            {
+                await LoadPatchAsync(GetPath(true));
+            }
+            else if (IsVideo || IsAudio)
             {
                 // Videos are played via MediaElement in the view; no frame extraction here.
                 Status = string.Empty;
@@ -377,6 +419,9 @@ internal sealed partial class DiffViewModel : ObservableObject
 
     private void ReplaceInputs(string source, string target)
     {
+        Patch = null;
+        PatchFiles = [];
+        _loadedPatchPath = null;
         // Manual pairs must not modify or refresh the owning comparison snapshot.
         _sourcePath = source ?? "";
         _targetPath = target ?? "";
@@ -421,6 +466,7 @@ internal sealed partial class DiffViewModel : ObservableObject
                     if (!System.IO.File.Exists(path))
                         throw new FileNotFoundException(StringOverlay.Get("Diff_DropFilesOnly"), path);
                     if (imageMode) LoadImage(path);
+                    else if (PatchDocument.IsPatch(path)) PatchDocument.Read(path);
                     else if (!videoMode && !audioMode) ReadDocument(path);
                 }
             });
@@ -437,6 +483,7 @@ internal sealed partial class DiffViewModel : ObservableObject
 
     internal string GetPath(bool source)
     {
+        if (!source && IsPatch) return CurrentPatch?.TargetPath;
         return (source ? _sourcePath : _targetPath)
                ?? DeveloperDifferencerService.SafePath(source ? Snapshot.SourceRoot : Snapshot.TargetRoot,
                    File.RelativePath);
@@ -450,6 +497,7 @@ internal sealed partial class DiffViewModel : ObservableObject
 
     internal async Task LoadTextAsync()
     {
+        _designerHeaderExpanded = false;
         _expandedEqualBlocks.Clear();
         string left = GetPath(true), right = GetPath(false);
         var prepared = _preparedText;
@@ -464,11 +512,12 @@ internal sealed partial class DiffViewModel : ObservableObject
 
     internal async Task RecompareTextAsync()
     {
+        if (IsPatch) { RefreshPatchRows(); return; }
         _expandedEqualBlocks.Clear();
         _allLines = await Task.Run(() => DiffTextService.Compare(SourceText.Lines, TargetText.Lines,
             !CompareCase, !CompareSpaces, CompareNewlines ? SourceText.Endings : null,
             CompareNewlines ? TargetText.Endings : null,
-            CompareCase));
+            CompareCase, CompareNewlines));
         _edits = new DiffEditSession(SourceText, TargetText, _allLines);
         UpdateDisplayedLines();
         Status = IsEmpty ? StringOverlay.Get("Diff_DropHint")
@@ -635,7 +684,11 @@ internal sealed partial class DiffViewModel : ObservableObject
             encoding = CodePagesEncodingProvider.Instance.GetEncoding(932, EncoderFallback.ExceptionFallback,
                            DecoderFallback.ExceptionFallback) ??
                        throw new NotSupportedException("Shift-JIS encoding is unavailable.");
-            text = encoding.GetString(bytes);
+            try { text = encoding.GetString(bytes); }
+            catch (DecoderFallbackException ex)
+            {
+                throw new IOException($"Unable to decode '{path}' as UTF-8 or Shift-JIS (byte {ex.Index}).", ex);
+            }
         }
 
         var document = new TextDocument
@@ -708,7 +761,7 @@ internal sealed partial class DiffViewModel : ObservableObject
                 c != '\b' &&
                 c != '\u001b' &&
                 c != '\u001a')
-                throw new InvalidDataException(DiffMedia.BinaryMessage);
+                throw new IOException($"Unsupported control character U+{(int)c:X4} in '{path}' at line {lines.Count + 1}.");
         }
 
         lines.Add(text[start..]);
@@ -794,6 +847,14 @@ internal sealed partial class DiffViewModel : ObservableObject
         try
         {
             if (!IsDetachedComparison && RefreshFileRequested != null) await RefreshFileRequested(File);
+            if (IsPatch)
+            {
+                if (HasPatchEdits) throw new InvalidOperationException("Save or discard patch edits before reloading.");
+                var root = PatchRoot;
+                _loadedPatchPath = null;
+                await LoadPatchAsync(GetPath(true));
+                if (root != null) SetPatchRoot(root);
+            }
             File.Source = DiffStamp.Read(GetPath(true));
             File.Target = DiffStamp.Read(GetPath(false));
             _preparedText = null;

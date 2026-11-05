@@ -57,6 +57,7 @@ internal sealed partial class DiffViewWindow
         async Task Copy(bool source)
         {
             if (hunkId < 0 || _renderingContent || _savingText || !ViewModel.CanChangeComparison) return;
+            if (ViewModel.IsPatch && (!source || !ViewModel.CurrentPatch.CanCopyRun(hunkId))) return;
             var selected = SelectedEditHunks(source);
             ViewModel.CopyHunks(selected.Contains(hunkId) ? selected.ToArray() : new[] { hunkId }, source);
             await RenderTextEditsAsync();
@@ -78,6 +79,13 @@ internal sealed partial class DiffViewWindow
             }
 
             copyRight.IsEnabled = copyLeft.IsEnabled = hunkId >= 0 && ViewModel.CanChangeComparison && !_savingText;
+            if (ViewModel.IsPatch)
+            {
+                copyLeft.IsEnabled = false;
+                copyRight.IsEnabled &= ViewModel.CurrentPatch.CanCopyRun(hunkId);
+            }
+            copyLeft.Visibility = ViewModel.IsPatch ? Visibility.Collapsed : Visibility.Visible;
+            clipboard.Visibility = ViewModel.IsPatch ? Visibility.Collapsed : Visibility.Visible;
             // Open without allowing RichTextBox to replace this side's selection.
             e.Handled = true;
             menu.PlacementTarget = Body;
@@ -163,10 +171,13 @@ internal sealed partial class DiffViewWindow
     {
         while (viewport.Children.Count > 1) viewport.Children.RemoveAt(1);
         if (!ViewModel.IsText || Lines == null) return;
+        if (ViewModel.IsPatch && (!source || !ViewModel.CurrentPatch.CanApply)) return;
+        var seen = new HashSet<int>();
         foreach (var row in Hunks)
         {
             var id = Lines[row].EditHunkId;
-            if (id < 0) continue;
+            // One arrow per run (each patch run has its own id).
+            if (id < 0 || !seen.Add(id)) continue;
             var button = new Button
             {
                 Width = 24,
@@ -215,6 +226,9 @@ internal sealed partial class DiffViewWindow
             var icon = undo ? source ? 154 : 152 : grouped ? source ? 152 : 154 : source ? 153 : 151;
             ((Image)button.Content).Source = DifferencerStatusIcons.GetCustomIcon(icon);
             button.IsEnabled = !grouped;
+            if (ViewModel.IsPatch)
+                button.IsEnabled &= undo || ViewModel.CurrentPatch.CanCopyRun(id) &&
+                    (!selectedEditHunks.Contains(id) || selectedEditHunks.All(ViewModel.CurrentPatch.CanCopyRun));
             button.ToolTip =
                 StringOverlay.Get(undo ? "Diff_UndoHunk" : source ? "Diff_CopyToTarget" : "Diff_CopyToSource");
         }
@@ -242,6 +256,7 @@ internal sealed partial class DiffViewWindow
         }
 
         RefreshEditArrows();
+        RefreshPatchMoveButtons();
     }
 
     private void PositionEditArrows(Canvas viewport, double offset)
@@ -303,6 +318,7 @@ internal sealed partial class DiffViewWindow
                 button.IsEnabled = ViewModel.IsDirty(side);
         }
 
+        RefreshPatchMoveButtons();
         return Task.CompletedTask;
     }
 
@@ -337,6 +353,7 @@ internal sealed partial class DiffViewWindow
 
     private async Task<bool> SaveTextSideAsync(bool source)
     {
+        if (ViewModel.IsPatch) return source || await SavePatchAsync();
         if (_savingText || _renderingContent || !ViewModel.CanChangeComparison) return false;
         if (!ViewModel.IsDirty(source)) return true;
         _savingText = true;
@@ -463,7 +480,12 @@ internal sealed partial class DiffViewWindow
             panel.Children.Add(buttons);
             dialog.Content = panel;
             if (dialog.ShowDialog() != true) return false;
-            if (choice == 2) return true;
+            if (choice == 2)
+            {
+                if (ViewModel.IsPatch) ViewModel.DiscardPatchEdits();
+                return true;
+            }
+            if (ViewModel.IsPatch) return await SaveAllPatchFilesAsync();
             return await SaveTextSideAsync(true) && await SaveTextSideAsync(false);
         }
         finally

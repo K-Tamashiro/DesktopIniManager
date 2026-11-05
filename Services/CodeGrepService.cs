@@ -35,21 +35,26 @@ internal sealed class CodeGrepService
         var processed = 0;
         var skipped = 0;
         var matcher = BuildMatcher(query, regex, matchCase, wholeWord);
+        // A literal (escaped) pattern cannot use ^/$ or span lines, so a match anywhere in the
+        // whole text is exactly a match in some line. User regexes are always tested per line.
+        var prefilter = regex ? null : matcher;
         var options = new ParallelOptions { CancellationToken = token, MaxDegreeOfParallelism = 4 };
 
         Parallel.ForEach(files, options, file =>
         {
             try
             {
-                if (new FileInfo(file).Length > 64L * 1024 * 1024)
+                var lines = ReadLines(file, prefilter, out var tooLarge);
+                if (tooLarge)
                 {
                     Interlocked.Increment(ref skipped);
                     return;
                 }
 
+                if (lines == null) return; // The literal query does not occur in this file.
                 var scope = FindScope(file, orderedScopes);
                 var lineNumber = 0;
-                foreach (var line in ReadLines(file))
+                foreach (var line in lines)
                 {
                     options.CancellationToken.ThrowIfCancellationRequested();
                     lineNumber++;
@@ -154,31 +159,79 @@ internal sealed class CodeGrepService
         }
     }
 
-    private static IEnumerable<string> ReadLines(string path)
+    private const long MaximumFileSize = 64L * 1024 * 1024;
+
+    // Files up to this size are read whole so a literal query can reject non-matching files
+    // without splitting them into lines; larger files are still streamed line by line.
+    private const long WholeReadLimit = 4L * 1024 * 1024;
+
+    /// <summary>
+    ///     Opens the file once for size, encoding detection and reading. Returns null when the
+    ///     whole-text prefilter proves the file has no match.
+    /// </summary>
+    private static IEnumerable<string> ReadLines(string path, Regex prefilter, out bool tooLarge)
     {
-        var encoding = DetectEncoding(path);
-        using (var reader = new StreamReader(path, encoding, true))
+        var stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        try
+        {
+            var length = stream.Length;
+            tooLarge = length > MaximumFileSize;
+            if (tooLarge)
+            {
+                stream.Dispose();
+                return null;
+            }
+
+            var encoding = DetectEncoding(stream);
+            stream.Position = 0;
+            var reader = new StreamReader(stream, encoding, true);
+            if (prefilter == null || length > WholeReadLimit) return StreamLines(reader);
+            string text;
+            using (reader)
+            {
+                text = reader.ReadToEnd();
+            }
+
+            return prefilter.IsMatch(text) ? TextLines(text) : null;
+        }
+        catch
+        {
+            stream.Dispose();
+            throw;
+        }
+    }
+
+    private static IEnumerable<string> StreamLines(StreamReader reader)
+    {
+        using (reader)
         {
             string line;
             while ((line = reader.ReadLine()) != null) yield return line;
         }
     }
 
-    private static Encoding DetectEncoding(string path)
+    private static IEnumerable<string> TextLines(string text)
+    {
+        // StringReader.ReadLine splits exactly like StreamReader.ReadLine (CR, LF, CRLF).
+        using var reader = new StringReader(text);
+        string line;
+        while ((line = reader.ReadLine()) != null) yield return line;
+    }
+
+    private static Encoding DetectEncoding(Stream stream)
     {
         var sample = new byte[4096];
-        int count;
-        using (var stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
-        {
-            count = stream.Read(sample, 0, sample.Length);
-        }
+        var count = stream.ReadAtLeast(sample, sample.Length, false);
 
         if (count >= 2 && sample[0] == 0xFF && sample[1] == 0xFE) return Encoding.Unicode;
         if (count >= 2 && sample[0] == 0xFE && sample[1] == 0xFF) return Encoding.BigEndianUnicode;
         if (count >= 3 && sample[0] == 0xEF && sample[1] == 0xBB && sample[2] == 0xBF) return Encoding.UTF8;
         try
         {
-            new UTF8Encoding(false, true).GetString(sample, 0, count);
+            // Do not flush when the sample was cut at 4096 bytes: a multi-byte character split
+            // at the boundary is incomplete, not invalid, and must not force Shift-JIS.
+            new UTF8Encoding(false, true).GetDecoder()
+                .GetCharCount(sample, 0, count, count < sample.Length);
             return new UTF8Encoding(false);
         }
         catch (DecoderFallbackException)

@@ -508,6 +508,7 @@ public partial class DeveloperDifferencerWindow
 
     private void ApplyToolbarIcons()
     {
+        SetIcon(PatchViewIcon, 156);
         SetIcon(CloseButtonIcon, 26);
         SetIcon(SourceLabelIcon, 102);
         SetIcon(TargetLabelIcon, 103);
@@ -526,6 +527,30 @@ public partial class DeveloperDifferencerWindow
         SetIcon(IgnoreListIcon, 139);
         UpdateNodeExpandIcon();
         UpdateDensityIcon();
+    }
+
+    private async void PatchViewButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.IsBusy) return;
+        var picker = new Microsoft.Win32.OpenFileDialog { Filter = "Patch / Diff|*.patch;*.diff|All files|*.*", CheckFileExists = true };
+        if (picker.ShowDialog(this) != true) return;
+        PatchViewButton.IsEnabled = false;
+        try
+        {
+            var patch = await Task.Run(() => PatchDocument.Read(picker.FileName));
+            var snapshot = new DiffSnapshot { SourceRoot = Path.GetDirectoryName(picker.FileName), TargetRoot = ViewModel.TargetPath };
+            var file = new DiffFile { RelativePath = Path.GetFileName(picker.FileName), Source = DiffStamp.Read(picker.FileName) };
+            var viewer = new DiffViewWindow(snapshot, file, picker.FileName, "") { Owner = this };
+            viewer.ViewModel.InitializePatch(patch, picker.FileName,
+                Directory.Exists(ViewModel.TargetPath) ? ViewModel.TargetPath : null);
+            viewer.MatchOwnerSize();
+            viewer.Show();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ErrorMessages.English(ex), "Patch View", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally { PatchViewButton.IsEnabled = true; }
     }
 
     private void CompareModeToggle_Changed(object sender, RoutedEventArgs e) => UpdateCompareModeIcons();

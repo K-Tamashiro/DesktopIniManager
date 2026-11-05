@@ -18,11 +18,19 @@ internal sealed class FastFolderSearchService
             .Select(value => value.Trim().TrimStart('*')).Where(value => value.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         var gitMode = keys.Any(key => string.Equals(key.TrimStart('.'), "git", StringComparison.OrdinalIgnoreCase));
+        // Displayability depends only on ancestors; remember it per folder for this search.
+        var displayable = new Dictionary<VolumePathNode, bool>();
+
+        bool IsVisible(VolumePathNode node)
+        {
+            return IsDisplayable(node, displayable);
+        }
+
         if (keys.Length == 0 || gitMode)
             foreach (var node in paths.Directories)
             {
                 token.ThrowIfCancellationRequested();
-                if (IsDisplayable(node)) Add(matches, node.Path, "Folder");
+                if (IsVisible(node)) Add(matches, node.Path, "Folder");
             }
         else
             foreach (var key in keys)
@@ -35,8 +43,10 @@ internal sealed class FastFolderSearchService
                     {
                         if (!NameMatches(entry.Name, key, fileNameQuery)) continue;
                         var folder = FolderPathOf(entry);
-                        var folderNode = !string.IsNullOrEmpty(folder) ? paths.Find(folder) : null;
-                        if (folderNode != null && IsDisplayable(folderNode))
+                        // The linked node is the indexed folder itself; avoid Find's GetFullPath per match.
+                        var folderNode = entry.IsDirectory ? entry : entry.Parent;
+                        if (folderNode == null && !string.IsNullOrEmpty(folder)) folderNode = paths.Find(folder);
+                        if (folderNode != null && IsVisible(folderNode))
                         {
                             Add(matches, folder, "Name: " + key);
                             if (entry.IsDirectory) matches[folder].IsSearchMatch = true;
@@ -47,12 +57,12 @@ internal sealed class FastFolderSearchService
                 var extension = "." + key.TrimStart('.');
                 foreach (var group in paths.FindFiles(new[] { extension })
                              .GroupBy(FolderPathOf, StringComparer.OrdinalIgnoreCase))
-                    if (!string.IsNullOrEmpty(group.Key) && IsDisplayable(paths.Find(group.Key)))
+                    if (!string.IsNullOrEmpty(group.Key) && IsVisible(paths.Find(group.Key)))
                         Add(matches, group.Key, "Contents: " + extension + " \u00D7 " + group.Count());
             }
 
         foreach (var path in matches.Keys.ToArray())
-            AddAncestors(matches, paths, path);
+            AddAncestors(matches, paths, path, displayable);
         return matches.Values.OrderBy(item => item.Path, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
@@ -100,7 +110,8 @@ internal sealed class FastFolderSearchService
     }
 
     private static void AddAncestors(
-        Dictionary<string, FolderMatch> matches, VolumePathIndex paths, string path)
+        Dictionary<string, FolderMatch> matches, VolumePathIndex paths, string path,
+        Dictionary<VolumePathNode, bool> displayable)
     {
         var current = path;
         while (!string.IsNullOrEmpty(current)
@@ -113,23 +124,22 @@ internal sealed class FastFolderSearchService
                 && !string.Equals(parentPath, paths.RootPath, StringComparison.OrdinalIgnoreCase))
                 break;
             var node = paths.Find(parentPath);
-            if (node != null && IsDisplayable(node)) Add(matches, parentPath, "Folder");
+            if (node != null && IsDisplayable(node, displayable)) Add(matches, parentPath, "Folder");
             current = parentPath;
         }
     }
 
-    private static bool IsDisplayable(VolumePathNode node)
+    private static bool IsDisplayable(VolumePathNode node, Dictionary<VolumePathNode, bool> cache)
     {
-        while (node != null)
-        {
-            if ((node.Attributes & FileAttributes.Hidden) != 0) return false;
-            if (string.Equals(node.Name, ".git", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(node.Name, ".vs", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(node.Name, ".vscode", StringComparison.OrdinalIgnoreCase)) return false;
-            node = node.Parent;
-        }
-
-        return true;
+        if (node == null) return true;
+        if (cache.TryGetValue(node, out var known)) return known;
+        var result = (node.Attributes & FileAttributes.Hidden) == 0 &&
+                     !string.Equals(node.Name, ".git", StringComparison.OrdinalIgnoreCase) &&
+                     !string.Equals(node.Name, ".vs", StringComparison.OrdinalIgnoreCase) &&
+                     !string.Equals(node.Name, ".vscode", StringComparison.OrdinalIgnoreCase) &&
+                     IsDisplayable(node.Parent, cache);
+        cache[node] = result;
+        return result;
     }
 
     /// <summary>Summarizes development artifacts found in each indexed folder.</summary>

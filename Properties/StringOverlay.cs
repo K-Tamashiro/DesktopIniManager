@@ -15,6 +15,10 @@ internal static class StringOverlay
     private static Dictionary<string, string> _map = new(StringComparer.Ordinal);
     private static bool _loaded;
 
+    // Two-letter language of the loaded overlay. Get() is called for every
+    // localized string, so it must not probe culture.txt on disk each time.
+    private static string _language;
+
     internal static event EventHandler CultureChanged;
 
     internal static CultureInfo ResolveCulture()
@@ -38,7 +42,9 @@ internal static class StringOverlay
     {
         lock (Gate)
         {
-            _map = ReadMap(culture ?? CultureInfo.GetCultureInfo("en"));
+            culture ??= CultureInfo.GetCultureInfo("en");
+            _map = ReadMap(culture);
+            _language = culture.TwoLetterISOLanguageName;
             _loaded = true;
         }
     }
@@ -86,18 +92,22 @@ internal static class StringOverlay
     internal static string Get(string key)
     {
         Dictionary<string, string> current;
+        string language;
         lock (Gate)
         {
             if (!_loaded)
             {
-                _map = ReadMap(ResolveCulture());
+                var culture = ResolveCulture();
+                _map = ReadMap(culture);
+                _language = culture.TwoLetterISOLanguageName;
                 _loaded = true;
             }
 
             current = _map;
+            language = _language;
         }
 
-        var builtin = Builtin(key);
+        var builtin = Builtin(key, language);
         if (!string.IsNullOrEmpty(builtin)) return builtin;
         if (current.TryGetValue(key, out string value) && !string.IsNullOrEmpty(value))
             return Unescape(value);
@@ -106,9 +116,8 @@ internal static class StringOverlay
         return Strings.ResourceManager.GetString(key, CultureInfo.InvariantCulture) ?? key;
     }
 
-    private static string Builtin(string key)
+    private static string Builtin(string key, string language)
     {
-        var language = ResolveCulture().TwoLetterISOLanguageName;
         if (key == "Main_IconRemove" || key == "Main_IconReset")
         {
             if (language == "ja") return "アイコンリセット";

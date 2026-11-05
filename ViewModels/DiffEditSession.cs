@@ -24,14 +24,14 @@ internal sealed class DiffEditSession
         var id = 0;
         for (var i = 0; i < rows.Count;)
         {
-            var changed = rows[i].Kind != DiffLineKind.Unchanged;
+            var kind = BlockKind(rows[i], source, target);
             var part = new List<DiffLine>();
             do
             {
                 part.Add(rows[i++]);
-            } while (i < rows.Count && rows[i].Kind != DiffLineKind.Unchanged == changed);
+            } while (i < rows.Count && BlockKind(rows[i], source, target) == kind);
 
-            var block = new Block { Id = changed ? id++ : -1, Rows = part };
+            var block = new Block { Id = kind == ChangedBlock ? id++ : -1, IsGap = kind == GapBlock, Rows = part };
             block.Left = part.Where(r => r.LeftNumber > 0)
                 .Select(r => new Line(source.Lines[r.LeftNumber - 1], source.Endings[r.LeftNumber - 1])).ToArray();
             block.Right = part.Where(r => r.RightNumber > 0)
@@ -44,10 +44,24 @@ internal sealed class DiffEditSession
         }
     }
 
+    private const int UnchangedBlock = 0, ChangedBlock = 1, GapBlock = 2;
+
+    // A gap is a run of unchanged newline-only rows present on one side only
+    // (newline comparison off). It is never a hunk, but separates two hunks.
+    // The EOF pseudo-line keeps its existing final-newline handling.
+    private static int BlockKind(DiffLine row, TextDocument source, TextDocument target)
+    {
+        if (row.Kind != DiffLineKind.Unchanged) return ChangedBlock;
+        if ((row.LeftNumber > 0) == (row.RightNumber > 0)) return UnchangedBlock;
+        return row.LeftNumber > 0
+            ? row.LeftNumber < source.Lines.Length ? GapBlock : UnchangedBlock
+            : row.RightNumber < target.Lines.Length ? GapBlock : UnchangedBlock;
+    }
+
     internal bool CanUndo(int id, bool fromSource)
     {
         return _history.SelectMany(g => g)
-            .Any(e => e.Active && e.Block.Id == id && e.DestinationSource == !fromSource);
+            .Any(e => e.Active && e.HunkId == id && e.DestinationSource == !fromSource);
     }
 
     internal void Copy(IEnumerable<int> ids, bool fromSource)
@@ -59,24 +73,16 @@ internal sealed class DiffEditSession
             if (CanUndo(block.Id, fromSource)) continue;
             var before = fromSource ? block.Right : block.Left;
             var donor = fromSource ? block.Left : block.Right;
-            var format = fromSource ? _targetFormat : _sourceFormat;
-            // Mixed files retain each existing destination ending. Additional
-            // lines inherit a nearby ending. Uniform files keep their format.
-            var uniform = format.Newlines.Contains('/') ? null : format.Endings.FirstOrDefault(e => e.Length > 0);
-            var fallback = before.Select(l => l.Ending).FirstOrDefault(e => e.Length > 0)
-                           ?? format.Endings.FirstOrDefault(e => e.Length > 0)
-                           ?? (fromSource ? _sourceFormat : _targetFormat).Endings.FirstOrDefault(e => e.Length > 0) ??
-                           "\r\n";
             var isLast = ReferenceEquals(block, _blocks.LastOrDefault());
             var hadFinalNewline = fromSource ? _targetHasFinalNewline : _sourceHasFinalNewline;
-            var copied = donor.Select((l, i) => new Line(l.Text,
-                uniform ?? (i < before.Length && before[i].Ending.Length > 0 ? before[i].Ending : fallback))).ToList();
+            var copied = Adapt(donor, before, fromSource);
             if (isLast && copied.Count > 0)
                 copied[^1] = copied[^1] with { Ending = "" };
 
             group.Add(new Edit
             {
                 Block = block,
+                HunkId = block.Id,
                 DestinationSource = !fromSource,
                 Before = before,
                 BeforeFinalNewline = isLast ? hadFinalNewline : null
@@ -92,7 +98,64 @@ internal sealed class DiffEditSession
             block.Rows = null;
         }
 
+        CopyGaps(selected, fromSource, group);
         if (group.Count > 0) _history.Add(group);
+    }
+
+    // Newline-only gaps next to a copied hunk follow the copy direction:
+    // - one adjacent hunk copied: the destination gap becomes the donor gap
+    //   (source -> target inserts the blank rows, target -> source removes them);
+    // - hunks on both sides copied together: the gap is not copied, so the
+    //   destination receives one contiguous block without newline-only rows.
+    // Rows matched as newline-only on both sides are never gaps and are kept.
+    private void CopyGaps(HashSet<int> selected, bool fromSource, List<Edit> group)
+    {
+        for (var i = 0; i < _blocks.Count; i++)
+        {
+            var gap = _blocks[i];
+            if (!gap.IsGap) continue;
+            var previous = i > 0 && _blocks[i - 1].Id >= 0 && selected.Contains(_blocks[i - 1].Id)
+                ? _blocks[i - 1]
+                : null;
+            var next = i + 1 < _blocks.Count && _blocks[i + 1].Id >= 0 && selected.Contains(_blocks[i + 1].Id)
+                ? _blocks[i + 1]
+                : null;
+            if (previous == null && next == null) continue;
+            if (_history.SelectMany(g => g).Concat(group)
+                .Any(e => e.Active && ReferenceEquals(e.Block, gap) && e.DestinationSource == !fromSource))
+                continue;
+
+            var before = fromSource ? gap.Right : gap.Left;
+            var after = previous != null && next != null
+                ? Array.Empty<Line>()
+                : Adapt(fromSource ? gap.Left : gap.Right, before, fromSource).ToArray();
+            if (after.SequenceEqual(before)) continue;
+
+            group.Add(new Edit
+            {
+                Block = gap,
+                HunkId = (previous ?? next).Id,
+                DestinationSource = !fromSource,
+                Before = before
+            });
+            if (fromSource) gap.Right = after;
+            else gap.Left = after;
+            gap.Rows = null;
+        }
+    }
+
+    // Mixed files retain each existing destination ending. Additional
+    // lines inherit a nearby ending. Uniform files keep their format.
+    private List<Line> Adapt(Line[] donor, Line[] before, bool fromSource)
+    {
+        var format = fromSource ? _targetFormat : _sourceFormat;
+        var uniform = format.Newlines.Contains('/') ? null : format.Endings.FirstOrDefault(e => e.Length > 0);
+        var fallback = before.Select(l => l.Ending).FirstOrDefault(e => e.Length > 0)
+                       ?? format.Endings.FirstOrDefault(e => e.Length > 0)
+                       ?? (fromSource ? _sourceFormat : _targetFormat).Endings.FirstOrDefault(e => e.Length > 0) ??
+                       "\r\n";
+        return donor.Select((l, i) => new Line(l.Text,
+            uniform ?? (i < before.Length && before[i].Ending.Length > 0 ? before[i].Ending : fallback))).ToList();
     }
 
     private static bool HasFinalNewline(TextDocument document)
@@ -119,9 +182,13 @@ internal sealed class DiffEditSession
 
     internal void UndoHunk(int id, bool fromSource)
     {
-        var edit = _history.SelectMany(g => g)
-            .LastOrDefault(e => e.Active && e.Block.Id == id && e.DestinationSource == !fromSource);
-        if (edit != null) Undo(edit);
+        // A hunk copy and the newline-only gaps it synchronized are undone together.
+        var group = _history.LastOrDefault(g =>
+            g.Any(e => e.Active && e.HunkId == id && e.DestinationSource == !fromSource));
+        if (group == null) return;
+        foreach (var edit in group.Where(e => e.Active && e.HunkId == id && e.DestinationSource == !fromSource)
+                     .Reverse())
+            Undo(edit);
     }
 
     internal void UndoLast()
@@ -178,6 +245,22 @@ internal sealed class DiffEditSession
             }
 
             block.Rows = new List<DiffLine>();
+            if (block.IsGap)
+            {
+                // Gaps stay unchanged rows: paired when both sides now hold them.
+                for (var i = 0; i < Math.Max(block.Left.Length, block.Right.Length); i++)
+                    block.Rows.Add(new DiffLine
+                    {
+                        Kind = DiffLineKind.Unchanged,
+                        Left = i < block.Left.Length ? block.Left[i].Text : null,
+                        Right = i < block.Right.Length ? block.Right[i].Text : null,
+                        LeftNumber = i < block.Left.Length ? ++left : 0,
+                        RightNumber = i < block.Right.Length ? ++right : 0
+                    });
+                rows.AddRange(block.Rows);
+                continue;
+            }
+
             for (var i = 0; i < Math.Max(1, Math.Max(block.Left.Length, block.Right.Length)); i++)
                 block.Rows.Add(new DiffLine
                 {
@@ -199,6 +282,7 @@ internal sealed class DiffEditSession
     private sealed class Block
     {
         internal int Id = -1;
+        internal bool IsGap;
         internal Line[] Left, Right;
         internal Line[] OriginalLeft, OriginalRight;
         internal List<DiffLine> OriginalRows;
@@ -212,5 +296,6 @@ internal sealed class DiffEditSession
         internal bool? BeforeFinalNewline;
         internal Block Block;
         internal bool DestinationSource;
+        internal int HunkId = -1;
     }
 }

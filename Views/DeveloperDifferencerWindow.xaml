@@ -759,6 +759,14 @@
                             RenderOptions.BitmapScalingMode="HighQuality"
                             Stretch="Uniform" />
                     </Button>
+                    <Button x:Name="PatchViewButton"
+                            Margin="8,0,0,0"
+                            Click="PatchViewButton_Click"
+                            Style="{StaticResource IconButton}"
+                            ToolTip="Open patch / diff"
+                            AutomationProperties.Name="Open patch / diff">
+                        <Image x:Name="PatchViewIcon" RenderOptions.BitmapScalingMode="HighQuality" Stretch="Uniform" />
+                    </Button>
                 </StackPanel>
                 <StackPanel
                     Grid.Column="2"

@@ -25,12 +25,24 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock
-                VerticalAlignment="Center"
-                FontSize="26"
-                FontWeight="SemiBold"
-                Foreground="{DynamicResource Accent}"
-                Text="{loc:L Diff_Heading}" />
+            <StackPanel Orientation="Horizontal"
+                        VerticalAlignment="Center">
+                <TextBlock
+                    VerticalAlignment="Center"
+                    FontSize="26"
+                    FontWeight="SemiBold"
+                    Foreground="{DynamicResource Accent}"
+                    Text="{loc:L Diff_Heading}" />
+                <!-- Folds the external diff row and the toolbar row (text and patch views only). -->
+                <Expander
+                    x:Name="ToolbarToggle"
+                    Margin="10,0,0,0"
+                    VerticalAlignment="Center"
+                    Foreground="{DynamicResource Ink}"
+                    IsExpanded="True"
+                    ToolTip="Show / hide toolbar"
+                    Visibility="Collapsed" />
+            </StackPanel>
             <TextBlock
                 x:Name="SelectedFileText"
                 Grid.Column="1"
@@ -58,7 +70,8 @@
             </Button>
         </Grid>
 
-        <Grid Margin="0,0,0,4"
+        <Grid x:Name="ToolbarArea"
+              Margin="0,0,0,4"
               DockPanel.Dock="Top">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -228,6 +241,8 @@
                 </Grid>
             </Grid>
         </Grid>
+
+        <StackPanel x:Name="PatchControls" DockPanel.Dock="Top" Visibility="Collapsed" Margin="0,0,0,8" />
 
         <Grid x:Name="AudioOverviewHost"
               DockPanel.Dock="Top"

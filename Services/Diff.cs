@@ -32,8 +32,20 @@ internal static class Diff
         ArgumentNullException.ThrowIfNull(linesB);
         var codeMap = new Dictionary<string, int>(linesA.Length + linesB.Length, StringComparer.Ordinal);
 
-        var dataA = new DiffData(EncodeLines(linesA, codeMap, trimSpace, ignoreSpace, ignoreCase));
-        var dataB = new DiffData(EncodeLines(linesB, codeMap, trimSpace, ignoreSpace, ignoreCase));
+        return DiffCodes(EncodeLines(linesA, codeMap, trimSpace, ignoreSpace, ignoreCase),
+            EncodeLines(linesB, codeMap, trimSpace, ignoreSpace, ignoreCase));
+    }
+
+    /// <summary>
+    ///     Computes differences between two sequences of equality codes (equal values mean equal items).
+    ///     Callers that already have comparable integers, such as characters, avoid string keys.
+    /// </summary>
+    public static Item[] DiffCodes(int[] codesA, int[] codesB)
+    {
+        ArgumentNullException.ThrowIfNull(codesA);
+        ArgumentNullException.ThrowIfNull(codesB);
+        var dataA = new DiffData(codesA);
+        var dataB = new DiffData(codesB);
 
         var max = dataA.Length + dataB.Length + 1;
         var downVector = new int[2 * max + 2];

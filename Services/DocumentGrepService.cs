@@ -139,7 +139,8 @@ internal sealed class DocumentGrepService
                     row++;
                     for (var column = 0; column < reader.FieldCount; column++)
                     {
-                        var value = reader.GetValue(column).ToString();
+                        // Empty cells return null.
+                        var value = Convert.ToString(reader.GetValue(column));
                         if (string.IsNullOrEmpty(value)) continue;
                         var match = matcher.Match(value);
                         if (!match.Success) continue;
@@ -159,6 +160,8 @@ internal sealed class DocumentGrepService
         using (var zip = new ZipArchive(stream, ZipArchiveMode.Read))
         {
             var strings = ReadSharedStrings(zip, token);
+            // Shared strings are referenced by many cells; match each one at most once.
+            var sharedMatches = new Match[strings.Count];
             foreach (var sheet in ReadSheets(zip))
             {
                 token.ThrowIfCancellationRequested();
@@ -176,9 +179,17 @@ internal sealed class DocumentGrepService
                         var type = reader.GetAttribute("t");
                         var value = ReadCellValue(reader);
                         if (string.IsNullOrEmpty(value)) continue;
+                        Match match;
                         if (type == "s" && int.TryParse(value, out var index) && index >= 0 && index < strings.Count)
+                        {
                             value = strings[index];
-                        var match = matcher.Match(value);
+                            match = sharedMatches[index] ??= matcher.Match(value);
+                        }
+                        else
+                        {
+                            match = matcher.Match(value);
+                        }
+
                         if (!match.Success) continue;
                         var row = RowOf(address);
                         var column = ColumnOf(address);
@@ -227,18 +238,19 @@ internal sealed class DocumentGrepService
     {
         if (reader.IsEmptyElement) return null;
         string value = null;
-        var inline = new StringBuilder();
+        StringBuilder inline = null; // Only inline-string cells need it.
         using (var subtree = reader.ReadSubtree())
         {
             while (subtree.Read())
             {
                 if (subtree.NodeType != XmlNodeType.Element) continue;
                 if (subtree.LocalName == "v") value = subtree.ReadElementContentAsString();
-                else if (subtree.LocalName == "t") inline.Append(subtree.ReadElementContentAsString());
+                else if (subtree.LocalName == "t")
+                    (inline ??= new StringBuilder()).Append(subtree.ReadElementContentAsString());
             }
         }
 
-        return inline.Length > 0 ? inline.ToString() : value;
+        return inline is { Length: > 0 } ? inline.ToString() : value;
     }
 
     private static List<SheetRef> ReadSheets(ZipArchive zip)

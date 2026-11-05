@@ -265,7 +265,8 @@ internal static class DiffRegressionTests
             Require(rows[0].Left == "Ab c" && rows[0].Right == "ab\tc", "original display text preserved");
         }
         Require(DiffTextService.Compare(["Case"], ["case"], true)[0].Kind == DiffLineKind.Unchanged, "case ignored");
-        Require(DiffTextService.Compare(["a b"], ["ab"], false, true)[0].Kind == DiffLineKind.Unchanged, "spaces ignored");
+        Require(DiffTextService.Compare(["a  b "], ["a\tb"], false, true)[0].Kind == DiffLineKind.Unchanged, "whitespace runs ignored");
+        Require(DiffTextService.Compare(["a b"], ["ab"], false, true)[0].Kind == DiffLineKind.Modified, "space presence is significant");
         Require(DiffTextService.Compare(["x"], ["x"], false, false, ["\r"], ["\n"])[0].Kind != DiffLineKind.Unchanged, "CR differs from LF");
         var alignedSpaces = DiffTextService.Compare(["a b", "tail"], ["insert", "ab", "tail"],
             leftEndings: ["\n", ""], rightEndings: ["\n", "\n", ""], calculateInlineDifferences: true);

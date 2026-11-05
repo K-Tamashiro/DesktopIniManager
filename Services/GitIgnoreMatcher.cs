@@ -102,7 +102,7 @@ internal sealed class GitIgnoreMatcher
             {
                 var local = scope.Length == 0 ? relative : relative.Substring(scope.Length + 1);
                 foreach (var rule in Load(scope))
-                    if ((!rule.DirectoryOnly || directory) && rule.Pattern.IsMatch(local))
+                    if ((!rule.DirectoryOnly || directory) && rule.IsMatch(local))
                         ignored = !rule.Negated;
                 if (scope == parent) break;
                 var next = parent.IndexOf('/', scope.Length == 0 ? 0 : scope.Length + 1);
@@ -145,8 +145,12 @@ internal sealed class GitIgnoreMatcher
             if (expression == null) continue;
             try
             {
-                var regex = new Regex((anchored ? "^" : "(?:^|/)") + expression + "$",
-                    RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+                // Common literal and "*.ext" rules are matched without a regex (see Rule.IsMatch).
+                var kind = LiteralKind(pattern, anchored);
+                var regex = kind != MatchKind.Regex
+                    ? null
+                    : new Regex((anchored ? "^" : "(?:^|/)") + expression + "$",
+                        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1));
                 if (!negate)
                 {
                     var entry = new GitIgnoreRuleInfo { Scope = scope, Pattern = original };
@@ -154,7 +158,8 @@ internal sealed class GitIgnoreMatcher
                     if (_disabled.Contains(entry.Key)) continue;
                 }
 
-                result.Add(new Rule(regex, directoryOnly, negate));
+                result.Add(new Rule(regex, kind == MatchKind.Suffix ? pattern.Substring(1) : pattern, kind,
+                    directoryOnly, negate));
             }
             catch (ArgumentException)
             {
@@ -243,5 +248,46 @@ internal sealed class GitIgnoreMatcher
         return result.ToString();
     }
 
-    private sealed record Rule(Regex Pattern, bool DirectoryOnly, bool Negated);
+    private static MatchKind LiteralKind(string pattern, bool anchored)
+    {
+        if (pattern.AsSpan().IndexOfAny("*?[\\") < 0)
+            return anchored ? MatchKind.Exact : MatchKind.Segment;
+        if (!anchored && pattern.Length > 1 && pattern[0] == '*' && pattern.AsSpan(1).IndexOfAny("*?[\\/") < 0)
+            return MatchKind.Suffix;
+        return MatchKind.Regex;
+    }
+
+    private enum MatchKind
+    {
+        Regex,
+
+        // Anchored literal: ^literal$
+        Exact,
+
+        // Unanchored literal: (?:^|/)literal$
+        Segment,
+
+        // Unanchored "*literal" without '/': (?:^|/)[^/]*literal$, i.e. the path ends with literal.
+        Suffix
+    }
+
+    // Git for Windows defaults to core.ignorecase=true, so rules match case-insensitively.
+    private sealed record Rule(Regex Pattern, string Literal, MatchKind Kind, bool DirectoryOnly, bool Negated)
+    {
+        public bool IsMatch(string local)
+        {
+            switch (Kind)
+            {
+                case MatchKind.Exact:
+                    return string.Equals(local, Literal, StringComparison.OrdinalIgnoreCase);
+                case MatchKind.Segment:
+                    return local.EndsWith(Literal, StringComparison.OrdinalIgnoreCase) &&
+                           (local.Length == Literal.Length || local[local.Length - Literal.Length - 1] == '/');
+                case MatchKind.Suffix:
+                    return local.EndsWith(Literal, StringComparison.OrdinalIgnoreCase);
+                default:
+                    return Pattern.IsMatch(local);
+            }
+        }
+    }
 }

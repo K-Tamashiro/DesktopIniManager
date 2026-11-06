@@ -38,7 +38,8 @@ internal sealed partial class DiffViewWindow
             TextFontSizeBox.SelectedItem is not double size || _renderingContent) return;
         try
         {
-            var oldHeight = DiffLineHeight;
+            // Keep the same top row: measured with the old row geometry, placed with the new.
+            var topRow = _leftList == null ? 0 : RowAt(FindScroll(_leftList)?.VerticalOffset ?? 0);
             _textFontFamily = new FontFamily(family);
             _textFontSize = size;
             _sharedTextWidth = MeasureSharedTextWidth();
@@ -49,28 +50,30 @@ internal sealed partial class DiffViewWindow
             {
                 if (pane == null) continue;
                 var scroll = FindScroll(pane);
-                var vertical = (scroll?.VerticalOffset ?? 0) / oldHeight * DiffLineHeight;
+                var vertical = RowTop(topRow);
                 var horizontal = scroll?.HorizontalOffset ?? 0;
                 pane.FontFamily = _textFontFamily;
                 pane.FontSize = _textFontSize;
                 var document = pane.Document;
                 document.LineHeight = DiffLineHeight;
                 document.PageWidth = Math.Max(_sharedTextWidth + 24, Math.Max(200, pane.ActualWidth));
-                document.PageHeight = Math.Max(DiffLineHeight * Math.Max(1, Lines.Count) + 24, 200);
+                document.PageHeight = Math.Max(Math.Max(DiffLineHeight, RowsHeight) + 24, 200);
                 var row = 0;
                 foreach (var paragraph in document.Blocks.OfType<Paragraph>())
                 {
-                    paragraph.LineHeight = DiffLineHeight;
-                    if (row < Lines.Count && Lines[row].FilteredLineCount > 0)
-                        paragraph.FontSize = _textFontSize * 10 / 13;
+                    // Compact one-line folds keep their 1 DIP height and size.
+                    if (!IsCompactRow(row))
+                    {
+                        paragraph.LineHeight = DiffLineHeight;
+                        if (row < Lines.Count && Lines[row].FilteredLineCount > 0)
+                            paragraph.FontSize = _textFontSize * 10 / 13;
+                    }
                     row++;
                 }
 
-                if (pane.Tag is Canvas gutterViewport && gutterViewport.Children[0] is TextBlock gutter)
+                if (pane.Tag is Canvas gutterViewport && gutterViewport.Children[0] is StackPanel gutter)
                 {
-                    gutter.FontFamily = _textFontFamily;
-                    gutter.FontSize = _textFontSize;
-                    gutter.LineHeight = DiffLineHeight;
+                    FillGutter(gutter, pane == _leftList);
                     gutter.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
                     gutterViewport.Width = gutter.DesiredSize.Width;
                     PositionEditArrows(gutterViewport, vertical);

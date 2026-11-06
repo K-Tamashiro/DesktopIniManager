@@ -405,6 +405,16 @@ internal static class SettingsService
         WriteSetting(Path.Combine(SettingsDirectory, "diff-" + name + ".txt"), value.ToString());
     }
 
+    internal static string LoadPatchRoot()
+    {
+        return ReadSetting(Path.Combine(SettingsDirectory, "diff-patch-root.txt"), null);
+    }
+
+    internal static void SavePatchRoot(string root)
+    {
+        WriteSetting(Path.Combine(SettingsDirectory, "diff-patch-root.txt"), root ?? string.Empty);
+    }
+
     private static string ReadSetting(string path, string fallback)
     {
         try

@@ -28,7 +28,7 @@ internal sealed partial class DiffViewModel
         PatchRoot = null;
         DifferencesOnly = true;
         if (root != null) SetPatchRoot(root);
-        else RefreshPatchRows();
+        else if (!RestorePatchRoot()) RefreshPatchRows();
     }
 
     private async Task LoadPatchAsync(string path)
@@ -43,6 +43,7 @@ internal sealed partial class DiffViewModel
             PatchRoot = null;
             DifferencesOnly = true;
             if (!IsDetachedComparison && Directory.Exists(Snapshot.TargetRoot)) SetPatchRoot(Snapshot.TargetRoot);
+            else RestorePatchRoot();
         }
         RefreshPatchRows();
     }
@@ -57,7 +58,7 @@ internal sealed partial class DiffViewModel
 
     internal void SetPatchRoot(string root)
     {
-        if (PatchFiles.Any(file => file.IsDirty && (!file.Entry.IsNew || file.TargetPath != null)))
+        if (PatchFiles.Any(file => file.HasUserEdits && (!file.Entry.IsNew || file.TargetPath != null)))
             throw new InvalidOperationException("Save or discard patch edits before changing the repository.");
         root = Path.GetFullPath(root);
         if (!Directory.Exists(root)) throw new DirectoryNotFoundException(root);
@@ -77,7 +78,7 @@ internal sealed partial class DiffViewModel
         for (var i = 0; i < paths.Length; i++)
             if (paths[i] != null)
             {
-                if (PatchFiles[i].IsDirty) PatchFiles[i].AssignNewPath(paths[i]);
+                if (PatchFiles[i].HasUserEdits) PatchFiles[i].AssignNewPath(paths[i]);
                 else PatchFiles[i].Attach(paths[i]);
             }
         PatchRoot = root;
@@ -125,6 +126,28 @@ internal sealed partial class DiffViewModel
     internal void SelectPatchRoot(string folder)
     {
         SetPatchRoot(RepositoryRootFrom(Path.GetFullPath(folder)) ?? folder);
+        // Kept for the next start, when a patch is opened without a known repository.
+        SettingsService.SavePatchRoot(PatchRoot);
+    }
+
+    // Uses the repository chosen last time, if it still exists.
+    private bool RestorePatchRoot()
+    {
+        var saved = SettingsService.LoadPatchRoot();
+        if (string.IsNullOrWhiteSpace(saved) || !Directory.Exists(saved)) return false;
+        try
+        {
+            SetPatchRoot(saved);
+            return true;
+        }
+        catch (InvalidDataException)
+        {
+            return false;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
     }
 
     private string RepositoryRootFrom(string folder)

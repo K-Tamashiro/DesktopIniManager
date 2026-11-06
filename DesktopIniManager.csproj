@@ -4,7 +4,7 @@
     <!-- Keep the existing explicit source/resource lists; exclude nested projects. -->
     <EnableDefaultItems>false</EnableDefaultItems>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <Version>4.7.0</Version>
+    <Version>4.7.2</Version>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <PlatformTarget>x64</PlatformTarget>
@@ -31,8 +31,8 @@
   </PropertyGroup>
   <PropertyGroup>
     <ApplicationIcon>DesktopIniManager.ico</ApplicationIcon>
-    <AssemblyVersion>4.7.0.0</AssemblyVersion>
-    <FileVersion>4.7.0.0</FileVersion>
+    <AssemblyVersion>4.7.2.0</AssemblyVersion>
+    <FileVersion>4.7.2.0</FileVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>x64</PlatformTarget>

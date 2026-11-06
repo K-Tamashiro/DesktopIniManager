@@ -30,12 +30,19 @@ internal sealed class PatchFileState
     }
 
     private readonly List<TextLine> _working = [];
+
     // Active edits; the stack groups the edits made by one copy for Undo().
     private readonly List<PatchEdit> _edits = [];
+
     private readonly Stack<PatchEdit[]> _undo = [];
+
     // Hunks whose post-change text is already in the target (e.g. a repository
     // that already contains the patch). They are compared over NewCount lines.
     private readonly HashSet<int> _present = [];
+
+    // Edits made automatically when a new file's target does not exist yet.
+    private readonly HashSet<PatchEdit> _automatic = [];
+
     private readonly int[] _lengths;
     private List<PatchRun> _runs = [];
     internal PatchFile Entry { get; }
@@ -43,12 +50,23 @@ internal sealed class PatchFileState
     internal string TargetPath { get; private set; }
     internal TextDocument Original { get; private set; } = new();
     internal bool HasTarget { get; private set; }
+
     internal bool IsDirty => HasTarget && (DiffViewModel.Text(Document()) != DiffViewModel.Text(Original) ||
         Entry.IsNew && Original.OriginalBytes == null && _edits.Count > 0);
+
     internal bool CanApply => HasTarget && Entry.UnsupportedReason == null;
+
+    /// <summary>
+    ///     Unsaved changes made by the user. A new file filled automatically from the patch
+    ///     is dirty (it can be saved) but is re-created when the repository changes.
+    /// </summary>
+    internal bool HasUserEdits => IsDirty && (_edits.Count == 0 || _edits.Any(edit => !_automatic.Contains(edit)));
+
     internal int AppliedCount => Enumerable.Range(0, Entry.Hunks.Count).Count(IsEdited);
     internal int PresentCount => _present.Count;
+
     internal bool IsPresent(int id) => _present.Contains(id);
+
     /// <summary>Runs of the last <see cref="Rows" /> call; row EditHunkId values index this list.</summary>
     internal IReadOnlyList<PatchRun> Runs => _runs;
 
@@ -60,17 +78,18 @@ internal sealed class PatchFileState
         _lengths = entry.Hunks.Select(hunk => hunk.OldCount).ToArray();
     }
 
-    internal void Attach(string path)
+    internal void Attach(string path, bool fillNewFile = true)
     {
-        if (IsDirty) throw new InvalidOperationException("Save or discard this target before replacing it.");
+        if (HasUserEdits) throw new InvalidOperationException("Save or discard this target before replacing it.");
         TargetPath = path;
-        HasTarget = System.IO.File.Exists(path) || Entry.IsNew;
-        Original = System.IO.File.Exists(path) ? DiffViewModel.ReadDocument(path) : new TextDocument { EncodingName = "UTF-8", Newlines = "CRLF" };
+        HasTarget = File.Exists(path) || Entry.IsNew;
+        Original = File.Exists(path) ? DiffViewModel.ReadDocument(path) : new TextDocument { EncodingName = "UTF-8", Newlines = "CRLF" };
         _working.Clear();
         for (var i = 0; i < Original.Lines.Length; i++)
             if (i < Original.Lines.Length - 1 || Original.Lines[i].Length > 0 || Original.Endings[i].Length > 0)
                 _working.Add(new TextLine(Original.Lines[i], Original.Endings[i]));
         _edits.Clear();
+        _automatic.Clear();
         _undo.Clear();
         _present.Clear();
         _runs = [];
@@ -107,6 +126,14 @@ internal sealed class PatchFileState
             }
 
             Positions[i] = Math.Max(expected, lower);
+        }
+
+        // New file (--- /dev/null) whose target does not exist: show the whole patch
+        // content on the target side, ready to save at the patch's path.
+        if (fillNewFile && Entry.IsNew && Original.OriginalBytes == null && CanApply)
+        {
+            Copy(Enumerable.Range(0, Entry.Hunks.Count).Where(CanCopy).ToArray());
+            _automatic.UnionWith(_edits);
         }
     }
 
@@ -145,7 +172,7 @@ internal sealed class PatchFileState
     internal void AssignNewPath(string path)
     {
         if (!Entry.IsNew || Original.OriginalBytes != null) throw new InvalidOperationException("Not a new patch target.");
-        if (System.IO.File.Exists(path)) throw new IOException("The new target already exists. Select it as an existing target before applying hunks.");
+        if (File.Exists(path)) throw new IOException("The new target already exists. Select it as an existing target before applying hunks.");
         TargetPath = path;
         HasTarget = true;
     }
@@ -159,8 +186,9 @@ internal sealed class PatchFileState
     {
         _working.Clear();
         _edits.Clear();
+        _automatic.Clear();
         HasTarget = false;
-        Attach(TargetPath);
+        Attach(TargetPath, false);
     }
 
     private int Length(int id) => _lengths[id];
@@ -315,9 +343,16 @@ internal sealed class PatchFileState
         for (var i = 0; i + 1 < endings.Count; i++)
             if (endings[i].Length == 0) endings[i] = fallback;
         if (endings.Count > 0 && endings[^1].Length > 0) { lines.Add(""); endings.Add(""); }
-        return new TextDocument { Lines = lines.ToArray(), Endings = endings.ToArray(), Encoding = Original.Encoding,
-            EncodingName = Original.EncodingName, HasBom = Original.HasBom, Newlines = Original.Newlines,
-            OriginalBytes = Original.OriginalBytes };
+        return new TextDocument
+        {
+            Lines = lines.ToArray(),
+            Endings = endings.ToArray(),
+            Encoding = Original.Encoding,
+            EncodingName = Original.EncodingName,
+            HasBom = Original.HasBom,
+            Newlines = Original.Newlines,
+            OriginalBytes = Original.OriginalBytes
+        };
     }
 
     internal void Save(Encoding newEncoding = null, string newEnding = null)
@@ -358,8 +393,13 @@ internal sealed class PatchFileState
             var position = HasTarget ? Positions[id] : Math.Max(0, hunk.OldStart - (hunk.OldCount == 0 ? 0 : 1));
             while (cursor < position)
             {
-                rows.Add(new DiffLine { Left = null, Right = HasTarget && cursor < _working.Count ? _working[cursor].Text : null,
-                    RightNumber = HasTarget && cursor < _working.Count ? cursor + 1 : 0, Kind = DiffLineKind.Unchanged });
+                rows.Add(new DiffLine
+                {
+                    Left = null,
+                    Right = HasTarget && cursor < _working.Count ? _working[cursor].Text : null,
+                    RightNumber = HasTarget && cursor < _working.Count ? cursor + 1 : 0,
+                    Kind = DiffLineKind.Unchanged
+                });
                 cursor++;
             }
             var left = HasTarget ? hunk.After : hunk.Before;

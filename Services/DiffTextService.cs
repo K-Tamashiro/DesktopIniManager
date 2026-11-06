@@ -423,9 +423,25 @@ internal static class DiffTextService
     // One comparison token per displayed character (tabs expanded to four
     // columns), or, when spacing is ignored, one token per whitespace run.
     // Start/End are display offsets, so a changed run marks every column it covers.
-    private readonly record struct CharacterToken(int Code, int Start, int End);
+    // Number: the text of a number token (a run starting with a digit, see NumberEnd); null otherwise.
+    private readonly record struct CharacterToken(int Code, int Start, int End, string Number = null);
 
-    private static List<CharacterToken> CharacterTokens(string text, bool ignoreSpaces, out int displayLength)
+    private static bool IsNumberStart(string text, int index) =>
+        char.IsAsciiDigit(text[index]) &&
+        (index == 0 || !(char.IsAsciiLetterOrDigit(text[index - 1]) || text[index - 1] == '_'));
+
+    // A number runs over ASCII letters/digits (hex such as 17A60) and dots followed by a
+    // digit (versions such as 1.2.3).
+    private static int NumberEnd(string text, int index, int end)
+    {
+        while (index < end && (char.IsAsciiLetterOrDigit(text[index]) ||
+                               text[index] == '.' && index + 1 < end && char.IsAsciiDigit(text[index + 1])))
+            index++;
+        return index;
+    }
+
+    private static List<CharacterToken> CharacterTokens(string text, bool ignoreSpaces, out int displayLength,
+        Dictionary<string, int> numberCodes)
     {
         var tokens = new List<CharacterToken>(text.Length);
         int start = 0, end = text.Length;
@@ -439,6 +455,19 @@ internal static class DiffTextService
         for (var i = 0; i < text.Length; i++)
         {
             var width = text[i] == '\t' ? 4 : 1;
+            if (i >= start && i < end && IsNumberStart(text, i))
+            {
+                // One token per number, so digits are never matched across different numbers.
+                var numberEnd = NumberEnd(text, i, end);
+                var number = text.Substring(i, numberEnd - i);
+                if (!numberCodes.TryGetValue(number, out var code))
+                    numberCodes.Add(number, code = -(numberCodes.Count + 1));
+                tokens.Add(new CharacterToken(code, offset, offset + number.Length, number));
+                offset += number.Length;
+                i = numberEnd - 1;
+                continue;
+            }
+
             if (i >= start && i < end)
             {
                 if (ignoreSpaces && IsBodySpace(text[i]))
@@ -463,10 +492,13 @@ internal static class DiffTextService
         return tokens;
     }
 
+    private static bool IsWhitespaceCode(int code) => code is ' ' or '\u3000';
+
     private static (bool[] Left, bool[] Right) CompareCharacters(string left, string right, bool ignoreSpaces)
     {
-        var leftTokens = CharacterTokens(left, ignoreSpaces, out var leftLength);
-        var rightTokens = CharacterTokens(right, ignoreSpaces, out var rightLength);
+        var numberCodes = new Dictionary<string, int>(StringComparer.Ordinal);
+        var leftTokens = CharacterTokens(left, ignoreSpaces, out var leftLength, numberCodes);
+        var rightTokens = CharacterTokens(right, ignoreSpaces, out var rightLength, numberCodes);
         var leftCodes = new int[leftTokens.Count];
         var rightCodes = new int[rightTokens.Count];
         for (var i = 0; i < leftCodes.Length; i++) leftCodes[i] = leftTokens[i].Code;
@@ -476,12 +508,56 @@ internal static class DiffTextService
         var changes = Diff.DiffCodes(leftCodes, rightCodes);
         var a = new bool[leftLength];
         var b = new bool[rightLength];
+        // Whitespace is marked only when it is the change itself (e.g. "( - 4)" -> "( -4)").
+        // Inside a changed run that also holds other characters, only those characters are
+        // marked, so rewritten text is not covered with whitespace markers.
+        static void Mark(bool[] mask, List<CharacterToken> tokens, int start, int count)
+        {
+            var whitespaceOnly = true;
+            for (var i = start; i < start + count && whitespaceOnly; i++)
+                whitespaceOnly = IsWhitespaceCode(tokens[i].Code);
+            for (var i = start; i < start + count; i++)
+            {
+                if (!whitespaceOnly && IsWhitespaceCode(tokens[i].Code)) continue;
+                for (var n = tokens[i].Start; n < tokens[i].End; n++) mask[n] = true;
+            }
+        }
+
+        // Numbers replaced by numbers of the same length compare digit by digit at the same
+        // position: 17430 -> 17745 keeps "17" and marks "430"/"745"; 1.2.3 -> 1.3.0 marks the
+        // second and third digits only. Other changes are marked as runs.
+        bool Positional(Diff.Item change)
+        {
+            if (change.DeletedA != change.InsertedB || change.DeletedA == 0) return false;
+            for (var k = 0; k < change.DeletedA; k++)
+            {
+                var l = leftTokens[change.StartA + k].Number;
+                var r = rightTokens[change.StartB + k].Number;
+                if (l == null || r == null || l.Length != r.Length) return false;
+            }
+            return true;
+        }
+
         foreach (var change in changes)
         {
-            for (var i = change.StartA; i < change.StartA + change.DeletedA; i++)
-                for (var n = leftTokens[i].Start; n < leftTokens[i].End; n++) a[n] = true;
-            for (var i = change.StartB; i < change.StartB + change.InsertedB; i++)
-                for (var n = rightTokens[i].Start; n < rightTokens[i].End; n++) b[n] = true;
+            if (Positional(change))
+            {
+                for (var k = 0; k < change.DeletedA; k++)
+                {
+                    var l = leftTokens[change.StartA + k];
+                    var r = rightTokens[change.StartB + k];
+                    for (var c = 0; c < l.Number.Length; c++)
+                    {
+                        if (l.Number[c] == r.Number[c]) continue;
+                        a[l.Start + c] = true;
+                        b[r.Start + c] = true;
+                    }
+                }
+                continue;
+            }
+
+            Mark(a, leftTokens, change.StartA, change.DeletedA);
+            Mark(b, rightTokens, change.StartB, change.InsertedB);
         }
 
         return (a, b);

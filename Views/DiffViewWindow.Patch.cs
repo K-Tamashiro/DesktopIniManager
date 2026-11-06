@@ -18,8 +18,9 @@ namespace DesktopIniManager.Views;
 internal sealed partial class DiffViewWindow
 {
     private Canvas _patchMoveButtons;
-    private TextBlock _patchRootText, _patchCommitText;
-    private ComboBox _patchSourceBox, _patchTargetBox;
+    private TextBox _patchRootText, _patchCommitText;
+    private Expander _patchCommitExpander;
+    private ComboBox _patchSourceBox;
     private bool _selectingPatch;
 
     private void UpdatePatchControls()
@@ -35,8 +36,9 @@ internal sealed partial class DiffViewWindow
             for (var side = 0; side < 2; side++)
             {
                 var panel = new DockPanel();
-                // Patch file: icon 159, actual target file: icon 75.
-                var label = side == 0 ? "Patch…" : "Target…";
+                // Patch file: icon 159. Target side selects the repository folder (icon 75);
+                // the target file is the repository path plus the patch's relative path.
+                var label = side == 0 ? "Patch…" : "Repository…";
                 var icon = new Image
                 {
                     Source = DifferencerStatusIcons.GetCustomIcon(side == 0 ? 159 : 75),
@@ -49,69 +51,68 @@ internal sealed partial class DiffViewWindow
                     Content = icon,
                     Style = TryFindResource("IconButton") as Style,
                     Background = Brushes.Transparent,
-                    ToolTip = side == 0 ? "Open patch file" : "Select target file",
+                    ToolTip = side == 0 ? "Open patch file" : "Select repository folder",
                     VerticalAlignment = VerticalAlignment.Center
                 };
                 System.Windows.Automation.AutomationProperties.SetName(browse, label);
                 DockPanel.SetDock(browse, Dock.Left);
                 panel.Children.Add(browse);
-                var combo = new ComboBox
-                { Style = (Style)FindResource("LanguageComboStyle"), Margin = new Thickness(6, 0, 0, 0) };
-                panel.Children.Add(combo);
-                Grid.SetColumn(panel, side * 2);
-                selectors.Children.Add(panel);
                 if (side == 0)
                 {
+                    var combo = new ComboBox
+                    { Style = (Style)FindResource("LanguageComboStyle"), Margin = new Thickness(6, 0, 0, 0) };
+                    panel.Children.Add(combo);
                     _patchSourceBox = combo;
                     browse.Click += async (_, _) => await OpenPatchAsync();
+                    combo.SelectionChanged += PatchSelectionChanged;
                 }
                 else
                 {
-                    _patchTargetBox = combo;
-                    browse.Click += async (_, _) => await BrowsePatchTargetAsync();
+                    _patchRootText = new TextBox
+                    {
+                        IsReadOnly = true,
+                        Margin = new Thickness(6, 0, 0, 0),
+                        Padding = new Thickness(8, 4, 8, 4),
+                        VerticalContentAlignment = VerticalAlignment.Center,
+                        TextWrapping = TextWrapping.NoWrap
+                    };
+                    _patchRootText.SetResourceReference(Control.BackgroundProperty, "CardBackground");
+                    _patchRootText.SetResourceReference(Control.BorderBrushProperty, "Line");
+                    _patchRootText.SetResourceReference(Control.ForegroundProperty, "Ink");
+                    panel.Children.Add(_patchRootText);
+                    browse.Click += async (_, _) => await BrowsePatchRepositoryAsync();
                 }
 
-                combo.SelectionChanged += PatchSelectionChanged;
+                Grid.SetColumn(panel, side * 2);
+                selectors.Children.Add(panel);
             }
 
             PatchControls.Children.Add(selectors);
-            var rootRow = new DockPanel { Margin = new Thickness(0, 4, 0, 0) };
-            var rootButton = new Button { Content = "Repository…", Padding = new Thickness(8, 2, 8, 2) };
-            rootButton.Click += async (_, _) =>
+            // Read-only text box: same look as the former text, but selectable and copyable.
+            _patchCommitText = new TextBox
             {
-                try
-                {
-                    var root = NativeFolderPicker.Show(new WindowInteropHelper(this).Handle, ViewModel.PatchRoot,
-                        "Patch target repository");
-                    if (root == null) return;
-                    ViewModel.SelectPatchRoot(root);
-                    await LoadContent(false, false);
-                }
-                catch (Exception ex)
-                {
-                    ViewModel.ReportError(ex);
-                }
+                IsReadOnly = true,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(8),
+                Padding = new Thickness(0),
+                BorderThickness = new Thickness(0),
+                Background = Brushes.Transparent,
+                MaxHeight = 160,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
             };
-            rootRow.Children.Add(rootButton);
-            _patchRootText = new TextBlock
-            { Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
-            rootRow.Children.Add(_patchRootText);
-            PatchControls.Children.Add(rootRow);
-            _patchCommitText = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(8) };
-            var details = new Expander
+            _patchCommitExpander = new Expander
             {
                 Header = "Commit message",
-                Content = new ScrollViewer { MaxHeight = 160, Content = _patchCommitText },
+                Content = _patchCommitText,
                 // Restore the last state; it is saved on every change.
                 IsExpanded = SettingsService.LoadDiffFlag("commit-expanded", true)
             };
-            details.Expanded += (_, _) => SettingsService.SaveDiffFlag("commit-expanded", true);
-            details.Collapsed += (_, _) => SettingsService.SaveDiffFlag("commit-expanded", false);
+            _patchCommitExpander.Expanded += (_, _) => SettingsService.SaveDiffFlag("commit-expanded", true);
+            _patchCommitExpander.Collapsed += (_, _) => SettingsService.SaveDiffFlag("commit-expanded", false);
             // Follow the theme: the default black text is unreadable on the dark background.
-            details.SetResourceReference(Control.ForegroundProperty, "Ink");
-            _patchCommitText.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
-            _patchRootText.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
-            PatchControls.Children.Add(details);
+            _patchCommitExpander.SetResourceReference(Control.ForegroundProperty, "Ink");
+            _patchCommitText.SetResourceReference(Control.ForegroundProperty, "Ink");
+            PatchControls.Children.Add(_patchCommitExpander);
         }
 
         _selectingPatch = true;
@@ -123,22 +124,34 @@ internal sealed partial class DiffViewWindow
                 sourceBox.ItemsSource = entries;
                 sourceBox.SelectedIndex = ViewModel.PatchIndex;
             }
-            if (_patchTargetBox is { } targetBox)
-            {
-                // Once a repository root is known, the target follows the patch selection.
-                targetBox.ItemsSource = entries;
-                targetBox.SelectedIndex = ViewModel.PatchRoot != null ? ViewModel.PatchIndex : -1;
-            }
             _patchRootText.Text = ViewModel.PatchRoot ?? "No target repository selected";
+            _patchRootText.ToolTip = ViewModel.PatchRoot;
             _patchCommitText.Text = string.Join(Environment.NewLine,
                 new[] { ViewModel.Patch.CommitTitle, ViewModel.Patch.Author, ViewModel.Patch.CommitMessage }
                     .Where(value => !string.IsNullOrWhiteSpace(value)));
-            ((Expander)PatchControls.Children[2]).Visibility =
+            _patchCommitExpander.Visibility =
                 _patchCommitText.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         }
         finally
         {
             _selectingPatch = false;
+        }
+    }
+
+    private async Task BrowsePatchRepositoryAsync()
+    {
+        if (_renderingContent || ViewModel.CurrentPatch == null) return;
+        try
+        {
+            var root = NativeFolderPicker.Show(new WindowInteropHelper(this).Handle, ViewModel.PatchRoot,
+                "Patch target repository");
+            if (root == null) return;
+            ViewModel.SelectPatchRoot(root);
+            await LoadContent(false, false);
+        }
+        catch (Exception ex)
+        {
+            ViewModel.ReportError(ex);
         }
     }
 
@@ -220,7 +233,7 @@ internal sealed partial class DiffViewWindow
         {
             var point = e.GetPosition(pane);
             var offset = FindScroll(pane)?.VerticalOffset ?? 0;
-            var row = (int)Math.Floor((point.Y + offset) / DiffLineHeight);
+            var row = RowAt(point.Y + offset);
             var selected = _hunkStart >= 0 && _hunkStart < Lines.Count ? Lines[_hunkStart].EditHunkId : -1;
             var hovering = point.X >= 0 && point.X <= pane.ActualWidth && row >= _hunkStart && row < _hunkEnd;
             foreach (var button in _patchMoveButtons.Children.OfType<Button>())
@@ -286,7 +299,7 @@ internal sealed partial class DiffViewWindow
         foreach (var button in _patchMoveButtons.Children.OfType<Button>())
         {
             var (row, delta, _, single) = ((int, int, int, bool))button.Tag;
-            Canvas.SetTop(button, row * DiffLineHeight - offset + (delta > 0 && !single ? DiffLineHeight - 22 : 0));
+            Canvas.SetTop(button, RowTop(row) - offset + (delta > 0 && !single ? DiffLineHeight - 22 : 0));
             Canvas.SetLeft(button, single && delta < 0 ? 0 : 24);
         }
     }

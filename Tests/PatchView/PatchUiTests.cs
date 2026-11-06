@@ -61,7 +61,8 @@ internal static class PatchUiTests
         Pump(() => window.ViewModel.IsPatch && Field("_leftList") != null && !(bool)Field("_renderingContent"));
         var model = window.ViewModel;
         Check(model.PatchFiles.Count == 2 && ((ComboBox)Field("_patchSourceBox")).Items.Count == 2, "both patch entries appear in selectors");
-        Check(((TextBlock)Field("_patchCommitText")).Text.Contains("Change the value"), "commit summary is visible");
+        Check(((TextBox)Field("_patchCommitText")) is { IsReadOnly: true } commit && commit.Text.Contains("Change the value"),
+            "commit summary is visible as read-only selectable text");
         Check(Arrows(true).Length == 0 && Arrows(false).Length == 0, "preview has no copy arrows");
         Check(model.SelectPatchTarget(target) && Path.TrimEndingDirectorySeparator(model.PatchRoot) == root, "first selected actual file establishes repository root");
         Wait((Task)Call("LoadContent", false, false));
@@ -77,13 +78,15 @@ internal static class PatchUiTests
         Check(targetText.Contains("    int newValue;\n    int extraValue;\n"), "actual target buffer receives patch hunk");
         ((ComboBox)Field("_patchSourceBox")).SelectedIndex = 1;
         Pump(() => model.PatchIndex == 1 && !(bool)Field("_renderingContent"));
-        Check(((ComboBox)Field("_patchTargetBox")).SelectedIndex == 1 && model.HasEdits, "selectors synchronize without losing previous unsaved edit");
-        ((ComboBox)Field("_patchTargetBox")).SelectedIndex = 0;
+        Check(string.Equals(model.CurrentPatch.TargetPath, Path.Combine(root, "new.txt"), StringComparison.OrdinalIgnoreCase) &&
+              model.CurrentPatch.IsDirty && model.PatchFiles[0].IsDirty,
+            "target follows the patch selection; a new file is filled from the patch; earlier edits are kept");
+        ((ComboBox)Field("_patchSourceBox")).SelectedIndex = 0;
         Pump(() => model.PatchIndex == 0 && !(bool)Field("_renderingContent"));
         Check(DesktopIniManager.ViewModels.DiffViewModel.Text(model.TargetText) == targetText && model.CanUndoHunk(0, true), "returning to a file restores its working text and undo");
         Arrows(true)[0].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         Pump(() => !(bool)Field("_renderingContent"));
-        Check(!model.HasEdits, "arrow undo restores target");
+        Check(!model.IsDirty(false), "arrow undo restores target");
         var moveButtons = (Canvas)Field("_patchMoveButtons");
         Check(moveButtons.Children.OfType<Button>().Count() == 2, "hunk has independent up/down controls");
         var down = moveButtons.Children.OfType<Button>().Single(button => ((int, int, int, bool))button.Tag is { Item2: 1 });

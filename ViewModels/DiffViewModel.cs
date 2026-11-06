@@ -225,8 +225,10 @@ internal sealed partial class DiffViewModel : ObservableObject
         var originalIndex = 0;
         for (var i = 0; i < index; i++) originalIndex += Math.Max(1, Lines[i].FilteredLineCount);
         var start = originalIndex;
-        // Walk back exactly as UpdateDisplayedLines groups rows: never into the folded designer header.
-        var first = DesignerHeaderRowCount;
+        // Walk back exactly as UpdateDisplayedLines groups rows: never across the end of
+        // the designer header, and never into it while it is folded.
+        var header = DesignerHeaderRowCount;
+        var first = start >= header || !_designerHeaderExpanded ? header : 0;
         while (start > first && _allLines[start - 1].Kind == DiffLineKind.Unchanged) start--;
         if (!_expandedEqualBlocks.Remove(start)) return -1;
         var collapsedIndex = index - (originalIndex - start);
@@ -240,7 +242,12 @@ internal sealed partial class DiffViewModel : ObservableObject
         var visible = new List<DiffLine>();
         if (designerCount > 0)
         {
-            if (_designerHeaderExpanded) visible.AddRange(_allLines.Take(designerCount));
+            // Expanded header: all lines in the all-lines view; in the differences-only
+            // view it folds like any other part (second stage: expand its folds).
+            if (_designerHeaderExpanded)
+            {
+                if (!DifferencesOnly) visible.AddRange(_allLines.Take(designerCount));
+            }
             else
             {
                 var changed = _allLines.Take(designerCount).Any(row => row.Kind != DiffLineKind.Unchanged);
@@ -256,7 +263,7 @@ internal sealed partial class DiffViewModel : ObservableObject
         else
         {
             var filteredFormat = StringOverlay.Get("Diff_FilteredLines");
-            for (var i = designerCount; i < _allLines.Count; i++)
+            for (var i = _designerHeaderExpanded ? 0 : designerCount; i < _allLines.Count; i++)
             {
                 // Patch rows fold like text rows: unchanged context inside a hunk is not a difference.
                 if (_allLines[i].Kind != DiffLineKind.Unchanged)
@@ -266,7 +273,9 @@ internal sealed partial class DiffViewModel : ObservableObject
                 }
 
                 var start = i;
-                while (i + 1 < _allLines.Count && _allLines[i + 1].Kind == DiffLineKind.Unchanged) i++;
+                // A fold never spans the end of the designer header.
+                while (i + 1 < _allLines.Count && i + 1 != designerCount &&
+                       _allLines[i + 1].Kind == DiffLineKind.Unchanged) i++;
                 var count = i - start + 1;
                 if (_expandedEqualBlocks.Contains(start))
                 {
@@ -520,10 +529,16 @@ internal sealed partial class DiffViewModel : ObservableObject
             CompareCase, CompareNewlines));
         _edits = new DiffEditSession(SourceText, TargetText, _allLines);
         UpdateDisplayedLines();
-        Status = IsEmpty ? StringOverlay.Get("Diff_DropHint")
-            : Hunks.Count == 0 ? StringOverlay.Get("Diff_Identical")
-            : string.Format(StringOverlay.Get("Diff_HunkStatus"), Hunks.Count);
+        Status = (IsEmpty ? StringOverlay.Get("Diff_DropHint")
+                     : Hunks.Count == 0 ? StringOverlay.Get("Diff_Identical")
+                     : string.Format(StringOverlay.Get("Diff_HunkStatus"), Hunks.Count)) +
+                 DecodingWarning(SourceText, "Source") + DecodingWarning(TargetText, "Target");
     }
+
+    private static string DecodingWarning(TextDocument document, string side) =>
+        document?.DecodingErrorLine > 0
+            ? $" | {side}: undecodable Shift-JIS bytes from line {document.DecodingErrorLine} (shown as \uFFFD; saving is refused)"
+            : string.Empty;
 
     private void NavigateHunk(int direction)
     {
@@ -675,6 +690,7 @@ internal sealed partial class DiffViewModel : ObservableObject
         }
 
         string text;
+        var decodingErrorLine = 0;
         try
         {
             text = encoding.GetString(bytes, preamble, bytes.Length - preamble);
@@ -687,12 +703,19 @@ internal sealed partial class DiffViewModel : ObservableObject
             try { text = encoding.GetString(bytes); }
             catch (DecoderFallbackException ex)
             {
-                throw new IOException($"Unable to decode '{path}' as UTF-8 or Shift-JIS (byte {ex.Index}).", ex);
+                // Mostly Shift-JIS with a few invalid bytes (Beyond Compare reports an encoding
+                // error): show those bytes as U+FFFD instead of refusing the whole file. The
+                // encoding stays strict, so saving such text is refused rather than corrupting it.
+                text = CodePagesEncodingProvider.Instance.GetEncoding(932, EncoderFallback.ExceptionFallback,
+                    new DecoderReplacementFallback("\uFFFD"))!.GetString(bytes);
+                var errorIndex = Math.Clamp(ex.Index, 0, bytes.Length);
+                decodingErrorLine = 1 + bytes.AsSpan(0, errorIndex).Count((byte)'\n');
             }
         }
 
         var document = new TextDocument
         {
+            DecodingErrorLine = decodingErrorLine,
             Encoding = encoding,
             OriginalBytes = bytes,
             HasBom = preamble > 0,
@@ -849,7 +872,8 @@ internal sealed partial class DiffViewModel : ObservableObject
             if (!IsDetachedComparison && RefreshFileRequested != null) await RefreshFileRequested(File);
             if (IsPatch)
             {
-                if (HasPatchEdits) throw new InvalidOperationException("Save or discard patch edits before reloading.");
+                if (PatchFiles.Any(file => file.HasUserEdits))
+                    throw new InvalidOperationException("Save or discard patch edits before reloading.");
                 var root = PatchRoot;
                 _loadedPatchPath = null;
                 await LoadPatchAsync(GetPath(true));
@@ -1017,5 +1041,7 @@ internal sealed partial class DiffViewModel : ObservableObject
         internal string[] Lines = Array.Empty<string>();
         internal string Newlines = string.Empty;
         internal byte[] OriginalBytes;
+        /// <summary>First line holding bytes that could not be decoded (shown as U+FFFD); 0 when none.</summary>
+        internal int DecodingErrorLine;
     }
 }

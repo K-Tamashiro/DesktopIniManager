@@ -74,7 +74,7 @@ internal sealed partial class DiffViewWindow
             if (ViewModel.IsText && pane != null && !_renderingContent)
             {
                 var scroll = FindScroll(pane);
-                var row = (int)Math.Floor((e.GetPosition(pane).Y + (scroll?.VerticalOffset ?? 0)) / DiffLineHeight);
+                var row = RowAt(e.GetPosition(pane).Y + (scroll?.VerticalOffset ?? 0));
                 if (row >= 0 && row < Lines.Count) hunkId = Lines[row].EditHunkId;
             }
 
@@ -265,7 +265,7 @@ internal sealed partial class DiffViewWindow
         {
             var (row, _, _) = ((int, int, bool))button.Tag;
             button.Height = DiffLineHeight;
-            Canvas.SetTop(button, row * DiffLineHeight - offset);
+            Canvas.SetTop(button, RowTop(row) - offset);
         }
     }
 

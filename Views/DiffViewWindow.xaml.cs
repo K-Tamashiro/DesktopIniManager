@@ -85,6 +85,19 @@ internal sealed partial class DiffViewWindow
         ViewModel = new DiffViewModel(snapshot, file, new UserDialogService(this), sourcePath, targetPath);
         InitializeComponent();
         InitializeTextFontControls();
+        // The compact-fold state is saved on every change and restored for the next window.
+        _compactSingleFolds = SettingsService.LoadDiffFlag("compact-folds", false);
+        CompactFoldsToggle.IsExpanded = !_compactSingleFolds;
+        CompactFoldsToggle.Expanded += (_, _) =>
+        {
+            SettingsService.SaveDiffFlag("compact-folds", false);
+            SetCompactSingleFolds(false);
+        };
+        CompactFoldsToggle.Collapsed += (_, _) =>
+        {
+            SettingsService.SaveDiffFlag("compact-folds", true);
+            SetCompactSingleFolds(true);
+        };
         // The fold state is saved on every change and restored for the next window.
         ToolbarToggle.IsExpanded = SettingsService.LoadDiffFlag("toolbar-expanded", true);
         ToolbarToggle.Expanded += (_, _) =>
@@ -237,6 +250,110 @@ internal sealed partial class DiffViewWindow
     private List<int> Hunks => ViewModel.Hunks;
     private List<DiffLine> Lines => ViewModel.Lines;
 
+    // When on, a fold row hiding exactly one unchanged line is drawn as a 1 DIP line in
+    // both panes, so the hunks around it come together. Rows keep their indexes; only
+    // their vertical positions change, and every position goes through RowTop/RowAt.
+    private bool _compactSingleFolds;
+    private const double CompactRowHeight = 1;
+    private double[] _rowTops = [0];
+    private object _rowTopsKey;
+
+    private bool IsCompactRow(int row) => _compactSingleFolds && Lines != null && row >= 0 && row < Lines.Count &&
+                                          Lines[row].FilteredLineCount == 1 && !Lines[row].IsDesignerHeader;
+
+    private double[] RowTops()
+    {
+        var count = Lines?.Count ?? 0;
+        object key = (Lines, count, DiffLineHeight, _compactSingleFolds);
+        if (Equals(key, _rowTopsKey)) return _rowTops;
+        var tops = new double[count + 1];
+        for (var i = 0; i < count; i++) tops[i + 1] = tops[i] + (IsCompactRow(i) ? CompactRowHeight : DiffLineHeight);
+        _rowTops = tops;
+        _rowTopsKey = key;
+        return tops;
+    }
+
+    /// <summary>Top of a displayed row in pane coordinates; rows past the end continue at full height.</summary>
+    internal double RowTop(int row)
+    {
+        var tops = RowTops();
+        var count = tops.Length - 1;
+        if (row <= 0) return row * DiffLineHeight;
+        return row <= count ? tops[row] : tops[count] + (row - count) * DiffLineHeight;
+    }
+
+    /// <summary>Displayed row at a pane coordinate (may be outside 0..Count-1).</summary>
+    internal int RowAt(double y)
+    {
+        var tops = RowTops();
+        var count = tops.Length - 1;
+        if (y < 0) return (int)Math.Floor(y / DiffLineHeight);
+        if (y >= tops[count]) return count + (int)Math.Floor((y - tops[count]) / DiffLineHeight);
+        var index = Array.BinarySearch(tops, y);
+        return index >= 0 ? index : ~index - 1;
+    }
+
+    private double RowsHeight => RowTop(Lines?.Count ?? 0);
+
+    // Re-render both panes with the new row heights, keeping the same top row.
+    private void SetCompactSingleFolds(bool on)
+    {
+        if (_compactSingleFolds == on) return;
+        var scroll = _leftList == null ? null : FindScroll(_leftList);
+        var topRow = RowAt(scroll?.VerticalOffset ?? 0);
+        var horizontal = scroll?.HorizontalOffset ?? 0;
+        _compactSingleFolds = on;
+        if (_leftList == null || _rightList == null || !ViewModel.IsText || _renderingContent) return;
+        // Retained paragraphs carry the previous row height; rebuild them.
+        _renderedPanes.Clear();
+        RefreshFoldedPanes(RowTop(topRow), horizontal, Current);
+    }
+
+    // Line numbers are split at compact rows: each run of full-height rows is one
+    // TextBlock, and each compact row is a 1 DIP spacer, matching the panes.
+    private void FillGutter(StackPanel gutter, bool source)
+    {
+        gutter.Children.Clear();
+        var numbers = new StringBuilder();
+        var pending = false;
+
+        void Flush()
+        {
+            if (!pending) return;
+            var block = new TextBlock
+            {
+                FontFamily = _textFontFamily,
+                FontSize = _textFontSize,
+                LineHeight = DiffLineHeight,
+                LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
+                TextAlignment = TextAlignment.Right,
+                // A zero-width space keeps a trailing number-less line at full height.
+                Text = numbers + "\u200B"
+            };
+            block.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
+            gutter.Children.Add(block);
+            numbers.Clear();
+            pending = false;
+        }
+
+        for (var i = 0; i < Lines.Count; i++)
+        {
+            if (IsCompactRow(i))
+            {
+                Flush();
+                gutter.Children.Add(new Border { Height = CompactRowHeight });
+                continue;
+            }
+
+            if (pending) numbers.Append('\n');
+            var number = source ? Lines[i].LeftNumber : Lines[i].RightNumber;
+            if (number > 0) numbers.Append(number);
+            pending = true;
+        }
+
+        Flush();
+    }
+
     // Evaluated several times per rendered row; recompute only when the file changes.
     private string _syntaxSourcePath;
     private string _syntaxExtension = string.Empty;
@@ -283,7 +400,7 @@ internal sealed partial class DiffViewWindow
     private double MapHeight => Math.Max(0, Math.Min(_map?.ActualHeight ?? 0,
         _leftScroll != null && _leftScroll.ViewportHeight > 0 ? _leftScroll.ViewportHeight : _map?.ActualHeight ?? 0));
 
-    private double MapExtent => Math.Max(1, Math.Max((Lines?.Count ?? 0) * DiffLineHeight,
+    private double MapExtent => Math.Max(1, Math.Max(RowsHeight,
         Math.Max(_leftScroll?.ExtentHeight ?? 0, _leftScroll?.ViewportHeight ?? 0)));
 
     private void ShowLoadProgress(string message, double? percent = null)
@@ -402,6 +519,13 @@ internal sealed partial class DiffViewWindow
         if (Keyboard.Modifiers != ModifierKeys.None) return;
         switch (e.Key)
         {
+            // Same actions as the Clear (icon 140) and Reload (icon 69) buttons.
+            case Key.Escape:
+            case Key.F5:
+                var action = e.Key == Key.Escape ? ClearInputsCommand : ReloadCommand;
+                e.Handled = true;
+                if (action.CanExecute(null)) action.Execute(null);
+                break;
             case Key.Up: e.Handled = ScrollVertically(-DiffLineHeight); break;
             case Key.Down: e.Handled = ScrollVertically(DiffLineHeight); break;
             case Key.Left: e.Handled = ScrollHorizontally(-120); break;
@@ -513,6 +637,7 @@ internal sealed partial class DiffViewWindow
     private void UpdateToolbarFold()
     {
         ToolbarToggle.Visibility = ViewModel.IsText ? Visibility.Visible : Visibility.Collapsed;
+        CompactFoldsToggle.Visibility = ViewModel.IsText ? Visibility.Visible : Visibility.Collapsed;
         ToolbarArea.Visibility = !ViewModel.IsText || ToolbarToggle.IsExpanded ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -993,30 +1118,14 @@ internal sealed partial class DiffViewWindow
     private FrameworkElement MakeHost(bool sourceSide, out RichTextBox box)
     {
         var font = _textFontFamily;
-        var gutter = new TextBlock
+        var gutter = new StackPanel
         {
-            FontFamily = font,
-            FontSize = _textFontSize,
-            LineHeight = DiffLineHeight,
-            LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
-            TextAlignment = TextAlignment.Right,
             VerticalAlignment = VerticalAlignment.Top,
-            Padding = new Thickness(30, 0, 8, 0),
+            Margin = new Thickness(30, 0, 8, 0),
             IsHitTestVisible = false
         };
-        gutter.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
-        gutter.SetResourceReference(TextBlock.BackgroundProperty, "CardBackground");
-
-        var numbers = new StringBuilder();
-        for (var i = 0; i < Lines.Count; i++)
-        {
-            var line = Lines[i];
-            var number = sourceSide ? line.LeftNumber : line.RightNumber;
-            if (i > 0) numbers.Append('\n');
-            numbers.Append(number == 0 ? string.Empty : number.ToString());
-        }
-
-        gutter.Text = numbers.ToString();
+        gutter.SetResourceReference(Panel.BackgroundProperty, "CardBackground");
+        FillGutter(gutter, sourceSide);
 
         box = MakePane(sourceSide, font);
         // Use explicit coordinates: a second ScrollViewer can arrange a
@@ -1132,7 +1241,7 @@ internal sealed partial class DiffViewWindow
                 LineHeight = DiffLineHeight,
                 LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
                 PageWidth = Math.Max(_sharedTextWidth + 24, Math.Max(200, box.ActualWidth)),
-                PageHeight = Math.Max(DiffLineHeight * Math.Max(1, Lines.Count) + 24, 200),
+                PageHeight = Math.Max(Math.Max(DiffLineHeight, RowsHeight) + 24, 200),
                 IsOptimalParagraphEnabled = false,
                 IsHyphenationEnabled = false
             };
@@ -1227,11 +1336,23 @@ internal sealed partial class DiffViewWindow
                     }
 
                 originalRow += line.FilteredLineCount;
-                paragraph.Inlines.Add(new Run(text));
-                paragraph.FontSize = _textFontSize * 10 / 13;
-                paragraph.SetResourceReference(TextElement.ForegroundProperty, "Muted");
-                paragraph.SetResourceReference(TextElement.BackgroundProperty,
-                    TryFindResource("DiffFilteredBackground") != null ? "DiffFilteredBackground" : "HeaderBackground");
+                if (IsCompactRow(row))
+                {
+                    // One hidden line: a 1 DIP line instead of the label row.
+                    paragraph.Padding = new Thickness(0);
+                    paragraph.LineHeight = CompactRowHeight;
+                    paragraph.FontSize = CompactRowHeight;
+                    paragraph.Inlines.Add(new Run(string.Empty));
+                    paragraph.SetResourceReference(TextElement.BackgroundProperty, "Muted");
+                }
+                else
+                {
+                    paragraph.Inlines.Add(new Run(text));
+                    paragraph.FontSize = _textFontSize * 10 / 13;
+                    paragraph.SetResourceReference(TextElement.ForegroundProperty, "Muted");
+                    paragraph.SetResourceReference(TextElement.BackgroundProperty,
+                        TryFindResource("DiffFilteredBackground") != null ? "DiffFilteredBackground" : "HeaderBackground");
+                }
             }
             else
             {
@@ -1314,7 +1435,7 @@ internal sealed partial class DiffViewWindow
                 }
 
                 document.PageWidth = Math.Max(_sharedTextWidth + 24, Math.Max(200, box.ActualWidth));
-                document.PageHeight = Math.Max(DiffLineHeight * Math.Max(1, Lines.Count) + 24, 200);
+                document.PageHeight = Math.Max(Math.Max(DiffLineHeight, RowsHeight) + 24, 200);
             }
             finally
             {
@@ -1590,7 +1711,7 @@ internal sealed partial class DiffViewWindow
         if (scroll == null) return;
 
         var y = e.GetPosition(box).Y + scroll.VerticalOffset;
-        var index = (int)Math.Floor(y / DiffLineHeight);
+        var index = RowAt(y);
         if (index < 0 || index >= Lines.Count) return;
         if (Lines[index].IsDesignerHeader)
         {
@@ -1611,7 +1732,7 @@ internal sealed partial class DiffViewWindow
             {
                 var collapsedIndex = ViewModel.CollapseExpandedLines(index);
                 if (collapsedIndex < 0) return;
-                vertical = Math.Min(vertical, collapsedIndex * DiffLineHeight);
+                vertical = Math.Min(vertical, RowTop(collapsedIndex));
             }
 
             RefreshFoldedPanes(vertical, horizontal, selectedHunk);
@@ -1671,16 +1792,8 @@ internal sealed partial class DiffViewWindow
     private void UpdateFoldedGutter(RichTextBox pane, bool source)
     {
         var viewport = (Canvas)pane.Tag;
-        var gutter = (TextBlock)viewport.Children[0];
-        var numbers = new StringBuilder();
-        for (var i = 0; i < Lines.Count; i++)
-        {
-            if (i > 0) numbers.Append('\n');
-            var number = source ? Lines[i].LeftNumber : Lines[i].RightNumber;
-            if (number > 0) numbers.Append(number);
-        }
-
-        gutter.Text = numbers.ToString();
+        var gutter = (StackPanel)viewport.Children[0];
+        FillGutter(gutter, source);
         gutter.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         viewport.Width = Math.Max(viewport.Width, gutter.DesiredSize.Width);
         // Folding only changes displayed row positions, not edit hunk identities.
@@ -1767,8 +1880,8 @@ internal sealed partial class DiffViewWindow
 
         // Paragraph backgrounds use fixed row boundaries, not glyph bounds.
         // Glyph ascenders/descenders shift the outline below the painted top.
-        var hunkTop = viewTop.Y + _hunkStart * DiffLineHeight - _leftScroll.VerticalOffset;
-        var hunkBottom = viewTop.Y + _hunkEnd * DiffLineHeight - _leftScroll.VerticalOffset;
+        var hunkTop = viewTop.Y + RowTop(_hunkStart) - _leftScroll.VerticalOffset;
+        var hunkBottom = viewTop.Y + RowTop(_hunkEnd) - _leftScroll.VerticalOffset;
         var sourceHost = FindAncestor<Border>(_leftList);
         var targetHost = FindAncestor<Border>(_rightList);
         if (sourceHost == null || targetHost == null) return;
@@ -1887,8 +2000,8 @@ internal sealed partial class DiffViewWindow
         var scale = MapHeight / MapExtent;
         var viewTop = Canvas.GetTop(_viewportThumb);
         if (double.IsNaN(viewTop)) return;
-        var top = Math.Max(viewTop + 2, _hunkStart * DiffLineHeight * scale);
-        var bottom = Math.Min(viewTop + _viewportThumb.Height - 2, _hunkEnd * DiffLineHeight * scale);
+        var top = Math.Max(viewTop + 2, RowTop(_hunkStart) * scale);
+        var bottom = Math.Min(viewTop + _viewportThumb.Height - 2, RowTop(_hunkEnd) * scale);
         if (bottom <= top) return;
         Canvas.SetLeft(_mapSelection, 3);
         Canvas.SetTop(_mapSelection, top);
@@ -1923,8 +2036,8 @@ internal sealed partial class DiffViewWindow
             var mapWidth = Math.Max(0, _map.ActualWidth);
             var halfWidth = mapWidth / 2.0;
             var scale = MapHeight / MapExtent;
-            var top = start * DiffLineHeight * scale;
-            var height = Math.Min(Math.Max(1, (end - start) * DiffLineHeight * scale), Math.Max(0, MapHeight - top));
+            var top = RowTop(start) * scale;
+            var height = Math.Min(Math.Max(1, (RowTop(end) - RowTop(start)) * scale), Math.Max(0, MapHeight - top));
 
             if (kind == DiffLineKind.Modified)
             {

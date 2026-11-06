@@ -182,9 +182,12 @@ internal sealed partial class DiffViewWindow
                 _lightBackground = light;
             }
 
-            // The comparison uses fixed-height, unwrapped rows.
-            var first = Math.Max(0, (int)(scroll.VerticalOffset / DiffLineHeight) - 1);
-            var last = Math.Min(_rows.Count, first + (int)Math.Ceiling(scroll.ViewportHeight / DiffLineHeight) + 3);
+            // Unwrapped rows; compact one-line folds are shorter, so use the window's row geometry.
+            var owner = GetWindow(_pane) as DiffViewWindow;
+            var first = Math.Max(0, (owner?.RowAt(scroll.VerticalOffset) ??
+                                     (int)(scroll.VerticalOffset / DiffLineHeight)) - 1);
+            var last = Math.Min(_rows.Count, (owner?.RowAt(scroll.VerticalOffset + scroll.ViewportHeight) ??
+                                              first + (int)Math.Ceiling(scroll.ViewportHeight / DiffLineHeight)) + 3);
             var origin = scroll.TranslatePoint(new Point(), this);
             drawing.PushClip(
                 new RectangleGeometry(new Rect(origin, new Size(scroll.ViewportWidth, scroll.ViewportHeight))));

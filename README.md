@@ -1,4 +1,4 @@
-﻿# DesktopIniManager v4.7.0 PreRelease
+﻿# DesktopIniManager v4.7.2 Release
 
 DesktopIniManager (DIM) is a Windows workspace for exploring development folders and Visual Studio solutions, finding files, running scoped searches, comparing folders, viewing differences, and managing folder icons through `desktop.ini`.
 
@@ -8,7 +8,7 @@ DesktopIniManager (DIM) is a Windows workspace for exploring development folders
 
 ## Download and setup
 
-Download **DesktopIniManager-v4.7.0-win-x64.zip** from the v4.7.0 PreRelease GitHub release assets, not GitHub's source-code archive. The matching `.zip.sha256` contains the SHA-256 checksum.
+Download **DesktopIniManager-v4.7.2-win-x64.zip** from the v4.7.2 Release GitHub release assets, not GitHub's source-code archive. The matching `.zip.sha256` contains the SHA-256 checksum.
 
 - Windows 10 or 11, x64; .NET 10 Desktop Runtime (x64) installed separately.
 - Visual Studio Build Tools / MSBuild or .NET SDK for solution builds.
@@ -16,13 +16,33 @@ Download **DesktopIniManager-v4.7.0-win-x64.zip** from the v4.7.0 PreRelease Git
 
 Extract into a fresh folder and run **DesktopIniManager.exe**. Keep the DLLs, JSON, Assets and Languages together. ExcelDataReader and PdfPig libraries are required for Document Grep.
 
-## What's new in v4.7.0 PreRelease
+## What's new in v4.7.2 Release
+
+v4.7.2 is the release of the v4.7.0 PreRelease Patch View, with the following additions and refinements.
+
+**Patch View**
+
+- The Target side no longer selects a file. Click the **Target** button (icon 75) to choose the repository folder; its path is shown next to the button. The target file is the repository path plus the patch's file path (`a/` and `b/` prefixes removed, separators converted) and follows the Patch selection. Choosing a subfolder uses the nearest parent folder under which the patch paths exist. The chosen repository is kept for the next start; when opened from Developer Differencer, the comparison Target root is used.
+- New files (`--- /dev/null`) whose target does not exist are filled with the whole patch content on the Target side, and the save button is enabled for the patch's file path (missing folders are created). Deleted files (`+++ /dev/null`) show every target line as deleted. Renamed files are looked up by the new path, then by the old path. A missing target keeps the before → after preview.
+- The Commit message is read-only text that can be selected and copied.
+- The patch side uses the PATCH icon (icon 160) and a dark green image color. The Target header and window title show the actual target file.
+
+**Text and Patch DIFF VIEW**
+
+- A toggle above the scroll map shrinks every **1 filtered lines** row to a 1 DIP line in both panes, bringing the surrounding hunks together. Rows with two or more filtered lines are unchanged; scroll-map markers use the shrunk heights. The state is restored next time.
+- The toggle beside the DIFF VIEW title folds the external diff and toolbar rows; this state and the Commit message expansion are restored next time.
+- **Esc** clears both inputs and **F5** reloads, like the Clear (icon 140) and Reload (icon 69) buttons.
+- In the differences-only view, an expanded VB6 form designer section folds its unchanged rows like the rest of the file; click a fold to expand it.
+- Inline differences mark whitespace only when the whitespace itself changed. Numbers are compared as units; numbers of the same length are compared digit by digit at the same position (`17430` → `17745` marks `430` / `745`; `1.2.3` → `1.3.0` marks the changed digits).
+- Shift-JIS files containing a few invalid bytes now open. Invalid bytes are shown as U+FFFD, the status bar reports the line, and saving that side is refused instead of corrupting the file.
+
+## Included from v4.7.0 PreRelease
 
 **Patch View: inspect and apply unified / Git patches inside DIFF VIEW.** Open a `.patch` or `.diff` file and DIM lists every changed file. Without a target, DIM previews each file as before → after. With the actual repository file as target, DIM shows the patch's post-change text on the left and the real file on the right, and applies changes hunk by hunk. DIM parses the patch itself and never runs `git apply` or any other patch command.
 
 - Open from the **Open patch / diff** button in Developer Differencer (the comparison Target root becomes the repository root), from the **Patch…** button (icon 159) in DIFF VIEW, or by dropping a patch onto DIFF VIEW.
 - `git format-patch` mail headers are decoded; the commit title, author and message appear in a collapsible **Commit message** panel.
-- For a dropped patch, select any repository file with **Target…** (icon 75): DIM matches it against every patch path, sets the repository root and selects that file. **Repository…** sets the root directly. Once the root is known, the Patch and Target selectors stay synchronized.
+- Select the repository folder with the **Target** button (icon 75; changed in v4.7.2, see above). Once the repository root is known, the target file follows the Patch selection.
 - Each hunk is located like `git apply`: at the patch line number, adjusted by earlier hunks' drift, otherwise at the nearest matching position. Hunks already contained in the target are recognized, and context mismatches are reported in the status bar.
 - A HUNK is one run of changed rows; unchanged context is never inside the frame. The arrow applies exactly that run, and an applied run stays visible with an Undo arrow. Up/down controls move the whole patch hunk by one line when its position needs correction.
 - Whitespace and line-ending options follow the text comparison rules. CRLF information carried in the patch is preserved, so CRLF/LF-only differences fold when line endings are ignored.
@@ -126,7 +146,7 @@ In GitKraken select **Git Config Default**. Text DIFF VIEW supports bidirectiona
 
 ## Patch View
 
-Open a `.patch` / `.diff` file from Developer Differencer (**Open patch / diff**), with **Patch…** in DIFF VIEW, or by dropping it. The Patch selector lists the changed files; the Target selector follows it once the repository root is known (comparison Target root, **Target…** with any repository file, or **Repository…**). Without an actual target the view previews before → after and shows no apply arrows. With a target, the left pane is the patch's post-change text and the right pane is the actual file; apply runs left to right only.
+Open a `.patch` / `.diff` file from Developer Differencer (**Open patch / diff**), with **Patch…** in DIFF VIEW, or by dropping it. The Patch selector lists the changed files; the target file follows it once the repository root is known (the comparison Target root, or the repository folder chosen with the **Target** button, icon 75). Without an actual target the view previews before → after and shows no apply arrows. With a target, the left pane is the patch's post-change text and the right pane is the actual file; apply runs left to right only.
 
 Hunks are located at the nearest matching position like `git apply`. The status bar reports applied hunks, hunks already in the target and context mismatches. Select a HUNK and hover over its frame to show the up/down controls, which move the whole patch hunk by one line. Close or switch files freely: per-file working text and undo are retained, and DIM asks to save, discard or cancel when closing with unsaved changes.
 
@@ -172,7 +192,7 @@ DIM1–DIM5 are independent processes. **In Use** identifies the current slot, *
 
 Freeware by Tamayan / ZEBRASOFT. [Website](http://dim.zebrasoft.co.jp/) · [Repository and issues](https://github.com/K-Tamashiro/DesktopIniManager) · tamayan@zebrasoft.co.jp.
 
-` scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> ` packages prebuilt v4.7.0 binaries; omitting that option runs `dotnet publish`. Archives and checksums are written to `release/`.
+` scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> ` packages prebuilt v4.7.2 binaries; omitting that option runs `dotnet publish`. Archives and checksums are written to `release/`.
 
 ## Keyboard shortcuts and startup options
 
@@ -186,6 +206,8 @@ Freeware by Tamayan / ZEBRASOFT. [Website](http://dim.zebrasoft.co.jp/) · [Repo
 | Ctrl+Left / Right | Previous / next comparison file |
 | Shift+wheel / thumb wheel | Horizontal scrolling |
 | Page Up / Page Down | Page scroll in text DIFF VIEW |
+| Esc | Clear both DIFF VIEW inputs |
+| F5 | Reload the DIFF VIEW files |
 | `-diff` | Open empty standalone DIFF VIEW |
 | `-diff Source Target` | Open standalone DIFF VIEW with specified files |
 | `-d1` through `-d5` | Start the selected process slot |

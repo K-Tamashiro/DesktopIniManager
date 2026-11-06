@@ -149,6 +149,12 @@ internal static class Program
             var fresh = new PatchFileState(addition.Files[0]);
             fresh.Copy(new[] { 0 });
             Check(fresh.IsDirty, "new-file hunk can be copied before choosing save root");
+            var filled = new PatchFileState(addition.Files[0]);
+            filled.Attach(Path.Combine(root, "filled", "new", "file.txt"));
+            Check(filled.IsDirty && !filled.HasUserEdits && DiffViewModel.Text(filled.Document()) == "one\r\ntwo\r\n",
+                  "a new file without a target is filled from the patch and can be saved");
+            filled.Attach(Path.Combine(root, "other", "new", "file.txt"));
+            Check(filled.IsDirty && filled.TargetPath.Contains("other"), "an automatically filled new file follows a repository change");
             var newPath = DiffViewModel.ResolvePatchPath(root, addition.Files[0].RelativePath);
             fresh.AssignNewPath(newPath);
             fresh.Save(new UTF8Encoding(false, true), "\n");

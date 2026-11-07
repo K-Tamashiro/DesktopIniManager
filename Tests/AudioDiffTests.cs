@@ -36,7 +36,7 @@ internal static class AudioDiffTests
         string fixture = Path.Combine(AppContext.BaseDirectory, "cursor-wave.wav");
         Write(fixture, 1000, 1, 2, 0.5f);
         var envelope = AudioEnvelope.Load(fixture, CancellationToken.None);
-        var wave = new AudioWaveform(envelope, 2, null) { Foreground = Brushes.White, Background = Brushes.Black };
+        var wave = new AudioWaveform(envelope, 2) { Foreground = Brushes.White, Background = Brushes.Black };
         wave.Measure(new Size(800, 100));
         wave.Arrange(new Rect(0, 0, 800, 100));
         wave.UpdateLayout();
@@ -247,7 +247,7 @@ internal static class AudioDiffTests
         var differences = AudioDifferences.Load(a, b, CancellationToken.None);
         Check(differences.Channels[0].Count == 1 && differences.Channels[0][0] == (0.4, 0.6), "amplitude edit marks only its sample interval");
         var envelope = AudioEnvelope.Load(a, CancellationToken.None);
-        var wave = new AudioWaveform(envelope, 1, a) { Foreground = Brushes.White, Background = Brushes.Black };
+        var wave = new AudioWaveform(envelope, 1) { Foreground = Brushes.White, Background = Brushes.Black };
         wave.SetDifferences(differences, false);
         byte[] Render(bool enabled)
         {
@@ -281,16 +281,17 @@ internal static class AudioDiffTests
         Save(a, original, 2); Save(b, cut, 2);
         var deletion = AudioDifferences.Load(a, b, CancellationToken.None);
         Check(deletion.Channels.All(channel => channel.Count == 1 && channel[0] == (0.4, 0.418)) &&
-            deletion.TargetChannels.All(channel => channel.Count == 0) && deletion.TargetJoin == 0.4,
-            "middle stereo cut marks only the removed 18 ms and the target join; matching suffix stays unchanged");
+            deletion.TargetChannels.All(channel => channel.Count == 0),
+            "middle stereo cut marks only the removed 18 ms; matching suffix stays unchanged");
         var insertion = AudioDifferences.Load(b, a, CancellationToken.None);
-        Check(insertion.Channels.All(channel => channel.Count == 0) && insertion.SourceJoin == 0.4 &&
+        Check(insertion.Channels.All(channel => channel.Count == 0) &&
             insertion.TargetChannels.All(channel => channel.Count == 1 && channel[0] == (0.4, 0.418)),
             "reversed comparison marks the inserted interval on Target");
         cut[1500] += 0.1f; Save(b, cut, 2);
         var editedSuffix = AudioDifferences.Load(a, b, CancellationToken.None);
-        Check(editedSuffix.TargetJoin == null && editedSuffix.Channels.Any(channel => channel.Any(range => range.End > 0.7)),
-            "a changed suffix is not falsely classified as a pure cut");
+        // 継ぎ目 (SourceJoin / TargetJoin) の判定は b48df4b (v4.5.3) で本体から削除したため、差分区間だけを確認する。
+        Check(editedSuffix.Channels.Any(channel => channel.Any(range => range.End > 0.7)),
+            "a changed suffix after a cut is marked as a difference");
         var launch = ExternalDiffLaunch.Parse(new[] { "-diff" });
         var snapshot = launch.CreateSnapshot();
         var model = new DesktopIniManager.ViewModels.DiffViewModel(snapshot, snapshot.Files[0], null, "", "");
@@ -341,7 +342,7 @@ internal static class AudioDiffTests
         differences.Channels[0].Add((0.5, 0.75));
         differences.Channels[1].Add((0.5, 0.75));
         differences.TargetChannels = new[] { new System.Collections.Generic.List<(double Start, double End)>() };
-        differences.TargetJoin = 0.5;
+
         overview.SetDifferences(differences, true);
         var highlighted = Render(1, 0, 0, 900, "audio-overview-differences");
         // Current overview colors the waveform bars, not the empty area above them.
@@ -359,7 +360,7 @@ internal static class AudioDiffTests
         { Foreground = Brushes.Black, Background = Brushes.White };
         Render(0.5, 0, 0.5f, 900, "audio-overview-one-sided-light");
         Check(true, "overview handles resize, missing source and light colors");
-        var timeline = new AudioTimeline(new[] { envelope, envelope }, 80, new string[2]);
+        var timeline = new AudioTimeline(new[] { envelope, envelope }, 80);
         void LayoutTimeline(double width)
         {
             timeline.Measure(new Size(width, 400));

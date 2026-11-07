@@ -58,7 +58,7 @@ internal static class WaveformControlTests
         wave.SetViewRange(999, 10); Check(wave.ViewStart == 50, "view is clamped at EOF");
         wave.Fit(); Check(wave.ViewStart == 0 && wave.ViewDuration == 60 && wave.AmplitudeScale == 1, "fit resets axes");
         var envelope = new AudioEnvelope { Data = original, Channels = 2, Duration = 60, SampleRate = 1001 };
-        var timeline = new AudioTimeline(new[] { envelope, envelope }, 60, new string[2]);
+        var timeline = new AudioTimeline(new[] { envelope, envelope }, 60);
         timeline.Measure(new Size(900, 480)); timeline.Arrange(new Rect(0, 0, 900, 480)); timeline.UpdateLayout();
         timeline.Waves[0].ZoomX(3);
         timeline.Waves[0].SetViewRange(12, 20);

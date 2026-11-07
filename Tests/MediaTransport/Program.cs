@@ -130,7 +130,7 @@ internal static class Program
             Check(slider.Maximum == 0 && !slider.IsEnabled, "empty video timeline disables seeking");
             string path = Path.Combine(AppContext.BaseDirectory, "delay.wav");
             var envelope = AudioEnvelope.Load(path, System.Threading.CancellationToken.None);
-            var timeline = new AudioTimeline(new[] { envelope, envelope }, 1, new[] { path, path });
+            var timeline = new AudioTimeline(new[] { envelope, envelope }, 1);
             timeline.SetDelay(0, 0.2); timeline.SetDelay(1, -0.1); timeline.UpdatePosition(0.5, false);
             Check(Math.Abs(Field<double>(timeline.Waves[0], "cursorPosition") - 0.3) < 1e-6 &&
                 Math.Abs(Field<double>(timeline.Waves[1], "cursorPosition") - 0.6) < 1e-6,

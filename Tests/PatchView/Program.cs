@@ -29,8 +29,8 @@ internal static class Program
             Check(minus.Count == 1 && minus[0].Kind == DiffLineKind.Modified, "presence of a body space is still a difference when spaces are ignored");
             Check(minus[0].LeftChanges.Select((changed, index) => changed ? index : -1).Where(index => index >= 0).SequenceEqual(new[] { 13 }) &&
                   !minus[0].RightChanges.Any(changed => changed), "only the removed space is an inline difference");
-            var runs = DiffTextService.Compare(new[] { "a  =  b" }, new[] { "a = c" }, ignoreSpaces: true, calculateInlineDifferences: true)[0];
-            Check(!runs.LeftChanges.Take(6).Any(changed => changed) && runs.LeftChanges[6], "whitespace-run length is not an inline difference when spaces are ignored");
+            var spaceRuns = DiffTextService.Compare(new[] { "a  =  b" }, new[] { "a = c" }, ignoreSpaces: true, calculateInlineDifferences: true)[0];
+            Check(!spaceRuns.LeftChanges.Take(6).Any(changed => changed) && spaceRuns.LeftChanges[6], "whitespace-run length is not an inline difference when spaces are ignored");
             var split = DiffTextService.Compare(new[] { "aaaaaa", "bbb", "", "cccc", "ddddddd", "" }, new[] { "xxxxxxxx", "" }, ignoreSpaces: true, compareBlankLines: false);
             Check(split.Count == 6 && split[2].Kind == DiffLineKind.Unchanged && split[2].LeftNumber == 3 && split[2].RightNumber == 0 &&
                   split[1].Kind != DiffLineKind.Unchanged && split[3].Kind != DiffLineKind.Unchanged, "newline-only row is a standalone unchanged row between two hunks");

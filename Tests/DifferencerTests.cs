@@ -190,7 +190,7 @@ internal static class DifferencerTests
                 Write(source, "bin/ignored.sln", "ignored"); Write(source, ".git/ignored.sln", "ignored");
                 Write(source, "keep.cs", "source");
                 Check(SolutionCleanService.FindSolutions(source, target).SequenceEqual(new[] { solution }), "solution discovery excludes bin, obj and .git");
-                string msbuild = SolutionCleanService.FindMSBuild();
+                string msbuild = SolutionCleanService.FindMsBuild();
                 foreach (string config in new[] { "Debug", "Release" })
                 {
                     string output;

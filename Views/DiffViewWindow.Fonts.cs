@@ -69,7 +69,7 @@ internal sealed partial class DiffViewWindow
                 var row = 0;
                 foreach (var paragraph in document.Blocks.OfType<Paragraph>())
                 {
-                    // Compact one-line folds keep their 1 DIP height and size.
+                    // Compact one-line folds keep their 3 DIP height and size.
                     if (!IsCompactRow(row))
                     {
                         paragraph.LineHeight = DiffLineHeight;

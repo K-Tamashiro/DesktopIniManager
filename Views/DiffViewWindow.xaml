@@ -352,7 +352,7 @@
                     VerticalAlignment="Center"
                     Orientation="Horizontal" />
             </Grid>
-            <!-- Above the scroll map (code and patch views): collapsed = "1 filtered lines" rows become 1 DIP lines. -->
+            <!-- Above the scroll map (code and patch views): collapsed = "1 filtered lines" rows become 3 DIP lines. -->
             <Expander
                 x:Name="CompactFoldsToggle"
                 Grid.Row="1"

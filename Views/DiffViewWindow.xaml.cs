@@ -257,11 +257,11 @@ internal sealed partial class DiffViewWindow
     private List<int> Hunks => ViewModel.Hunks;
     private List<DiffLine> Lines => ViewModel.Lines;
 
-    // When on, a fold row hiding exactly one unchanged line is drawn as a 1 DIP line in
+    // When on, a fold row hiding exactly one unchanged line is drawn as a 3 DIP line in
     // both panes, so the hunks around it come together. Rows keep their indexes; only
     // their vertical positions change, and every position goes through RowTop/RowAt.
     private bool _compactSingleFolds;
-    private const double CompactRowHeight = 1;
+    private const double CompactRowHeight = 3;
     private double[] _rowTops = [0];
     private object _rowTopsKey;
 
@@ -330,9 +330,9 @@ internal sealed partial class DiffViewWindow
     }
 
     // Line numbers are split at compact rows: each run of full-height rows is one
-    // TextBlock, and each compact row is a 1 DIP spacer, matching the panes.
+    // TextBlock, and each compact row is a 3 DIP spacer, matching the panes.
     /// <summary>
-    ///     行番号の表示を作成します。通常の高さの行の連続を 1 つの TextBlock にし、縮めた行は 1 DIP の空白にします。
+    ///     行番号の表示を作成します。通常の高さの行の連続を 1 つの TextBlock にし、縮めた行は 3 DIP の空白にします。
     /// </summary>
     /// <param name="gutter">行番号を表示するパネル。</param>
     /// <param name="source">比較元の場合は true。</param>
@@ -1503,7 +1503,7 @@ internal sealed partial class DiffViewWindow
                 originalRow += line.FilteredLineCount;
                 if (IsCompactRow(row))
                 {
-                    // One hidden line: a 1 DIP line instead of the label row.
+                    // One hidden line: a 3 DIP line instead of the label row.
                     paragraph.Padding = new Thickness(0);
                     paragraph.LineHeight = CompactRowHeight;
                     paragraph.FontSize = CompactRowHeight;

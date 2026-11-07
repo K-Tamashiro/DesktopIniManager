@@ -160,6 +160,8 @@ Open a `.patch` / `.diff` file from Developer Differencer (**Open patch / diff**
 
 Hunks are located at the nearest matching position like `git apply`. The status bar reports applied hunks, hunks already in the target and context mismatches. Select a HUNK and hover over its frame to show the up/down controls, which move the whole patch hunk by one line. Close or switch files freely: per-file working text and undo are retained, and DIM asks to save, discard or cancel when closing with unsaved changes.
 
+**Manual, hunk-by-hunk patch application.** Unlike `git apply` or `patch`, which apply a whole patch at once or reject it, Patch View lets you review each hunk against the actual file and apply it by hand: apply or undo individual hunks, move a hunk when its context has drifted, recognize hunks already in the target, and save only when the result is right. This makes a patch usable even on a copy whose code has diverged, where an automatic apply would fail.
+
 ## Image DIFF VIEW
 
 BMP, JPG/JPEG, PNG, GIF and TIFF/TIF are displayed side by side using nearest-neighbor scaling from 5% to 1600%. A pixel grid appears only at 1600%. ARGB values and coordinates appear at the pointer. Source and Target can independently toggle XOR overlays. Animated GIFs have a frame slider for composed still-frame comparison, respecting frame disposal and transparency.

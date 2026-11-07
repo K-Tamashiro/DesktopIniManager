@@ -122,9 +122,10 @@
 <section id="patch">
 <h2>パッチ表示（Patch View）</h2>
 <p>unified diff／git format-patch形式の.patch／.diffファイルを、DIFF VIEW内で確認・適用します。パッチの解析と適用はDIM内で行い、git applyなどのコマンドは実行しません。</p>
+<figure class="capture"><img alt="パッチ表示（Patch View）：日本語のCommit messageとShift-JISのVB6ファイルへのHUNK単位の適用" loading="lazy" src="images/2026-11-08_07h48_38.png"/><figcaption>パッチ表示：日本語のCommit message・ファイル名をそのまま表示し、Shift-JISのVB6ファイルにHUNK単位で手動適用</figcaption></figure>
 <h3>開き方</h3>
 <ol><li>Developer Differencerの「Open patch / diff」ボタンからパッチを選ぶ（比較中のTargetルートをリポジトリのルートとして使用）。</li><li>パッチ表示中のDIFF VIEWで、Patch…ボタン（パッチアイコン）から別のパッチを開く。</li><li>DIFF VIEWにパッチファイルをドラッグ＆ドロップする。</li></ol>
-<p>Patch側のコンボボックスにパッチ内の変更ファイルを一覧表示します。git format-patch形式では、コミットのタイトル・作成者・メッセージを「Commit message」欄に表示します（折り畳み可能）。</p>
+<p>Patch側のコンボボックスにパッチ内の変更ファイルを一覧表示します。git format-patch形式では、コミットのタイトル・作成者・メッセージを「Commit message」欄に表示します（折り畳み可能）。日本語のコミットタイトル・作成者・メッセージ（メール形式でエンコードされたヘッダーを含む）や日本語のファイル名も、文字化けせずにそのまま表示します。</p>
 <h3>適用先（Target）の指定</h3>
 <p>ドロップで開いた場合など、適用先が未定のときは変更前→変更後をプレビューし、適用矢印は表示しません。Target側のTargetボタン（Targetアイコン）でリポジトリのフォルダーを選ぶと、そのパスがボタンの右に表示され、リポジトリのパス＋パッチ内のファイルパス（a/・b/を除去）が対象ファイルになります。ファイルのあるサブフォルダーを選んだ場合も、パッチのパスが見つかる上位フォルダーをルートにします。パッチ側でファイルを切り替えると対象ファイルも連動します。選んだパスは次回起動時も使います（Developer Differencerから開いた場合は比較中のTargetルートを使用）。新規追加ファイルは、対象が無ければパッチの内容を丸ごとTarget側に表示し、パッチのパスで保存できます（フォルダーも作成）。削除ファイルは全行削除として表示し、リネームは新しいパス、古いパスの順に対象を探します。Commit messageは選択・コピーできます（v4.7.2）。ルートの下に対象ファイルがない場合はステータス欄に表示します。</p>
 <h3>HUNKの確認と適用</h3>

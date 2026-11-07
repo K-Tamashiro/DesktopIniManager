@@ -4,14 +4,14 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width,initial-scale=1" name="viewport"/>
-<title>DesktopIniManager v4.7.2 操作マニュアル</title>
+<title>DesktopIniManager v4.7.3 操作マニュアル</title>
 <link href="./favicon.ico" rel="icon" type="image/x-icon"/>
 <style>*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#070c12;color:#e8edf3;font:15px/1.85 "Segoe UI","Noto Sans JP",sans-serif}a{color:#80bfff}.layout{max-width:1220px;margin:auto;display:grid;grid-template-columns:245px minmax(0,1fr);gap:38px;padding:24px}aside{position:sticky;top:20px;align-self:start;max-height:95vh;overflow:auto;background:#0d141d;border:1px solid #243444;border-radius:8px;padding:20px}aside a{display:block;padding:4px 0;text-decoration:none;color:#b9cad9}main{min-width:0}h1{font-size:34px;line-height:1.3}h2{margin-top:50px;padding-bottom:8px;border-bottom:1px solid #243444}p{color:#c5d0db}.capture{border:2px dashed #49627b;background:#0b1723;padding:0;text-align:center;border-radius:8px;margin:20px 0 30px;overflow:hidden}.capture img{display:block;width:100%;height:auto}.capture figcaption{padding:11px 14px;color:#9aabbc;font-size:13px;border-top:1px solid #243444}.capture code{color:#f0cf79;margin:8px}.keys{width:100%;border-collapse:collapse;margin:20px 0 28px;background:#0d141d;border:1px solid #243444}.keys th,.keys td{padding:12px 16px;border-bottom:1px solid #243444;text-align:left;vertical-align:top}.keys th{background:#14202c;color:#e8edf3}.keys td:first-child{width:40%;white-space:nowrap}.keys code{display:inline-block;background:#101c29;border:1px solid #30465a;border-radius:4px;padding:1px 7px;color:#d5eaff}pre{padding:18px;background:#101c29;color:#d5eaff;overflow:auto;line-height:1.7}code{color:#d5eaff}footer{padding:40px 0;color:#9aabbc}@media(max-width:850px){.layout{display:block}aside{position:static;max-height:none}}</style>
 </head>
 <body>
 <div class="layout">
 <aside>
-<strong>DIM v4.7.2</strong>
+<strong>DIM v4.7.3</strong>
 <p>
 <a href="index.html">← トップページ</a>
 </p>
@@ -33,7 +33,7 @@
 </aside>
 <main>
 <header>
-<h1>DesktopIniManager v4.7.2
+<h1>DesktopIniManager v4.7.3
                         <br/>操作マニュアル
                     </h1>
 <p>
@@ -43,7 +43,7 @@
 </header>
 <section id="setup">
 <h2>導入・更新</h2>
-<p>Windows 10 / 11（x64）、.NET 10 Desktop Runtime（x64）が必要です。GitHubの配布ZIPはDesktopIniManager-v4.7.2-win-x64.zip、Vector向けは32byte制限のためDIM-v4.7.2-win-x64.zipです。ZIPを新しいフォルダーに展開し、DLL、JSON、Assets、Languagesを維持してDesktopIniManager.exeを起動します。</p>
+<p>Windows 10 / 11（x64）、.NET 10 Desktop Runtime（x64）が必要です。GitHubの配布ZIPはDesktopIniManager-v4.7.3-win-x64.zip、Vector向けは32byte制限のためDIM-v4.7.3-win-x64.zipです。ZIPを新しいフォルダーに展開し、DLL、JSON、Assets、Languagesを維持してDesktopIniManager.exeを起動します。</p>
 <figure class="capture">
 <img alt="初回起動後のメイン画面とヘッダー" loading="lazy" src="images/setup-main.png"/>
 <figcaption>初回起動後のメイン画面とヘッダー</figcaption>
@@ -104,7 +104,7 @@
 </section>
 <section id="diff">
 <h2>テキストDIFF VIEW</h2>
-<p>比較結果の対応ファイルをダブルクリックして開きます。Sourceは黄色枠、Targetは青枠。行番号、シンタックスハイライト、中央の差分マップに対応します。「≠」で差分のみ表示、「※」で全行表示に戻します。省略部分は「52 filtered lines」などと表示し、クリックで展開／折りたたみできます。Ctrl+0でも切り替え、最終状態をスロットごとに保存します。v4.6.0から差分ブロック（HUNK）単位の双方向コピーに対応し、コピー後は該当ボタンがUndoに変わります。保存前に取り消しが可能で、保存ボタンで変更をファイルへ反映します。空白・タブ・改行・EOFマークの表示とフォント設定にも対応します。</p>
+<p>比較結果の対応ファイルをダブルクリックして開きます。Sourceは黄色枠、Targetは青枠。行番号、シンタックスハイライト（拡張子から自動判定：C#、VB6／VB.NET、XAML／XML、SQL、JSON。右下の「Syntax Highlight」のチェックを外すと色分けなし）、中央の差分マップに対応します。「≠」で差分のみ表示、「※」で全行表示に戻します。省略部分は「52 filtered lines」などと表示し、クリックで展開／折りたたみできます。Ctrl+0でも切り替え、最終状態をスロットごとに保存します。v4.6.0から差分ブロック（HUNK）単位の双方向コピーに対応し、コピー後は該当ボタンがUndoに変わります。保存前に取り消しが可能で、保存ボタンで変更をファイルへ反映します。空白・タブ・改行・EOFマークの表示とフォント設定にも対応します。</p>
 <h3>表示の切り替え・キー操作（v4.7.2）</h3>
 <p>スクロールマップ上部の丸いボタンで、「1 filtered lines」（同一行1行だけの折り畳み行）を左右同時に3ドットの線に縮め、上下のHUNKを接近させて表示できます。2行以上の折り畳み行はそのまま表示し、スクロールマップの位置も縮めた高さで計算します。「差分表示」の右のボタンで外部DIFF欄とツールバーを折り畳めます。どちらも状態を次回復元します。ESCで両側の入力をクリア、F5で再読み込みします。</p>
 <p>行内差分では、空白は空白そのものが変わった場合だけ赤いマーカーで表示します。数字はまとまりとして比較し、同じ桁数の数字は同じ桁どうしの違いを表示します（例：17430→17745では「430」「745」、1.2.3→1.3.0では変わった桁のみ）。一部に不正なバイトを含むShift-JISファイルも開け、該当箇所は�で表示し、ステータス欄に行を示します（その側の保存は行いません）。VB6フォームのデザイナー部分は、展開後も差分のみ表示では同一行を折り畳み、クリックで展開します。</p>
@@ -264,7 +264,7 @@
 <h2>アンインストール・注意事項</h2>
 <p>DIMをすべて終了し、展開先フォルダーを削除します。設定も削除する場合は%LOCALAPPDATA%\DesktopIniManagerを削除します。フォルダーアイコンは事前にDIMでリセットしてください。走査・検索・比較・閲覧はファイル内容を変更しませんが、同期、アイコン設定、ビルド／Cleanなどは書き込みを伴います。</p>
 </section>
-<footer>DesktopIniManager v4.7.2 — Copyright (C) ZEBRASOFT Tamayan</footer>
+<footer>DesktopIniManager v4.7.3 — Copyright (C) ZEBRASOFT Tamayan</footer>
 </main>
 </div>
 </body>

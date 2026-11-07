@@ -250,11 +250,11 @@
               Margin="0,0,0,8"
               Visibility="Collapsed" />
 
-        <StackPanel
+        <DockPanel
             x:Name="MarkerOptions"
             Margin="8,4,8,0"
             DockPanel.Dock="Bottom"
-            Orientation="Horizontal"
+            LastChildFill="False"
             Visibility="Collapsed">
             <CheckBox
                 x:Name="ShowSpacesBox"
@@ -265,7 +265,13 @@
                 x:Name="ShowNewlinesBox"
                 IsChecked="{Binding ShowNewlines, Mode=TwoWay}"
                 Content="Show line endings" />
-        </StackPanel>
+            <!-- 右端：拡張子から言語を自動判定して色分けする（既定 ON）。 -->
+            <CheckBox
+                x:Name="SyntaxHighlightBox"
+                DockPanel.Dock="Right"
+                IsChecked="{Binding SyntaxHighlight, Mode=TwoWay}"
+                Content="Syntax Highlight" />
+        </DockPanel>
         <StackPanel
             x:Name="LoadProgressPanel"
             Height="30"

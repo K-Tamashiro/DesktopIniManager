@@ -45,6 +45,8 @@ internal sealed partial class DiffViewModel : ObservableObject
     private bool _showSpaces =
         SettingsService.LoadDiffFlag("show-spaces", SettingsService.LoadDiffFlag("spaces", false));
 
+    private bool _syntaxHighlight = SettingsService.LoadDiffFlag("syntax-highlight", true);
+
     private GifFrames _sourceGif, _targetGif;
     private string _sourcePath, _targetPath;
     private string _status = string.Empty;
@@ -151,6 +153,15 @@ internal sealed partial class DiffViewModel : ObservableObject
     {
         get => _showNewlines;
         set => SetProperty(ref _showNewlines, value);
+    }
+
+    /// <summary>
+    ///     テキストの比較で、拡張子から言語を自動判定してシンタックス ハイライトを付けるかどうか。既定は true。
+    /// </summary>
+    public bool SyntaxHighlight
+    {
+        get => _syntaxHighlight;
+        set => SetProperty(ref _syntaxHighlight, value);
     }
 
     internal bool CanChangeComparison => !_loadingContent && !_navigating && !_checkingExternalEdit && !_closed;
@@ -363,6 +374,7 @@ internal sealed partial class DiffViewModel : ObservableObject
         SettingsService.SaveDiffFlag("spaces", CompareSpaces);
         SettingsService.SaveDiffFlag("show-spaces", ShowSpaces);
         SettingsService.SaveDiffFlag("show-newlines", ShowNewlines);
+        SettingsService.SaveDiffFlag("syntax-highlight", SyntaxHighlight);
         _externalDiffPending = false;
         if (string.IsNullOrWhiteSpace(ExternalDiff)) return;
         ExternalDiffHistoryRequested?.Invoke();

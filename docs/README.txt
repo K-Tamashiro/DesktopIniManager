@@ -1,7 +1,14 @@
-﻿DesktopIniManager v4.7.2
+﻿DesktopIniManager v4.7.3
 
 【概要】
 DesktopIniManager（DIM）は、開発用フォルダーやVisual Studioソリューションの解析、ファイル検索、Scoped Grep、フォルダー比較、DIFF表示、desktop.iniによるアイコン管理を統合したWindows向け開発支援ツールです。
+
+【v4.7.3の主な変更点】
+・DIFF VIEWの余計な「Form header」ボタンを削除。VB6フォーム（.frm）のデザイナー部分は折り畳み行のクリックで展開します。
+・「1 filtered lines」を縮めた線を1ドットから3ドットに変更し、クリックで展開しやすくしました。
+・シンタックスハイライトの言語を拡張子から自動判定。VB6／VB.NET（.bas、.frm、.cls、.ctl、.vbなど）、XAML／XML（要素名、x:Nameなどの属性名、属性値、コメント。複数行にまたがるタグにも対応）、SQLを追加しました（C#、JSONは従来どおり）。
+・DIFF VIEW右下（Show spaces / tabsの行）に「Syntax Highlight」チェックを追加。初期値はONで、外すと色分けなしで表示します（状態を次回復元）。
+・VB6のバイナリ（.frx、.ctx、.dsx、.dox、.pgx、.ocx、.oca、.tlb、.res）をバイナリとして扱い、DIFF VIEWの次／前のファイル移動で飛ばすようにしました。
 
 【v4.7.2の主な変更点】
 ・v4.7.0 PreReleaseのパッチ表示を正式リリース。

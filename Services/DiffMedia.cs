@@ -22,7 +22,10 @@ internal static class DiffMedia
         {
             ".exe", ".dll", ".pdb", ".obj", ".lib", ".zip", ".7z", ".rar", ".gz", ".pdf", ".doc", ".docx", ".xls",
             ".xlsx", ".ppt", ".pptx", ".db", ".sqlite", ".mp3", ".wav", ".msi", ".bin", ".icl", ".resources", ".baml",
-            ".cache"
+            ".cache",
+            // VB6 のバイナリ リソース（フォーム .frx、ユーザー コントロール .ctx、デザイナー .dsx、
+            // ActiveX ドキュメント .dox、プロパティ ページ .pgx）とコンポーネント。編集しないので比較対象から外す。
+            ".frx", ".ctx", ".dsx", ".dox", ".pgx", ".ocx", ".oca", ".tlb", ".res"
         }.Contains(ext);
     }
 

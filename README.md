@@ -1,4 +1,4 @@
-﻿# DesktopIniManager v4.7.2 Release
+﻿# DesktopIniManager v4.7.3 Release
 
 DesktopIniManager (DIM) is a Windows workspace for exploring development folders and Visual Studio solutions, finding files, running scoped searches, comparing folders, viewing differences, and managing folder icons through `desktop.ini`.
 
@@ -8,7 +8,7 @@ DesktopIniManager (DIM) is a Windows workspace for exploring development folders
 
 ## Download and setup
 
-Download **DesktopIniManager-v4.7.2-win-x64.zip** from the v4.7.2 Release GitHub release assets, not GitHub's source-code archive. The matching `.zip.sha256` contains the SHA-256 checksum.
+Download **DesktopIniManager-v4.7.3-win-x64.zip** from the v4.7.3 Release GitHub release assets, not GitHub's source-code archive. The matching `.zip.sha256` contains the SHA-256 checksum.
 
 - Windows 10 or 11, x64; .NET 10 Desktop Runtime (x64) installed separately.
 - Visual Studio Build Tools / MSBuild or .NET SDK for solution builds.
@@ -16,7 +16,17 @@ Download **DesktopIniManager-v4.7.2-win-x64.zip** from the v4.7.2 Release GitHub
 
 Extract into a fresh folder and run **DesktopIniManager.exe**. Keep the DLLs, JSON, Assets and Languages together. ExcelDataReader and PdfPig libraries are required for Document Grep.
 
-## What's new in v4.7.2 Release
+## What's new in v4.7.3 Release
+
+**Text DIFF VIEW**
+
+- Removed the extra **Form header** text button. The VB6 form designer section expands by clicking its fold row.
+- Compact **1 filtered lines** rows are now 3 DIP lines instead of 1 DIP, so they are easier to click and expand.
+- Syntax highlighting detects the language from the file extension. VB6 / VB.NET (`.bas`, `.frm`, `.cls`, `.ctl`, `.vb`, …), XAML / XML (element names, attribute names such as `x:Name`, attribute values and comments, including tags spanning several lines) and SQL were added; C# and JSON are unchanged.
+- A **Syntax Highlight** check box at the bottom right, on the row of **Show spaces / tabs**, turns highlighting on or off (on by default; off shows plain text). The state is restored next time.
+- VB6 binary resources and components (`.frx`, `.ctx`, `.dsx`, `.dox`, `.pgx`, `.ocx`, `.oca`, `.tlb`, `.res`) are treated as binary and skipped when moving to the next / previous file.
+
+## Included from v4.7.2 Release
 
 v4.7.2 is the release of the v4.7.0 PreRelease Patch View, with the following additions and refinements.
 
@@ -142,7 +152,7 @@ Git difftool configuration:
     prompt = false
 ```
 
-In GitKraken select **Git Config Default**. Text DIFF VIEW supports bidirectional HUNK copying, Undo and Save. The text view provides syntax highlighting, original line numbers, Source/Target colored frames, a difference map, inline and whitespace differences, line-ending markers and loading progress. The ≠ / ※ controls (or Ctrl+0) toggle differences-only and all-lines views; the last mode is saved.
+In GitKraken select **Git Config Default**. Text DIFF VIEW supports bidirectional HUNK copying, Undo and Save. The text view provides syntax highlighting (auto-detected from the extension: C#, VB6 / VB.NET, XAML / XML, SQL, JSON; switchable with the Syntax Highlight check box), original line numbers, Source/Target colored frames, a difference map, inline and whitespace differences, line-ending markers and loading progress. The ≠ / ※ controls (or Ctrl+0) toggle differences-only and all-lines views; the last mode is saved.
 
 ## Patch View
 
@@ -192,7 +202,7 @@ DIM1–DIM5 are independent processes. **In Use** identifies the current slot, *
 
 Freeware by Tamayan / ZEBRASOFT. [Website](http://dim.zebrasoft.co.jp/) · [Repository and issues](https://github.com/K-Tamashiro/DesktopIniManager) · tamayan@zebrasoft.co.jp.
 
-` scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> ` packages prebuilt v4.7.2 binaries; omitting that option runs `dotnet publish`. Archives and checksums are written to `release/`.
+` scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> ` packages prebuilt v4.7.3 binaries; omitting that option runs `dotnet publish`. Archives and checksums are written to `release/`.
 
 ## Keyboard shortcuts and startup options
 

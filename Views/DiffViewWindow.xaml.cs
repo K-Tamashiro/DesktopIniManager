@@ -124,6 +124,8 @@ internal sealed partial class DiffViewWindow
         {
             if (args.PropertyName is nameof(DiffViewModel.ShowSpaces) or nameof(DiffViewModel.ShowNewlines))
                 RefreshWhitespaceMarkers();
+            else if (args.PropertyName == nameof(DiffViewModel.SyntaxHighlight))
+                RefreshSyntaxHighlight();
         };
         if (sourcePath != null) SelectedFileText.Visibility = Visibility.Collapsed;
         PreviewKeyDown += DiffViewKeyDown;
@@ -379,24 +381,6 @@ internal sealed partial class DiffViewWindow
         Flush();
     }
 
-    // Evaluated several times per rendered row; recompute only when the file changes.
-    private string _syntaxSourcePath;
-    private string _syntaxExtension = string.Empty;
-
-    private string SyntaxExtension
-    {
-        get
-        {
-            var path = ViewModel.CurrentPatch?.Entry.RelativePath ?? ViewModel.File?.RelativePath ?? string.Empty;
-            if (!ReferenceEquals(path, _syntaxSourcePath))
-            {
-                _syntaxSourcePath = path;
-                _syntaxExtension = System.IO.Path.GetExtension(path).ToLowerInvariant();
-            }
-
-            return _syntaxExtension;
-        }
-    }
 
     private int Current
     {
@@ -450,6 +434,7 @@ internal sealed partial class DiffViewWindow
         LoadProgressPanel.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
         ActionsPanel.IsEnabled = FileNavigationPanel.IsEnabled = !value;
         TextFontPanel.IsEnabled = !value;
+        SyntaxHighlightBox.IsEnabled = !value;
         PatchControls.IsEnabled = !value;
         Body.IsHitTestVisible = !value;
         ImageToolbar.IsHitTestVisible = ImageDetails.IsHitTestVisible = !value;
@@ -729,16 +714,6 @@ internal sealed partial class DiffViewWindow
             ? Visibility.Collapsed
             : Visibility.Visible;
         ActionsPanel.Children.Clear();
-        if (ViewModel.DesignerHeaderRowCount > 0)
-        {
-            var designer = new Button { Content = "Form header", Padding = new Thickness(8, 4, 8, 4), Margin = new Thickness(2) };
-            designer.Click += async (_, _) =>
-            {
-                ViewModel.ToggleDesignerHeader();
-                await LoadContent(false, false);
-            };
-            ActionsPanel.Children.Add(designer);
-        }
         FileNavigationPanel.Children.Clear();
         if (!ViewModel.IsImage && !ViewModel.IsVideo && !ViewModel.IsAudio)
         {
@@ -1374,6 +1349,8 @@ internal sealed partial class DiffViewWindow
     private async Task PopulatePaneAsync(RichTextBox box, bool sourceSide, bool responsive, bool incremental = false)
     {
         _syntaxDark = IsDarkBackground();
+        // 描画の途中で設定が変わっても、1 回の描画の中では同じ言語で色分けする。
+        var language = SyntaxLanguage;
         _renderedPanes.TryGetValue(sourceSide, out var previous);
         incremental &= previous != null;
         var previousRows = incremental
@@ -1413,7 +1390,7 @@ internal sealed partial class DiffViewWindow
         document.SetResourceReference(FlowDocument.BackgroundProperty, "CardBackground");
         document.SetResourceReference(FlowDocument.ForegroundProperty, "Ink");
 
-        var blockComment = false;
+        var lexState = 0;
         var originalRow = 0;
 
         var endings = (sourceSide ? ViewModel.SourceText : ViewModel.TargetText)?.Endings;
@@ -1426,7 +1403,7 @@ internal sealed partial class DiffViewWindow
         }
 
         var markerRows = new List<WhitespaceRow>(Lines.Count);
-        var commentStates = new List<bool>(Lines.Count);
+        var lexStates = new List<int>(Lines.Count);
         var editedHunks = new Dictionary<int, bool>();
         var editedBrushes = new Dictionary<string, Brush>();
 
@@ -1444,8 +1421,7 @@ internal sealed partial class DiffViewWindow
                 else if (row >= Lines.Count - suffix) oldRow = previous.Lines.Count - (Lines.Count - row);
                 else if (previousRows.TryGetValue(line.FilteredAnchor ?? line, out var retained) &&
                          previous.Lines[retained].FilteredLineCount == line.FilteredLineCount) oldRow = retained;
-                if (oldRow >= 0 && SyntaxExtension == ".cs" &&
-                    blockComment != (oldRow > 0 && previous.CommentStates[oldRow - 1])) oldRow = -1;
+                if (oldRow >= 0 && lexState != (oldRow > 0 ? previous.LexStates[oldRow - 1] : 0)) oldRow = -1;
             }
 
             if (oldRow >= 0)
@@ -1454,8 +1430,8 @@ internal sealed partial class DiffViewWindow
                 markerRows.Add(previous.Markers[oldRow]);
                 markerRows[^1].IsEndOfFile = IsEof(line);
                 // Folding does not change text: reuse the lexical state as well.
-                blockComment = previous.CommentStates[oldRow];
-                commentStates.Add(blockComment);
+                lexState = previous.LexStates[oldRow];
+                lexStates.Add(lexState);
                 originalRow += Math.Max(1, line.FilteredLineCount);
                 continue;
             }
@@ -1492,12 +1468,13 @@ internal sealed partial class DiffViewWindow
             {
                 paragraph.Cursor = Cursors.Hand;
                 paragraph.ToolTip = "Click to expand unchanged lines";
-                if (SyntaxExtension == ".cs")
+                // 隠れた行も字句解析だけ行い、複数行コメントなどの状態を次の行へ引き継ぐ。
+                if (HasLexState(language))
                     for (var i = 0; i < line.FilteredLineCount; i++)
                     {
                         var hidden = ViewModel.AllLines[originalRow + i];
-                        AddCSharpRuns(null, (sourceSide ? hidden.Left : hidden.Right) ?? string.Empty,
-                            ref blockComment);
+                        AddSyntaxRuns(null, (sourceSide ? hidden.Left : hidden.Right) ?? string.Empty, language,
+                            ref lexState);
                     }
 
                 originalRow += line.FilteredLineCount;
@@ -1528,7 +1505,7 @@ internal sealed partial class DiffViewWindow
                 }
 
                 // Syntax highlighting uses text without display-only markers.
-                AddSyntaxRuns(paragraph, string.IsNullOrEmpty(text) ? " " : text, ref blockComment);
+                AddSyntaxRuns(paragraph, string.IsNullOrEmpty(text) ? " " : text, language, ref lexState);
 
                 if (ViewModel.CompareCase && line.Kind == DiffLineKind.Modified &&
                     !string.Equals(line.Left, line.Right, StringComparison.Ordinal))
@@ -1563,7 +1540,7 @@ internal sealed partial class DiffViewWindow
             }
 
             blockList.Add(paragraph);
-            commentStates.Add(blockComment);
+            lexStates.Add(lexState);
             var lineNumber = sourceSide ? line.LeftNumber : line.RightNumber;
             var ending = lineNumber > 0 && endings != null && lineNumber <= endings.Length
                 ? endings[lineNumber - 1]
@@ -1613,7 +1590,7 @@ internal sealed partial class DiffViewWindow
             box.Document = document;
         }
 
-        _renderedPanes[sourceSide] = new RenderedPane(new List<DiffLine>(Lines), blockList, markerRows, commentStates);
+        _renderedPanes[sourceSide] = new RenderedPane(new List<DiffLine>(Lines), blockList, markerRows, lexStates);
         if (box.Parent is Grid paneGrid)
             paneGrid.Children.OfType<WhitespaceOverlay>().Single().SetRows(markerRows);
     }
@@ -1666,35 +1643,6 @@ internal sealed partial class DiffViewWindow
         }
     }
 
-    /// <summary>
-    ///     ファイルの拡張子に応じたシンタックス ハイライトを付けて、行のテキストを段落に追加します。
-    /// </summary>
-    /// <param name="paragraph">追加先の段落。</param>
-    /// <param name="text">行のテキスト。</param>
-    /// <param name="blockComment">複数行コメントの中かどうか。次の行に引き継ぎます。</param>
-    private void AddSyntaxRuns(Paragraph paragraph, string text, ref bool blockComment)
-    {
-        if (SyntaxExtension == ".cs")
-        {
-            AddCSharpRuns(paragraph, text, ref blockComment);
-            return;
-        }
-
-        if (SyntaxExtension == ".xaml" || SyntaxExtension == ".xml" || SyntaxExtension == ".csproj" ||
-            SyntaxExtension == ".props" || SyntaxExtension == ".targets")
-        {
-            AddXmlRuns(paragraph, text);
-            return;
-        }
-
-        if (SyntaxExtension == ".json")
-        {
-            AddJsonRuns(paragraph, text);
-            return;
-        }
-
-        paragraph.Inlines.Add(new Run(text));
-    }
 
     /// <summary>
     ///     C# のキーワード・文字列・コメントを色分けして、行のテキストを段落に追加します。
@@ -1792,31 +1740,11 @@ internal sealed partial class DiffViewWindow
         AddPlainRun(paragraph, text, plain, text.Length - plain);
     }
 
-    private static readonly Regex XmlTokenPattern =
-        new("<!--.*?-->|</?[^>]+>|&[A-Za-z0-9#]+;", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private static readonly Regex JsonTokenPattern =
         new(@"""(?:\\.|[^""\\])*""|\b(?:true|false|null)\b|-?\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b",
             RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
-    /// <summary>
-    ///     XML のタグ・属性・値を色分けして、行のテキストを段落に追加します。
-    /// </summary>
-    /// <param name="paragraph">追加先の段落。</param>
-    /// <param name="text">行のテキスト。</param>
-    private void AddXmlRuns(Paragraph paragraph, string text)
-    {
-        var pos = 0;
-        foreach (Match match in XmlTokenPattern.Matches(text))
-        {
-            AddPlainRun(paragraph, text, pos, match.Index - pos);
-            AddColoredRun(paragraph, match.Value,
-                match.Value.StartsWith("<!--", StringComparison.Ordinal) ? "comment" : "keyword");
-            pos = match.Index + match.Length;
-        }
-
-        AddPlainRun(paragraph, text, pos, text.Length - pos);
-    }
 
     /// <summary>
     ///     JSON のキー・文字列・数値などを色分けして、行のテキストを段落に追加します。
@@ -1861,6 +1789,8 @@ internal sealed partial class DiffViewWindow
     private static readonly Brush LightNumberBrush = FrozenBrush(9, 134, 88);
     private static readonly Brush DarkKeywordBrush = FrozenBrush(86, 156, 214);
     private static readonly Brush LightKeywordBrush = FrozenBrush(0, 0, 255);
+    private static readonly Brush DarkAttributeBrush = FrozenBrush(156, 220, 254);
+    private static readonly Brush LightAttributeBrush = FrozenBrush(38, 127, 153);
 
     /// <summary>
     ///     指定した色のフリーズ済みブラシを作成します。
@@ -1891,6 +1821,7 @@ internal sealed partial class DiffViewWindow
             Foreground = kind == "comment" ? dark ? DarkCommentBrush : LightCommentBrush :
                 kind == "string" ? dark ? DarkStringBrush : LightStringBrush :
                 kind == "number" ? dark ? DarkNumberBrush : LightNumberBrush :
+                kind == "attribute" ? dark ? DarkAttributeBrush : LightAttributeBrush :
                 dark ? DarkKeywordBrush : LightKeywordBrush
         };
         paragraph.Inlines.Add(run);
@@ -3157,5 +3088,5 @@ internal sealed partial class DiffViewWindow
         List<DiffLine> Lines,
         List<Block> Blocks,
         List<WhitespaceRow> Markers,
-        List<bool> CommentStates);
+        List<int> LexStates);
 }

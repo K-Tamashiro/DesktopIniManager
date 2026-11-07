@@ -3,7 +3,7 @@ param([string]$PrebuiltDirectory)
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$version = '4.0.0'
+$version = '4.7.3'
 $releaseVersion = $version
 $packageName = "DesktopIniManager-v$releaseVersion-win-x64"
 $releaseRoot = Join-Path $repoRoot 'release'
@@ -51,7 +51,7 @@ try {
 
     Copy-Item -LiteralPath (Join-Path $repoRoot 'docs/README.txt') -Destination (Join-Path $stage 'Readme.txt')
     $expected += 'Readme.txt'
-    Copy-Item -LiteralPath (Join-Path $repoRoot "docs/releases/v$releaseVersion.md") -Destination (Join-Path $stage 'RELEASE_NOTES.md')
+    Copy-Item -LiteralPath (Join-Path $repoRoot "release/RELEASE_NOTES_v$releaseVersion.md") -Destination (Join-Path $stage 'RELEASE_NOTES.md')
     $expected += 'RELEASE_NOTES.md'
 
     $actualFiles = @(Get-ChildItem $stage -Recurse -File -Force | ForEach-Object {

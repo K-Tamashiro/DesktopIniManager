@@ -14,6 +14,9 @@ internal sealed partial class DiffViewWindow
     private FontFamily _textFontFamily;
     private double _textFontSize;
 
+    /// <summary>
+    ///     保存されたフォント設定を読み込み、フォント名とサイズの選択欄を初期化します。
+    /// </summary>
     private void InitializeTextFontControls()
     {
         var (family, size) = SettingsService.LoadDiffFont();
@@ -32,6 +35,11 @@ internal sealed partial class DiffViewWindow
         TextFontSizeBox.SelectionChanged += TextFontSelectionChanged;
     }
 
+    /// <summary>
+    ///     フォントが変更されたときに、先頭に表示している行を保ったまま表示を作り直し、設定を保存します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private void TextFontSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (TextFontFamilyBox.SelectedItem is not string family ||
@@ -101,6 +109,10 @@ internal sealed partial class DiffViewWindow
         }
     }
 
+    /// <summary>
+    ///     左右のペインで共有するテキスト幅を、全行の描画幅の最大値から求めます。
+    /// </summary>
+    /// <returns>テキスト幅 (DIP)。</returns>
     private double MeasureSharedTextWidth()
     {
         if (Lines == null || Lines.Count == 0) return 0;

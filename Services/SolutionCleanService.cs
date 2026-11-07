@@ -13,6 +13,12 @@ namespace DesktopIniManager.Services;
 
 internal static class SolutionCleanService
 {
+    /// <summary>
+    ///     実行中のアプリケーションがソリューション フォルダー配下にあるかどうかを判定します。
+    /// </summary>
+    /// <param name="solution">ソリューション ファイルのパス。</param>
+    /// <param name="applicationDirectory">アプリケーションのフォルダー。null の場合は実行中のフォルダー。</param>
+    /// <returns>ソリューション配下で実行中の場合は true。</returns>
     internal static bool ContainsRunningApplication(string solution, string applicationDirectory = null)
     {
         var root = Path.GetFullPath(Path.GetDirectoryName(solution) ?? string.Empty)
@@ -23,6 +29,11 @@ internal static class SolutionCleanService
         return application.StartsWith(root, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    ///     指定フォルダー配下から .sln と .slnx を探します。bin、obj、保護フォルダー、リンクは走査しません。
+    /// </summary>
+    /// <param name="roots">検索するルート フォルダー。</param>
+    /// <returns>パス順に並べたソリューション ファイルの一覧。</returns>
     internal static List<string> FindSolutions(params string[] roots)
     {
         var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -70,6 +81,12 @@ internal static class SolutionCleanService
         return result.OrderBy(p => p, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
+    /// <summary>
+    ///     列挙子を次へ進めます。アクセス拒否や I/O エラーは列挙の終了として扱います。
+    /// </summary>
+    /// <param name="enumerator">ディレクトリ項目の列挙子。</param>
+    /// <param name="entry">取得した項目。</param>
+    /// <returns>項目を取得できた場合は true。</returns>
     private static bool TryMoveNext(
         IEnumerator<VolumePathIndex.NativeDirectoryEntry> enumerator,
         out VolumePathIndex.NativeDirectoryEntry entry)
@@ -96,6 +113,10 @@ internal static class SolutionCleanService
         return false;
     }
 
+    /// <summary>
+    ///     vswhere.exe を使って最新の Visual Studio の MSBuild.exe を探します。
+    /// </summary>
+    /// <returns>MSBuild.exe のパス。</returns>
     internal static string FindMsBuild()
     {
         var vswhere = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
@@ -111,6 +132,14 @@ internal static class SolutionCleanService
         return path;
     }
 
+    /// <summary>
+    ///     構成名を検証し、MSBuild の Clean ターゲットでソリューションをクリーンします。実行中の DIM を含むソリューションは対象外です。
+    /// </summary>
+    /// <param name="msbuild">MSBuild.exe のパス。</param>
+    /// <param name="solution">ソリューション ファイルのパス。</param>
+    /// <param name="configuration">ビルド構成名。</param>
+    /// <param name="output">MSBuild の出力。</param>
+    /// <returns>MSBuild の終了コード。</returns>
     internal static int Clean(string msbuild, string solution, string configuration, out string output)
     {
         if (ContainsRunningApplication(solution))
@@ -125,6 +154,15 @@ internal static class SolutionCleanService
             Path.GetDirectoryName(solution), out output, true);
     }
 
+    /// <summary>
+    ///     ウィンドウを表示せずにプロセスを実行し、標準出力と標準エラーをまとめて取得します。
+    /// </summary>
+    /// <param name="executable">実行ファイル。</param>
+    /// <param name="arguments">コマンドライン引数。</param>
+    /// <param name="directory">作業フォルダー。</param>
+    /// <param name="output">標準出力と標準エラーの内容。</param>
+    /// <param name="utf8">出力を UTF-8 として読み取る場合は true。</param>
+    /// <returns>プロセスの終了コード。</returns>
     private static int Run(string executable, string arguments, string directory, out string output, bool utf8 = false)
     {
         var log = new StringBuilder();

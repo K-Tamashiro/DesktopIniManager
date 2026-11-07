@@ -35,6 +35,19 @@ internal sealed class DiffLine
 /// </summary>
 internal static class DiffTextService
 {
+    /// <summary>
+    ///     2 つのテキストを行単位で比較し、左右に並べて表示するための行の一覧を作成します。
+    ///     改行比較が OFF の場合、改行のみの行は対応付けに参加させず、内容行だけで整列した後に元の位置へ戻します。
+    /// </summary>
+    /// <param name="left">比較元の行。</param>
+    /// <param name="right">比較先の行。</param>
+    /// <param name="ignoreCase">大文字と小文字を区別しない場合は true。</param>
+    /// <param name="ignoreSpaces">空白の違いを無視する場合は true。</param>
+    /// <param name="leftEndings">比較元の各行の改行コード。指定した場合は改行コードの違いも差分として扱います。</param>
+    /// <param name="rightEndings">比較先の各行の改行コード。</param>
+    /// <param name="calculateInlineDifferences">変更行の文字単位の差分を計算する場合は true。</param>
+    /// <param name="compareBlankLines">改行のみの行も比較対象にする場合は true。</param>
+    /// <returns>左右に対応付けた行の一覧。</returns>
     public static List<DiffLine> Compare(
         string[] left,
         string[] right,
@@ -116,9 +129,24 @@ internal static class DiffTextService
         return new string(buffer, 0, length);
     }
 
+    /// <summary>
+    ///     行頭・行末で取り除く空白文字 (半角空白、タブ、全角空白) かどうかを判定します。
+    /// </summary>
+    /// <param name="c">判定する文字。</param>
+    /// <returns>取り除く空白文字の場合は true。</returns>
     private static bool IsEdgeSpace(char c) => c is ' ' or '\t' or '\u3000';
+    /// <summary>
+    ///     行中で 1 つにまとめる空白文字 (半角空白、タブ) かどうかを判定します。
+    /// </summary>
+    /// <param name="c">判定する文字。</param>
+    /// <returns>まとめる空白文字の場合は true。</returns>
     private static bool IsBodySpace(char c) => c is ' ' or '\t';
 
+    /// <summary>
+    ///     各行の空白を正規化します。
+    /// </summary>
+    /// <param name="lines">正規化する行。</param>
+    /// <returns>正規化した行。</returns>
     private static string[] NormalizeLines(string[] lines)
     {
         var result = new string[lines.Length];
@@ -126,6 +154,11 @@ internal static class DiffTextService
         return result;
     }
 
+    /// <summary>
+    ///     各行を大文字に変換します。
+    /// </summary>
+    /// <param name="lines">変換する行。</param>
+    /// <returns>大文字に変換した行。</returns>
     private static string[] UpperLines(string[] lines)
     {
         var result = new string[lines.Length];
@@ -139,6 +172,13 @@ internal static class DiffTextService
 
     // The last element after a final newline is the EOF pseudo-line. It stays a
     // content row so that EOF handling and the last edit block are unchanged.
+    /// <summary>
+    ///     改行のみの行を除いた、内容行のインデックスを取得します。最後の要素は EOF の疑似行として常に内容行に含めます。
+    /// </summary>
+    /// <param name="lines">元の行。</param>
+    /// <param name="normal">空白を正規化した行。</param>
+    /// <param name="ignoreSpaces">空白だけの行も改行のみの行として扱う場合は true。</param>
+    /// <returns>内容行のインデックス。</returns>
     private static int[] ContentIndexes(string[] lines, string[] normal, bool ignoreSpaces)
     {
         var indexes = new List<int>(lines.Length);
@@ -148,6 +188,12 @@ internal static class DiffTextService
         return indexes.ToArray();
     }
 
+    /// <summary>
+    ///     指定したインデックスの行だけを取り出します。
+    /// </summary>
+    /// <param name="lines">元の行。</param>
+    /// <param name="indexes">取り出す行のインデックス。</param>
+    /// <returns>取り出した行。</returns>
     private static string[] Pick(string[] lines, int[] indexes)
     {
         var result = new string[indexes.Length];
@@ -192,6 +238,14 @@ internal static class DiffTextService
         return result;
     }
 
+    /// <summary>
+    ///     改行のみの行を表す、変更なしの行を作成します。
+    /// </summary>
+    /// <param name="left">比較元の行。片側だけの場合は null。</param>
+    /// <param name="right">比較先の行。片側だけの場合は null。</param>
+    /// <param name="leftNumber">比較元の行番号。片側だけの場合は 0。</param>
+    /// <param name="rightNumber">比較先の行番号。片側だけの場合は 0。</param>
+    /// <returns>作成した行。</returns>
     private static DiffLine BlankRow(string left, string right, int leftNumber, int rightNumber) => new()
     {
         Left = left,
@@ -201,6 +255,11 @@ internal static class DiffTextService
         Kind = DiffLineKind.Unchanged
     };
 
+    /// <summary>
+    ///     行が空白と括弧・区切り記号だけで構成されているかどうかを判定します。
+    /// </summary>
+    /// <param name="text">判定する行。</param>
+    /// <returns>構造上の記号だけの行の場合は true。</returns>
     private static bool IsStructuralLine(string text)
     {
         foreach (var character in text)
@@ -209,6 +268,13 @@ internal static class DiffTextService
         return true;
     }
 
+    /// <summary>
+    ///     両側で 1 回だけ現れる内容行を最長増加部分列でアンカーとして選び (patience diff)、アンカー間を Myers のアルゴリズムで比較します。
+    ///     短い構造行だけを挟んだ差分は 1 つの差分にまとめます。
+    /// </summary>
+    /// <param name="left">比較元の比較キー。</param>
+    /// <param name="right">比較先の比較キー。</param>
+    /// <returns>差分項目の配列。</returns>
     private static Diff.Item[] AlignLines(string[] left, string[] right)
     {
         // Unique content lines are stronger anchors than repeated braces or blank lines.
@@ -337,6 +403,14 @@ internal static class DiffTextService
 
     // leftIndexes/rightIndexes map aligned positions to original line indexes
     // when newline-only rows were excluded from alignment; null means identity.
+    /// <summary>
+    ///     差分項目から左右の行を対応付け、変更の種類と文字単位の差分を設定した行の一覧を作成します。
+    /// </summary>
+    /// <param name="context">比較元・比較先の行と比較オプション。</param>
+    /// <param name="diffs">差分項目。</param>
+    /// <param name="leftIndexes">整列位置から元の比較元の行インデックスへの対応表。null の場合は同じ位置。</param>
+    /// <param name="rightIndexes">整列位置から元の比較先の行インデックスへの対応表。null の場合は同じ位置。</param>
+    /// <returns>左右に対応付けた行の一覧。</returns>
     private static List<DiffLine> BuildRows(RowContext context, Diff.Item[] diffs, int[] leftIndexes,
         int[] rightIndexes)
     {
@@ -412,6 +486,13 @@ internal static class DiffTextService
         return rows;
     }
 
+    /// <summary>
+    ///     指定側の行が存在しないか、改行のみの行かどうかを判定します。
+    /// </summary>
+    /// <param name="context">比較元・比較先の行と比較オプション。</param>
+    /// <param name="index">行のインデックス。存在しない場合は負の値。</param>
+    /// <param name="source">比較元の場合は true、比較先の場合は false。</param>
+    /// <returns>存在しないか改行のみの行の場合は true。</returns>
     private static bool IsBlankOrMissing(RowContext context, int index, bool source)
     {
         if (index < 0) return true;
@@ -426,12 +507,25 @@ internal static class DiffTextService
     // Number: the text of a number token (a run starting with a digit, see NumberEnd); null otherwise.
     private readonly record struct CharacterToken(int Code, int Start, int End, string Number = null);
 
+    /// <summary>
+    ///     指定位置が、英数字やアンダースコアに続かない数値の先頭かどうかを判定します。
+    /// </summary>
+    /// <param name="text">対象の文字列。</param>
+    /// <param name="index">判定する位置。</param>
+    /// <returns>数値の先頭の場合は true。</returns>
     private static bool IsNumberStart(string text, int index) =>
         char.IsAsciiDigit(text[index]) &&
         (index == 0 || !(char.IsAsciiLetterOrDigit(text[index - 1]) || text[index - 1] == '_'));
 
     // A number runs over ASCII letters/digits (hex such as 17A60) and dots followed by a
     // digit (versions such as 1.2.3).
+    /// <summary>
+    ///     数値トークンの終端を求めます。16 進数のような英数字の連続と、「1.2.3」のような数字が続くドットを含めます。
+    /// </summary>
+    /// <param name="text">対象の文字列。</param>
+    /// <param name="index">数値の先頭位置。</param>
+    /// <param name="end">検索範囲の終端。</param>
+    /// <returns>数値トークンの終端位置 (含まない)。</returns>
     private static int NumberEnd(string text, int index, int end)
     {
         while (index < end && (char.IsAsciiLetterOrDigit(text[index]) ||
@@ -440,6 +534,14 @@ internal static class DiffTextService
         return index;
     }
 
+    /// <summary>
+    ///     行を文字単位の比較トークンに分割します。タブは 4 桁に展開し、数値は 1 トークンにまとめ、空白無視時は空白の連続を 1 トークンにします。
+    /// </summary>
+    /// <param name="text">分割する行。</param>
+    /// <param name="ignoreSpaces">空白の違いを無視する場合は true。</param>
+    /// <param name="displayLength">タブ展開後の表示上の長さ。</param>
+    /// <param name="numberCodes">数値トークンとコードの対応表 (両側で共有)。</param>
+    /// <returns>表示位置付きの比較トークンの一覧。</returns>
     private static List<CharacterToken> CharacterTokens(string text, bool ignoreSpaces, out int displayLength,
         Dictionary<string, int> numberCodes)
     {
@@ -492,8 +594,21 @@ internal static class DiffTextService
         return tokens;
     }
 
+    /// <summary>
+    ///     トークン コードが空白 (半角空白または全角空白) かどうかを判定します。
+    /// </summary>
+    /// <param name="code">判定するトークン コード。</param>
+    /// <returns>空白の場合は true。</returns>
     private static bool IsWhitespaceCode(int code) => code is ' ' or '\u3000';
 
+    /// <summary>
+    ///     2 つの行を文字単位で比較し、変更された表示位置をマークします。
+    ///     同じ長さの数値の置き換えは桁ごとに比較し、空白は空白自体が変更された場合だけマークします。
+    /// </summary>
+    /// <param name="left">比較元の行。</param>
+    /// <param name="right">比較先の行。</param>
+    /// <param name="ignoreSpaces">空白の違いを無視する場合は true。</param>
+    /// <returns>比較元と比較先の、表示位置ごとの変更フラグ。</returns>
     private static (bool[] Left, bool[] Right) CompareCharacters(string left, string right, bool ignoreSpaces)
     {
         var numberCodes = new Dictionary<string, int>(StringComparer.Ordinal);

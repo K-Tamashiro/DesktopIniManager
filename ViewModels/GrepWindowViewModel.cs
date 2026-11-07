@@ -52,6 +52,12 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
     private bool? _useRegex = false;
     private bool? _wholeWord = false;
 
+    /// <summary>
+    ///     Grep ウィンドウの ViewModel を作成し、コマンドを初期化します。
+    /// </summary>
+    /// <param name="scopeProvider">メイン画面でチェックされたフォルダーを取得する処理。</param>
+    /// <param name="dispatcher">UI スレッドのディスパッチャー。</param>
+    /// <param name="dialogs">メッセージ表示に使うダイアログ サービス。</param>
     internal GrepWindowViewModel(Func<IReadOnlyList<string>> scopeProvider, Dispatcher dispatcher,
         IUserDialogService dialogs)
     {
@@ -242,6 +248,10 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
 
     public event Action<GrepMatch> MatchScrollRequested;
 
+    /// <summary>
+    ///     保存された言語プロファイル、列幅、エディター設定、検索履歴を読み込み、初期の検索範囲を設定します。
+    /// </summary>
+    /// <param name="initialScopes">初期の検索範囲。</param>
     internal void Initialize(IReadOnlyList<string> initialScopes)
     {
         var savedProfile = SettingsService.LoadGrepProfile();
@@ -265,18 +275,29 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         SetExplicitScopes(initialScopes ?? _scopeProvider?.Invoke() ?? Array.Empty<string>());
     }
 
+    /// <summary>
+    ///     結果一覧の列幅が有効な場合に保存します。
+    /// </summary>
+    /// <param name="widths">列幅。</param>
     internal void SaveColumnWidths(double[] widths)
     {
         if (widths.Length >= 4 && widths[0] >= 80 && widths[1] >= 120)
             SettingsService.SaveGrepColumnWidths(widths);
     }
 
+    /// <summary>
+    ///     選択したエディターに対応するプリセットの引数を適用します。
+    /// </summary>
     private void ApplyEditorPreset()
     {
         string arguments;
         if (TryApplyEditorPreset(EditorPath, out arguments)) EditorArguments = arguments;
     }
 
+    /// <summary>
+    ///     履歴を保存して検索を取り消し、エディターとプロファイルの設定を保存します。
+    /// </summary>
+    /// <returns>閉じてよい場合は true。履歴を保存できなかった場合は false。</returns>
     internal bool Close()
     {
         if (!SaveHistory()) return false;
@@ -288,6 +309,10 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         return true;
     }
 
+    /// <summary>
+    ///     検索範囲を指定したフォルダーに置き換えます。検索中は変更できません。
+    /// </summary>
+    /// <param name="scopes">検索範囲のフォルダー。</param>
     public void SetExplicitScopes(IReadOnlyList<string> scopes)
     {
         if (_searchCts != null)
@@ -299,6 +324,10 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         SetScopes(scopes, false);
     }
 
+    /// <summary>
+    ///     ドロップされたフォルダーを検索範囲に追加します。検索中は変更できません。
+    /// </summary>
+    /// <param name="folders">追加するフォルダー。</param>
     public void AddDroppedFolders(IReadOnlyList<string> folders)
     {
         if (_searchCts != null)
@@ -311,6 +340,9 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         SetScopes(Scopes.Select(item => item.FolderPath).Concat(folders));
     }
 
+    /// <summary>
+    ///     メイン画面でチェックされているフォルダーを検索範囲として読み込み直します。検索中は変更できません。
+    /// </summary>
     public void ReloadFromMainWindow()
     {
         if (_searchCts != null)
@@ -322,6 +354,11 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         SetScopes(_scopeProvider == null ? Array.Empty<string>() : _scopeProvider(), false);
     }
 
+    /// <summary>
+    ///     検索範囲を正規化して設定し直します。入れ子のフォルダーは親にまとめます。
+    /// </summary>
+    /// <param name="paths">検索範囲のフォルダー。</param>
+    /// <param name="keepEnabledState">既存のフォルダーの有効・無効を引き継ぐ場合は true。</param>
     private void SetScopes(IEnumerable<string> paths, bool keepEnabledState = true)
     {
         var previous = keepEnabledState
@@ -345,6 +382,11 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         Status = EnabledScopePaths().Length == 0 ? Strings.Grep_NoFoldersSelected : Strings.Common_Ready;
     }
 
+    /// <summary>
+    ///     検索範囲の有効・無効が変わったときに、件数表示とステータスを更新します。
+    /// </summary>
+    /// <param name="sender">変更された検索範囲。</param>
+    /// <param name="e">イベントデータ。</param>
     private void ScopeEnabledChanged(object sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName != nameof(GrepScopeItem.IsEnabled)) return;
@@ -353,6 +395,9 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
             Status = EnabledScopePaths().Length == 0 ? Strings.Grep_NoFoldersSelected : Strings.Common_Ready;
     }
 
+    /// <summary>
+    ///     有効な検索範囲の数と総数を表示する文字列を更新します。
+    /// </summary>
     private void UpdateScopeCountLabel()
     {
         var enabled = Scopes.Count(item => item.IsEnabled);
@@ -363,11 +408,18 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
             : string.Format(format, enabled) + " / " + total;
     }
 
+    /// <summary>
+    ///     有効な検索範囲のフォルダーを取得します。
+    /// </summary>
+    /// <returns>フォルダー パスの配列。</returns>
     private string[] EnabledScopePaths()
     {
         return Scopes.Where(item => item.IsEnabled).Select(item => item.FolderPath).ToArray();
     }
 
+    /// <summary>
+    ///     検索結果をクリアします。
+    /// </summary>
     private void ClearResults()
     {
         ResultGroupsResetRequested?.Invoke();
@@ -376,6 +428,11 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         Status = Strings.Common_Ready;
     }
 
+    /// <summary>
+    ///     結果が絞り込み文字列に一致するかどうかを、大文字小文字・全角半角などを区別せずに判定します。
+    /// </summary>
+    /// <param name="item">判定する結果。</param>
+    /// <returns>表示する場合は true。</returns>
     private bool MatchListFilter(object item)
     {
         var match = item as GrepMatch;
@@ -394,16 +451,28 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
             .All(token => compare.IndexOf(haystack, token, options) >= 0);
     }
 
+    /// <summary>
+    ///     絞り込み後に表示されている結果を列挙します。
+    /// </summary>
+    /// <returns>表示中の結果。</returns>
     internal IEnumerable<GrepMatch> VisibleMatches()
     {
         return Results.Cast<GrepMatch>();
     }
 
+    /// <summary>
+    ///     絞り込み後に表示されている結果の件数を取得します。
+    /// </summary>
+    /// <returns>表示中の件数。</returns>
     private int VisibleMatchCount()
     {
         return Results == null ? 0 : VisibleMatches().Count();
     }
 
+    /// <summary>
+    ///     表示中の結果を、ファイルごとにまとめたテキストに整形します。
+    /// </summary>
+    /// <returns>整形したテキスト。</returns>
     internal string FormatVisibleResults()
     {
         var builder = new StringBuilder();
@@ -424,6 +493,9 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         return builder.ToString();
     }
 
+    /// <summary>
+    ///     表示中の結果をクリップボードにコピーし、一時ファイルに書き出してエディターで開きます。
+    /// </summary>
     private void OpenResultsInEditor()
     {
         var text = FormatVisibleResults();
@@ -453,11 +525,19 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    ///     表示中の結果をテキスト ファイルに保存します。
+    /// </summary>
+    /// <param name="path">保存先のパス。</param>
     internal void SaveResultsTo(string path)
     {
         File.WriteAllText(path, FormatVisibleResults());
     }
 
+    /// <summary>
+    ///     指定したファイル グループの結果を一覧から削除します。
+    /// </summary>
+    /// <param name="groupPath">グループのパス。</param>
     internal void RemoveGroup(string groupPath)
     {
         if (string.IsNullOrEmpty(groupPath)) return;
@@ -467,6 +547,11 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         NotifyListCommands();
     }
 
+    /// <summary>
+    ///     ファイル グループに対応するファイル パスを取得します。
+    /// </summary>
+    /// <param name="groupPath">グループのパス。</param>
+    /// <returns>ファイル パス。見つからない場合は null。</returns>
     internal string FilePathForGroup(string groupPath)
     {
         return Matches
@@ -474,6 +559,10 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
             ?.FilePath;
     }
 
+    /// <summary>
+    ///     ファイル グループのファイル パスをクリップボードにコピーします。
+    /// </summary>
+    /// <param name="groupPath">グループのパス。</param>
     internal void CopyGroupPath(string groupPath)
     {
         var path = FilePathForGroup(groupPath);
@@ -481,6 +570,10 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         Clipboard.SetText(path);
     }
 
+    /// <summary>
+    ///     ファイル グループのファイルがあるフォルダーを Explorer で開きます。
+    /// </summary>
+    /// <param name="groupPath">グループのパス。</param>
     internal void OpenGroupFolder(string groupPath)
     {
         var path = FilePathForGroup(groupPath);
@@ -490,6 +583,9 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         Process.Start(new ProcessStartInfo("explorer.exe", "\"" + folder + "\"") { UseShellExecute = true });
     }
 
+    /// <summary>
+    ///     結果一覧と履歴タブに関係するコマンドの実行可否の変更を通知します。
+    /// </summary>
     private void NotifyListCommands()
     {
         ClearResultsCommand?.NotifyCanExecuteChanged();
@@ -500,6 +596,11 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         DeleteOtherHistoryTabsCommand?.NotifyCanExecuteChanged();
     }
 
+    /// <summary>
+    ///     存在するフォルダーだけを正規化して重複を除き、入れ子のフォルダーを取り除きます。
+    /// </summary>
+    /// <param name="paths">検索範囲のフォルダー。</param>
+    /// <returns>正規化した検索範囲。</returns>
     private static IEnumerable<string> NormalizeScopes(IEnumerable<string> paths)
     {
         var selected = (paths ?? Enumerable.Empty<string>())
@@ -511,6 +612,9 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         return MainWindowViewModel.ExcludeNestedFolders(selected);
     }
 
+    /// <summary>
+    ///     検索条件を検証して結果を追記するタブを決め、コードまたはドキュメントの Grep をバックグラウンドで実行して、結果を順次表示します。
+    /// </summary>
     internal async Task SearchAsync()
     {
         if (_searchCts != null) return;
@@ -618,6 +722,9 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    ///     結果一覧を、表示の更新を抑えてクリアします。
+    /// </summary>
     private void ResetMatches()
     {
         ResultGroupsResetRequested?.Invoke();
@@ -637,6 +744,10 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
     private static readonly TimeSpan LiveDrainBudget = TimeSpan.FromMilliseconds(15);
     private static readonly TimeSpan FinalDrainBudget = TimeSpan.FromMilliseconds(40);
 
+    /// <summary>
+    ///     バックグラウンドで見つかった結果を、指定した時間内で UI の一覧に追加します。
+    /// </summary>
+    /// <param name="budget">追加処理に使ってよい時間。</param>
     private void DrainPendingMatches(TimeSpan budget)
     {
         var count = 0;
@@ -657,6 +768,10 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    ///     残っている結果を、UI に処理を譲りながらすべて一覧に追加します。
+    /// </summary>
+    /// <param name="token">キャンセル トークン。</param>
     private async Task DrainAllPendingMatchesAsync(CancellationToken token)
     {
         while (!_pendingMatches.IsEmpty)
@@ -667,6 +782,10 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    ///     検索中かどうかを設定し、関係するコマンドの実行可否を更新します。
+    /// </summary>
+    /// <param name="value">検索中の場合は true。</param>
     private void SetSearching(bool value)
     {
         IsSearching = value;
@@ -683,6 +802,11 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         NotifyListCommands();
     }
 
+    /// <summary>
+    ///     空白・カンマ・セミコロン区切りの拡張子リストを解析し、先頭にドットを付けて重複を除きます。「(none)」は拡張子なしを表します。
+    /// </summary>
+    /// <param name="text">拡張子リスト。</param>
+    /// <returns>拡張子の配列。</returns>
     private static string[] ParseExtensions(string text)
     {
         return (text ?? string.Empty).Split(new[] { ' ', '\t', ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
@@ -693,6 +817,9 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
             .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
     }
 
+    /// <summary>
+    ///     実行中の検索を取り消し、未表示の結果を破棄します。
+    /// </summary>
     internal void Cancel()
     {
         if (_searchCts == null) return;
@@ -704,6 +831,9 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         Status = Strings.Grep_Cancelling;
     }
 
+    /// <summary>
+    ///     選択した結果を開きます。ドキュメントは関連付けアプリで、テキストは設定したエディターで該当行を開きます。
+    /// </summary>
     private void OpenMatch()
     {
         var match = SelectedMatch;
@@ -729,12 +859,21 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    ///     エディターのパスから引用符を取り除き、環境変数を展開します。
+    /// </summary>
+    /// <param name="editor">エディターのパス。</param>
+    /// <returns>展開したパス。</returns>
     internal static string ExpandEditorPath(string editor)
     {
         if (string.IsNullOrWhiteSpace(editor)) return editor;
         return Environment.ExpandEnvironmentVariables(editor.Trim().Trim('"'));
     }
 
+    /// <summary>
+    ///     エディターのプリセット (MIFES、秀丸、Mery、VS Code) を、初回だけ入力履歴に登録します。
+    /// </summary>
+    /// <returns>登録した場合は true。</returns>
     public bool SeedEditorPresets()
     {
         var settingsDirectory = AppSlot.Directory;
@@ -756,6 +895,12 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         return true;
     }
 
+    /// <summary>
+    ///     エディターに対応するプリセットの引数を取得します。
+    /// </summary>
+    /// <param name="editor">エディターのパス。</param>
+    /// <param name="arguments">プリセットの引数。</param>
+    /// <returns>プリセットが見つかった場合は true。</returns>
     public bool TryApplyEditorPreset(string editor, out string arguments)
     {
         arguments = null;
@@ -765,6 +910,11 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         return true;
     }
 
+    /// <summary>
+    ///     エディターのパスまたはファイル名が一致するプリセットを探します。
+    /// </summary>
+    /// <param name="editor">エディターのパス。</param>
+    /// <returns>一致したプリセット。見つからない場合は null。</returns>
     private static EditorPreset MatchEditorPreset(string editor)
     {
         if (string.IsNullOrWhiteSpace(editor)) return null;
@@ -787,6 +937,11 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
 
     public sealed class EditorPreset
     {
+        /// <summary>
+        ///     エディターのプリセットを作成します。
+        /// </summary>
+        /// <param name="executable">エディターの実行ファイル。</param>
+        /// <param name="arguments">引数テンプレート。</param>
         internal EditorPreset(string executable, string arguments)
         {
             Executable = executable;
@@ -803,6 +958,11 @@ internal sealed class GrepScopeItem : ObservableObject
 {
     private bool _isEnabled;
 
+    /// <summary>
+    ///     検索範囲の項目を作成します。
+    /// </summary>
+    /// <param name="path">フォルダーのパス。</param>
+    /// <param name="enabled">検索対象にする場合は true。</param>
     public GrepScopeItem(string path, bool enabled = true)
     {
         FolderPath = path;

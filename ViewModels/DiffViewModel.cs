@@ -49,6 +49,14 @@ internal sealed partial class DiffViewModel : ObservableObject
     private string _sourcePath, _targetPath;
     private string _status = string.Empty;
 
+    /// <summary>
+    ///     DIFF ビューの ViewModel を作成し、表示設定の読み込みとコマンドの初期化を行います。
+    /// </summary>
+    /// <param name="snapshot">比較スナップショット。</param>
+    /// <param name="file">表示するファイル。</param>
+    /// <param name="dialogs">メッセージ表示に使うダイアログ サービス。</param>
+    /// <param name="sourcePath">単独で比較する場合の比較元のパス。</param>
+    /// <param name="targetPath">単独で比較する場合の比較先のパス。</param>
     internal DiffViewModel(DiffSnapshot snapshot, DiffFile file, IUserDialogService dialogs, string sourcePath = null,
         string targetPath = null)
     {
@@ -169,6 +177,11 @@ internal sealed partial class DiffViewModel : ObservableObject
     internal Func<Task> ReloadRequested { get; set; }
     internal Func<IReadOnlyList<DiffFile>> VisibleFilesRequested { get; set; }
 
+    /// <summary>
+    ///     GIF の現在フレームの表示時間とフレーム数を表す文字列を作成します。
+    /// </summary>
+    /// <param name="gif">GIF のフレーム情報。静止画の場合は null。</param>
+    /// <returns>表示用の文字列。</returns>
     private string FrameDetails(GifFrames gif)
     {
         return gif == null
@@ -178,6 +191,11 @@ internal sealed partial class DiffViewModel : ObservableObject
                 : $"{gif.DelayMilliseconds(ImageFrameIndex)} ms ({gif.Count} frames)";
     }
 
+    /// <summary>
+    ///     両側の GIF の指定フレームをバックグラウンドで合成して表示します。途中で別のフレームが選ばれた場合は結果を破棄します。
+    /// </summary>
+    /// <param name="index">フレーム番号。</param>
+    /// <returns>表示を更新した場合は true。</returns>
     internal async Task<bool> SelectImageFrameAsync(int index)
     {
         var version = ++_frameVersion;
@@ -191,6 +209,10 @@ internal sealed partial class DiffViewModel : ObservableObject
         return true;
     }
 
+    /// <summary>
+    ///     差分行だけの表示と全行の表示を切り替えます。
+    /// </summary>
+    /// <returns>切り替えた場合は true。</returns>
     internal bool ToggleDifferencesOnly()
     {
         if (_loadingContent || _navigating || _closed || IsImage || _allLines == null) return false;
@@ -200,6 +222,11 @@ internal sealed partial class DiffViewModel : ObservableObject
         return true;
     }
 
+    /// <summary>
+    ///     折りたたまれた変更なしの行 (またはデザイナー部分) を展開します。
+    /// </summary>
+    /// <param name="index">表示上の行のインデックス。</param>
+    /// <returns>展開した場合は true。</returns>
     internal bool ExpandFilteredLines(int index)
     {
         if (!CanChangeComparison || Lines == null || index < 0 || index >= Lines.Count ||
@@ -218,6 +245,11 @@ internal sealed partial class DiffViewModel : ObservableObject
         return true;
     }
 
+    /// <summary>
+    ///     展開した変更なしの行のブロックを折りたたみ直します。
+    /// </summary>
+    /// <param name="index">表示上の行のインデックス。</param>
+    /// <returns>折りたたんだ行の表示上のインデックス。折りたためない場合は -1。</returns>
     internal int CollapseExpandedLines(int index)
     {
         if (!CanChangeComparison || !DifferencesOnly || Lines == null || index < 0 || index >= Lines.Count ||
@@ -236,6 +268,9 @@ internal sealed partial class DiffViewModel : ObservableObject
         return collapsedIndex;
     }
 
+    /// <summary>
+    ///     差分のみ表示・展開状態・デザイナー部分の折りたたみに従って表示する行を組み立て、HUNK の一覧を更新します。
+    /// </summary>
     private void UpdateDisplayedLines()
     {
         var designerCount = DesignerHeaderRowCount;
@@ -316,6 +351,9 @@ internal sealed partial class DiffViewModel : ObservableObject
 
     public event Action<int> JumpRequested;
 
+    /// <summary>
+    ///     表示設定と外部 DIFF のコマンドを保存し、ビューを閉じた状態にします。
+    /// </summary>
     internal void Close()
     {
         _closed = true;
@@ -331,6 +369,9 @@ internal sealed partial class DiffViewModel : ObservableObject
         SettingsService.SaveExternalDiff(ExternalDiff.Trim());
     }
 
+    /// <summary>
+    ///     ファイルに関係する表示プロパティの変更を通知します。
+    /// </summary>
     private void RefreshFileDetails()
     {
         OnPropertyChanged(nameof(File));
@@ -342,6 +383,10 @@ internal sealed partial class DiffViewModel : ObservableObject
         OnPropertyChanged(nameof(IsAudio));
     }
 
+    /// <summary>
+    ///     現在のファイルの種類 (テキスト・画像・動画・音声・パッチ) に応じて内容を読み込みます。
+    /// </summary>
+    /// <returns>読み込んだ場合は true。閉じている場合や読み込み中の場合は false。</returns>
     internal async Task<bool> LoadContentAsync()
     {
         if (_closed || _loadingContent) return false;
@@ -409,23 +454,38 @@ internal sealed partial class DiffViewModel : ObservableObject
         return false;
     }
 
+    /// <summary>
+    ///     表示できないファイルであることを通知し、ビューを閉じるよう要求します。
+    /// </summary>
     private void ReportUnsupportedContent()
     {
         _dialogs.Show(DiffMedia.BinaryMessage, "Diff View", MessageBoxButton.OK, MessageBoxImage.Information);
         CloseRequested?.Invoke();
     }
 
+    /// <summary>
+    ///     エラーの内容をステータスに表示します。
+    /// </summary>
+    /// <param name="ex">発生した例外。</param>
     internal void ReportError(Exception ex)
     {
         Status = string.Format(StringOverlay.Get("Diff_Unable"), ErrorMessages.English(ex));
     }
 
+    /// <summary>
+    ///     両側の入力をクリアします。
+    /// </summary>
     internal void ClearInputs()
     {
         if (!CanChangeComparison) return;
         ReplaceInputs("", "");
     }
 
+    /// <summary>
+    ///     比較する 2 つのファイルを手動で指定したものに置き換えます。元の比較スナップショットは変更しません。
+    /// </summary>
+    /// <param name="source">比較元のパス。</param>
+    /// <param name="target">比較先のパス。</param>
     private void ReplaceInputs(string source, string target)
     {
         Patch = null;
@@ -447,6 +507,12 @@ internal sealed partial class DiffViewModel : ObservableObject
         };
     }
 
+    /// <summary>
+    ///     ドロップされたファイルを比較対象に設定します。重複や種類の異なるファイルの組み合わせは拒否します。
+    /// </summary>
+    /// <param name="paths">ドロップされたファイル (1 つまたは 2 つ)。</param>
+    /// <param name="sourceSide">比較元側にドロップされた場合は true。</param>
+    /// <returns>比較対象を変更した場合は true。</returns>
     internal async Task<bool> DropFilesAsync(string[] paths, bool sourceSide)
     {
         if (!CanChangeComparison || paths == null || paths.Length == 0 || paths.Length > 2) return false;
@@ -490,6 +556,11 @@ internal sealed partial class DiffViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    ///     比較元または比較先のファイル パスを取得します。パッチ表示の比較先は適用先のファイルです。
+    /// </summary>
+    /// <param name="source">比較元の場合は true。</param>
+    /// <returns>ファイル パス。</returns>
     internal string GetPath(bool source)
     {
         if (!source && IsPatch) return CurrentPatch?.TargetPath;
@@ -498,12 +569,18 @@ internal sealed partial class DiffViewModel : ObservableObject
                    File.RelativePath);
     }
 
+    /// <summary>
+    ///     HUNK の一覧と現在位置をリセットします。
+    /// </summary>
     internal void ResetContent()
     {
         Hunks.Clear();
         CurrentHunk = -1;
     }
 
+    /// <summary>
+    ///     両側のテキスト ファイルを読み込んで比較します。
+    /// </summary>
     internal async Task LoadTextAsync()
     {
         _designerHeaderExpanded = false;
@@ -519,6 +596,9 @@ internal sealed partial class DiffViewModel : ObservableObject
         await RecompareTextAsync();
     }
 
+    /// <summary>
+    ///     現在の比較オプションでテキストを比較し直し、編集セッションと表示を更新します。
+    /// </summary>
     internal async Task RecompareTextAsync()
     {
         if (IsPatch) { RefreshPatchRows(); return; }
@@ -535,11 +615,21 @@ internal sealed partial class DiffViewModel : ObservableObject
                  DecodingWarning(SourceText, "Source") + DecodingWarning(TargetText, "Target");
     }
 
+    /// <summary>
+    ///     Shift_JIS としてデコードできないバイトがある場合の警告文を作成します。
+    /// </summary>
+    /// <param name="document">対象の文書。</param>
+    /// <param name="side">表示する側の名前。</param>
+    /// <returns>警告文。問題がない場合は空文字列。</returns>
     private static string DecodingWarning(TextDocument document, string side) =>
         document?.DecodingErrorLine > 0
             ? $" | {side}: undecodable Shift-JIS bytes from line {document.DecodingErrorLine} (shown as \uFFFD; saving is refused)"
             : string.Empty;
 
+    /// <summary>
+    ///     前後の HUNK に移動します。端に達した場合は反対側の端に戻ります。
+    /// </summary>
+    /// <param name="direction">次へは 1、前へは -1。</param>
     private void NavigateHunk(int direction)
     {
         if (Hunks.Count == 0) return;
@@ -549,6 +639,10 @@ internal sealed partial class DiffViewModel : ObservableObject
         JumpRequested?.Invoke(Hunks[CurrentHunk]);
     }
 
+    /// <summary>
+    ///     比較一覧の前後の表示可能なファイルに移動します。未保存の変更がある場合は確認します。
+    /// </summary>
+    /// <param name="direction">次へは 1、前へは -1。</param>
     private async Task NavigateFileAsync(int direction)
     {
         if (_standalone || _closed || _navigating || _loadingContent || _checkingExternalEdit) return;
@@ -618,16 +712,31 @@ internal sealed partial class DiffViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    ///     DIFF ビューで表示できるファイルかどうかを判定します。
+    /// </summary>
+    /// <param name="candidate">判定するファイル。</param>
+    /// <returns>表示できる場合は true。</returns>
     private static bool IsVisibleComparableFile(DiffFile candidate)
     {
         return candidate != null && !DiffMedia.IsBinary(candidate.RelativePath);
     }
 
+    /// <summary>
+    ///     テキスト ファイルを読み込み、行の配列を取得します。
+    /// </summary>
+    /// <param name="path">ファイルのパス。</param>
+    /// <returns>行の配列。</returns>
     internal static string[] ReadText(string path)
     {
         return ReadDocument(path).Lines;
     }
 
+    /// <summary>
+    ///     テキスト ファイルを読み込み、エンコーディング・BOM・改行コードを判定して文書にします。8 MB を超えるファイルには対応しません。
+    /// </summary>
+    /// <param name="path">ファイルのパス。</param>
+    /// <returns>読み込んだ文書。ファイルがない場合は空の文書。</returns>
     internal static TextDocument ReadDocument(string path)
     {
         var stamp = DiffStamp.Read(path);
@@ -805,6 +914,11 @@ internal sealed partial class DiffViewModel : ObservableObject
         return document;
     }
 
+    /// <summary>
+    ///     BOM のないファイルについて、NUL バイトが交互に現れるパターンから UTF-16 のエンディアンを推定します。
+    /// </summary>
+    /// <param name="bytes">ファイルの内容。</param>
+    /// <returns>推定した UTF-16 エンコーディング。該当しない場合は null。</returns>
     private static Encoding DetectUnicodeEncoding(byte[] bytes)
     {
         // BOMs are detected before this fallback. Infer BOM-less UTF-16 only from
@@ -822,6 +936,11 @@ internal sealed partial class DiffViewModel : ObservableObject
         return null;
     }
 
+    /// <summary>
+    ///     ファイル情報から、ヘッダーに表示する日時とサイズの行だけを取り出します。日時の秒未満は省きます。
+    /// </summary>
+    /// <param name="info">ファイル情報の文字列。</param>
+    /// <returns>ヘッダー用の文字列。</returns>
     private static string HeaderMeta(string info)
     {
         var clean = Regex.Replace(info ?? string.Empty, @"(\d{2}:\d{2}:\d{2})\.\d+", "$1");
@@ -836,6 +955,11 @@ internal sealed partial class DiffViewModel : ObservableObject
         return string.Join("\n", kept);
     }
 
+    /// <summary>
+    ///     画像ファイルを読み込み、形式名を判定します。GIF の場合はフレーム情報も作成します。
+    /// </summary>
+    /// <param name="path">画像ファイルのパス。</param>
+    /// <returns>画像、形式名、GIF のフレーム情報。ファイルがない場合はすべて null。</returns>
     private static (BitmapSource Image, string Format, GifFrames Gif) LoadImage(string path)
     {
         if (DiffStamp.Read(path) == null) return (null, null, null);
@@ -863,6 +987,9 @@ internal sealed partial class DiffViewModel : ObservableObject
         return (frame, format, null);
     }
 
+    /// <summary>
+    ///     比較一覧のファイル情報を更新し、ディスク上の最新の内容を読み込み直します。パッチ表示では未保存の編集がある場合は拒否します。
+    /// </summary>
     internal async Task ReloadFromDiskAsync()
     {
         if (!CanChangeComparison || _checkingExternalEdit) return;
@@ -892,6 +1019,9 @@ internal sealed partial class DiffViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    ///     外部 DIFF ツールのプリセットを、初回だけ入力履歴に登録します。
+    /// </summary>
     private static void SeedExternalDiffPresets()
     {
         var settingsDirectory = AppSlot.Directory;
@@ -911,6 +1041,10 @@ internal sealed partial class DiffViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    ///     比較元または比較先のファイルを、関連付けられたアプリケーションで開きます。
+    /// </summary>
+    /// <param name="source">比較元の場合は true。</param>
     private void OpenAssociatedApplication(bool source)
     {
         try
@@ -927,6 +1061,9 @@ internal sealed partial class DiffViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    ///     設定された外部 DIFF ツールで 2 つのファイルを開き、編集後に再読み込みできるよう状態を記録します。
+    /// </summary>
     private void OpenExternalDiff()
     {
         try
@@ -962,6 +1099,12 @@ internal sealed partial class DiffViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    ///     外部 DIFF ツールを通常のウィンドウで起動するための起動情報を作成します。
+    /// </summary>
+    /// <param name="executable">実行ファイル。</param>
+    /// <param name="arguments">コマンドライン引数。</param>
+    /// <returns>起動情報。</returns>
     internal static ProcessStartInfo CreateExternalDiffStartInfo(string executable, string arguments)
     {
         return new ProcessStartInfo(executable, arguments)
@@ -971,6 +1114,9 @@ internal sealed partial class DiffViewModel : ObservableObject
         };
     }
 
+    /// <summary>
+    ///     外部 DIFF ツールでファイルが変更されていれば、比較を読み込み直します。未保存の編集がある場合は何もしません。
+    /// </summary>
     internal async Task RefreshAfterExternalEditAsync()
     {
         if (HasEdits) return;
@@ -1000,6 +1146,12 @@ internal sealed partial class DiffViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    ///     2 つのファイル情報のサイズと更新日時が同じかどうかを判定します。
+    /// </summary>
+    /// <param name="left">比較するファイル情報。</param>
+    /// <param name="right">比較するファイル情報。</param>
+    /// <returns>同じ場合、または両方とも null の場合は true。</returns>
     private static bool SameStamp(DiffStamp left, DiffStamp right)
     {
         return left == null || right == null
@@ -1007,6 +1159,12 @@ internal sealed partial class DiffViewModel : ObservableObject
             : left.Size == right.Size && left.ModifiedUtc == right.ModifiedUtc;
     }
 
+    /// <summary>
+    ///     コマンド文字列を実行ファイルと引数に分けます。実行ファイルは引用符で囲むことができます。
+    /// </summary>
+    /// <param name="command">コマンド文字列。</param>
+    /// <param name="executable">実行ファイル。</param>
+    /// <param name="arguments">引数。</param>
     private static void SplitCommand(string command, out string executable, out string arguments)
     {
         command = command.Trim();

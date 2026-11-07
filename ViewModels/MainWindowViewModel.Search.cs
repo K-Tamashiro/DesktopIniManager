@@ -42,6 +42,9 @@ internal sealed partial class MainWindowViewModel
 
     internal event Action SearchModeRequested;
 
+    /// <summary>
+    ///     検索を取り消し、検索結果とファイル一覧をクリアします。
+    /// </summary>
     internal void ClearSearchSession()
     {
         _searchCts?.Cancel();
@@ -55,6 +58,9 @@ internal sealed partial class MainWindowViewModel
         RefreshTreeItemsSource();
     }
 
+    /// <summary>
+    ///     起動時にルート フォルダーのツリーを作成します。ネットワーク上のルートは遅延読み込みのツリーにします。
+    /// </summary>
     internal Task PrepareTreesAtStartupAsync()
     {
         if (string.IsNullOrWhiteSpace(RootPath) || !Directory.Exists(RootPath.Trim()))
@@ -68,6 +74,10 @@ internal sealed partial class MainWindowViewModel
         return SearchAsync(true);
     }
 
+    /// <summary>
+    ///     起動時に、ネットワーク上のルートのツリーを遅延読み込みで作成します。
+    /// </summary>
+    /// <param name="root">ルート フォルダー。</param>
     private async Task PrepareLazyNetworkTreeAtStartupAsync(string root)
     {
         _searchCts?.Cancel();
@@ -116,17 +126,27 @@ internal sealed partial class MainWindowViewModel
         }
     }
 
+    /// <summary>
+    ///     現在の検索語でフォルダーを検索します。
+    /// </summary>
     internal Task SearchAsync()
     {
         return SearchAsync(false);
     }
 
+    /// <summary>
+    ///     実行中の検索を取り消します。Solution 表示中はソリューション解析も取り消します。
+    /// </summary>
     internal void CancelSearch()
     {
         _searchCts?.Cancel();
         if (TreeViewIndex == 1) _solutionCts?.Cancel();
     }
 
+    /// <summary>
+    ///     ルート配下をインデックス化して検索語に一致するフォルダーを探し、Physical・Solution・Search のツリーを更新します。
+    /// </summary>
+    /// <param name="quietMissingRoot">ルートが存在しない場合にメッセージを表示しない場合は true。</param>
     internal async Task SearchAsync(bool quietMissingRoot)
     {
         // Snapshot bindable state before starting background work.
@@ -253,6 +273,10 @@ internal sealed partial class MainWindowViewModel
         }
     }
 
+    /// <summary>
+    ///     遅延読み込みのフォルダーの子フォルダーを、バックグラウンドで読み込みます。
+    /// </summary>
+    /// <param name="folder">子を読み込むフォルダー。</param>
     internal async Task LoadLazyNetworkChildrenAsync(FolderMatch folder)
     {
         if (folder == null || folder.IsLazyPlaceholder || folder.IsLazyLoaded || folder.IsLazyLoading)
@@ -289,6 +313,12 @@ internal sealed partial class MainWindowViewModel
         }
     }
 
+    /// <summary>
+    ///     ネットワーク上のルートについて、直下のフォルダーだけを読み込んだツリーを作成します。
+    /// </summary>
+    /// <param name="root">ルート フォルダー。</param>
+    /// <param name="token">キャンセル トークン。</param>
+    /// <param name="intoSearch">Search タブに表示する場合は true。</param>
     private async Task BuildLazyNetworkTreeAsync(string root, CancellationToken token, bool intoSearch)
     {
         ImageSource defaultFolderIcon = FolderIconService.GetDefaultFolderIcon();
@@ -329,6 +359,14 @@ internal sealed partial class MainWindowViewModel
         }
     }
 
+    /// <summary>
+    ///     フォルダー直下の表示対象のフォルダーを列挙し、遅延読み込み用のノードを作成します。
+    /// </summary>
+    /// <param name="folder">列挙するフォルダー。</param>
+    /// <param name="parent">親ノード。</param>
+    /// <param name="token">キャンセル トークン。</param>
+    /// <param name="defaultFolderIcon">既定のフォルダー アイコン。</param>
+    /// <returns>子フォルダーのノード一覧。</returns>
     private static List<FolderMatch> EnumerateLazyFolders(
         string folder,
         FolderMatch parent,
@@ -385,6 +423,11 @@ internal sealed partial class MainWindowViewModel
         return result;
     }
 
+    /// <summary>
+    ///     ルート フォルダーの表示名を取得します。
+    /// </summary>
+    /// <param name="root">ルート フォルダー。</param>
+    /// <returns>フォルダー名。取得できない場合はルートのパス。</returns>
     private static string GetLazyRootName(string root)
     {
         var normalized = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
@@ -392,6 +435,11 @@ internal sealed partial class MainWindowViewModel
         return string.IsNullOrEmpty(name) ? root : name;
     }
 
+    /// <summary>
+    ///     パスが UNC パスまたはネットワーク ドライブ上にあるかどうかを判定します。
+    /// </summary>
+    /// <param name="path">判定するパス。</param>
+    /// <returns>ネットワーク上の場合は true。</returns>
     private static bool IsNetworkPath(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -409,6 +457,13 @@ internal sealed partial class MainWindowViewModel
         }
     }
 
+    /// <summary>
+    ///     各ルートをインデックス化して統合し、検索語に一致するフォルダーをバックグラウンドで探します。
+    /// </summary>
+    /// <param name="roots">検索するルート フォルダー。</param>
+    /// <param name="query">検索語。</param>
+    /// <param name="token">キャンセル トークン。</param>
+    /// <returns>検索結果とパス インデックス。</returns>
     private Task<StandardSearchResult> RunStandardIndexedSearch(IReadOnlyList<string> roots, string query,
         CancellationToken token)
     {
@@ -458,6 +513,12 @@ internal sealed partial class MainWindowViewModel
         }, token);
     }
 
+    /// <summary>
+    ///     インデックスから各フォルダーの開発関連のファイル構成を解析し、検索結果の理由欄に反映します。
+    /// </summary>
+    /// <param name="enabled">解析を行う場合は true。</param>
+    /// <param name="paths">パス インデックス。</param>
+    /// <param name="token">キャンセル トークン。</param>
     internal async Task ApplyStandardDevelopmentAnalysis(bool enabled, VolumePathIndex paths, CancellationToken token)
     {
         if (!enabled) return;
@@ -474,6 +535,9 @@ internal sealed partial class MainWindowViewModel
         }
     }
 
+    /// <summary>
+    ///     ソリューション解析を取り消し、解析結果と Solution ツリーを破棄します。
+    /// </summary>
     private void InvalidateSolutionAnalysis()
     {
         _solutionGeneration++;
@@ -498,6 +562,11 @@ internal sealed partial class MainWindowViewModel
         SetTreePanelBusy(false);
     }
 
+    /// <summary>
+    ///     ソリューション解析をまだ開始していなければ開始します。
+    /// </summary>
+    /// <param name="root">解析するルート フォルダー。</param>
+    /// <param name="paths">パス インデックス。</param>
     private Task StartSolutionAnalysis(string root, VolumePathIndex paths)
     {
         if (_solutionTask != null) return _solutionTask;
@@ -509,6 +578,13 @@ internal sealed partial class MainWindowViewModel
         return _solutionTask;
     }
 
+    /// <summary>
+    ///     Physical ツリーの描画が終わった後で、インデックス内のソリューションを解析して Solution ツリーを作成します。
+    /// </summary>
+    /// <param name="root">解析するルート フォルダー。</param>
+    /// <param name="paths">パス インデックス。</param>
+    /// <param name="cts">解析のキャンセル トークン ソース。</param>
+    /// <param name="generation">開始時の解析世代。古い世代の結果は破棄します。</param>
     private async Task AnalyzeSolutionsAsync(string root, VolumePathIndex paths,
         CancellationTokenSource cts, int generation)
     {
@@ -577,6 +653,9 @@ internal sealed partial class MainWindowViewModel
         }
     }
 
+    /// <summary>
+    ///     Solution タブを表示するときに、ソリューション解析の完了を待ってツリーを表示します。
+    /// </summary>
     private async Task EnsureSolutionViewAsync()
     {
         if (_solutionReady || _rebuildingFolderTrees || _folderTreeRoot == null) return;

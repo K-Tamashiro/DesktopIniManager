@@ -29,6 +29,9 @@ internal sealed partial class DiffViewWindow
     private AudioTimeline _audioTimeline;
     private DispatcherTimer _audioTimer;
 
+    /// <summary>
+    ///     音声の読み込みと差分解析を取り消し、プレーヤーと表示をリセットします。
+    /// </summary>
     private void ResetAudio()
     {
         _audioLoading?.Cancel();
@@ -49,6 +52,9 @@ internal sealed partial class DiffViewWindow
         AudioOverviewHost.Visibility = Visibility.Collapsed;
     }
 
+    /// <summary>
+    ///     音声の再生と一時停止を切り替えます。
+    /// </summary>
     private void ToggleAudioPlayback()
     {
         if (_audioPlayer == null) return;
@@ -66,6 +72,9 @@ internal sealed partial class DiffViewWindow
         }
     }
 
+    /// <summary>
+    ///     両側の音声の波形をバックグラウンドで読み込み、音声 DIFF の表示を作成します。
+    /// </summary>
     private async Task RenderAudio()
     {
         // Do not depend on the caller having a DispatcherSynchronizationContext.
@@ -91,6 +100,9 @@ internal sealed partial class DiffViewWindow
         }).Task.ConfigureAwait(false);
     }
 
+    /// <summary>
+    ///     音声の差分区間をバックグラウンドで解析し (結果はキャッシュ)、波形と概要表示に反映します。
+    /// </summary>
     private async Task ApplyAudioDifferencesAsync()
     {
         if (_audioTimeline == null || _audioLoading == null || !_audioDifferenceEnabled) return;
@@ -130,6 +142,12 @@ internal sealed partial class DiffViewWindow
         }
     }
 
+    /// <summary>
+    ///     音声プレーヤー、概要表示、波形タイムライン、再生操作を作成して、音声 DIFF の画面を組み立てます。
+    /// </summary>
+    /// <param name="source">比較元の音声ファイル。</param>
+    /// <param name="target">比較先の音声ファイル。</param>
+    /// <param name="envelopes">両側の波形情報。</param>
     private void BuildAudioView(string source, string target, AudioEnvelope[] envelopes)
     {
         Dispatcher.VerifyAccess();
@@ -402,6 +420,10 @@ internal sealed partial class DiffViewWindow
         Refresh(0);
     }
 
+    /// <summary>
+    ///     波形の時間方向のズーム スライダーを作成します。
+    /// </summary>
+    /// <param name="duration">再生全体の長さ (秒)。</param>
     private void BuildAudioZoom(double duration)
     {
         var zoom = _imageZoom = new Slider
@@ -519,6 +541,12 @@ internal sealed partial class DiffViewWindow
         ImageToolbar.Visibility = ImageControlRow.Visibility = Visibility.Visible;
     }
 
+    /// <summary>
+    ///     再生速度 (0.5x から 2.0x) を選ぶボタン群を作成します。
+    /// </summary>
+    /// <param name="group">ラジオ ボタンのグループ名。</param>
+    /// <param name="setSpeed">選んだ速度を適用する処理。</param>
+    /// <returns>作成したパネル。</returns>
     private StackPanel CreatePlaybackSpeeds(string group, Action<double> setSpeed)
     {
         var speedGroup = new StackPanel
@@ -568,6 +596,13 @@ internal sealed partial class DiffViewWindow
         return speedGroup;
     }
 
+    /// <summary>
+    ///     遅延 (秒) を調整する入力欄と増減ボタンを作成します。
+    /// </summary>
+    /// <param name="source">比較元の場合は true。</param>
+    /// <param name="getValue">現在の遅延を取得する処理。</param>
+    /// <param name="setValue">遅延を設定する処理。</param>
+    /// <returns>作成した入力欄。</returns>
     internal static FrameworkElement CreateDelayPicker(bool source, Func<double> getValue, Action<double> setValue)
     {
         var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
@@ -720,6 +755,11 @@ internal sealed class AudioOverview : Control
     private double _viewportDragX, _viewportDragStart;
     private bool _viewportMoved;
 
+    /// <summary>
+    ///     音声全体の概要表示を作成します。
+    /// </summary>
+    /// <param name="envelopes">両側の波形情報。</param>
+    /// <param name="duration">再生全体の長さ (秒)。</param>
     internal AudioOverview(AudioEnvelope[] envelopes, double duration)
     {
         _envelopes = envelopes;
@@ -746,6 +786,10 @@ internal sealed class AudioOverview : Control
 
     internal event Action<double> ViewportClicked;
 
+    /// <summary>
+    ///     A-B リピートの区間指定モードを切り替え、指定中の区間をリセットします。
+    /// </summary>
+    /// <param name="enabled">区間指定モードにする場合は true。</param>
     internal void SetRepeatEnabled(bool enabled)
     {
         RepeatEnabled = enabled;
@@ -759,11 +803,20 @@ internal sealed class AudioOverview : Control
         InvalidateVisual();
     }
 
+    /// <summary>
+    ///     概要表示上の位置を時刻に変換します。
+    /// </summary>
+    /// <param name="point">概要表示上の位置。</param>
+    /// <returns>時刻 (秒)。</returns>
     private double RepeatTime(Point point)
     {
         return Math.Clamp(point.X / Math.Max(1, ActualWidth - 100), 0, 1) * _duration;
     }
 
+    /// <summary>
+    ///     表示範囲の枠のドラッグ、またはリピート区間の指定を開始します。
+    /// </summary>
+    /// <param name="e">マウス イベントのデータ。</param>
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonDown(e);
@@ -795,6 +848,10 @@ internal sealed class AudioOverview : Control
         e.Handled = true;
     }
 
+    /// <summary>
+    ///     表示範囲の枠のドラッグ中は枠を移動し、リピート区間の指定中は区間を更新します。
+    /// </summary>
+    /// <param name="e">マウス イベントのデータ。</param>
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
@@ -820,6 +877,10 @@ internal sealed class AudioOverview : Control
         e.Handled = true;
     }
 
+    /// <summary>
+    ///     枠のドラッグを終了します。ドラッグせずに離した場合はクリック位置の時刻を通知し、リピート区間の指定中は区間を確定して通知します。
+    /// </summary>
+    /// <param name="e">マウス イベントのデータ。</param>
     protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonUp(e);
@@ -845,6 +906,10 @@ internal sealed class AudioOverview : Control
         e.Handled = true;
     }
 
+    /// <summary>
+    ///     マウスのキャプチャを失ったときにドラッグ状態を解除します。
+    /// </summary>
+    /// <param name="e">マウス イベントのデータ。</param>
     protected override void OnLostMouseCapture(MouseEventArgs e)
     {
         base.OnLostMouseCapture(e);
@@ -862,6 +927,11 @@ internal sealed class AudioOverview : Control
         InvalidateVisual();
     }
 
+    /// <summary>
+    ///     リピート区間を半透明の帯で描画します。
+    /// </summary>
+    /// <param name="dc">描画コンテキスト。</param>
+    /// <param name="width">波形の描画幅。</param>
     private void DrawRepeat(DrawingContext dc, double width)
     {
         if (!RepeatEnabled || !_repeatA.HasValue || _duration <= 0) return;
@@ -893,6 +963,11 @@ internal sealed class AudioOverview : Control
         if (_repeatB.HasValue) Marker(b);
     }
 
+    /// <summary>
+    ///     差分区間を設定し、表示するかどうかを切り替えます。
+    /// </summary>
+    /// <param name="value">差分区間。</param>
+    /// <param name="enabled">差分を表示する場合は true。</param>
     internal void SetDifferences(AudioDifferences value, bool enabled)
     {
         _differences = value;
@@ -900,6 +975,12 @@ internal sealed class AudioOverview : Control
         ShowDifferences = enabled;
     }
 
+    /// <summary>
+    ///     概要表示のバーごとに差分を含むかどうかを求め、キャッシュします。
+    /// </summary>
+    /// <param name="side">0 が比較元、1 が比較先。</param>
+    /// <param name="bars">バーの数。</param>
+    /// <returns>バーごとの差分の有無。</returns>
     private bool[] GetDifferenceBars(int side, int bars)
     {
         if (_differenceBarsCount != bars)
@@ -926,12 +1007,23 @@ internal sealed class AudioOverview : Control
         return _differenceBars[side] = flags;
     }
 
+    /// <summary>
+    ///     再生全体の長さと両側の遅延を設定します。
+    /// </summary>
+    /// <param name="total">再生全体の長さ (秒)。</param>
+    /// <param name="offsets">両側の遅延 (秒)。</param>
     internal void SetTiming(double total, double[] offsets)
     {
         _duration = total;
         Array.Copy(offsets, _delays, 2);
     }
 
+    /// <summary>
+    ///     概要表示のバーごとのピーク値を波形データから求め、キャッシュします。
+    /// </summary>
+    /// <param name="side">0 が比較元、1 が比較先。</param>
+    /// <param name="bars">バーの数。</param>
+    /// <returns>バーごとのピーク値。</returns>
     private float[] GetBarPeaks(int side, int bars)
     {
         if (_barPeaks[side]?.Length == bars) return _barPeaks[side];
@@ -960,6 +1052,11 @@ internal sealed class AudioOverview : Control
         return _barPeaks[side] = result;
     }
 
+    /// <summary>
+    ///     波形タイムラインで表示中の範囲を設定し、再描画します。
+    /// </summary>
+    /// <param name="start">表示範囲の開始 (秒)。</param>
+    /// <param name="span">表示範囲の長さ (秒)。</param>
     internal void SetViewport(double start, double span)
     {
         _viewStart = start;
@@ -967,6 +1064,12 @@ internal sealed class AudioOverview : Control
         InvalidateVisual();
     }
 
+    /// <summary>
+    ///     再生位置と出力レベルを更新して再描画します。
+    /// </summary>
+    /// <param name="seconds">再生位置 (秒)。</param>
+    /// <param name="source">比較元の出力レベル。</param>
+    /// <param name="target">比較先の出力レベル。</param>
     internal void Update(double seconds, float source, float target)
     {
         _position = seconds;
@@ -975,6 +1078,10 @@ internal sealed class AudioOverview : Control
         InvalidateVisual();
     }
 
+    /// <summary>
+    ///     両側の波形の概要、差分、表示範囲、リピート区間、再生位置、出力レベルを描画します。
+    /// </summary>
+    /// <param name="dc">描画コンテキスト。</param>
     protected override void OnRender(DrawingContext dc)
     {
         base.OnRender(dc);
@@ -1040,6 +1147,11 @@ internal sealed class AudioTimeline : Grid
     private bool _applyingView;
     private double _currentPosition;
 
+    /// <summary>
+    ///     両側の波形と共通の横スクロール バーを並べた波形タイムラインを作成します。
+    /// </summary>
+    /// <param name="envelopes">両側の波形情報。</param>
+    /// <param name="duration">再生全体の長さ (秒)。</param>
     internal AudioTimeline(AudioEnvelope[] envelopes, double duration)
     {
         RowDefinitions.Add(new RowDefinition());
@@ -1122,6 +1234,13 @@ internal sealed class AudioTimeline : Grid
     // Maximum is the final scroll Value; ViewportSize controls the thumb size.
     private double LastOffset => Math.Max(0, Viewport * (Zoom - 1));
 
+    /// <summary>
+    ///     サンプリングレート、ビット深度、ビットレートを表示するヘッダーを作成します。相手と異なる値は赤で表示します。
+    /// </summary>
+    /// <param name="current">表示する側の波形情報。</param>
+    /// <param name="other">相手側の波形情報。</param>
+    /// <param name="source">比較元の場合は true。</param>
+    /// <returns>作成したヘッダー。</returns>
     internal static TextBlock CreateHeader(AudioEnvelope current, AudioEnvelope other, bool source)
     {
         var label = new TextBlock
@@ -1169,6 +1288,11 @@ internal sealed class AudioTimeline : Grid
 
     internal event Action<double> SeekRequested;
 
+    /// <summary>
+    ///     指定側の遅延を設定し、遅延の入力欄に反映します。
+    /// </summary>
+    /// <param name="side">0 が比較元、1 が比較先。</param>
+    /// <param name="seconds">遅延 (秒)。</param>
     internal void SetDelay(int side, double seconds)
     {
         Delays[side] = seconds;
@@ -1181,6 +1305,9 @@ internal sealed class AudioTimeline : Grid
 
     internal event Action<double, double> ViewChanged;
 
+    /// <summary>
+    ///     横スクロール バーの範囲を、ズーム倍率と表示幅に合わせて更新します。
+    /// </summary>
     private void UpdateRange()
     {
         _scroll.Maximum = LastOffset;
@@ -1192,6 +1319,9 @@ internal sealed class AudioTimeline : Grid
         _scroll.Visibility = Zoom > 1 ? Visibility.Visible : Visibility.Hidden;
     }
 
+    /// <summary>
+    ///     スクロール位置とズーム倍率を両側の波形の表示範囲に反映します。
+    /// </summary>
     private void ApplyView()
     {
         if (_applyingView) return;
@@ -1209,6 +1339,10 @@ internal sealed class AudioTimeline : Grid
         ViewChanged?.Invoke(Waves[0].ViewStart, Waves[0].ViewDuration);
     }
 
+    /// <summary>
+    ///     時間方向のズーム倍率を設定します。表示範囲の左端の時刻は変えません。
+    /// </summary>
+    /// <param name="value">ズーム倍率。</param>
     internal void SetZoom(double value)
     {
         var newZoom = Math.Clamp(value, 1, Math.Max(1, Waves[0].Duration / WaveformControl.MinimumViewSeconds));
@@ -1222,6 +1356,9 @@ internal sealed class AudioTimeline : Grid
         ApplyView();
     }
 
+    /// <summary>
+    ///     ズームを解除して全体を表示します。
+    /// </summary>
     internal void Fit()
     {
         SetZoom(1);
@@ -1229,6 +1366,10 @@ internal sealed class AudioTimeline : Grid
         foreach (var wave in Waves) wave.Fit();
     }
 
+    /// <summary>
+    ///     表示範囲の開始時刻を指定してスクロールします。
+    /// </summary>
+    /// <param name="seconds">表示範囲の開始 (秒)。</param>
     internal void SetViewStart(double seconds)
     {
         var duration = Waves[0].Duration;
@@ -1236,11 +1377,20 @@ internal sealed class AudioTimeline : Grid
         _scroll.Value = Math.Clamp(seconds / duration * Viewport * Zoom, 0, LastOffset);
     }
 
+    /// <summary>
+    ///     指定したピクセル数だけ横にスクロールします。
+    /// </summary>
+    /// <param name="pixels">スクロール量 (ピクセル)。</param>
     internal void ScrollBy(double pixels)
     {
         _scroll.Value = Math.Clamp(Offset + pixels, 0, LastOffset);
     }
 
+    /// <summary>
+    ///     両側の波形の再生位置を遅延を考慮して更新し、必要に応じて再生位置が見えるようスクロールします。
+    /// </summary>
+    /// <param name="seconds">再生位置 (秒)。</param>
+    /// <param name="follow">再生位置に追従してスクロールする場合は true。</param>
     internal void UpdatePosition(double seconds, bool follow)
     {
         _currentPosition = seconds;
@@ -1266,6 +1416,11 @@ internal sealed class AudioWaveform : WaveformControl
 
     private bool _source = true, _showDifferences;
 
+    /// <summary>
+    ///     音声 DIFF 用の波形表示を作成します。
+    /// </summary>
+    /// <param name="envelope">波形情報。</param>
+    /// <param name="duration">タイムライン全体の長さ (秒)。</param>
     internal AudioWaveform(AudioEnvelope envelope, double duration)
     {
         SetData(envelope?.Data, duration);
@@ -1294,6 +1449,12 @@ internal sealed class AudioWaveform : WaveformControl
         }
     }
 
+    /// <summary>
+    ///     差分区間を設定し、表示するかどうかを切り替えます。
+    /// </summary>
+    /// <param name="value">差分区間。</param>
+    /// <param name="enabled">差分を表示する場合は true。</param>
+    /// <param name="source">比較元側の差分を表示する場合は true。</param>
     internal void SetDifferences(AudioDifferences value, bool enabled, bool source = true)
     {
         _differences = value;
@@ -1304,16 +1465,31 @@ internal sealed class AudioWaveform : WaveformControl
         InvalidateVisual();
     }
 
+    /// <summary>
+    ///     ズーム倍率とスクロール位置から表示範囲を設定します。
+    /// </summary>
+    /// <param name="zoom">ズーム倍率。</param>
+    /// <param name="offset">スクロール位置 (ピクセル)。</param>
     internal void SetView(double zoom, double offset)
     {
         SetViewRange(Duration * offset / Math.Max(1, ActualWidth * zoom), Duration / zoom);
     }
 
+    /// <summary>
+    ///     表示上の X 座標を時刻に変換します。
+    /// </summary>
+    /// <param name="x">X 座標。</param>
+    /// <returns>時刻 (秒)。</returns>
     internal double TimeAt(double x)
     {
         return XToTime(x);
     }
 
+    /// <summary>
+    ///     時刻を、タイムライン全体での X 座標に変換します。
+    /// </summary>
+    /// <param name="seconds">時刻 (秒)。</param>
+    /// <returns>X 座標。</returns>
     internal double PixelAt(double seconds)
     {
         return ViewDuration > 0 ? seconds / ViewDuration * ActualWidth : 0;
@@ -1325,6 +1501,10 @@ internal sealed class AudioWaveform : WaveformControl
 
     internal event Action<double> CursorDragged;
 
+    /// <summary>
+    ///     再生位置のカーソル付近を押した場合は、遅延調整のためのカーソルのドラッグを開始します。
+    /// </summary>
+    /// <param name="e">マウス イベントのデータ。</param>
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
         if (Math.Abs(e.GetPosition(this).X - TimeToX(_cursorPosition)) <= 7 && CaptureMouse())
@@ -1338,6 +1518,10 @@ internal sealed class AudioWaveform : WaveformControl
         base.OnMouseLeftButtonDown(e);
     }
 
+    /// <summary>
+    ///     カーソルのドラッグ中は、カーソル位置の時刻を通知します。
+    /// </summary>
+    /// <param name="e">マウス イベントのデータ。</param>
     protected override void OnMouseMove(MouseEventArgs e)
     {
         if (!_draggingCursor)
@@ -1350,6 +1534,10 @@ internal sealed class AudioWaveform : WaveformControl
         e.Handled = true;
     }
 
+    /// <summary>
+    ///     カーソルのドラッグを終了し、最終位置と完了を通知します。
+    /// </summary>
+    /// <param name="e">マウス イベントのデータ。</param>
     protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
     {
         if (!_draggingCursor)
@@ -1365,6 +1553,10 @@ internal sealed class AudioWaveform : WaveformControl
         e.Handled = true;
     }
 
+    /// <summary>
+    ///     マウスのキャプチャを失ったときにカーソルのドラッグを終了し、完了を通知します。
+    /// </summary>
+    /// <param name="e">マウス イベントのデータ。</param>
     protected override void OnLostMouseCapture(MouseEventArgs e)
     {
         var wasDragging = _draggingCursor;
@@ -1373,6 +1565,10 @@ internal sealed class AudioWaveform : WaveformControl
         if (wasDragging) CursorDragCompleted?.Invoke();
     }
 
+    /// <summary>
+    ///     差分区間を赤で強調したレイヤーを、表示条件が変わったときだけ作り直して描画します。
+    /// </summary>
+    /// <param name="dc">描画コンテキスト。</param>
     protected override void DrawOverlay(DrawingContext dc)
     {
         if (!_showDifferences || _differences == null || Data == null ||
@@ -1388,6 +1584,10 @@ internal sealed class AudioWaveform : WaveformControl
         dc.DrawDrawing(_differenceLayer);
     }
 
+    /// <summary>
+    ///     差分区間の波形を赤で描いたレイヤーを作成します。
+    /// </summary>
+    /// <returns>作成したレイヤー。</returns>
     private DrawingGroup BuildDifferenceLayer()
     {
         var layer = new DrawingGroup { Opacity = _showDifferences ? 1 : 0 };

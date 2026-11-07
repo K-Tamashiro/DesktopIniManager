@@ -8,6 +8,12 @@ internal sealed class FileListItem
 {
     private ImageSource _icon;
 
+    /// <summary>
+    ///     ファイル パスからファイル一覧の項目を作成し、検索一致と選択フォルダー直下かどうかを判定します。
+    /// </summary>
+    /// <param name="path">ファイルのフル パス。</param>
+    /// <param name="searchKeys">ファイル名の一致判定に使う検索キー。</param>
+    /// <param name="selectedFolder">選択中のフォルダー パス。</param>
     public FileListItem(string path, string[] searchKeys = null, string selectedFolder = null)
     {
         Path = path;
@@ -42,6 +48,12 @@ internal sealed class FileListItem
         }
     }
 
+    /// <summary>
+    ///     ファイルが指定フォルダーの直下にあるかどうかを判定します。
+    /// </summary>
+    /// <param name="filePath">判定するファイルのパス。</param>
+    /// <param name="folderPath">基準となるフォルダーのパス。</param>
+    /// <returns>直下にある場合、またはどちらかのパスが空の場合は true。</returns>
     private static bool IsImmediateChild(string filePath, string folderPath)
     {
         if (string.IsNullOrWhiteSpace(filePath) || string.IsNullOrWhiteSpace(folderPath))
@@ -50,6 +62,11 @@ internal sealed class FileListItem
         return string.Equals(Normalize(parent), Normalize(folderPath), StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    ///     パス末尾のディレクトリ区切り文字を取り除きます。
+    /// </summary>
+    /// <param name="path">正規化するパス。</param>
+    /// <returns>正規化したパス。空の場合は空文字列。</returns>
     private static string Normalize(string path)
     {
         if (string.IsNullOrWhiteSpace(path)) return string.Empty;

@@ -21,6 +21,13 @@ internal static class FolderIconService
 
     // Called on a worker for visible folders only. Never cache emptiness by path:
     // files may have been added or removed since the last display.
+    /// <summary>
+    ///     フォルダーの状態 (カスタム アイコン、空、ネットワーク/クラウド) に応じた表示アイコンを取得します。
+    ///     表示中のフォルダーに対してワーカー スレッドから呼び出されます。空かどうかはパスごとにキャッシュしません。
+    /// </summary>
+    /// <param name="path">フォルダーのパス。</param>
+    /// <param name="reason">メイン画面の解析結果。「Empty folder」の場合はその判定を優先します。</param>
+    /// <returns>状態アイコン。フォルダーを読み取れない場合は null。</returns>
     public static ImageSource GetStateIcon(string path, string reason = null)
     {
         try
@@ -52,6 +59,11 @@ internal static class FolderIconService
         } // Unreadable folders must not be presented as empty.
     }
 
+    /// <summary>
+    ///     パスがネットワーク ドライブ、UNC パス、OneDrive 配下、またはクラウド ファイルのプレースホルダーかどうかを判定します。
+    /// </summary>
+    /// <param name="path">判定するパス。</param>
+    /// <returns>ネットワークまたはクラウド上の場合は true。</returns>
     private static bool IsNetworkOrCloud(string path)
     {
         var fullPath = Path.GetFullPath(path);
@@ -76,6 +88,11 @@ internal static class FolderIconService
         return false;
     }
 
+    /// <summary>
+    ///     フォルダーのシェル アイコンを取得し、パスごとにキャッシュします。
+    /// </summary>
+    /// <param name="path">フォルダーのパス。</param>
+    /// <returns>フォルダー アイコン。取得できない場合は既定のフォルダー アイコン。</returns>
     public static BitmapSource GetFolderIcon(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -100,6 +117,10 @@ internal static class FolderIconService
         }
     }
 
+    /// <summary>
+    ///     既定のフォルダー アイコンを取得し、キャッシュします。
+    /// </summary>
+    /// <returns>既定のフォルダー アイコン。</returns>
     public static BitmapSource GetDefaultFolderIcon()
     {
         lock (CacheLock)
@@ -119,6 +140,10 @@ internal static class FolderIconService
         }
     }
 
+    /// <summary>
+    ///     指定フォルダーのアイコン キャッシュを破棄します。
+    /// </summary>
+    /// <param name="path">フォルダーのパス。</param>
     public static void Invalidate(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -130,6 +155,12 @@ internal static class FolderIconService
         }
     }
 
+    /// <summary>
+    ///     SHGetFileInfo で大きいアイコンを取得し、32×32 のフリーズ済みビットマップに変換します。
+    /// </summary>
+    /// <param name="path">対象のパス。</param>
+    /// <param name="useFileAttributes">実在しない名前に対してディレクトリ属性から種類アイコンを取得する場合は true。</param>
+    /// <returns>取得したアイコン。取得できない場合は null。</returns>
     private static BitmapSource GetIcon(string path, bool useFileAttributes)
     {
         var info = new ShellFileInfo();
@@ -162,6 +193,15 @@ internal static class FolderIconService
         }
     }
 
+    /// <summary>
+    ///     Win32 API の SHGetFileInfo を呼び出し、ファイルやフォルダーのアイコン情報を取得します。
+    /// </summary>
+    /// <param name="path">対象のパス。</param>
+    /// <param name="attributes">ファイル属性。</param>
+    /// <param name="info">取得した情報。</param>
+    /// <param name="size">構造体のサイズ。</param>
+    /// <param name="flags">取得する情報のフラグ。</param>
+    /// <returns>処理結果。失敗時は IntPtr.Zero。</returns>
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     private static extern IntPtr SHGetFileInfo(
         string path,
@@ -170,6 +210,11 @@ internal static class FolderIconService
         uint size,
         uint flags);
 
+    /// <summary>
+    ///     Win32 API の DestroyIcon を呼び出し、アイコン ハンドルを破棄します。
+    /// </summary>
+    /// <param name="icon">破棄するアイコン ハンドル。</param>
+    /// <returns>成功した場合は true。</returns>
     [DllImport("user32.dll")]
     private static extern bool DestroyIcon(IntPtr icon);
 

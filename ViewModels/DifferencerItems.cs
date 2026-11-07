@@ -26,6 +26,10 @@ internal static class DifferencerStatusIcons
 {
     private static readonly ImageSource[] Icons = Load();
 
+    /// <summary>
+    ///     Developer Differencer 用のアイコン ライブラリを候補の場所から探し、アイコンを読み込みます。
+    /// </summary>
+    /// <returns>インデックス順のアイコン配列。読み込めなかった要素は null。</returns>
     private static ImageSource[] Load()
     {
         var result = new ImageSource[180];
@@ -58,37 +62,71 @@ internal static class DifferencerStatusIcons
         return result;
     }
 
+    /// <summary>
+    ///     比較結果の種類に対応するフォルダー アイコンを取得します。
+    /// </summary>
+    /// <param name="kind">比較結果の種類。</param>
+    /// <returns>フォルダー アイコン。</returns>
     public static ImageSource GetFolderIcon(DiffKind kind)
     {
         return Get(Index(kind, 0));
     }
 
+    /// <summary>
+    ///     比較結果の種類に対応するファイル アイコンを取得します。
+    /// </summary>
+    /// <param name="kind">比較結果の種類。</param>
+    /// <returns>ファイル アイコン。</returns>
     public static ImageSource GetFileIcon(DiffKind kind)
     {
         return Get(Index(kind, 4));
     }
 
+    /// <summary>
+    ///     obj または bin フォルダーのアイコンを取得します。
+    /// </summary>
+    /// <param name="obj">obj フォルダーの場合は true、bin フォルダーの場合は false。</param>
+    /// <returns>フォルダー アイコン。</returns>
     public static ImageSource GetBuildFolderIcon(bool obj)
     {
         return Get(obj ? 8 : 9);
     }
 
+    /// <summary>
+    ///     再読み込みのアイコンを取得します。
+    /// </summary>
+    /// <returns>再読み込みのアイコン。</returns>
     public static ImageSource GetRefreshIcon()
     {
         return Get(10);
     }
 
+    /// <summary>
+    ///     アイコン ライブラリ内の指定インデックスのアイコンを取得します。
+    /// </summary>
+    /// <param name="index">アイコンのインデックス。</param>
+    /// <returns>アイコン。範囲外の場合は null。</returns>
     public static ImageSource GetCustomIcon(int index)
     {
         return Get(index);
     }
 
+    /// <summary>
+    ///     ソリューションのアイコンを取得します。
+    /// </summary>
+    /// <returns>ソリューションのアイコン。</returns>
     public static ImageSource GetSolutionIcon()
     {
         return Get(22) ?? Get(21);
     }
 
     // ...
+    /// <summary>
+    ///     比較結果の種類から、アイコン ライブラリ内のインデックスを求めます。
+    /// </summary>
+    /// <param name="kind">比較結果の種類。</param>
+    /// <param name="offset">アイコン群の先頭インデックス。</param>
+    /// <returns>アイコンのインデックス。</returns>
     private static int Index(DiffKind kind, int offset)
     {
         if (kind == DiffKind.SourceOnly) return offset + 0;
@@ -97,6 +135,11 @@ internal static class DifferencerStatusIcons
         return offset + 3;
     }
 
+    /// <summary>
+    ///     読み込み済みのアイコンを取得します。
+    /// </summary>
+    /// <param name="index">アイコンのインデックス。</param>
+    /// <returns>アイコン。範囲外の場合は null。</returns>
     private static ImageSource Get(int index)
     {
         return index >= 0 && index < Icons.Length ? Icons[index] : null;
@@ -230,28 +273,48 @@ internal sealed class DiffFolder : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler PropertyChanged;
 
+    /// <summary>
+    ///     このフォルダーと祖先フォルダーのチェック状態の変更を通知します。
+    /// </summary>
     private void NotifyCheckedUpward()
     {
         for (var folder = this; folder != null; folder = folder.Parent)
             folder.PropertyChanged?.Invoke(folder, new PropertyChangedEventArgs(nameof(Checked)));
     }
 
+    /// <summary>
+    ///     フォルダーが同期可能で、その種類が指定したマスクに含まれるかどうかを判定します。
+    /// </summary>
+    /// <param name="mask">比較結果の種類のマスク。</param>
+    /// <returns>含まれる場合は true。</returns>
     public bool MatchesFolderMask(DiffKind mask)
     {
         return FolderCanSync && (FolderKind & mask) != 0;
     }
 
+    /// <summary>
+    ///     表示対象の子フォルダーの一覧を更新します。
+    /// </summary>
     public void UpdateDisplayChildren()
     {
         DisplayChildren = Children.Where(f => f.Visible).ToList();
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("DisplayChildren"));
     }
 
+    /// <summary>
+    ///     アイコンの再取得を通知します。
+    /// </summary>
     public void RefreshIcon()
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IconPreview)));
     }
 
+    /// <summary>
+    ///     マスクに含まれる種類ごとの件数を合計します。
+    /// </summary>
+    /// <param name="values">種類ごとの件数。</param>
+    /// <param name="mask">比較結果の種類のマスク。</param>
+    /// <returns>合計件数。</returns>
     private static int Sum(int[] values, DiffKind mask)
     {
         var result = 0;
@@ -261,16 +324,33 @@ internal sealed class DiffFolder : INotifyPropertyChanged
         return result;
     }
 
+    /// <summary>
+    ///     マスクに含まれる種類のファイル数を取得します。
+    /// </summary>
+    /// <param name="mask">比較結果の種類のマスク。</param>
+    /// <returns>ファイル数。</returns>
     public int CountFor(DiffKind mask)
     {
         return Sum(_counts, mask);
     }
 
+    /// <summary>
+    ///     マスクに含まれる種類の選択済みファイル数を取得します。
+    /// </summary>
+    /// <param name="mask">比較結果の種類のマスク。</param>
+    /// <returns>選択済みのファイル数。</returns>
     public int SelectedFor(DiffKind mask)
     {
         return Sum(_selectedCounts, mask);
     }
 
+    /// <summary>
+    ///     フォルダーとその子孫のうち、マスクに一致する対象フォルダーの数と選択済みの数を数えます。
+    /// </summary>
+    /// <param name="folder">数え始めるフォルダー。</param>
+    /// <param name="mask">比較結果の種類のマスク。</param>
+    /// <param name="selected">選択済みのフォルダー数。</param>
+    /// <param name="total">対象のフォルダー数。</param>
     private static void AddFolderSelectionCounts(DiffFolder folder, DiffKind mask, ref int selected, ref int total)
     {
         if (folder.IsFolderIncluded && folder.MatchesFolderMask(mask))
@@ -284,6 +364,9 @@ internal sealed class DiffFolder : INotifyPropertyChanged
             AddFolderSelectionCounts(child, mask, ref selected, ref total);
     }
 
+    /// <summary>
+    ///     ファイルの種類ごとの件数、選択数、同期可能な差分の数を数え直し、変更を通知します。
+    /// </summary>
     public void Refresh()
     {
         Array.Clear(_counts, 0, _counts.Length);
@@ -304,6 +387,11 @@ internal sealed class DiffFolder : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("IconPreview"));
     }
 
+    /// <summary>
+    ///     フォルダー自体の同期選択を設定します。同期できないフォルダーは選択できません。
+    /// </summary>
+    /// <param name="value">選択する場合は true。</param>
+    /// <param name="notify">祖先フォルダーに変更を通知する場合は true。</param>
     public void SetFolderSelected(bool value, bool notify = true)
     {
         value = value && FolderCanSync;
@@ -313,6 +401,9 @@ internal sealed class DiffFolder : INotifyPropertyChanged
             NotifyCheckedUpward();
     }
 
+    /// <summary>
+    ///     ファイルの選択数を数え直します。
+    /// </summary>
     public void RefreshSelectionCounts()
     {
         Array.Clear(_selectedCounts, 0, _selectedCounts.Length);
@@ -333,6 +424,12 @@ internal sealed class DiffFolder : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Checked)));
     }
 
+    /// <summary>
+    ///     選択数を差分で更新し、表示中の種類であればチェック状態の変更を通知します。
+    /// </summary>
+    /// <param name="delta">選択数の増減。</param>
+    /// <param name="kind">ファイルの比較結果の種類。</param>
+    /// <param name="included">現在のフィルターで表示対象のファイルの場合は true。</param>
     public void ChangeSelectionCount(int delta, DiffKind kind, bool included = true)
     {
         if (delta == 0) return;
@@ -367,6 +464,10 @@ internal sealed class DiffSide : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler PropertyChanged;
 
+    /// <summary>
+    ///     画像ファイルのサイズを読み取り、プレビュー用のサムネイルを作成します。
+    /// </summary>
+    /// <returns>読み取ったプレビュー情報。</returns>
     internal Preview ReadPreview()
     {
         var result = new Preview();
@@ -404,6 +505,10 @@ internal sealed class DiffSide : INotifyPropertyChanged
         return result;
     }
 
+    /// <summary>
+    ///     読み取ったプレビュー情報を反映し、変更を通知します。
+    /// </summary>
+    /// <param name="preview">反映するプレビュー情報。</param>
     internal void ApplyPreview(Preview preview)
     {
         Thumbnail = preview.Thumbnail;
@@ -412,6 +517,9 @@ internal sealed class DiffSide : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Dimensions"));
     }
 
+    /// <summary>
+    ///     サムネイルを解放します。
+    /// </summary>
     internal void ReleaseThumbnail()
     {
         Thumbnail = null;
@@ -459,6 +567,10 @@ internal sealed class DiffRow : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler PropertyChanged;
 
+    /// <summary>
+    ///     ファイルが選択中のフォルダーの直下にあるかどうかを設定し、変更を通知します。
+    /// </summary>
+    /// <param name="value">直下にある場合は true。</param>
     public void SetDirectInSelectedFolder(bool value)
     {
         if (IsDirectInSelectedFolder == value) return;
@@ -466,11 +578,17 @@ internal sealed class DiffRow : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsDirectInSelectedFolder)));
     }
 
+    /// <summary>
+    ///     読み込み中のプレビューをキャンセルします。
+    /// </summary>
     public void CancelPreview()
     {
         _previewCancellation?.Cancel();
     }
 
+    /// <summary>
+    ///     プレビューの読み込みをキャンセルし、両側のサムネイルとアイコンを解放します。
+    /// </summary>
     public void ReleasePreview()
     {
         CancelPreview();
@@ -481,6 +599,11 @@ internal sealed class DiffRow : INotifyPropertyChanged
         IsPreviewReady = false;
     }
 
+    /// <summary>
+    ///     少し待ってから、同時実行数を制限してプレビューとアイコンをバックグラウンドで読み込みます。スクロールで表示外になった行は、ディスク アクセス前にキャンセルされます。
+    /// </summary>
+    /// <param name="workers">同時実行数を制限するセマフォ。</param>
+    /// <param name="scope">読み込み全体のキャンセル トークン。</param>
     public async Task LoadPreviewAsync(SemaphoreSlim workers, CancellationToken scope)
     {
         if (IsPreviewReady || (_previewCancellation != null && !_previewCancellation.IsCancellationRequested)) return;
@@ -529,6 +652,9 @@ internal sealed class DiffRow : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     プレビューとファイル情報を破棄して、最新のファイルから読み直すよう変更を通知します。
+    /// </summary>
     internal void RefreshFromFile()
     {
         ReleasePreview();

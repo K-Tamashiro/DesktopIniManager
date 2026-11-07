@@ -17,6 +17,9 @@ namespace DesktopIniManager.Views;
 
 internal sealed class AboutWindow : Window
 {
+    /// <summary>
+    ///     バージョン情報ウィンドウを作成し、アプリケーションのバージョンと使用しているライブラリ・API の一覧を表示します。
+    /// </summary>
     internal AboutWindow()
     {
         Title = "DesktopIniManager — About";
@@ -96,12 +99,26 @@ internal sealed class AboutWindow : Window
         Content = layout;
     }
 
+    /// <summary>
+    ///     アセンブリの表示用バージョンを取得します。ビルド メタデータ (+ 以降) は除きます。
+    /// </summary>
+    /// <param name="assembly">対象のアセンブリ。</param>
+    /// <returns>バージョン文字列。</returns>
     private static string VersionOf(Assembly assembly)
     {
         return assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0]
                ?? assembly.GetName().Version?.ToString();
     }
 
+    /// <summary>
+    ///     使用しているコンポーネントの名前、バージョン、説明、ライセンスへのリンクをパネルに追加します。
+    /// </summary>
+    /// <param name="panel">追加先のパネル。</param>
+    /// <param name="name">コンポーネント名。</param>
+    /// <param name="version">バージョン。</param>
+    /// <param name="description">説明。</param>
+    /// <param name="license">埋め込みのライセンス ファイル名。null の場合はリンクを表示しません。</param>
+    /// <param name="linkLabel">ライセンス リンクの表示文字列。</param>
     private void AddComponent(Panel panel, string name, string version, string description,
         string license = null, string linkLabel = "License TXT")
     {
@@ -126,6 +143,11 @@ internal sealed class AboutWindow : Window
         panel.Children.Add(item);
     }
 
+    /// <summary>
+    ///     埋め込みリソースのライセンス文書を別ウィンドウで表示します。
+    /// </summary>
+    /// <param name="component">コンポーネント名。</param>
+    /// <param name="file">ライセンス ファイル名。</param>
     private void ShowLicense(string component, string file)
     {
         // Embed the distributed originals so the dialog also works when launched elsewhere.

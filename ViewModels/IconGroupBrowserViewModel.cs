@@ -10,6 +10,12 @@ internal sealed class IconGroupBrowserViewModel : ObservableObject
 {
     private IconGroupResource _selectedGroup;
 
+    /// <summary>
+    ///     アイコン ライブラリ内のアイコン グループを選択するための ViewModel を作成します。
+    /// </summary>
+    /// <param name="filePath">アイコン ライブラリのパス。</param>
+    /// <param name="groups">選択肢のアイコン グループ。</param>
+    /// <param name="currentIndex">現在選択されているアイコンのシェル インデックス。</param>
     internal IconGroupBrowserViewModel(string filePath, IEnumerable<IconGroupResource> groups, int currentIndex)
     {
         FilePath = filePath;

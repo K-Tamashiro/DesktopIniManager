@@ -23,6 +23,9 @@ internal sealed partial class DiffViewWindow
     private ComboBox _patchSourceBox;
     private bool _selectingPatch;
 
+    /// <summary>
+    ///     パッチ表示のときだけパッチ用のコントロール (パッチ ファイルとリポジトリの選択欄など) を表示し、初回は作成します。
+    /// </summary>
     private void UpdatePatchControls()
     {
         PatchControls.Visibility = ViewModel.IsPatch ? Visibility.Visible : Visibility.Collapsed;
@@ -138,6 +141,9 @@ internal sealed partial class DiffViewWindow
         }
     }
 
+    /// <summary>
+    ///     パッチの適用先リポジトリを選ぶダイアログを表示し、選んだフォルダーを適用先にして表示を更新します。
+    /// </summary>
     private async Task BrowsePatchRepositoryAsync()
     {
         if (_renderingContent || ViewModel.CurrentPatch == null) return;
@@ -155,6 +161,11 @@ internal sealed partial class DiffViewWindow
         }
     }
 
+    /// <summary>
+    ///     パッチ内のファイルの選択が変わったときに、そのファイルを表示します。
+    /// </summary>
+    /// <param name="sender">選択欄のコンボ ボックス。</param>
+    /// <param name="e">イベントデータ。</param>
     private async void PatchSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_selectingPatch || _renderingContent || sender is not ComboBox { SelectedIndex: >= 0 } combo) return;
@@ -169,6 +180,9 @@ internal sealed partial class DiffViewWindow
         }
     }
 
+    /// <summary>
+    ///     未保存の変更を確認したうえで、パッチ ファイルを選んで開きます。
+    /// </summary>
     private async Task OpenPatchAsync()
     {
         if (_renderingContent || !await ConfirmTextChangesAsync()) return;
@@ -185,6 +199,10 @@ internal sealed partial class DiffViewWindow
         }
     }
 
+    /// <summary>
+    ///     パッチの適用先ファイルを選びます。新規ファイルの場合は保存先を指定します。
+    /// </summary>
+    /// <returns>適用先を設定した場合は true。</returns>
     private async Task<bool> BrowsePatchTargetAsync()
     {
         if (_renderingContent || ViewModel.CurrentPatch == null) return false;
@@ -217,6 +235,11 @@ internal sealed partial class DiffViewWindow
         }
     }
 
+    /// <summary>
+    ///     パッチ表示のペインに、ハンクの適用位置を上下に移動するボタン用のレイヤーを追加します。
+    /// </summary>
+    /// <param name="grid">ペインを含むグリッド。</param>
+    /// <param name="pane">比較先のペイン。</param>
     private void AddPatchMoveButtons(Grid grid, RichTextBox pane)
     {
         // Always create the layer in patch mode: a target can be attached after the
@@ -248,6 +271,9 @@ internal sealed partial class DiffViewWindow
         };
     }
 
+    /// <summary>
+    ///     移動できるハンクごとに、適用位置を上下に移動するボタンを作り直します。
+    /// </summary>
     private void RefreshPatchMoveButtons()
     {
         if (_patchMoveButtons == null || !ViewModel.IsPatch) return;
@@ -292,6 +318,9 @@ internal sealed partial class DiffViewWindow
         PositionPatchMoveButtons();
     }
 
+    /// <summary>
+    ///     スクロール位置に合わせて、ハンクの移動ボタンを配置します。
+    /// </summary>
     private void PositionPatchMoveButtons()
     {
         if (_patchMoveButtons == null) return;
@@ -304,6 +333,10 @@ internal sealed partial class DiffViewWindow
         }
     }
 
+    /// <summary>
+    ///     現在のパッチ ファイルの適用結果を保存します。新規ファイルの場合はエンコーディングと改行コードを選ばせます。
+    /// </summary>
+    /// <returns>保存した場合は true。</returns>
     private async Task<bool> SavePatchAsync()
     {
         if (ViewModel.CurrentPatch.TargetPath == null && !await BrowsePatchTargetAsync()) return false;
@@ -365,6 +398,10 @@ internal sealed partial class DiffViewWindow
         }
     }
 
+    /// <summary>
+    ///     未保存のパッチ ファイルをすべて保存し、元の選択に戻します。
+    /// </summary>
+    /// <returns>すべて保存した場合は true。途中で取り消した場合は false。</returns>
     private async Task<bool> SaveAllPatchFilesAsync()
     {
         var original = ViewModel.PatchIndex;

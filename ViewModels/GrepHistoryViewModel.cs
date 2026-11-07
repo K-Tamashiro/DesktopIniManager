@@ -31,6 +31,9 @@ internal sealed partial class GrepWindowViewModel
     public RelayCommand DeleteAllHistoryTabsCommand { get; private set; }
     public ParameterCommand DeleteOtherHistoryTabsCommand { get; private set; }
 
+    /// <summary>
+    ///     Grep 履歴タブの追加・保存・削除コマンドを初期化します。
+    /// </summary>
     private void InitializeHistoryCommands()
     {
         AddHistoryTabCommand = new RelayCommand(AddHistoryTab, () => !IsSearching);
@@ -42,6 +45,9 @@ internal sealed partial class GrepWindowViewModel
             new ParameterCommand(DeleteOtherHistoryTabs, () => !IsSearching && HistoryTabs.Count > 1);
     }
 
+    /// <summary>
+    ///     保存された Grep 履歴タブを読み込み、前回選択していたタブを選択します。
+    /// </summary>
     private void RestoreHistory()
     {
         try
@@ -59,6 +65,10 @@ internal sealed partial class GrepWindowViewModel
         }
     }
 
+    /// <summary>
+    ///     現在の状態を取り込んでから、Grep 履歴タブを保存します。
+    /// </summary>
+    /// <returns>保存できた場合は true。</returns>
     internal bool SaveHistory()
     {
         try
@@ -78,6 +88,10 @@ internal sealed partial class GrepWindowViewModel
         }
     }
 
+    /// <summary>
+    ///     検索を始める前に、結果を追記するタブを決めます。既存の結果がある場合は、追記するか新しいタブにするかを確認します。
+    /// </summary>
+    /// <returns>検索を続ける場合は true。取り消した場合は false。</returns>
     private bool PrepareSearchTab()
     {
         var query = Query;
@@ -115,6 +129,9 @@ internal sealed partial class GrepWindowViewModel
         return true;
     }
 
+    /// <summary>
+    ///     現在の検索条件と検索範囲を引き継いだ新しい履歴タブを先頭に追加します。上限に達している場合は追加しません。
+    /// </summary>
     private void AddHistoryTab()
     {
         if (HistoryTabs.Count >= ResultHistoryStore.Limit)
@@ -147,6 +164,10 @@ internal sealed partial class GrepWindowViewModel
         NotifyListCommands();
     }
 
+    /// <summary>
+    ///     現在のタブの状態を保存してから、指定した履歴タブを選択して内容を表示します。
+    /// </summary>
+    /// <param name="tab">選択する履歴タブ。</param>
     private void SelectHistoryTab(GrepHistoryTab tab)
     {
         if (tab == null) return;
@@ -165,6 +186,9 @@ internal sealed partial class GrepWindowViewModel
         OnPropertyChanged(nameof(SelectedHistoryTab));
     }
 
+    /// <summary>
+    ///     現在の検索条件、検索範囲、絞り込み、結果を選択中の履歴タブに保存します。
+    /// </summary>
     private void CaptureHistoryTab()
     {
         if (_selectedHistoryTab == null) return;
@@ -182,6 +206,10 @@ internal sealed partial class GrepWindowViewModel
         _selectedHistoryTab.Matches = Matches.ToList();
     }
 
+    /// <summary>
+    ///     履歴タブに保存された検索条件、検索範囲、結果を画面に反映します。
+    /// </summary>
+    /// <param name="tab">反映する履歴タブ。</param>
     private void ApplyHistoryTab(GrepHistoryTab tab)
     {
         Query = tab.Query ?? string.Empty;
@@ -214,6 +242,10 @@ internal sealed partial class GrepWindowViewModel
         NotifyListCommands();
     }
 
+    /// <summary>
+    ///     履歴タブを削除します。選択中のタブを削除した場合は、残りのタブを選択し直します。
+    /// </summary>
+    /// <param name="item">削除する履歴タブ。</param>
     private void DeleteHistoryTab(object item)
     {
         var tab = item as GrepHistoryTab;
@@ -247,6 +279,9 @@ internal sealed partial class GrepWindowViewModel
         SaveHistory();
     }
 
+    /// <summary>
+    ///     すべての履歴タブと検索結果を削除し、履歴を保存します。
+    /// </summary>
     private void DeleteAllHistoryTabs()
     {
         if (IsSearching || HistoryTabs.Count == 0) return;
@@ -267,6 +302,10 @@ internal sealed partial class GrepWindowViewModel
         SaveHistory();
     }
 
+    /// <summary>
+    ///     指定したタブ以外の履歴タブを削除し、指定したタブを選択して履歴を保存します。
+    /// </summary>
+    /// <param name="item">残す履歴タブ。</param>
     private void DeleteOtherHistoryTabs(object item)
     {
         var tab = item as GrepHistoryTab;

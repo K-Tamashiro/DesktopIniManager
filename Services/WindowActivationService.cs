@@ -12,6 +12,9 @@ internal static class WindowActivationService
     private static readonly ConditionalWeakTable<Window, State> States = new();
     private static bool _installed;
 
+    /// <summary>
+    ///     すべてのウィンドウの Loaded イベントにクラス ハンドラーを登録し、前面表示の管理を開始します。
+    /// </summary>
     internal static void Install()
     {
         if (_installed) return;
@@ -20,6 +23,11 @@ internal static class WindowActivationService
             new RoutedEventHandler(OnLoaded));
     }
 
+    /// <summary>
+    ///     ウィンドウの初回描画後に前面表示し、閉じた後はオーナー ウィンドウを前面に戻すよう設定します。
+    /// </summary>
+    /// <param name="sender">読み込まれたウィンドウ。</param>
+    /// <param name="args">イベントデータ。</param>
     private static void OnLoaded(object sender, RoutedEventArgs args)
     {
         var window = (Window)sender;
@@ -48,6 +56,11 @@ internal static class WindowActivationService
         };
     }
 
+    /// <summary>
+    ///     ウィンドウが表示中で、閉じる途中でもなく、前面表示できる状態かどうかを判定します。
+    /// </summary>
+    /// <param name="window">判定するウィンドウ。</param>
+    /// <returns>前面表示できる場合は true。</returns>
     private static bool Available(Window window)
     {
         if (window == null || !window.IsVisible || window.Dispatcher.HasShutdownStarted) return false;
@@ -55,6 +68,11 @@ internal static class WindowActivationService
                (!state.Closed && (state.Closing == null || state.Closing.Cancel));
     }
 
+    /// <summary>
+    ///     ウィンドウを前面に表示してアクティブにします。開いている子ウィンドウがあれば、そちらを優先して前面に表示します。
+    /// </summary>
+    /// <param name="window">前面に表示するウィンドウ。</param>
+    /// <param name="selectWindow">利用者が明示的に選択した場合は true。所有するモードレス ウィンドウを最小化します。</param>
     internal static void BringToFront(Window window, bool selectWindow = false)
     {
         if (!Available(window)) return;

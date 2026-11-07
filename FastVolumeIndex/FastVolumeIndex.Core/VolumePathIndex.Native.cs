@@ -156,12 +156,22 @@ public sealed partial class VolumePathIndex
         return new VolumePathIndex(rootPath, nodes, root, projectFiles);
     }
 
+    /// <summary>
+    ///     列挙中の Win32 エラーが、項目の消失やアクセス拒否のように読み飛ばしてよいものかどうかを判定します。
+    /// </summary>
+    /// <param name="error">Win32 エラー コード。</param>
+    /// <returns>読み飛ばしてよい場合は true。</returns>
     private static bool CanSkipEnumerationError(int error)
     {
         return error == 2 || error == 3 || error == 5;
         // Missing/deleted entry or access denied.
     }
 
+    /// <summary>
+    ///     フォルダー パスを長いパス対応の \\?\ 形式に変換し、全項目を列挙する検索パターンを作成します。
+    /// </summary>
+    /// <param name="folder">列挙するフォルダーのパス。</param>
+    /// <returns>FindFirstFileExW に渡す検索パターン。</returns>
     private static string NativeSearchPath(string folder)
     {
         var path = folder;
@@ -172,14 +182,35 @@ public sealed partial class VolumePathIndex
         return path.TrimEnd('\\') + @"\*";
     }
 
+    /// <summary>
+    ///     Win32 API の FindFirstFileExW を呼び出し、ディレクトリ列挙を開始します。
+    /// </summary>
+    /// <param name="fileName">検索パターン。</param>
+    /// <param name="infoLevel">取得する情報レベル。</param>
+    /// <param name="data">最初に見つかった項目の情報。</param>
+    /// <param name="searchOp">検索の種類。</param>
+    /// <param name="filter">検索フィルター (未使用)。</param>
+    /// <param name="flags">追加の検索フラグ。</param>
+    /// <returns>検索ハンドル。失敗時は無効なハンドル。</returns>
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
     private static extern SafeFindHandle FindFirstFileExW(string fileName, int infoLevel,
         out NativeFindData data, int searchOp, IntPtr filter, uint flags);
 
+    /// <summary>
+    ///     Win32 API の FindNextFileW を呼び出し、次の項目を取得します。
+    /// </summary>
+    /// <param name="handle">検索ハンドル。</param>
+    /// <param name="data">次の項目の情報。</param>
+    /// <returns>項目を取得できた場合は true。</returns>
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool FindNextFileW(SafeFindHandle handle, out NativeFindData data);
 
+    /// <summary>
+    ///     Win32 API の FindClose を呼び出し、検索ハンドルを閉じます。
+    /// </summary>
+    /// <param name="handle">閉じる検索ハンドル。</param>
+    /// <returns>成功した場合は true。</returns>
     [DllImport("kernel32.dll", ExactSpelling = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool FindClose(IntPtr handle);
@@ -210,10 +241,17 @@ public sealed partial class VolumePathIndex
 
     private sealed class SafeFindHandle : SafeHandleZeroOrMinusOneIsInvalid
     {
+        /// <summary>
+        ///     所有権を持つ検索ハンドルのラッパーを作成します。
+        /// </summary>
         public SafeFindHandle() : base(true)
         {
         }
 
+        /// <summary>
+        ///     検索ハンドルを FindClose で解放します。
+        /// </summary>
+        /// <returns>解放に成功した場合は true。</returns>
         protected override bool ReleaseHandle()
         {
             return FindClose(handle);

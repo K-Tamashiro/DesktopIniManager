@@ -35,6 +35,12 @@ internal static class SolutionTreeService
         "packages", "vendor", "dist", "build", "target"
     };
 
+    /// <summary>
+    ///     ルート フォルダー配下の .sln を探して解析し、ソリューション ツリーを作成します。
+    /// </summary>
+    /// <param name="root">検索するルート フォルダー。</param>
+    /// <param name="token">キャンセル トークン。</param>
+    /// <returns>名前順に並べたソリューション ノードの一覧。</returns>
     public static List<FolderMatch> Build(string root, CancellationToken token)
     {
         var solutions = new List<FolderMatch>();
@@ -84,6 +90,13 @@ internal static class SolutionTreeService
         return solutions;
     }
 
+    /// <summary>
+    ///     パス インデックス作成時に見つかったプロジェクト ファイルのうち .sln を解析し、ソリューション ツリーを作成します。
+    /// </summary>
+    /// <param name="projectFiles">インデックス作成時に見つかったプロジェクト ファイル。</param>
+    /// <param name="pathIndex">ファイルの存在確認と列挙に使うパス インデックス。</param>
+    /// <param name="token">キャンセル トークン。</param>
+    /// <returns>名前順に並べたソリューション ノードの一覧。</returns>
     public static List<FolderMatch> BuildFromProjectFiles(
         IReadOnlyList<string> projectFiles,
         VolumePathIndex pathIndex,
@@ -116,6 +129,11 @@ internal static class SolutionTreeService
         return solutions;
     }
 
+    /// <summary>
+    ///     ソリューション ファイルから「構成|プラットフォーム」の組み合わせを読み取ります。
+    /// </summary>
+    /// <param name="solutionPath">ソリューション ファイルのパス。</param>
+    /// <returns>構成とプラットフォームの組み合わせの一覧。</returns>
     public static IList<string> ReadBuildConfigurations(string solutionPath)
     {
         if (string.IsNullOrWhiteSpace(solutionPath) || !File.Exists(solutionPath))
@@ -172,6 +190,13 @@ internal static class SolutionTreeService
         return configurations.ToList();
     }
 
+    /// <summary>
+    ///     ソリューション ファイルのプロジェクト、入れ子関係、ビルド構成を解析し、ソリューションをルートとするツリーを作成します。
+    /// </summary>
+    /// <param name="solutionPath">ソリューション ファイルのパス。</param>
+    /// <param name="token">キャンセル トークン。</param>
+    /// <param name="pathIndex">ファイルの存在確認と列挙に使うパス インデックス。null の場合はファイル システムを直接参照します。</param>
+    /// <returns>ソリューションのルート ノード。</returns>
     private static FolderMatch Parse(string solutionPath, CancellationToken token, VolumePathIndex pathIndex)
     {
         var solutionDirectory = Path.GetDirectoryName(solutionPath);
@@ -290,6 +315,14 @@ internal static class SolutionTreeService
         return root;
     }
 
+    /// <summary>
+    ///     ソリューションのプロジェクト エントリまたはソリューション フォルダーからノードを作成し、プロジェクトの場合はフォルダー構成を追加します。
+    /// </summary>
+    /// <param name="entry">ソリューション内のエントリ。</param>
+    /// <param name="solutionDirectory">ソリューションのフォルダー。</param>
+    /// <param name="pathIndex">ファイルの存在確認に使うパス インデックス。</param>
+    /// <param name="token">キャンセル トークン。</param>
+    /// <returns>作成したノード。</returns>
     private static FolderMatch CreateNode(
         Entry entry,
         string solutionDirectory,
@@ -331,6 +364,13 @@ internal static class SolutionTreeService
         return node;
     }
 
+    /// <summary>
+    ///     プロジェクト ファイルの項目定義と SDK 形式の既定項目からファイルを集め、フォルダー構成を子ノードとして追加します。
+    /// </summary>
+    /// <param name="project">追加先のプロジェクト ノード。</param>
+    /// <param name="projectFile">プロジェクト ファイルのパス。</param>
+    /// <param name="pathIndex">ファイルの列挙に使うパス インデックス。</param>
+    /// <param name="token">キャンセル トークン。</param>
     private static void PopulateProject(
         FolderMatch project,
         string projectFile,
@@ -439,6 +479,12 @@ internal static class SolutionTreeService
         SortProjectChildren(project.Children);
     }
 
+    /// <summary>
+    ///     XML 要素の行から、指定した属性の値を取得します。
+    /// </summary>
+    /// <param name="line">XML 要素を含む行。</param>
+    /// <param name="attributeName">取得する属性名。</param>
+    /// <returns>属性の値。見つからない場合は null。</returns>
     private static string GetAttributeValue(string line, string attributeName)
     {
         var name = line.IndexOf(attributeName, StringComparison.OrdinalIgnoreCase);
@@ -469,6 +515,14 @@ internal static class SolutionTreeService
         return null;
     }
 
+    /// <summary>
+    ///     プロジェクトの Include パターンを展開し、一致するファイルを列挙します。MSBuild のプロパティや項目参照を含むパターンは対象外です。
+    /// </summary>
+    /// <param name="directory">プロジェクトのフォルダー。</param>
+    /// <param name="pattern">Include 属性のパターン。</param>
+    /// <param name="pathIndex">ファイルの列挙に使うパス インデックス。</param>
+    /// <param name="token">キャンセル トークン。</param>
+    /// <returns>一致したファイルのパス。</returns>
     private static IEnumerable<string> ExpandProjectInclude(
         string directory,
         string pattern,
@@ -555,9 +609,11 @@ internal static class SolutionTreeService
     }
 
     /// <summary>
-    ///     Enumerates SDK default items from the already-built volume index.
-    ///     Falls back to native enumeration only when the project directory is outside the index.
+    ///     プロジェクト フォルダーからの相対パスが、ワイルドカードを含む Include パターンに一致するかどうかを判定します。
     /// </summary>
+    /// <param name="pattern">Include パターン。</param>
+    /// <param name="relativePath">プロジェクト フォルダーからの相対パス。</param>
+    /// <returns>一致する場合は true。</returns>
     private static bool MatchesProjectPath(string pattern, string relativePath)
     {
         var patternParts = pattern.Split(
@@ -570,6 +626,14 @@ internal static class SolutionTreeService
         return MatchesProjectPath(patternParts, 0, pathParts, 0);
     }
 
+    /// <summary>
+    ///     パス要素ごとにワイルドカードを照合し、「**」は 0 個以上のフォルダーに一致させて判定します。
+    /// </summary>
+    /// <param name="patternParts">パターンのパス要素。</param>
+    /// <param name="patternIndex">照合中のパターン要素の位置。</param>
+    /// <param name="pathParts">相対パスのパス要素。</param>
+    /// <param name="pathIndex">照合中のパス要素の位置。</param>
+    /// <returns>一致する場合は true。</returns>
     private static bool MatchesProjectPath(
         string[] patternParts,
         int patternIndex,
@@ -607,6 +671,14 @@ internal static class SolutionTreeService
         return pathIndex == pathParts.Length;
     }
 
+    /// <summary>
+    ///     SDK 形式の既定項目として、作成済みのパス インデックスからプロジェクト フォルダー配下のファイルを列挙します。
+    ///     プロジェクト フォルダーがインデックス外にある場合だけネイティブ列挙を使います。
+    /// </summary>
+    /// <param name="root">プロジェクトのフォルダー。</param>
+    /// <param name="pathIndex">パス インデックス。</param>
+    /// <param name="token">キャンセル トークン。</param>
+    /// <returns>ファイルのパス。</returns>
     private static IEnumerable<string> EnumerateProjectFiles(
         string root,
         VolumePathIndex pathIndex,
@@ -673,6 +745,12 @@ internal static class SolutionTreeService
         }
     }
 
+    /// <summary>
+    ///     列挙子を次へ進めます。アクセス拒否や I/O エラーは列挙の終了として扱います。
+    /// </summary>
+    /// <param name="enumerator">ディレクトリ項目の列挙子。</param>
+    /// <param name="entry">取得した項目。</param>
+    /// <returns>項目を取得できた場合は true。</returns>
     private static bool TryMoveNext(
         IEnumerator<VolumePathIndex.NativeDirectoryEntry> enumerator,
         out VolumePathIndex.NativeDirectoryEntry entry)
@@ -699,6 +777,12 @@ internal static class SolutionTreeService
         return false;
     }
 
+    /// <summary>
+    ///     ビルド出力やツール用のフォルダー、隠しフォルダーなど、走査しないフォルダーかどうかを判定します。
+    /// </summary>
+    /// <param name="name">フォルダー名。</param>
+    /// <param name="attributes">フォルダーの属性。</param>
+    /// <returns>走査しない場合は true。</returns>
     private static bool ShouldSkipDirectory(string name, FileAttributes attributes)
     {
         if (Ignored.Contains(Path.GetFileName(name)))
@@ -706,6 +790,12 @@ internal static class SolutionTreeService
         return (attributes & FileAttributes.Hidden) != 0;
     }
 
+    /// <summary>
+    ///     プロジェクト ファイルが見つからない場合に、プロジェクト名のサブフォルダー内の同名ファイルを探します。
+    /// </summary>
+    /// <param name="projectFile">ソリューションに記載されたプロジェクト ファイルのパス。</param>
+    /// <param name="pathIndex">存在確認に使うパス インデックス。</param>
+    /// <returns>見つかったプロジェクト ファイルのパス。見つからない場合は元のパス。</returns>
     private static string ResolveProjectFile(string projectFile, VolumePathIndex pathIndex)
     {
         if (string.IsNullOrWhiteSpace(projectFile))
@@ -723,6 +813,12 @@ internal static class SolutionTreeService
         return PathExistsAsFile(nested, pathIndex) ? nested : projectFile;
     }
 
+    /// <summary>
+    ///     パスがファイルとして存在するかどうかを、インデックスを優先して判定します。
+    /// </summary>
+    /// <param name="path">判定するパス。</param>
+    /// <param name="pathIndex">パス インデックス。</param>
+    /// <returns>ファイルとして存在する場合は true。</returns>
     private static bool PathExistsAsFile(string path, VolumePathIndex pathIndex)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -735,6 +831,12 @@ internal static class SolutionTreeService
         return File.Exists(path);
     }
 
+    /// <summary>
+    ///     パスがフォルダーとして存在するかどうかを、インデックスを優先して判定します。
+    /// </summary>
+    /// <param name="path">判定するパス。</param>
+    /// <param name="pathIndex">パス インデックス。</param>
+    /// <returns>フォルダーとして存在する場合は true。</returns>
     private static bool PathExistsAsDirectory(string path, VolumePathIndex pathIndex)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -747,12 +849,24 @@ internal static class SolutionTreeService
         return Directory.Exists(path);
     }
 
+    /// <summary>
+    ///     パス区切り文字を OS の区切り文字にそろえます。
+    /// </summary>
+    /// <param name="value">変換するパス。</param>
+    /// <returns>変換後のパス。</returns>
     private static string NormalizeProjectPath(string value)
     {
         return value.Replace('/', Path.DirectorySeparatorChar)
             .Replace('\\', Path.DirectorySeparatorChar);
     }
 
+    /// <summary>
+    ///     ファイルの相対パスに含まれるフォルダーを、論理フォルダー ノードとしてプロジェクト ツリーに追加します。ファイル自体は追加しません。
+    /// </summary>
+    /// <param name="root">プロジェクト ノード。</param>
+    /// <param name="directory">プロジェクトのフォルダー。</param>
+    /// <param name="relative">プロジェクト フォルダーからのファイルの相対パス。</param>
+    /// <param name="folderNodes">作成済みの論理フォルダー ノード。</param>
     private static void AddProjectFile(
         FolderMatch root,
         string directory,
@@ -802,6 +916,10 @@ internal static class SolutionTreeService
         // shows its physical files in the file list on the right.
     }
 
+    /// <summary>
+    ///     子ノードを再帰的に並べ替えます。Properties、Dependencies を先頭にし、残りは名前順にします。
+    /// </summary>
+    /// <param name="items">並べ替えるノードのコレクション。</param>
     private static void SortProjectChildren(
         ObservableCollection<FolderMatch> items)
     {
@@ -822,6 +940,11 @@ internal static class SolutionTreeService
             items.Add(item);
     }
 
+    /// <summary>
+    ///     エントリがソリューション フォルダーかどうかを判定します。
+    /// </summary>
+    /// <param name="entry">判定するエントリ。</param>
+    /// <returns>ソリューション フォルダーの場合は true。</returns>
     private static bool IsSolutionFolder(Entry entry)
     {
         return string.Equals(entry.Type, SolutionFolderType, StringComparison.OrdinalIgnoreCase);

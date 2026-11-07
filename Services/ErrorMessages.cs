@@ -6,6 +6,11 @@ namespace DesktopIniManager.Services;
 
 internal static class ErrorMessages
 {
+    /// <summary>
+    ///     例外の種類に応じて、利用者向けのエラー メッセージを作成します。
+    /// </summary>
+    /// <param name="error">変換する例外。</param>
+    /// <returns>表示用のエラー メッセージ。</returns>
     internal static string English(Exception error)
     {
         var missing = error as FileNotFoundException;

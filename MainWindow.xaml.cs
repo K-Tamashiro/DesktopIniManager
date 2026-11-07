@@ -24,10 +24,17 @@ public partial class MainWindow
     private readonly SemaphoreSlim _folderIconWorkers = new(4);
     private readonly MainWindowPresentationService _presentation;
 
+    /// <summary>
+    ///     起動状態を指定せずにメインウィンドウを作成します。
+    /// </summary>
     public MainWindow() : this(null)
     {
     }
 
+    /// <summary>
+    ///     起動状態を使ってメインウィンドウを初期化し、プレゼンテーション サービス、スロット ボタン、レイアウトの保存処理を設定します。
+    /// </summary>
+    /// <param name="startup">事前に読み込んだ起動状態。null の場合は設定から読み込みます。</param>
     internal MainWindow(StartupState startup)
     {
         ThemeService.Apply(startup?.Theme ?? SettingsService.LoadTheme());
@@ -61,6 +68,9 @@ public partial class MainWindow
 
     internal MainWindowViewModel ViewModel => _presentation.ViewModel;
 
+    /// <summary>
+    ///     ファイル一覧とアイコン一覧に、直下以外と検索一致を強調するスタイルを適用します。
+    /// </summary>
     private void ApplyFileItemStyles()
     {
         FileList.ItemContainerStyle = CreateFileItemStyle(
@@ -72,6 +82,12 @@ public partial class MainWindow
             typeof(ListBoxItem));
     }
 
+    /// <summary>
+    ///     直下以外のファイルを淡色表示し、検索一致を選択色で強調するトリガー付きスタイルを作成します。
+    /// </summary>
+    /// <param name="baseStyle">継承元のスタイル。</param>
+    /// <param name="targetType">スタイルの対象型。</param>
+    /// <returns>作成したスタイル。</returns>
     private static Style CreateFileItemStyle(Style baseStyle, Type targetType)
     {
         var style = new Style(targetType, baseStyle);
@@ -103,11 +119,20 @@ public partial class MainWindow
         return style;
     }
 
+    /// <summary>
+    ///     タイトルのクリックでバージョン情報ウィンドウを表示します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private void AboutTitle_Click(object sender, RoutedEventArgs e)
     {
         new AboutWindow { Owner = this, Icon = Icon }.ShowDialog();
     }
 
+    /// <summary>
+    ///     指定スロットが開いていればアクティブにし、空いていれば新しいプロセスとして起動します。
+    /// </summary>
+    /// <param name="slot">スロット番号 (1 から 5)。</param>
     private static void LaunchSlot(int slot)
     {
         var state = AppSlot.StateText(slot);
@@ -129,6 +154,9 @@ public partial class MainWindow
         });
     }
 
+    /// <summary>
+    ///     各スロットの状態に合わせてスロット ボタンの枠色、背景、マーク表示を更新します。
+    /// </summary>
     private void RefreshSlotButtons()
     {
         var buttons = new[] { SlotButton1, SlotButton2, SlotButton3, SlotButton4, SlotButton5 };
@@ -160,6 +188,9 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>
+    ///     保存されたペイン幅の比率と列幅を復元します。
+    /// </summary>
     private void RestoreListLayout()
     {
         var values = SettingsService.LoadMainListLayout();
@@ -176,6 +207,9 @@ public partial class MainWindow
             columns[i].Width = values[i + 2];
     }
 
+    /// <summary>
+    ///     現在のペイン幅と列幅を設定に保存します。
+    /// </summary>
     private void SaveListLayout()
     {
         if (FolderPaneColumn.ActualWidth <= 0 || FilePaneColumn.ActualWidth <= 0) return;
@@ -187,23 +221,42 @@ public partial class MainWindow
         ]);
     }
 
+    /// <summary>
+    ///     フォルダー アイコンが読み込まれたときにアイコンを更新します。
+    /// </summary>
+    /// <param name="sender">対象の Image。</param>
+    /// <param name="e">イベントデータ。</param>
     private void FolderIcon_Loaded(object sender, RoutedEventArgs e)
     {
         _ = RefreshFolderIcon((Image)sender);
     }
 
+    /// <summary>
+    ///     フォルダー アイコンのデータ コンテキストが変わったときにアイコンを更新します。
+    /// </summary>
+    /// <param name="sender">対象の Image。</param>
+    /// <param name="e">イベントデータ。</param>
     private void FolderIcon_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         if (((Image)sender).IsLoaded)
             _ = RefreshFolderIcon((Image)sender);
     }
 
+    /// <summary>
+    ///     フォルダー アイコンのバインディング対象が更新されたときにアイコンを更新します。
+    /// </summary>
+    /// <param name="sender">対象の Image。</param>
+    /// <param name="e">イベントデータ。</param>
     private void FolderIcon_TargetUpdated(object sender, DataTransferEventArgs e)
     {
         if (((Image)sender).IsLoaded)
             _ = RefreshFolderIcon((Image)sender);
     }
 
+    /// <summary>
+    ///     同時実行数を制限しながらフォルダーの状態アイコンをバックグラウンドで取得し、表示中の項目が変わっていなければ反映します。
+    /// </summary>
+    /// <param name="image">アイコンを表示する Image。</param>
     private async Task RefreshFolderIcon(Image image)
     {
         try

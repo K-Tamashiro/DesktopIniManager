@@ -26,6 +26,11 @@ internal sealed class GitIgnoreMatcher
     private readonly string _root;
     private readonly Dictionary<string, List<Rule>> _rules = new(StringComparer.Ordinal);
 
+    /// <summary>
+    ///     比較ルートを基準に .gitignore を評価するマッチャーを作成します。Git の実行ファイルやリポジトリは不要です。
+    /// </summary>
+    /// <param name="root">比較ルートのフォルダー。</param>
+    /// <param name="disabled">無効にするルールのキー (スコープと改行とパターン)。</param>
     internal GitIgnoreMatcher(string root, IEnumerable<string> disabled = null)
     {
         _root = root;
@@ -34,11 +39,21 @@ internal sealed class GitIgnoreMatcher
 
     internal List<GitIgnoreRuleInfo> Entries { get; } = new();
 
+    /// <summary>
+    ///     指定フォルダーの .gitignore を読み込み、ルール一覧に登録します。
+    /// </summary>
+    /// <param name="relative">比較ルートからの相対パス。</param>
     internal void ReadDirectory(string relative)
     {
         Load(relative.Replace('\\', '/').Trim('/'));
     }
 
+    /// <summary>
+    ///     比較元と比較先のルール一覧を統合し、どちら側に存在するかを記録した一覧を作成します。
+    /// </summary>
+    /// <param name="source">比較元のルール一覧。</param>
+    /// <param name="target">比較先のルール一覧。</param>
+    /// <returns>スコープとパターンの順に並べた統合済みのルール一覧。</returns>
     internal static List<GitIgnoreRuleInfo> Merge(IEnumerable<GitIgnoreRuleInfo> source,
         IEnumerable<GitIgnoreRuleInfo> target)
     {
@@ -62,6 +77,13 @@ internal sealed class GitIgnoreMatcher
     }
 
     // Also supports histories created before the rule list was persisted.
+    /// <summary>
+    ///     比較ルート配下を走査し、無視されていないフォルダーの .gitignore ルールをすべて収集します。ルール一覧を保存していない古い履歴にも対応します。
+    /// </summary>
+    /// <param name="root">比較ルートのフォルダー。</param>
+    /// <param name="disabled">無効にするルールのキー。</param>
+    /// <param name="token">キャンセル トークン。</param>
+    /// <returns>見つかったルールの一覧。</returns>
     internal static List<GitIgnoreRuleInfo> Discover(string root, IEnumerable<string> disabled, CancellationToken token)
     {
         var matcher = new GitIgnoreMatcher(root, disabled);
@@ -86,6 +108,13 @@ internal sealed class GitIgnoreMatcher
         return matcher.Entries;
     }
 
+    /// <summary>
+    ///     相対パスが .gitignore のルールで無視されるかどうかを、親フォルダーから順にルールを適用して判定します。
+    ///     親フォルダーが無視されている場合、子を再度含めることはできません。
+    /// </summary>
+    /// <param name="relative">比較ルートからの相対パス。</param>
+    /// <param name="directory">パスがフォルダーの場合は true。</param>
+    /// <returns>無視される場合は true。</returns>
     internal bool IsIgnored(string relative, bool directory)
     {
         relative = relative.Replace('\\', '/').Trim('/');
@@ -114,6 +143,11 @@ internal sealed class GitIgnoreMatcher
         return ignored;
     }
 
+    /// <summary>
+    ///     指定スコープの .gitignore を読み込んでルールに変換し、キャッシュします。無効化されたルールは適用対象から除外します。
+    /// </summary>
+    /// <param name="scope">比較ルートからのフォルダーの相対パス。</param>
+    /// <returns>スコープのルール一覧。</returns>
     private List<Rule> Load(string scope)
     {
         if (_rules.TryGetValue(scope, out var cached)) return cached;
@@ -170,6 +204,11 @@ internal sealed class GitIgnoreMatcher
         return result;
     }
 
+    /// <summary>
+    ///     gitignore のグロブ パターンを、同等の正規表現に変換します。
+    /// </summary>
+    /// <param name="pattern">変換するパターン。</param>
+    /// <returns>正規表現文字列。パターンが不正な場合は null。</returns>
     private static string Glob(string pattern)
     {
         var result = new StringBuilder();
@@ -248,6 +287,12 @@ internal sealed class GitIgnoreMatcher
         return result.ToString();
     }
 
+    /// <summary>
+    ///     パターンが正規表現を使わずに照合できる種類 (完全一致・セグメント一致・末尾一致) かどうかを判定します。
+    /// </summary>
+    /// <param name="pattern">判定するパターン。</param>
+    /// <param name="anchored">パターンがスラッシュを含み、スコープに固定されている場合は true。</param>
+    /// <returns>照合の種類。</returns>
     private static MatchKind LiteralKind(string pattern, bool anchored)
     {
         if (pattern.AsSpan().IndexOfAny("*?[\\") < 0)
@@ -274,6 +319,11 @@ internal sealed class GitIgnoreMatcher
     // Git for Windows defaults to core.ignorecase=true, so rules match case-insensitively.
     private sealed record Rule(Regex Pattern, string Literal, MatchKind Kind, bool DirectoryOnly, bool Negated)
     {
+        /// <summary>
+        ///     スコープからの相対パスがこのルールに一致するかどうかを、大文字と小文字を区別せずに判定します。
+        /// </summary>
+        /// <param name="local">ルールのスコープからの相対パス。</param>
+        /// <returns>一致する場合は true。</returns>
         public bool IsMatch(string local)
         {
             switch (Kind)

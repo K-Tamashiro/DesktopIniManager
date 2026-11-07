@@ -10,12 +10,22 @@ internal sealed class ExternalDiffLaunch
     internal string SourcePath { get; private set; }
     internal string TargetPath { get; private set; }
 
+    /// <summary>
+    ///     コマンドライン引数に -diff が含まれているかどうかを判定します。
+    /// </summary>
+    /// <param name="args">コマンドライン引数。</param>
+    /// <returns>外部 DIFF 起動が要求されている場合は true。</returns>
     internal static bool IsRequested(string[] args)
     {
         return args != null &&
                args.Any(arg => string.Equals(arg, "-diff", StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>
+    ///     -diff [比較元 比較先] 形式の引数を解析し、比較するファイル パスを検証します。
+    /// </summary>
+    /// <param name="args">コマンドライン引数。</param>
+    /// <returns>解析した起動情報。</returns>
     internal static ExternalDiffLaunch Parse(string[] args)
     {
         if (args?.Length == 1 && string.Equals(args[0], "-diff", StringComparison.OrdinalIgnoreCase))
@@ -37,6 +47,10 @@ internal sealed class ExternalDiffLaunch
         return launch;
     }
 
+    /// <summary>
+    ///     比較元と比較先のファイルを 1 件だけ含む DIFF スナップショットを作成します。
+    /// </summary>
+    /// <returns>作成した DIFF スナップショット。</returns>
     internal DiffSnapshot CreateSnapshot()
     {
         var snapshot = new DiffSnapshot

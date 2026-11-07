@@ -36,6 +36,14 @@ internal static class FolderTreeStateService
 {
     internal static string StatePath { get; set; } = Path.Combine(AppSlot.Directory, "folder-trees.xml");
 
+    /// <summary>
+    ///     フォルダー ツリーを、検索やフィルターの影響を受けない保存用の状態に再帰的に変換します。
+    /// </summary>
+    /// <param name="roots">変換するルート ノード。</param>
+    /// <param name="current">現在選択中のノード。</param>
+    /// <param name="icons">アイコン画像の保存先。null の場合はアイコンを保存しません。</param>
+    /// <param name="iconIds">保存済みアイコンとインデックスの対応表。</param>
+    /// <returns>保存用のノード状態の一覧。</returns>
     internal static List<FolderTreeNodeState> Capture(IEnumerable<FolderMatch> roots, FolderMatch current,
         List<byte[]> icons = null, Dictionary<ImageSource, int> iconIds = null)
     {
@@ -56,6 +64,13 @@ internal static class FolderTreeStateService
     }
 
     // C#
+    /// <summary>
+    ///     アイコン画像を PNG に変換して保存先に追加し、そのインデックスを返します。保存済みの画像は再利用します。
+    /// </summary>
+    /// <param name="image">保存するアイコン画像。</param>
+    /// <param name="icons">PNG データの保存先。</param>
+    /// <param name="ids">保存済みアイコンとインデックスの対応表。</param>
+    /// <returns>アイコンのインデックス。保存しない場合は -1。</returns>
     private static int CaptureIcon(ImageSource image, List<byte[]> icons, Dictionary<ImageSource, int> ids)
     {
         if (icons == null || !(image is BitmapSource bitmap)) return -1;
@@ -90,6 +105,11 @@ internal static class FolderTreeStateService
         }
     }
 
+    /// <summary>
+    ///     保存された PNG データからフリーズ済みのアイコン画像を復元します。
+    /// </summary>
+    /// <param name="icons">PNG データの一覧。</param>
+    /// <returns>復元したアイコン画像の一覧。</returns>
     internal static List<ImageSource> RestoreIcons(IEnumerable<byte[]> icons)
     {
         var result = new List<ImageSource>();
@@ -104,6 +124,13 @@ internal static class FolderTreeStateService
         return result;
     }
 
+    /// <summary>
+    ///     保存されたノード状態からフォルダー ツリーを再帰的に復元します。
+    /// </summary>
+    /// <param name="nodes">復元するノード状態。</param>
+    /// <param name="parent">復元したノードの親。</param>
+    /// <param name="icons">復元済みのアイコン画像。</param>
+    /// <returns>復元したノードの一覧。</returns>
     internal static List<FolderMatch> Restore(IEnumerable<FolderTreeNodeState> nodes, FolderMatch parent = null,
         List<ImageSource> icons = null)
     {
@@ -131,6 +158,9 @@ internal static class FolderTreeStateService
         return result;
     }
 
+    /// <summary>
+    ///     保存されたフォルダー ツリーの状態ファイルを削除します。
+    /// </summary>
     internal static void Clear()
     {
         try
@@ -143,6 +173,10 @@ internal static class FolderTreeStateService
         }
     }
 
+    /// <summary>
+    ///     状態ファイルからフォルダー ツリーの状態を読み込みます。
+    /// </summary>
+    /// <returns>読み込んだ状態。ファイルがない場合は null。</returns>
     internal static FolderTreeState Load()
     {
         if (!File.Exists(StatePath)) return null;
@@ -152,6 +186,10 @@ internal static class FolderTreeStateService
         }
     }
 
+    /// <summary>
+    ///     フォルダー ツリーの状態を一時ファイルに書き込んでから置き換え、状態ファイルを安全に保存します。
+    /// </summary>
+    /// <param name="state">保存する状態。</param>
     internal static void Save(FolderTreeState state)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(StatePath))

@@ -66,6 +66,11 @@ internal sealed class FastFolderSearchService
         return matches.Values.OrderBy(item => item.Path, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
+    /// <summary>
+    ///     検索キーが「.cs」のような拡張子だけの指定かどうかを判定します。
+    /// </summary>
+    /// <param name="key">検索キー。</param>
+    /// <returns>拡張子指定の場合は true。</returns>
     private static bool IsExtensionQuery(string key)
     {
         if (string.IsNullOrWhiteSpace(key)) return false;
@@ -73,6 +78,11 @@ internal sealed class FastFolderSearchService
         return false;
     }
 
+    /// <summary>
+    ///     検索キーが「name.ext」のような拡張子付きファイル名の指定かどうかを判定します。
+    /// </summary>
+    /// <param name="key">検索キー。</param>
+    /// <returns>ファイル名指定の場合は true。</returns>
     private static bool IsFileNameQuery(string key)
     {
         if (string.IsNullOrWhiteSpace(key) || key[0] == '.') return false;
@@ -80,6 +90,12 @@ internal sealed class FastFolderSearchService
         return extension.Length > 1 && key.Length > extension.Length;
     }
 
+    /// <summary>
+    ///     ファイル名が検索キー (拡張子・ファイル名・部分文字列) に一致するかどうかを判定します。
+    /// </summary>
+    /// <param name="name">判定するファイル名。</param>
+    /// <param name="key">検索キー。</param>
+    /// <returns>一致する場合は true。</returns>
     internal static bool FileNameMatches(string name, string key)
     {
         if (IsExtensionQuery(key))
@@ -87,6 +103,13 @@ internal sealed class FastFolderSearchService
         return NameMatches(name, key, IsFileNameQuery(key));
     }
 
+    /// <summary>
+    ///     名前が検索キーに一致するかどうかを判定します。ファイル名指定では拡張子の一致と拡張子を除いた部分の部分一致を確認します。
+    /// </summary>
+    /// <param name="name">判定する名前。</param>
+    /// <param name="key">検索キー。</param>
+    /// <param name="fileNameQuery">検索キーが拡張子付きファイル名の場合は true。</param>
+    /// <returns>一致する場合は true。</returns>
     private static bool NameMatches(string name, string key, bool fileNameQuery)
     {
         if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(key)) return false;
@@ -100,6 +123,11 @@ internal sealed class FastFolderSearchService
             .IndexOf(Path.GetFileNameWithoutExtension(key), StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
+    /// <summary>
+    ///     ノードがディレクトリならそのパスを、ファイルなら親フォルダーのパスを取得します。
+    /// </summary>
+    /// <param name="entry">対象のノード。</param>
+    /// <returns>フォルダーのパス。取得できない場合は null。</returns>
     private static string FolderPathOf(VolumePathNode entry)
     {
         if (entry == null) return null;
@@ -109,6 +137,13 @@ internal sealed class FastFolderSearchService
         return string.IsNullOrEmpty(parent) ? null : VolumePathIndex.Normalize(parent);
     }
 
+    /// <summary>
+    ///     一致したフォルダーからルートまでの、表示可能な祖先フォルダーを結果に追加します。
+    /// </summary>
+    /// <param name="matches">検索結果の辞書。</param>
+    /// <param name="paths">パス インデックス。</param>
+    /// <param name="path">起点のフォルダー パス。</param>
+    /// <param name="displayable">ノードごとの表示可否のキャッシュ。</param>
     private static void AddAncestors(
         Dictionary<string, FolderMatch> matches, VolumePathIndex paths, string path,
         Dictionary<VolumePathNode, bool> displayable)
@@ -129,6 +164,12 @@ internal sealed class FastFolderSearchService
         }
     }
 
+    /// <summary>
+    ///     ノードとその祖先が隠しフォルダーや .git、.vs、.vscode でないかどうかを、キャッシュを使って判定します。
+    /// </summary>
+    /// <param name="node">判定するノード。</param>
+    /// <param name="cache">判定結果のキャッシュ。</param>
+    /// <returns>表示可能な場合は true。</returns>
     private static bool IsDisplayable(VolumePathNode node, Dictionary<VolumePathNode, bool> cache)
     {
         if (node == null) return true;
@@ -209,6 +250,12 @@ internal sealed class FastFolderSearchService
         return result;
     }
 
+    /// <summary>
+    ///     まだ結果にないフォルダーを、理由付きで追加します。
+    /// </summary>
+    /// <param name="matches">検索結果の辞書。</param>
+    /// <param name="path">追加するフォルダーのパス。</param>
+    /// <param name="reason">一致した理由。</param>
     private static void Add(Dictionary<string, FolderMatch> matches, string path, string reason)
     {
         if (!matches.ContainsKey(path)) matches[path] = new FolderMatch { Path = path, Reason = reason };

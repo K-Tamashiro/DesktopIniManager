@@ -13,6 +13,9 @@ namespace DesktopIniManager.Views;
 
 internal sealed partial class DiffViewWindow
 {
+    /// <summary>
+    ///     両側のペインの空白・改行マーカーを再描画します。
+    /// </summary>
     private void RefreshWhitespaceMarkers()
     {
         foreach (var pane in new[] { _leftList, _rightList })
@@ -36,6 +39,13 @@ internal sealed partial class DiffViewWindow
         // changes: the row's inline-difference mask in display columns (tabs
         // expanded), or null. Changed whitespace is invisible as red text, so it
         // is drawn as a red marker here instead, whether or not spaces are shown.
+        /// <summary>
+        ///     段落と元の行から、空白・改行マーカーを描画するための行情報を作成します。変更された空白は、表示設定に関係なく赤いマーカーで描画します。
+        /// </summary>
+        /// <param name="paragraph">行を表示している段落。</param>
+        /// <param name="original">元の行のテキスト。</param>
+        /// <param name="ending">行の改行コード。</param>
+        /// <param name="changes">表示上の桁ごとの変更フラグ (タブ展開後)。null の場合は変更なし。</param>
         internal WhitespaceRow(Paragraph paragraph, string original, string ending, bool[] changes = null)
         {
             _paragraph = paragraph;
@@ -83,6 +93,11 @@ internal sealed partial class DiffViewWindow
             Ending = ending switch { "\r\n" => "\u21B2", "\n" => "\u2193", "\r" => "\u240D", _ => null };
         }
 
+        /// <summary>
+        ///     行内の文字位置に対応するテキスト位置を取得します。
+        /// </summary>
+        /// <param name="offset">行内の文字位置。</param>
+        /// <returns>テキスト位置。</returns>
         internal TextPointer Position(int offset)
         {
             if (_runs.Length == 0) return _paragraph.ContentStart.GetInsertionPosition(LogicalDirection.Forward);
@@ -109,6 +124,11 @@ internal sealed partial class DiffViewWindow
         private IReadOnlyList<WhitespaceRow> _rows = [];
         private bool _hasChangedMarks;
 
+        /// <summary>
+        ///     ペインの上に空白・改行マーカーを描画するオーバーレイを作成し、スクロールやサイズ変更で再描画するよう設定します。
+        /// </summary>
+        /// <param name="pane">対象のペイン。</param>
+        /// <param name="model">DIFF ビューの ViewModel。</param>
         internal WhitespaceOverlay(RichTextBox pane, DiffViewModel model)
         {
             _pane = pane;
@@ -129,12 +149,18 @@ internal sealed partial class DiffViewWindow
         private int LastDrawnMarkCount { get; set; }
         private int LastDrawnEofCount { get; set; }
 
+        /// <summary>
+        ///     キャッシュを破棄してマーカーを再描画します。
+        /// </summary>
         internal void RefreshMarkers()
         {
             _cachedRows.Clear();
             InvalidateVisual();
         }
 
+        /// <summary>
+        ///     フォントが変わったときに、記号とキャッシュを破棄して再描画します。
+        /// </summary>
         internal void RefreshFont()
         {
             _glyphs.Clear();
@@ -142,6 +168,10 @@ internal sealed partial class DiffViewWindow
             RefreshAfterLayout();
         }
 
+        /// <summary>
+        ///     描画対象の行を設定し、再描画します。
+        /// </summary>
+        /// <param name="value">行情報の一覧。</param>
         internal void SetRows(IReadOnlyList<WhitespaceRow> value)
         {
             _rows = value;
@@ -150,6 +180,9 @@ internal sealed partial class DiffViewWindow
             RefreshAfterLayout();
         }
 
+        /// <summary>
+        ///     RichTextBox のレイアウトが完了した後に、1 回だけ再描画するようスケジュールします。
+        /// </summary>
         private void RefreshAfterLayout()
         {
             if (_refreshPending) return;
@@ -165,6 +198,10 @@ internal sealed partial class DiffViewWindow
             }));
         }
 
+        /// <summary>
+        ///     表示範囲の行について、空白・タブ・改行・EOF のマーカーと、変更された空白のマーカーを描画します。
+        /// </summary>
+        /// <param name="drawing">描画コンテキスト。</param>
         protected override void OnRender(DrawingContext drawing)
         {
             base.OnRender(drawing);
@@ -237,6 +274,11 @@ internal sealed partial class DiffViewWindow
 
         private static readonly Brush ChangedSpaceFill = Freeze(new SolidColorBrush(Color.FromArgb(96, 255, 0, 0)));
 
+        /// <summary>
+        ///     ブラシをフリーズして返します。
+        /// </summary>
+        /// <param name="brush">対象のブラシ。</param>
+        /// <returns>フリーズしたブラシ。</returns>
         private static Brush Freeze(Brush brush)
         {
             brush.Freeze();
@@ -244,6 +286,14 @@ internal sealed partial class DiffViewWindow
         }
 
         // Inline difference on whitespace: a translucent red cell plus a red marker glyph.
+        /// <summary>
+        ///     変更された空白の位置に、半透明の赤い背景と赤いマーカーを描画します。
+        /// </summary>
+        /// <param name="drawing">描画コンテキスト。</param>
+        /// <param name="row">行情報。</param>
+        /// <param name="offset">行内の文字位置。</param>
+        /// <param name="glyph">マーカーの記号。</param>
+        /// <param name="dpi">表示倍率。</param>
         private void DrawChangedMark(DrawingContext drawing, WhitespaceRow row, int offset, string glyph, double dpi)
         {
             var position = row.Position(offset);
@@ -268,6 +318,15 @@ internal sealed partial class DiffViewWindow
             LastDrawnMarkCount++;
         }
 
+        /// <summary>
+        ///     空白・改行・EOF のマーカーを文字の位置に描画します。
+        /// </summary>
+        /// <param name="drawing">描画コンテキスト。</param>
+        /// <param name="row">行情報。</param>
+        /// <param name="offset">行内の文字位置。</param>
+        /// <param name="glyph">マーカーの記号。</param>
+        /// <param name="newline">改行マーカーの場合は true。</param>
+        /// <param name="dpi">表示倍率。</param>
         private void DrawMark(DrawingContext drawing, WhitespaceRow row, int offset, string glyph, bool newline,
             double dpi)
         {

@@ -80,6 +80,13 @@ internal sealed partial class DiffViewWindow
     private Thumb _viewportThumb;
     private bool _windowClosed;
 
+    /// <summary>
+    ///     DIFF ビュー ウィンドウを作成し、ViewModel、フォント、表示設定、キー操作、ドラッグ アンド ドロップを初期化します。
+    /// </summary>
+    /// <param name="snapshot">比較スナップショット。</param>
+    /// <param name="file">表示するファイル。</param>
+    /// <param name="sourcePath">単独で比較する場合の比較元のパス。</param>
+    /// <param name="targetPath">単独で比較する場合の比較先のパス。</param>
     internal DiffViewWindow(DiffSnapshot snapshot, DiffFile file, string sourcePath = null, string targetPath = null)
     {
         ViewModel = new DiffViewModel(snapshot, file, new UserDialogService(this), sourcePath, targetPath);
@@ -258,9 +265,18 @@ internal sealed partial class DiffViewWindow
     private double[] _rowTops = [0];
     private object _rowTopsKey;
 
+    /// <summary>
+    ///     行が、高さを縮めて表示する「1 filtered lines」の行かどうかを判定します。
+    /// </summary>
+    /// <param name="row">行のインデックス。</param>
+    /// <returns>縮めて表示する場合は true。</returns>
     private bool IsCompactRow(int row) => _compactSingleFolds && Lines != null && row >= 0 && row < Lines.Count &&
                                           Lines[row].FilteredLineCount == 1 && !Lines[row].IsDesignerHeader;
 
+    /// <summary>
+    ///     各行の上端位置を、縮めて表示する行を考慮して求め、キャッシュします。
+    /// </summary>
+    /// <returns>行ごとの上端位置 (末尾に全体の高さを含む)。</returns>
     private double[] RowTops()
     {
         var count = Lines?.Count ?? 0;
@@ -296,6 +312,10 @@ internal sealed partial class DiffViewWindow
     private double RowsHeight => RowTop(Lines?.Count ?? 0);
 
     // Re-render both panes with the new row heights, keeping the same top row.
+    /// <summary>
+    ///     「1 filtered lines」の行を縮めて表示するかどうかを切り替え、先頭の行を保ったまま両側のペインを描画し直します。
+    /// </summary>
+    /// <param name="on">縮めて表示する場合は true。</param>
     private void SetCompactSingleFolds(bool on)
     {
         if (_compactSingleFolds == on) return;
@@ -311,6 +331,11 @@ internal sealed partial class DiffViewWindow
 
     // Line numbers are split at compact rows: each run of full-height rows is one
     // TextBlock, and each compact row is a 1 DIP spacer, matching the panes.
+    /// <summary>
+    ///     行番号の表示を作成します。通常の高さの行の連続を 1 つの TextBlock にし、縮めた行は 1 DIP の空白にします。
+    /// </summary>
+    /// <param name="gutter">行番号を表示するパネル。</param>
+    /// <param name="source">比較元の場合は true。</param>
     private void FillGutter(StackPanel gutter, bool source)
     {
         gutter.Children.Clear();
@@ -403,6 +428,11 @@ internal sealed partial class DiffViewWindow
     private double MapExtent => Math.Max(1, Math.Max(RowsHeight,
         Math.Max(_leftScroll?.ExtentHeight ?? 0, _leftScroll?.ViewportHeight ?? 0)));
 
+    /// <summary>
+    ///     読み込みの進捗メッセージと進捗率を表示します。
+    /// </summary>
+    /// <param name="message">進捗メッセージ。</param>
+    /// <param name="percent">進捗率。null の場合は不確定表示。</param>
     private void ShowLoadProgress(string message, double? percent = null)
     {
         LoadProgressText.Text = message;
@@ -410,6 +440,10 @@ internal sealed partial class DiffViewWindow
         LoadProgress.Value = percent ?? 0;
     }
 
+    /// <summary>
+    ///     描画中かどうかを設定し、進捗表示と操作の有効・無効を切り替えます。
+    /// </summary>
+    /// <param name="value">描画中の場合は true。</param>
     private void SetRendering(bool value)
     {
         _renderingContent = value;
@@ -421,11 +455,17 @@ internal sealed partial class DiffViewWindow
         ImageToolbar.IsHitTestVisible = ImageDetails.IsHitTestVisible = !value;
     }
 
+    /// <summary>
+    ///     ウィンドウが閉じられている場合は、処理を中断するため OperationCanceledException をスローします。
+    /// </summary>
     private void CheckWindowOpen()
     {
         if (_windowClosed) throw new OperationCanceledException();
     }
 
+    /// <summary>
+    ///     オーナー ウィンドウと同じ位置・サイズ (最大化状態を含む) にします。
+    /// </summary>
     internal void MatchOwnerSize()
     {
         var owner = Owner;
@@ -449,6 +489,11 @@ internal sealed partial class DiffViewWindow
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
     }
 
+    /// <summary>
+    ///     マウス ホイールの操作を、表示モード (テキスト・画像・音声) に応じたスクロールやズームに振り分けます。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">マウス ホイールのイベントデータ。</param>
     private void Body_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
         if (ViewModel.IsAudio)
@@ -472,6 +517,11 @@ internal sealed partial class DiffViewWindow
         }
     }
 
+    /// <summary>
+    ///     DIFF ビューのキー操作を処理します。Ctrl+V で貼り付け、Ctrl+↑↓ で HUNK 移動、Ctrl+←→ でファイル移動、Esc でクリア、F5 で再読み込み、PageUp/PageDown でスクロールまたはズームなどを行います。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">キー イベントのデータ。</param>
     private void DiffViewKeyDown(object sender, KeyEventArgs e)
     {
         if (_renderingContent) return;
@@ -548,12 +598,21 @@ internal sealed partial class DiffViewWindow
         }
     }
 
+    /// <summary>
+    ///     画像のズーム倍率を 1.25 倍単位で変更します。
+    /// </summary>
+    /// <param name="steps">変更する段数。負の値で縮小します。</param>
     private void ChangeImageZoom(double steps)
     {
         _imageZoom.Value = Math.Max(_imageZoom.Minimum,
             Math.Min(_imageZoom.Maximum, _imageZoom.Value * Math.Pow(1.25, steps)));
     }
 
+    /// <summary>
+    ///     両側のペインを同じ量だけ縦にスクロールします。
+    /// </summary>
+    /// <param name="delta">スクロール量。</param>
+    /// <returns>スクロールした場合は true。</returns>
     private bool ScrollVertically(double delta)
     {
         if (_leftScroll == null) _leftScroll = FindScroll(_leftList);
@@ -565,6 +624,11 @@ internal sealed partial class DiffViewWindow
         return true;
     }
 
+    /// <summary>
+    ///     比較対象を変更できる場合に、ファイルのドラッグでコピーのカーソルを表示します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">ドラッグ イベントのデータ。</param>
     private void FileDragOver(object sender, DragEventArgs e)
     {
         e.Effects = !_renderingContent && ViewModel.CanChangeComparison && e.Data.GetDataPresent(DataFormats.FileDrop)
@@ -573,6 +637,11 @@ internal sealed partial class DiffViewWindow
         e.Handled = true;
     }
 
+    /// <summary>
+    ///     ドロップされたファイル (2 つまで) を、ドロップ位置に応じた側の比較対象にして読み込みます。音声は上下、それ以外は左右で側を判定します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">ドラッグ イベントのデータ。</param>
     private async void FileDrop(object sender, DragEventArgs e)
     {
         e.Handled = true;
@@ -607,6 +676,10 @@ internal sealed partial class DiffViewWindow
         if (accepted && !_windowClosed) await LoadContent();
     }
 
+    /// <summary>
+    ///     クリップボードの内容を一時ファイルにして、指定した側の比較対象にします。
+    /// </summary>
+    /// <param name="sourceSide">比較元に貼り付ける場合は true。</param>
     private async Task PasteClipboardAsync(bool sourceSide)
     {
         if (ViewModel.IsPatch) return;
@@ -634,6 +707,9 @@ internal sealed partial class DiffViewWindow
 
     // Text and patch views can fold the external diff row and the toolbar row;
     // image, video and audio views always show them.
+    /// <summary>
+    ///     テキストとパッチの表示では外部 DIFF の行とツール バーの行を折りたためるようにし、それ以外では常に表示します。
+    /// </summary>
     private void UpdateToolbarFold()
     {
         ToolbarToggle.Visibility = ViewModel.IsText ? Visibility.Visible : Visibility.Collapsed;
@@ -641,6 +717,9 @@ internal sealed partial class DiffViewWindow
         ToolbarArea.Visibility = !ViewModel.IsText || ToolbarToggle.IsExpanded ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    /// <summary>
+    ///     表示モードに応じてツール バーのボタンとオプションを作成します。
+    /// </summary>
     private void BuildToolbar()
     {
         UpdateToolbarFold();
@@ -699,6 +778,12 @@ internal sealed partial class DiffViewWindow
             ViewModel.NextFileCommand);
     }
 
+    /// <summary>
+    ///     比較オプションを切り替えて再比較するボタンを追加します。
+    /// </summary>
+    /// <param name="icon">ボタンのアイコンのインデックス。</param>
+    /// <param name="label">ボタンのラベル。</param>
+    /// <param name="toggle">オプションを切り替える処理。</param>
     private void AddComparisonButton(int icon, string label, Action toggle)
     {
         AddButton(ActionsPanel, DifferencerStatusIcons.GetCustomIcon(icon), label,
@@ -710,6 +795,11 @@ internal sealed partial class DiffViewWindow
             }, ViewModel.ReportError));
     }
 
+    /// <summary>
+    ///     表示モードに応じて、波形または両側のペインを横にスクロールします。
+    /// </summary>
+    /// <param name="delta">ホイールの回転量。</param>
+    /// <returns>スクロールした場合は true。</returns>
     private bool ScrollHorizontally(int delta)
     {
         if (ViewModel.IsAudio && _audioTimeline != null)
@@ -728,6 +818,15 @@ internal sealed partial class DiffViewWindow
         return true;
     }
 
+    /// <summary>
+    ///     チルト ホイール (WM_MOUSEHWHEEL) のメッセージを処理し、カーソルが本体の上にある場合は横にスクロールします。
+    /// </summary>
+    /// <param name="hwnd">ウィンドウ ハンドル。</param>
+    /// <param name="message">ウィンドウ メッセージ。</param>
+    /// <param name="wParam">WPARAM。</param>
+    /// <param name="lParam">LPARAM。</param>
+    /// <param name="handled">処理済みかどうか。</param>
+    /// <returns>メッセージの戻り値。</returns>
     private IntPtr HorizontalWheelMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         const int mouseHorizontalWheel = 0x020E;
@@ -742,6 +841,9 @@ internal sealed partial class DiffViewWindow
         return IntPtr.Zero;
     }
 
+    /// <summary>
+    ///     画像を表示領域に合わせるサイズ変更ハンドラーを解除します。
+    /// </summary>
     private void DetachImageFitHandler()
     {
         if (_imageFitHandler == null) return;
@@ -749,12 +851,20 @@ internal sealed partial class DiffViewWindow
         _imageFitHandler = null;
     }
 
+    /// <summary>
+    ///     両側のヘッダーの状態アイコンを更新します。
+    /// </summary>
     private void UpdateSideStatusIcons()
     {
         FillStatusIcons(SourceStatusIcons, true);
         FillStatusIcons(TargetStatusIcons, false);
     }
 
+    /// <summary>
+    ///     ヘッダーに、ファイルの状態 (同一・欠落・新旧など) を表すアイコンを表示します。
+    /// </summary>
+    /// <param name="panel">アイコンを表示するパネル。</param>
+    /// <param name="sourceSide">比較元の場合は true。</param>
     private void FillStatusIcons(Panel panel, bool sourceSide)
     {
         if (panel == null) return;
@@ -801,6 +911,10 @@ internal sealed partial class DiffViewWindow
     // Image color of the patch (Source) side in Patch View.
     private static readonly SolidColorBrush PatchBrush = CreatePatchBrush();
 
+    /// <summary>
+    ///     パッチ側の表示に使う濃い緑のフリーズ済みブラシを作成します。
+    /// </summary>
+    /// <returns>作成したブラシ。</returns>
     private static SolidColorBrush CreatePatchBrush()
     {
         var brush = new SolidColorBrush(Colors.DarkGreen);
@@ -808,6 +922,9 @@ internal sealed partial class DiffViewWindow
         return brush;
     }
 
+    /// <summary>
+    ///     単独で比較している場合に、両側のファイル名を表示します。
+    /// </summary>
     private void UpdateDetachedFileNames()
     {
         var visible = ViewModel.IsDetachedComparison;
@@ -838,6 +955,9 @@ internal sealed partial class DiffViewWindow
         }
     }
 
+    /// <summary>
+    ///     両側のヘッダーに、エンコーディング・BOM・改行コード・ファイル情報を表示します。相手と異なる値は強調します。
+    /// </summary>
     private void UpdateEncodingHeaders()
     {
         void Update(TextBlock header, bool source)
@@ -920,6 +1040,12 @@ internal sealed partial class DiffViewWindow
         Update(TargetHeader, false);
     }
 
+    /// <summary>
+    ///     ファイルの状態から、表示する状態アイコンのインデックスを求めます。
+    /// </summary>
+    /// <param name="file">対象のファイル。</param>
+    /// <param name="sourceSide">比較元の場合は true。</param>
+    /// <returns>アイコンのインデックス。</returns>
     private static IEnumerable<int> StatusIconIndexes(DiffFile file, bool sourceSide)
     {
         var own = sourceSide ? file.Source : file.Target;
@@ -948,6 +1074,11 @@ internal sealed partial class DiffViewWindow
             yield return own.Size < other.Size ? 124 : 125;
     }
 
+    /// <summary>
+    ///     状態アイコンの Image を作成します。
+    /// </summary>
+    /// <param name="index">アイコンのインデックス。</param>
+    /// <returns>作成した Image。</returns>
     private static Image StatusIcon(int index)
     {
         var image = new Image
@@ -963,6 +1094,11 @@ internal sealed partial class DiffViewWindow
         return image;
     }
 
+    /// <summary>
+    ///     状態アイコンのツールチップの文字列を取得します。
+    /// </summary>
+    /// <param name="index">アイコンのインデックス。</param>
+    /// <returns>ツールチップの文字列。</returns>
     private static string StatusIconTip(int index)
     {
         switch (index)
@@ -982,6 +1118,11 @@ internal sealed partial class DiffViewWindow
         }
     }
 
+    /// <summary>
+    ///     現在のファイルを読み込み、表示モードに応じた画面を描画します。
+    /// </summary>
+    /// <param name="reload">ファイルを読み込み直す場合は true。</param>
+    /// <param name="jumpToFirst">最初の HUNK に移動する場合は true。</param>
     private async Task LoadContent(bool reload = true, bool jumpToFirst = true)
     {
         if (_renderingContent || _windowClosed) return;
@@ -1115,6 +1256,12 @@ internal sealed partial class DiffViewWindow
         }
     }
 
+    /// <summary>
+    ///     行番号、テキスト ペイン、編集用の矢印ボタンを配置したペインのホストを作成します。
+    /// </summary>
+    /// <param name="sourceSide">比較元の場合は true。</param>
+    /// <param name="box">作成したテキスト ペイン。</param>
+    /// <returns>作成したホスト要素。</returns>
     private FrameworkElement MakeHost(bool sourceSide, out RichTextBox box)
     {
         var font = _textFontFamily;
@@ -1171,6 +1318,12 @@ internal sealed partial class DiffViewWindow
         return host;
     }
 
+    /// <summary>
+    ///     読み取り専用のテキスト ペインを作成します。
+    /// </summary>
+    /// <param name="sourceSide">比較元の場合は true。</param>
+    /// <param name="font">表示に使うフォント。</param>
+    /// <returns>作成した RichTextBox。</returns>
     private RichTextBox MakePane(bool sourceSide, FontFamily font)
     {
         var box = new RichTextBox
@@ -1201,11 +1354,23 @@ internal sealed partial class DiffViewWindow
         return box;
     }
 
+    /// <summary>
+    ///     テキスト ペインに行を同期的に描画します。
+    /// </summary>
+    /// <param name="box">対象のペイン。</param>
+    /// <param name="sourceSide">比較元の場合は true。</param>
     private void PopulatePane(RichTextBox box, bool sourceSide)
     {
         PopulatePaneAsync(box, sourceSide, false, true).GetAwaiter().GetResult();
     }
 
+    /// <summary>
+    ///     テキスト ペインに、行の背景色・シンタックス ハイライト・文字単位の差分を付けて描画します。変わっていない行は以前の段落を再利用できます。
+    /// </summary>
+    /// <param name="box">対象のペイン。</param>
+    /// <param name="sourceSide">比較元の場合は true。</param>
+    /// <param name="responsive">描画中に UI に処理を譲る場合は true。</param>
+    /// <param name="incremental">以前の描画結果を再利用する場合は true。</param>
     private async Task PopulatePaneAsync(RichTextBox box, bool sourceSide, bool responsive, bool incremental = false)
     {
         _syntaxDark = IsDarkBackground();
@@ -1453,6 +1618,13 @@ internal sealed partial class DiffViewWindow
             paneGrid.Children.OfType<WhitespaceOverlay>().Single().SetRows(markerRows);
     }
 
+    /// <summary>
+    ///     段落内の変更された文字の範囲を強調表示します。
+    /// </summary>
+    /// <param name="paragraph">対象の段落。</param>
+    /// <param name="line">行の比較結果。</param>
+    /// <param name="sourceSide">比較元の場合は true。</param>
+    /// <param name="responsive">処理中に UI に処理を譲る場合は true。</param>
     private async Task MarkInlineDifferencesAsync(Paragraph paragraph, DiffLine line, bool sourceSide, bool responsive)
     {
         var changed = sourceSide ? line.LeftChanges : line.RightChanges;
@@ -1494,6 +1666,12 @@ internal sealed partial class DiffViewWindow
         }
     }
 
+    /// <summary>
+    ///     ファイルの拡張子に応じたシンタックス ハイライトを付けて、行のテキストを段落に追加します。
+    /// </summary>
+    /// <param name="paragraph">追加先の段落。</param>
+    /// <param name="text">行のテキスト。</param>
+    /// <param name="blockComment">複数行コメントの中かどうか。次の行に引き継ぎます。</param>
     private void AddSyntaxRuns(Paragraph paragraph, string text, ref bool blockComment)
     {
         if (SyntaxExtension == ".cs")
@@ -1518,6 +1696,12 @@ internal sealed partial class DiffViewWindow
         paragraph.Inlines.Add(new Run(text));
     }
 
+    /// <summary>
+    ///     C# のキーワード・文字列・コメントを色分けして、行のテキストを段落に追加します。
+    /// </summary>
+    /// <param name="paragraph">追加先の段落。</param>
+    /// <param name="text">行のテキスト。</param>
+    /// <param name="blockComment">複数行コメントの中かどうか。次の行に引き継ぎます。</param>
     private void AddCSharpRuns(Paragraph paragraph, string text, ref bool blockComment)
     {
         int i = 0, plain = 0;
@@ -1615,6 +1799,11 @@ internal sealed partial class DiffViewWindow
         new(@"""(?:\\.|[^""\\])*""|\b(?:true|false|null)\b|-?\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b",
             RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
+    /// <summary>
+    ///     XML のタグ・属性・値を色分けして、行のテキストを段落に追加します。
+    /// </summary>
+    /// <param name="paragraph">追加先の段落。</param>
+    /// <param name="text">行のテキスト。</param>
     private void AddXmlRuns(Paragraph paragraph, string text)
     {
         var pos = 0;
@@ -1629,6 +1818,11 @@ internal sealed partial class DiffViewWindow
         AddPlainRun(paragraph, text, pos, text.Length - pos);
     }
 
+    /// <summary>
+    ///     JSON のキー・文字列・数値などを色分けして、行のテキストを段落に追加します。
+    /// </summary>
+    /// <param name="paragraph">追加先の段落。</param>
+    /// <param name="text">行のテキスト。</param>
     private void AddJsonRuns(Paragraph paragraph, string text)
     {
         var pos = 0;
@@ -1644,6 +1838,13 @@ internal sealed partial class DiffViewWindow
         AddPlainRun(paragraph, text, pos, text.Length - pos);
     }
 
+    /// <summary>
+    ///     色分けしないテキストを段落に追加します。
+    /// </summary>
+    /// <param name="paragraph">追加先の段落。</param>
+    /// <param name="text">行のテキスト。</param>
+    /// <param name="start">追加する範囲の開始位置。</param>
+    /// <param name="length">追加する範囲の長さ。</param>
     private static void AddPlainRun(Paragraph paragraph, string text, int start, int length)
     {
         if (paragraph != null && length > 0) paragraph.Inlines.Add(new Run(text.Substring(start, length)));
@@ -1661,6 +1862,13 @@ internal sealed partial class DiffViewWindow
     private static readonly Brush DarkKeywordBrush = FrozenBrush(86, 156, 214);
     private static readonly Brush LightKeywordBrush = FrozenBrush(0, 0, 255);
 
+    /// <summary>
+    ///     指定した色のフリーズ済みブラシを作成します。
+    /// </summary>
+    /// <param name="r">赤の成分。</param>
+    /// <param name="g">緑の成分。</param>
+    /// <param name="b">青の成分。</param>
+    /// <returns>作成したブラシ。</returns>
     private static Brush FrozenBrush(byte r, byte g, byte b)
     {
         var brush = new SolidColorBrush(Color.FromRgb(r, g, b));
@@ -1668,6 +1876,12 @@ internal sealed partial class DiffViewWindow
         return brush;
     }
 
+    /// <summary>
+    ///     種類に応じた色 (ダーク/ライト テーマ別) でテキストを段落に追加します。
+    /// </summary>
+    /// <param name="paragraph">追加先の段落。</param>
+    /// <param name="text">追加するテキスト。</param>
+    /// <param name="kind">トークンの種類。</param>
     private void AddColoredRun(Paragraph paragraph, string text, string kind)
     {
         if (paragraph == null) return;
@@ -1682,6 +1896,10 @@ internal sealed partial class DiffViewWindow
         paragraph.Inlines.Add(run);
     }
 
+    /// <summary>
+    ///     現在のテーマの背景が暗いかどうかを判定します。
+    /// </summary>
+    /// <returns>暗い場合は true。</returns>
     private bool IsDarkBackground()
     {
         var brush = TryFindResource("CardBackground") as SolidColorBrush;
@@ -1690,6 +1908,12 @@ internal sealed partial class DiffViewWindow
         return (c.R * 299 + c.G * 587 + c.B * 114) / 1000 < 128;
     }
 
+    /// <summary>
+    ///     行の差分の種類と側に応じた背景ブラシのリソース キーを取得します。
+    /// </summary>
+    /// <param name="kind">行の差分の種類。</param>
+    /// <param name="sourceSide">比較元の場合は true。</param>
+    /// <returns>リソース キー。変更なしの場合は null。</returns>
     private static string LineBrushKey(DiffLineKind kind, bool sourceSide)
     {
         if (kind == DiffLineKind.Removed) return sourceSide ? "DiffRemoved" : "DiffRemovedEmpty";
@@ -1698,6 +1922,11 @@ internal sealed partial class DiffViewWindow
         return null;
     }
 
+    /// <summary>
+    ///     ペインのクリック位置の行に応じて、折りたたまれた行の展開・折りたたみや、HUNK の選択を行います。
+    /// </summary>
+    /// <param name="sender">クリックされたペイン。</param>
+    /// <param name="e">マウス イベントのデータ。</param>
     private void DiffPane_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.OriginalSource is Visual visual && FindAncestor<ScrollBar>(visual) != null) return;
@@ -1746,6 +1975,12 @@ internal sealed partial class DiffViewWindow
 
     // Keep the pane controls, toolbar and overlay alive. Complete both document
     // updates and scroll restoration in one dispatcher turn, before rendering.
+    /// <summary>
+    ///     折りたたみの変更後、ペインやツール バーを作り直さずに両側の文書を更新し、スクロール位置と選択中の HUNK を復元します。
+    /// </summary>
+    /// <param name="vertical">縦方向のスクロール位置。</param>
+    /// <param name="horizontal">横方向のスクロール位置。</param>
+    /// <param name="selectedHunk">選択する HUNK のインデックス。</param>
     internal void RefreshFoldedPanes(double vertical, double horizontal, int selectedHunk)
     {
         var wasRendering = _renderingContent;
@@ -1789,6 +2024,11 @@ internal sealed partial class DiffViewWindow
         }
     }
 
+    /// <summary>
+    ///     折りたたみの変更後に行番号の表示を作り直します。
+    /// </summary>
+    /// <param name="pane">対象のペイン。</param>
+    /// <param name="source">比較元の場合は true。</param>
     private void UpdateFoldedGutter(RichTextBox pane, bool source)
     {
         var viewport = (Canvas)pane.Tag;
@@ -1809,11 +2049,20 @@ internal sealed partial class DiffViewWindow
         PositionEditArrows(viewport, -Canvas.GetTop(gutter));
     }
 
+    /// <summary>
+    ///     指定した行の HUNK を選択し、先頭が見えるようスクロールします。
+    /// </summary>
+    /// <param name="index">行のインデックス。</param>
     private void Jump(int index)
     {
         SelectHunk(index, true);
     }
 
+    /// <summary>
+    ///     指定した行を含む変更行の連続を HUNK として選択し、枠を表示します。
+    /// </summary>
+    /// <param name="index">行のインデックス。</param>
+    /// <param name="scrollToStart">HUNK の先頭までスクロールする場合は true。</param>
     private void SelectHunk(int index, bool scrollToStart)
     {
         if (Lines == null || index < 0 || index >= Lines.Count) return;
@@ -1856,6 +2105,9 @@ internal sealed partial class DiffViewWindow
         Dispatcher.BeginInvoke(new Action(UpdateHunkOverlay), DispatcherPriority.Loaded);
     }
 
+    /// <summary>
+    ///     選択中の HUNK の枠とマップ上の選択位置を更新します。
+    /// </summary>
     private void UpdateHunkOverlay()
     {
         UpdateMapSelection();
@@ -1931,6 +2183,11 @@ internal sealed partial class DiffViewWindow
         _hunkOverlay.Visibility = Visibility.Visible;
     }
 
+    /// <summary>
+    ///     ペインを指定した行までスクロールします。
+    /// </summary>
+    /// <param name="box">対象のペイン。</param>
+    /// <param name="index">行のインデックス。</param>
     private static void ScrollPaneToLine(RichTextBox box, int index)
     {
         if (box?.Document == null) return;
@@ -1947,6 +2204,11 @@ internal sealed partial class DiffViewWindow
         }
     }
 
+    /// <summary>
+    ///     ビジュアル ツリーから ScrollViewer を探します。
+    /// </summary>
+    /// <param name="parent">探し始める要素。</param>
+    /// <returns>見つかった ScrollViewer。見つからない場合は null。</returns>
     private static ScrollViewer FindScroll(DependencyObject parent)
     {
         if (parent == null) return null;
@@ -1960,6 +2222,11 @@ internal sealed partial class DiffViewWindow
         return null;
     }
 
+    /// <summary>
+    ///     一方のペインのスクロールを、もう一方のペインとマップに同期します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">スクロール変更のイベントデータ。</param>
     private void ScrollChanged(object sender, ScrollChangedEventArgs e)
     {
         if (_scrolling) return;
@@ -1981,6 +2248,10 @@ internal sealed partial class DiffViewWindow
         _scrolling = false;
     }
 
+    /// <summary>
+    ///     マップ上の表示範囲の枠を、スクロール位置に合わせて更新します。
+    /// </summary>
+    /// <param name="scroll">基準のスクロール ビューアー。</param>
     private void UpdateViewport(ScrollViewer scroll)
     {
         if (_viewportThumb == null || _map == null || scroll == null) return;
@@ -1992,6 +2263,9 @@ internal sealed partial class DiffViewWindow
         UpdateMapSelection();
     }
 
+    /// <summary>
+    ///     マップ上に、選択中の HUNK の位置を表示します。
+    /// </summary>
     private void UpdateMapSelection()
     {
         if (_mapSelection == null || _viewportThumb == null) return;
@@ -2010,6 +2284,11 @@ internal sealed partial class DiffViewWindow
         _mapSelection.Visibility = Visibility.Visible;
     }
 
+    /// <summary>
+    ///     マップ上の表示範囲の枠のドラッグに合わせて、両側のペインをスクロールします。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">ドラッグのイベントデータ。</param>
     private void DragViewport(object sender, DragDeltaEventArgs e)
     {
         if (_leftScroll == null || _rightScroll == null) return;
@@ -2021,6 +2300,9 @@ internal sealed partial class DiffViewWindow
         e.Handled = true;
     }
 
+    /// <summary>
+    ///     全体の差分の位置を左右に分けて示すマップを描画します。
+    /// </summary>
     private void DrawMap()
     {
         if (_map == null || Lines == null) return;
@@ -2116,6 +2398,9 @@ internal sealed partial class DiffViewWindow
         UpdateViewport(_leftScroll);
     }
 
+    /// <summary>
+    ///     比較元と比較先の画像を並べて表示し、ズーム・XOR オーバーレイ・GIF フレーム選択・ナビゲーターを作成します。
+    /// </summary>
     private Task RenderImages()
     {
         var left = ViewModel.SourceImage;
@@ -2551,6 +2836,13 @@ internal sealed partial class DiffViewWindow
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    ///     テーマに合わせた画像表示用の ScrollViewer を作成します。
+    /// </summary>
+    /// <param name="content">表示する内容。</param>
+    /// <param name="sourceSide">比較元の場合は true。</param>
+    /// <param name="missing">ファイルがない場合は true。</param>
+    /// <returns>作成した ScrollViewer。</returns>
     private static ScrollViewer ThemedViewer(object content, bool sourceSide, bool missing)
     {
         var viewer = new ScrollViewer
@@ -2576,6 +2868,13 @@ internal sealed partial class DiffViewWindow
         return viewer;
     }
 
+    /// <summary>
+    ///     画像のペインを、側ごとの色の枠で囲みます。
+    /// </summary>
+    /// <param name="viewer">画像の ScrollViewer。</param>
+    /// <param name="source">比較元の場合は true。</param>
+    /// <param name="missing">ファイルがない場合は true。</param>
+    /// <returns>作成した枠。</returns>
     private static Border ImagePaneHost(ScrollViewer viewer, bool source, bool missing)
     {
         // The system ScrollViewer template may ignore BorderThickness.
@@ -2587,6 +2886,10 @@ internal sealed partial class DiffViewWindow
         return host;
     }
 
+    /// <summary>
+    ///     画像をドラッグで移動できるよう、マウスのハンドラーを登録します。
+    /// </summary>
+    /// <param name="viewer">対象の ScrollViewer。</param>
     private void EnableImagePan(ScrollViewer viewer)
     {
         if (viewer == null) return;
@@ -2596,6 +2899,11 @@ internal sealed partial class DiffViewWindow
         viewer.LostMouseCapture += (_, _) => StopImagePan();
     }
 
+    /// <summary>
+    ///     画像のドラッグによる移動を開始し、クリック位置のピクセル情報を表示します。スクロール バー上では開始しません。
+    /// </summary>
+    /// <param name="sender">対象の ScrollViewer。</param>
+    /// <param name="e">マウス イベントのデータ。</param>
     private void ImageViewer_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (FindAncestor<ScrollBar>(e.OriginalSource as DependencyObject) != null)
@@ -2611,6 +2919,11 @@ internal sealed partial class DiffViewWindow
         e.Handled = true;
     }
 
+    /// <summary>
+    ///     カーソル位置のピクセル情報を表示し、ドラッグ中は両側の画像を移動します。
+    /// </summary>
+    /// <param name="sender">対象の ScrollViewer。</param>
+    /// <param name="e">マウス イベントのデータ。</param>
     private void ImageViewer_PreviewMouseMove(object sender, MouseEventArgs e)
     {
         var viewer = sender as ScrollViewer;
@@ -2631,6 +2944,11 @@ internal sealed partial class DiffViewWindow
         e.Handled = true;
     }
 
+    /// <summary>
+    ///     画像のドラッグを終了します。
+    /// </summary>
+    /// <param name="sender">対象の ScrollViewer。</param>
+    /// <param name="e">マウス イベントのデータ。</param>
     private void ImageViewer_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
         if (!_imagePanning) return;
@@ -2640,6 +2958,9 @@ internal sealed partial class DiffViewWindow
         e.Handled = true;
     }
 
+    /// <summary>
+    ///     画像のドラッグを終了し、マウスのキャプチャを解放します。
+    /// </summary>
     private void StopImagePan()
     {
         if (!_imagePanning) return;
@@ -2648,6 +2969,12 @@ internal sealed partial class DiffViewWindow
         if (_rightScroll != null && _rightScroll.IsMouseCaptured) _rightScroll.ReleaseMouseCapture();
     }
 
+    /// <summary>
+    ///     ビジュアル ツリーを親方向にたどり、指定した型の要素を探します。
+    /// </summary>
+    /// <typeparam name="T">探す要素の型。</typeparam>
+    /// <param name="current">探し始める要素。</param>
+    /// <returns>見つかった要素。見つからない場合は null。</returns>
     private static T FindAncestor<T>(DependencyObject current) where T : DependencyObject
     {
         while (current != null)
@@ -2659,6 +2986,13 @@ internal sealed partial class DiffViewWindow
         return null;
     }
 
+    /// <summary>
+    ///     画像のズームを 1 段階変更するボタンを作成します。
+    /// </summary>
+    /// <param name="glyph">ボタンの記号。</param>
+    /// <param name="tip">ツールチップ。</param>
+    /// <param name="action">クリック時の処理。</param>
+    /// <returns>作成したボタン。</returns>
     private Button ImageZoomStepButton(string glyph, string tip, Action action)
     {
         var button = new Button
@@ -2682,6 +3016,10 @@ internal sealed partial class DiffViewWindow
         return button;
     }
 
+    /// <summary>
+    ///     拡大時にピクセルの境界線を描くタイル ブラシを作成します。線は 1600% で 1 DIP になる太さです。
+    /// </summary>
+    /// <returns>作成したブラシ。</returns>
     private static Brush CreatePixelLineGridBrush()
     {
         // One source pixel per tile. The line is 1/16px so it becomes 1 DIP at 1600%.
@@ -2712,6 +3050,14 @@ internal sealed partial class DiffViewWindow
         return brush;
     }
 
+    /// <summary>
+    ///     画像を表示するキャンバスと、ピクセル境界線のグリッドを作成します。
+    /// </summary>
+    /// <param name="image">表示する画像。</param>
+    /// <param name="width">キャンバスの幅。</param>
+    /// <param name="height">キャンバスの高さ。</param>
+    /// <param name="pixelGrid">作成したピクセル グリッド。</param>
+    /// <returns>作成したキャンバス。</returns>
     private static Canvas ImageCanvas(BitmapSource image, double width, double height, out Canvas pixelGrid)
     {
         pixelGrid = null;
@@ -2747,6 +3093,14 @@ internal sealed partial class DiffViewWindow
         return canvas;
     }
 
+    /// <summary>
+    ///     アイコンとラベル付きのボタンをパネルに追加します。
+    /// </summary>
+    /// <param name="panel">追加先のパネル。</param>
+    /// <param name="icon">ボタンのアイコン。</param>
+    /// <param name="text">ボタンのラベル。</param>
+    /// <param name="command">実行するコマンド。</param>
+    /// <returns>追加したボタン。</returns>
     private Button AddButton(Panel panel, ImageSource icon, string text, ICommand command)
     {
         var image = new Image
@@ -2770,6 +3124,13 @@ internal sealed partial class DiffViewWindow
         return button;
     }
 
+    /// <summary>
+    ///     アイコンとツールチップ付きのボタンをパネルに追加します。
+    /// </summary>
+    /// <param name="panel">追加先のパネル。</param>
+    /// <param name="icon">ボタンのアイコン。</param>
+    /// <param name="text">ツールチップ。</param>
+    /// <param name="action">クリック時の処理。</param>
     private void AddIconActionButton(Panel panel, ImageSource icon, string text, Action action)
     {
         var image = new Image

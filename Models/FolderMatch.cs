@@ -129,9 +129,15 @@ internal sealed class FolderMatch : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler PropertyChanged;
 
-    /// <summary>Sets this folder's selection without changing any parent or child selection.</summary>
+    /// <summary>
+    ///     いずれかのフォルダーの選択状態が変わったときに発生します。
+    /// </summary>
     public static event Action SelectionChanged;
 
+    /// <summary>
+    ///     親や子の選択状態を変えずに、このフォルダーの選択状態だけを設定します。
+    /// </summary>
+    /// <param name="value">新しい選択状態。</param>
     public void SetSelected(bool value)
     {
         if (_isSelected == value) return;
@@ -141,6 +147,9 @@ internal sealed class FolderMatch : INotifyPropertyChanged
         SelectionChanged?.Invoke();
     }
 
+    /// <summary>
+    ///     選択状態に応じて、チェック済みアイコンと本来のアイコンを切り替えます。
+    /// </summary>
     private void ApplyCheckedIcon()
     {
         if (IsSelected && CheckedFolderIcon != null)
@@ -157,6 +166,10 @@ internal sealed class FolderMatch : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IconPreview)));
     }
 
+    /// <summary>
+    ///     このノードから親方向へたどり、ソリューション ファイルを持つ最初のノードを探します。
+    /// </summary>
+    /// <returns>ソリューションのルート ノード。見つからない場合は null。</returns>
     public FolderMatch FindSolutionRoot()
     {
         for (var node = this; node != null; node = node.Parent)

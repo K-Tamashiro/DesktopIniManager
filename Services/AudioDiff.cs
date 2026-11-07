@@ -15,6 +15,10 @@ internal sealed class AudioDifferences
     internal readonly List<(double Start, double End)>[] Channels;
     internal List<(double Start, double End)>[] TargetChannels;
 
+    /// <summary>
+    ///     チャンネルごとの差分区間リストを初期化します。
+    /// </summary>
+    /// <param name="channels">チャンネル数。</param>
     private AudioDifferences(int channels)
     {
         Channels = new List<(double, double)>[channels];
@@ -22,6 +26,14 @@ internal sealed class AudioDifferences
         TargetChannels = Channels;
     }
 
+    /// <summary>
+    ///     2 つの音声を同じサンプリングレートで順次デコードし、10 ミリ秒ごとの RMS を比較して、チャンネルごとの差分区間を検出します。
+    ///     再生音量や表示解像度に依存せず、デコード後の振幅で比較します。
+    /// </summary>
+    /// <param name="source">比較元の音声ファイル。</param>
+    /// <param name="target">比較先の音声ファイル。</param>
+    /// <param name="cancellation">キャンセル トークン。</param>
+    /// <returns>チャンネルごとの差分区間 (秒)。</returns>
     internal static AudioDifferences Load(string source, string target, CancellationToken cancellation)
     {
         using var a = !string.IsNullOrEmpty(source) && File.Exists(source) ? new AudioFileReader(source) : null;
@@ -110,6 +122,10 @@ internal sealed class AudioDifferences
         private int _frameOffset;
         private int _offset, _available;
 
+        /// <summary>
+        ///     サンプル プロバイダーを、バッファー付きでフレーム単位に読み取るストリームを作成します。
+        /// </summary>
+        /// <param name="source">読み取り元のサンプル プロバイダー。</param>
         internal FrameStream(ISampleProvider source)
         {
             _source = source;
@@ -119,6 +135,10 @@ internal sealed class AudioDifferences
 
         internal int Channels { get; }
 
+        /// <summary>
+        ///     次のフレームへ進みます。必要に応じてバッファーを補充します。
+        /// </summary>
+        /// <returns>フレームを読み取れた場合は true。末尾に達した場合は false。</returns>
         internal bool NextFrame()
         {
             if (_ended) return false;
@@ -141,6 +161,11 @@ internal sealed class AudioDifferences
             return true;
         }
 
+        /// <summary>
+        ///     現在のフレームの指定チャンネルのサンプル値を取得します。
+        /// </summary>
+        /// <param name="channel">チャンネル番号。</param>
+        /// <returns>サンプル値。</returns>
         internal float Sample(int channel)
         {
             return _buffer[_frameOffset + channel];
@@ -160,6 +185,11 @@ internal sealed class AudioEnvelope
     internal float[][] Min, Max;
     internal int SampleRate;
 
+    /// <summary>
+    ///     音声ファイルのビット深度、ビットレート、浮動小数点形式かどうかを読み取ります。MP3 はフレームから平均ビットレートを求めます。
+    /// </summary>
+    /// <param name="path">音声ファイルのパス。</param>
+    /// <param name="cancellation">キャンセル トークン。</param>
     private void ReadFormat(string path, CancellationToken cancellation)
     {
         if (Path.GetExtension(path).Equals(".mp3", StringComparison.OrdinalIgnoreCase))
@@ -191,6 +221,12 @@ internal sealed class AudioEnvelope
         BitRate = (long)format.AverageBytesPerSecond * 8;
     }
 
+    /// <summary>
+    ///     音声ファイルの波形データと形式情報を読み込みます。対応するのはモノラルとステレオだけです。
+    /// </summary>
+    /// <param name="path">音声ファイルのパス。</param>
+    /// <param name="cancellation">キャンセル トークン。</param>
+    /// <returns>読み込んだ波形情報。ファイルがない場合は null。</returns>
     internal static AudioEnvelope Load(string path, CancellationToken cancellation)
     {
         if (string.IsNullOrEmpty(path) || !File.Exists(path)) return null;
@@ -216,6 +252,11 @@ internal sealed class AudioRepeatProvider : ISampleProvider
     private readonly ISampleProvider _source;
     private long _frame, _start, _end;
 
+    /// <summary>
+    ///     区間リピート再生を行うサンプル プロバイダーを作成します。
+    /// </summary>
+    /// <param name="source">読み取り元のサンプル プロバイダー。</param>
+    /// <param name="seek">再生位置を戻すときに入力側をシークする処理 (秒)。</param>
     internal AudioRepeatProvider(ISampleProvider source, Action<double> seek)
     {
         _source = source;
@@ -237,6 +278,13 @@ internal sealed class AudioRepeatProvider : ISampleProvider
 
     public WaveFormat WaveFormat => _source.WaveFormat;
 
+    /// <summary>
+    ///     サンプルを読み取ります。リピート区間が有効な場合は区間の終端で開始位置に戻り、短い入力の不足分は無音で埋めます。
+    /// </summary>
+    /// <param name="buffer">書き込み先のバッファー。</param>
+    /// <param name="offset">書き込み開始位置。</param>
+    /// <param name="count">読み取るサンプル数。</param>
+    /// <returns>書き込んだサンプル数。</returns>
     public int Read(float[] buffer, int offset, int count)
     {
         lock (_gate)
@@ -271,6 +319,11 @@ internal sealed class AudioRepeatProvider : ISampleProvider
         }
     }
 
+    /// <summary>
+    ///     リピート区間を設定します。どちらかが null の場合や区間の長さが 0 の場合はリピートを無効にします。
+    /// </summary>
+    /// <param name="a">区間の一端 (秒)。</param>
+    /// <param name="b">区間のもう一端 (秒)。</param>
     internal void SetRange(double? a, double? b)
     {
         lock (_gate)
@@ -281,6 +334,10 @@ internal sealed class AudioRepeatProvider : ISampleProvider
         }
     }
 
+    /// <summary>
+    ///     再生位置を移動します。リピート区間外の場合は区間の開始位置に移動します。
+    /// </summary>
+    /// <param name="seconds">移動先の位置 (秒)。</param>
     internal void Seek(double seconds)
     {
         lock (_gate)
@@ -302,6 +359,10 @@ internal sealed class AudioSpeedProvider : ISampleProvider
     private double _fraction;
     private bool _initialized, _ended;
 
+    /// <summary>
+    ///     再生速度を変更できるサンプル プロバイダーを作成します。
+    /// </summary>
+    /// <param name="source">読み取り元のサンプル プロバイダー。</param>
     internal AudioSpeedProvider(ISampleProvider source)
     {
         _source = source;
@@ -313,6 +374,13 @@ internal sealed class AudioSpeedProvider : ISampleProvider
     internal double Speed { get; set; } = 1;
     public WaveFormat WaveFormat => _source.WaveFormat;
 
+    /// <summary>
+    ///     隣接フレーム間を線形補間しながら、再生速度に応じてサンプルを読み取ります。速度の変更に合わせて音程も変わります。
+    /// </summary>
+    /// <param name="buffer">書き込み先のバッファー。</param>
+    /// <param name="offset">書き込み開始位置。</param>
+    /// <param name="count">読み取るサンプル数。</param>
+    /// <returns>書き込んだサンプル数。</returns>
     public int Read(float[] buffer, int offset, int count)
     {
         if (_ended) return 0;
@@ -351,6 +419,9 @@ internal sealed class AudioSpeedProvider : ISampleProvider
         return written;
     }
 
+    /// <summary>
+    ///     補間の状態と内部バッファーを初期化します。
+    /// </summary>
     internal void Reset()
     {
         _buffered = _offset = 0;
@@ -358,6 +429,11 @@ internal sealed class AudioSpeedProvider : ISampleProvider
         _initialized = _ended = false;
     }
 
+    /// <summary>
+    ///     読み取り元から次の 1 フレームを取得します。
+    /// </summary>
+    /// <param name="frame">フレームの書き込み先。</param>
+    /// <returns>フレームを取得できた場合は true。</returns>
     private bool Next(float[] frame)
     {
         if (_offset >= _buffered)
@@ -389,6 +465,12 @@ internal sealed class AudioDiffPlayer : IDisposable
     private double _playbackSpeed = 1;
     private double _timelineOrigin, _repeatStart, _repeatEnd;
 
+    /// <summary>
+    ///     比較元と比較先を 48 kHz ステレオにそろえてミキシングし、リピート・速度変更付きで再生するプレーヤーを作成します。
+    /// </summary>
+    /// <param name="source">比較元の音声ファイル。</param>
+    /// <param name="target">比較先の音声ファイル。</param>
+    /// <param name="duration">再生全体の長さ (秒)。</param>
     internal AudioDiffPlayer(string source, string target, double duration)
     {
         Duration = duration;
@@ -462,6 +544,9 @@ internal sealed class AudioDiffPlayer : IDisposable
         }
     }
 
+    /// <summary>
+    ///     再生を停止し、出力デバイスと音声ファイルを解放します。
+    /// </summary>
     public void Dispose()
     {
         lock (_syncLock)
@@ -479,11 +564,21 @@ internal sealed class AudioDiffPlayer : IDisposable
         }
     }
 
+    /// <summary>
+    ///     指定側の再生遅延を取得します。
+    /// </summary>
+    /// <param name="side">0 が比較元、1 が比較先。</param>
+    /// <returns>遅延 (秒)。</returns>
     internal double GetDelay(int side)
     {
         return _delays[side];
     }
 
+    /// <summary>
+    ///     指定側の再生遅延を設定し、再生全体の長さとリピート区間を調整して、現在の位置から再生を続けます。
+    /// </summary>
+    /// <param name="side">0 が比較元、1 が比較先。</param>
+    /// <param name="seconds">遅延 (秒)。負の値は先行を表します。</param>
     internal void SetDelay(int side, double seconds)
     {
         if (side < 0 || side >= 2 || !double.IsFinite(seconds)) throw new ArgumentOutOfRangeException();
@@ -510,6 +605,15 @@ internal sealed class AudioDiffPlayer : IDisposable
         }
     }
 
+    /// <summary>
+    ///     再生開始位置と経過時間から、リピート区間を考慮した現在の再生位置を求めます。
+    /// </summary>
+    /// <param name="origin">再生開始時の位置 (秒)。</param>
+    /// <param name="elapsed">再生速度を掛けた経過時間 (秒)。</param>
+    /// <param name="start">リピート区間の開始 (秒)。</param>
+    /// <param name="end">リピート区間の終了 (秒)。</param>
+    /// <param name="duration">再生全体の長さ (秒)。</param>
+    /// <returns>現在の再生位置 (秒)。</returns>
     internal static double PlaybackPosition(double origin, double elapsed, double start, double end, double duration)
     {
         var position = origin + Math.Max(0, elapsed);
@@ -518,6 +622,9 @@ internal sealed class AudioDiffPlayer : IDisposable
         return Math.Clamp(position, 0, duration);
     }
 
+    /// <summary>
+    ///     再生位置の計測用時計をリセットし、現在のリピート プロバイダーの位置を基準にします。
+    /// </summary>
     private void ResetPositionClock()
     {
         _playbackClock.Reset();
@@ -525,6 +632,11 @@ internal sealed class AudioDiffPlayer : IDisposable
         _speedProvider?.Reset();
     }
 
+    /// <summary>
+    ///     再生中の指定側の直近のピーク レベルを取得します。
+    /// </summary>
+    /// <param name="side">0 が比較元、1 が比較先。</param>
+    /// <returns>ピーク レベル。再生していない場合は 0。</returns>
     internal float GetPeak(int side)
     {
         return Playing && _readers[side] != null &&
@@ -533,6 +645,12 @@ internal sealed class AudioDiffPlayer : IDisposable
             : 0;
     }
 
+    /// <summary>
+    ///     ピーク レベルを記録するメーターをサンプル プロバイダーに追加します。
+    /// </summary>
+    /// <param name="side">0 が比較元、1 が比較先。</param>
+    /// <param name="provider">計測対象のサンプル プロバイダー。</param>
+    /// <returns>メーター付きのサンプル プロバイダー。</returns>
     private ISampleProvider Meter(int side, ISampleProvider provider)
     {
         var meter = new MeteringSampleProvider(provider) { SamplesPerNotification = 1440 };
@@ -545,6 +663,10 @@ internal sealed class AudioDiffPlayer : IDisposable
         return meter;
     }
 
+    /// <summary>
+    ///     再生速度を変更し、現在の位置から再生を続けます。
+    /// </summary>
+    /// <param name="value">再生速度の倍率。</param>
     internal void SetSpeed(double value)
     {
         lock (_syncLock)
@@ -562,11 +684,20 @@ internal sealed class AudioDiffPlayer : IDisposable
         }
     }
 
+    /// <summary>
+    ///     指定側の音量を 0 から 1 の範囲で設定します。
+    /// </summary>
+    /// <param name="side">0 が比較元、1 が比較先。</param>
+    /// <param name="value">音量。</param>
     internal void SetVolume(int side, double value)
     {
         if (side >= 0 && side < 2 && _volumes[side] != null) _volumes[side].Volume = (float)Math.Clamp(value, 0, 1);
     }
 
+    /// <summary>
+    ///     出力を停止してバッファーを破棄し、指定位置へ移動します。再生中だった場合は再開します。
+    /// </summary>
+    /// <param name="seconds">移動先の位置 (秒)。</param>
     internal void Seek(double seconds)
     {
         lock (_syncLock)
@@ -581,6 +712,11 @@ internal sealed class AudioDiffPlayer : IDisposable
         }
     }
 
+    /// <summary>
+    ///     リピート区間をサンプル単位にそろえて設定し、現在の位置から再生を続けます。
+    /// </summary>
+    /// <param name="a">区間の一端 (秒)。null の場合はリピートを解除します。</param>
+    /// <param name="b">区間のもう一端 (秒)。null の場合はリピートを解除します。</param>
     internal void SetRepeat(double? a, double? b)
     {
         lock (_syncLock)
@@ -609,6 +745,10 @@ internal sealed class AudioDiffPlayer : IDisposable
         }
     }
 
+    /// <summary>
+    ///     各入力を遅延を考慮した位置にシークし、リサンプラーの履歴を破棄するためにミキサーの入力を作り直します。
+    /// </summary>
+    /// <param name="target">移動先のタイムライン上の位置 (秒)。</param>
     private void ResetInputs(double target)
     {
         _mixer.RemoveAllMixerInputs();
@@ -634,6 +774,9 @@ internal sealed class AudioDiffPlayer : IDisposable
         }
     }
 
+    /// <summary>
+    ///     再生を開始します。末尾に達している場合は先頭に戻してから再生します。
+    /// </summary>
     internal void Play()
     {
         lock (_syncLock)
@@ -644,12 +787,18 @@ internal sealed class AudioDiffPlayer : IDisposable
         }
     }
 
+    /// <summary>
+    ///     出力デバイスの再生と再生位置の計測を開始します。
+    /// </summary>
     private void StartPlayback()
     {
         _output.Play();
         _playbackClock.Start();
     }
 
+    /// <summary>
+    ///     再生を一時停止します。
+    /// </summary>
     internal void Pause()
     {
         lock (_syncLock)

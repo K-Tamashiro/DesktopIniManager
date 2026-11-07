@@ -15,6 +15,12 @@ internal sealed class DiffEditSession
     private bool _sourceHasFinalNewline;
     private bool _targetHasFinalNewline;
 
+    /// <summary>
+    ///     比較結果の行を、変更ブロック・変更なしブロック・改行のみのギャップに分け、HUNK 単位で編集できるセッションを作成します。
+    /// </summary>
+    /// <param name="source">比較元の文書。</param>
+    /// <param name="target">比較先の文書。</param>
+    /// <param name="rows">比較結果の行。</param>
     internal DiffEditSession(TextDocument source, TextDocument target, List<DiffLine> rows)
     {
         _sourceFormat = source;
@@ -49,6 +55,13 @@ internal sealed class DiffEditSession
     // A gap is a run of unchanged newline-only rows present on one side only
     // (newline comparison off). It is never a hunk, but separates two hunks.
     // The EOF pseudo-line keeps its existing final-newline handling.
+    /// <summary>
+    ///     行が属するブロックの種類を判定します。ギャップは、改行比較 OFF のときに片側だけにある改行のみの行の連続で、HUNK にはなりませんが 2 つの HUNK を区切ります。
+    /// </summary>
+    /// <param name="row">判定する行。</param>
+    /// <param name="source">比較元の文書。</param>
+    /// <param name="target">比較先の文書。</param>
+    /// <returns>ブロックの種類。</returns>
     private static int BlockKind(DiffLine row, TextDocument source, TextDocument target)
     {
         if (row.Kind != DiffLineKind.Unchanged) return ChangedBlock;
@@ -58,12 +71,23 @@ internal sealed class DiffEditSession
             : row.RightNumber < target.Lines.Length ? GapBlock : UnchangedBlock;
     }
 
+    /// <summary>
+    ///     指定した HUNK の、指定方向へのコピーを元に戻せるかどうかを判定します。
+    /// </summary>
+    /// <param name="id">HUNK の ID。</param>
+    /// <param name="fromSource">比較元から比較先へのコピーの場合は true。</param>
+    /// <returns>元に戻せる場合は true。</returns>
     internal bool CanUndo(int id, bool fromSource)
     {
         return _history.SelectMany(g => g)
             .Any(e => e.Active && e.HunkId == id && e.DestinationSource == !fromSource);
     }
 
+    /// <summary>
+    ///     選択した HUNK の内容を反対側へコピーし、隣接する改行のみのギャップも同期して、1 つの編集グループとして履歴に記録します。
+    /// </summary>
+    /// <param name="ids">コピーする HUNK の ID。</param>
+    /// <param name="fromSource">比較元から比較先へコピーする場合は true。</param>
     internal void Copy(IEnumerable<int> ids, bool fromSource)
     {
         var selected = ids.ToHashSet();
@@ -108,6 +132,13 @@ internal sealed class DiffEditSession
     // - hunks on both sides copied together: the gap is not copied, so the
     //   destination receives one contiguous block without newline-only rows.
     // Rows matched as newline-only on both sides are never gaps and are kept.
+    /// <summary>
+    ///     コピーした HUNK に隣接する改行のみのギャップを、コピーの方向に合わせて同期します。
+    ///     片側の HUNK だけをコピーした場合はコピー元のギャップに合わせ、両側の HUNK を同時にコピーした場合はギャップを除いて 1 つの連続したブロックにします。
+    /// </summary>
+    /// <param name="selected">コピーする HUNK の ID。</param>
+    /// <param name="fromSource">比較元から比較先へコピーする場合は true。</param>
+    /// <param name="group">編集の追加先のグループ。</param>
     private void CopyGaps(HashSet<int> selected, bool fromSource, List<Edit> group)
     {
         for (var i = 0; i < _blocks.Count; i++)
@@ -146,6 +177,13 @@ internal sealed class DiffEditSession
 
     // Mixed files retain each existing destination ending. Additional
     // lines inherit a nearby ending. Uniform files keep their format.
+    /// <summary>
+    ///     コピーする行の改行コードを、コピー先のファイルに合わせます。改行コードが統一されたファイルはその形式を保ち、混在するファイルは既存の行の改行コードを引き継ぎます。
+    /// </summary>
+    /// <param name="donor">コピー元の行。</param>
+    /// <param name="before">コピー先の置き換え前の行。</param>
+    /// <param name="fromSource">比較元から比較先へコピーする場合は true。</param>
+    /// <returns>改行コードを調整した行。</returns>
     private List<Line> Adapt(Line[] donor, Line[] before, bool fromSource)
     {
         var format = fromSource ? _targetFormat : _sourceFormat;
@@ -158,11 +196,20 @@ internal sealed class DiffEditSession
             uniform ?? (i < before.Length && before[i].Ending.Length > 0 ? before[i].Ending : fallback))).ToList();
     }
 
+    /// <summary>
+    ///     文書が最終行の末尾に改行を持つかどうかを判定します。
+    /// </summary>
+    /// <param name="document">判定する文書。</param>
+    /// <returns>末尾に改行がある場合は true。</returns>
     private static bool HasFinalNewline(TextDocument document)
     {
         return document.Lines.Length > 1 && document.Lines[^1] == "" && document.Endings[^1] == "";
     }
 
+    /// <summary>
+    ///     1 つの編集を元に戻し、ブロックが元の状態に戻った場合は元の行を復元します。
+    /// </summary>
+    /// <param name="edit">元に戻す編集。</param>
     private void Undo(Edit edit)
     {
         if (edit.BeforeFinalNewline is { } finalNewline)
@@ -180,6 +227,11 @@ internal sealed class DiffEditSession
         edit.Active = false;
     }
 
+    /// <summary>
+    ///     指定した HUNK の最後のコピーを、同期したギャップと一緒に元に戻します。
+    /// </summary>
+    /// <param name="id">HUNK の ID。</param>
+    /// <param name="fromSource">比較元から比較先へのコピーの場合は true。</param>
     internal void UndoHunk(int id, bool fromSource)
     {
         // A hunk copy and the newline-only gaps it synchronized are undone together.
@@ -191,6 +243,9 @@ internal sealed class DiffEditSession
             Undo(edit);
     }
 
+    /// <summary>
+    ///     最後に行った有効な編集グループを元に戻します。
+    /// </summary>
     internal void UndoLast()
     {
         var group = _history.LastOrDefault(g => g.Any(e => e.Active));
@@ -199,6 +254,11 @@ internal sealed class DiffEditSession
                 Undo(edit);
     }
 
+    /// <summary>
+    ///     編集後のブロックから、元のエンコーディングと最終行の改行の有無を保った文書を組み立てます。
+    /// </summary>
+    /// <param name="source">比較元の文書の場合は true。</param>
+    /// <returns>編集後の文書。</returns>
     internal TextDocument Document(bool source)
     {
         var format = source ? _sourceFormat : _targetFormat;
@@ -226,6 +286,10 @@ internal sealed class DiffEditSession
         };
     }
 
+    /// <summary>
+    ///     編集後のブロックから表示用の行を組み立て、行番号を振り直します。
+    /// </summary>
+    /// <returns>表示用の行の一覧。</returns>
     internal List<DiffLine> Rows()
     {
         var rows = new List<DiffLine>();

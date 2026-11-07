@@ -21,6 +21,10 @@ internal static class StringOverlay
 
     internal static event EventHandler CultureChanged;
 
+    /// <summary>
+    ///     culture.txt の設定から表示カルチャを決定します。未設定・auto・system・不明なカルチャの場合は英語を使います。
+    /// </summary>
+    /// <returns>使用する表示カルチャ。</returns>
     internal static CultureInfo ResolveCulture()
     {
         var raw = ReadFirstLine(Find("culture.txt"));
@@ -38,6 +42,10 @@ internal static class StringOverlay
         }
     }
 
+    /// <summary>
+    ///     指定カルチャの言語ファイルを読み込み、オーバーレイ文字列として保持します。
+    /// </summary>
+    /// <param name="culture">読み込むカルチャ。null の場合は英語。</param>
     internal static void Load(CultureInfo culture)
     {
         lock (Gate)
@@ -49,6 +57,10 @@ internal static class StringOverlay
         }
     }
 
+    /// <summary>
+    ///     表示カルチャを切り替えて言語ファイルを再読み込みし、設定を保存して CultureChanged を通知します。
+    /// </summary>
+    /// <param name="cultureName">切り替え先のカルチャ名。</param>
     internal static void SetCulture(string cultureName)
     {
         CultureInfo culture;
@@ -70,6 +82,10 @@ internal static class StringOverlay
         if (handler != null) handler(null, EventArgs.Empty);
     }
 
+    /// <summary>
+    ///     選択したカルチャ名を culture.txt に保存します。
+    /// </summary>
+    /// <param name="name">保存するカルチャ名。</param>
     private static void WriteCulture(string name)
     {
         foreach (var dir in PersistDirs())
@@ -84,11 +100,20 @@ internal static class StringOverlay
             }
     }
 
+    /// <summary>
+    ///     culture.txt の保存先候補となるフォルダーを列挙します。
+    /// </summary>
+    /// <returns>保存先フォルダーの列挙。</returns>
     private static IEnumerable<string> PersistDirs()
     {
         yield return AppSlot.Directory;
     }
 
+    /// <summary>
+    ///     キーに対応するローカライズ文字列を、組み込みの上書き・言語ファイル・リソースの順に検索して取得します。
+    /// </summary>
+    /// <param name="key">リソース キー。</param>
+    /// <returns>ローカライズ文字列。見つからない場合はキー自体。</returns>
     internal static string Get(string key)
     {
         Dictionary<string, string> current;
@@ -116,6 +141,12 @@ internal static class StringOverlay
         return Strings.ResourceManager.GetString(key, CultureInfo.InvariantCulture) ?? key;
     }
 
+    /// <summary>
+    ///     言語ファイルより優先するコード内蔵の翻訳を取得します。
+    /// </summary>
+    /// <param name="key">リソース キー。</param>
+    /// <param name="language">2 文字の言語コード。</param>
+    /// <returns>内蔵の翻訳。対象外のキーの場合は null。</returns>
     private static string Builtin(string key, string language)
     {
         if (key == "Main_IconRemove" || key == "Main_IconReset")
@@ -137,6 +168,11 @@ internal static class StringOverlay
         return null;
     }
 
+    /// <summary>
+    ///     カルチャ名と言語名の順に言語ファイルを探し、キーと文字列の対応表を作成します。
+    /// </summary>
+    /// <param name="culture">読み込むカルチャ。</param>
+    /// <returns>キーと翻訳文字列の辞書。</returns>
     private static Dictionary<string, string> ReadMap(CultureInfo culture)
     {
         var dest = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -149,6 +185,11 @@ internal static class StringOverlay
         return dest;
     }
 
+    /// <summary>
+    ///     カルチャに対応する言語ファイル名の候補を列挙します。
+    /// </summary>
+    /// <param name="culture">対象のカルチャ。</param>
+    /// <returns>言語ファイル名の候補。</returns>
     private static IEnumerable<string> Names(CultureInfo culture)
     {
         if (!string.IsNullOrEmpty(culture.Name))
@@ -157,6 +198,11 @@ internal static class StringOverlay
             yield return culture.TwoLetterISOLanguageName + ".txt";
     }
 
+    /// <summary>
+    ///     検索フォルダーとその Languages サブフォルダーから指定ファイルを探します。
+    /// </summary>
+    /// <param name="fileName">探すファイル名。</param>
+    /// <returns>見つかったファイルのパス。見つからない場合は null。</returns>
     private static string Find(string fileName)
     {
         foreach (var dir in SearchDirs())
@@ -174,6 +220,10 @@ internal static class StringOverlay
         return null;
     }
 
+    /// <summary>
+    ///     言語ファイルや culture.txt を探すフォルダーの候補を優先順に列挙します。
+    /// </summary>
+    /// <returns>検索フォルダーの列挙。</returns>
     private static IEnumerable<string> SearchDirs()
     {
         yield return AppSlot.Directory;
@@ -200,6 +250,11 @@ internal static class StringOverlay
         }
     }
 
+    /// <summary>
+    ///     ファイルから空行とコメント行を除いた最初の行を読み取ります。
+    /// </summary>
+    /// <param name="path">読み取るファイルのパス。</param>
+    /// <returns>最初の有効な行。ファイルがない場合や有効な行がない場合は null。</returns>
     private static string ReadFirstLine(string path)
     {
         if (path == null) return null;
@@ -219,6 +274,11 @@ internal static class StringOverlay
         return null;
     }
 
+    /// <summary>
+    ///     key=value 形式の言語ファイルを読み込み、辞書に追加または上書きします。
+    /// </summary>
+    /// <param name="dest">追加先の辞書。</param>
+    /// <param name="path">言語ファイルのパス。</param>
     private static void Merge(Dictionary<string, string> dest, string path)
     {
         string[] lines;
@@ -241,6 +301,11 @@ internal static class StringOverlay
         }
     }
 
+    /// <summary>
+    ///     言語ファイル内の \n、\r、\t エスケープを実際の制御文字に戻します。
+    /// </summary>
+    /// <param name="value">変換する文字列。</param>
+    /// <returns>変換後の文字列。</returns>
     private static string Unescape(string value)
     {
         return value.Replace("\\n", "\n").Replace("\\r", "\r").Replace("\\t", "\t");

@@ -56,6 +56,12 @@ internal sealed partial class MainWindowViewModel : ObservableObject
     private bool _treeCompact;
     private IEnumerable<FolderMatch> _treeItems;
 
+    /// <summary>
+    ///     メイン画面の ViewModel を作成し、起動状態の反映とコマンドの初期化を行います。
+    /// </summary>
+    /// <param name="startup">事前に読み込んだ起動状態。</param>
+    /// <param name="dispatcher">UI スレッドのディスパッチャー。</param>
+    /// <param name="dialogs">メッセージ表示に使うダイアログ サービス。</param>
     internal MainWindowViewModel(StartupState startup, Dispatcher dispatcher, IUserDialogService dialogs)
     {
         _startup = startup;
@@ -301,6 +307,9 @@ internal sealed partial class MainWindowViewModel : ObservableObject
 
     public bool CanEdit => !IsSearching;
 
+    /// <summary>
+    ///     実行中の処理を取り消し、設定と保存済みのフォルダー ツリーを削除して、画面を初期状態に戻します。
+    /// </summary>
     internal void ResetSettings()
     {
         CancelOperations();
@@ -325,11 +334,19 @@ internal sealed partial class MainWindowViewModel : ObservableObject
         RefreshScopedLabel();
     }
 
+    /// <summary>
+    ///     ツリーのルートが変わったときに、固定表示するルートを更新します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private void TreeRootsChanged(object sender, NotifyCollectionChangedEventArgs e)
     {
         RefreshFrozenRoot();
     }
 
+    /// <summary>
+    ///     ルートが 1 つだけの場合に、そのルートをスクロールしない位置に固定表示するよう更新します。
+    /// </summary>
     private void RefreshFrozenRoot()
     {
         var roots = TreeItems?.Take(2).ToArray();
@@ -341,6 +358,9 @@ internal sealed partial class MainWindowViewModel : ObservableObject
 
     public event Action<MainWindowAction, object> InteractionRequested;
 
+    /// <summary>
+    ///     ビュー側の操作 (フォルダー選択、アイコン選択、Explorer で開くなど) を要求するコマンドを初期化します。
+    /// </summary>
     private void InitializeInteractionCommands()
     {
         ChooseRootCommand =
@@ -386,12 +406,21 @@ internal sealed partial class MainWindowViewModel : ObservableObject
             new ParameterCommand(parameter => InteractionRequested?.Invoke(MainWindowAction.Close, parameter));
     }
 
+    /// <summary>
+    ///     現在のツリー表示 (Physical または Solution) で選択中のフォルダーを記録します。
+    /// </summary>
+    /// <param name="target">選択中のフォルダー。</param>
     public void RememberCurrentFolder(FolderMatch target)
     {
         if (TreeViewIndex == 0) _physicalCurrent = target;
         else if (TreeViewIndex == 1) _solutionCurrent = target;
     }
 
+    /// <summary>
+    ///     適用するアイコンを設定します。
+    /// </summary>
+    /// <param name="index">アイコンのインデックス。</param>
+    /// <param name="preview">アイコンのプレビュー画像。</param>
     public void ApplySelectedIcon(int index, ImageSource preview)
     {
         SelectedIconIndex = index;
@@ -402,6 +431,9 @@ internal sealed partial class MainWindowViewModel : ObservableObject
             : string.Format(Strings.Main_IndexN, index);
     }
 
+    /// <summary>
+    ///     選択中のアイコンを解除します。
+    /// </summary>
     public void ClearSelectedIcon()
     {
         SelectedIconIndex = 0;
@@ -410,6 +442,12 @@ internal sealed partial class MainWindowViewModel : ObservableObject
         SelectedIconLabel = Strings.Main_NotSelected;
     }
 
+    /// <summary>
+    ///     起動時に、前回のアイコンの選択を復元します。
+    /// </summary>
+    /// <param name="preview">アイコンのプレビュー画像。</param>
+    /// <param name="index">アイコンのインデックス。</param>
+    /// <param name="available">プレビューを表示できる場合は true。</param>
     public void RestoreStartupIcon(ImageSource preview, int index, bool available)
     {
         SelectedIconIndex = index;
@@ -428,11 +466,19 @@ internal sealed partial class MainWindowViewModel : ObservableObject
 
     public event Action<IReadOnlyList<string>> OpenGrepRequested;
 
+    /// <summary>
+    ///     コマンドの実行中に発生した例外を表示します。
+    /// </summary>
+    /// <param name="error">発生した例外。</param>
     private void ReportCommandError(Exception error)
     {
         ShowError(Strings.App_Unhandled, error);
     }
 
+    /// <summary>
+    ///     検索中かどうかを設定し、関係するコマンドの実行可否を更新します。
+    /// </summary>
+    /// <param name="value">検索中の場合は true。</param>
     private void SetSearching(bool value)
     {
         IsSearching = value;
@@ -452,16 +498,27 @@ internal sealed partial class MainWindowViewModel : ObservableObject
         if (!value) IsTreeBusy = false;
     }
 
+    /// <summary>
+    ///     フォルダー ツリーの処理中表示を切り替えます。
+    /// </summary>
+    /// <param name="value">処理中の場合は true。</param>
     private void SetTreePanelBusy(bool value)
     {
         IsTreeBusy = value;
     }
 
+    /// <summary>
+    ///     ファイル一覧の処理中表示を切り替えます。
+    /// </summary>
+    /// <param name="value">処理中の場合は true。</param>
     private void SetFilePanelBusy(bool value)
     {
         IsFileBusy = value;
     }
 
+    /// <summary>
+    ///     検索、ソリューション解析、ファイル一覧の読み込み、絞り込みをすべて取り消します。
+    /// </summary>
     internal void CancelOperations()
     {
         _searchCts?.Cancel();
@@ -470,6 +527,11 @@ internal sealed partial class MainWindowViewModel : ObservableObject
         _filterCts?.Cancel();
     }
 
+    /// <summary>
+    ///     フォルダー直下のファイル名を、インデックスを優先して名前順に取得します。
+    /// </summary>
+    /// <param name="folder">対象のフォルダー。</param>
+    /// <returns>ファイル名の一覧。</returns>
     internal IReadOnlyList<string> ContainedFileNames(FolderMatch folder)
     {
         if (folder == null || string.IsNullOrEmpty(folder.Path))
@@ -495,6 +557,11 @@ internal sealed partial class MainWindowViewModel : ObservableObject
         return [];
     }
 
+    /// <summary>
+    ///     エラーをステータスに表示し、詳細をメッセージ ボックスで表示します。
+    /// </summary>
+    /// <param name="message">表示するメッセージ。</param>
+    /// <param name="ex">発生した例外。</param>
     internal void ShowError(string message, Exception ex)
     {
         Status = message;

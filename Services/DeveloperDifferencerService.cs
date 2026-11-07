@@ -26,6 +26,11 @@ internal sealed class DiffStamp
     // Compare whole seconds without rounding; retain the original timestamp for copying.
     public long ModifiedUtcSeconds => ModifiedUtc.Ticks / TimeSpan.TicksPerSecond;
 
+    /// <summary>
+    ///     ファイルのサイズと更新日時を読み取ります。フォルダーや存在しない・読み取れないパスは対象外です。
+    /// </summary>
+    /// <param name="path">ファイルのパス。</param>
+    /// <returns>読み取った情報。対象外の場合は null。</returns>
     public static DiffStamp Read(string path)
     {
         if (string.IsNullOrWhiteSpace(path)) return null;
@@ -76,11 +81,25 @@ internal sealed class DiffStamp
         }
     }
 
+    /// <summary>
+    ///     サイズと更新日時の両方を比較して、2 つのファイル情報が同じかどうかを判定します。
+    /// </summary>
+    /// <param name="a">比較するファイル情報。</param>
+    /// <param name="b">比較するファイル情報。</param>
+    /// <returns>同じ場合、または両方とも null の場合は true。</returns>
     public static bool Same(DiffStamp a, DiffStamp b)
     {
         return Same(a, b, true);
     }
 
+    /// <summary>
+    ///     指定した項目 (サイズ、秒単位の更新日時) で、2 つのファイル情報が同じかどうかを判定します。
+    /// </summary>
+    /// <param name="a">比較するファイル情報。</param>
+    /// <param name="b">比較するファイル情報。</param>
+    /// <param name="compareTimestamp">更新日時を比較する場合は true。</param>
+    /// <param name="compareSize">サイズを比較する場合は true。</param>
+    /// <returns>同じ場合、または両方とも null の場合は true。</returns>
     public static bool Same(DiffStamp a, DiffStamp b, bool compareTimestamp, bool compareSize = true)
     {
         return a == null || b == null
@@ -88,6 +107,10 @@ internal sealed class DiffStamp
             : (!compareSize || a.Size == b.Size) && (!compareTimestamp || a.ModifiedUtcSeconds == b.ModifiedUtcSeconds);
     }
 
+    /// <summary>
+    ///     更新日時 (ローカル時刻) とサイズを表示用の文字列にします。
+    /// </summary>
+    /// <returns>表示用の文字列。</returns>
     public string Describe()
     {
         return ModifiedUtc.ToLocalTime().ToString("yyyy/MM/dd HH:mm:ss.fffffff") + "\n" + Size.ToString("N0") +
@@ -164,6 +187,12 @@ internal sealed class DiffFile : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler PropertyChanged;
 
+    /// <summary>
+    ///     一方のファイル情報を、相手と比べた状態 (NEW/OLD、属性の違い、内容の違いなど) 付きで表示用の文字列にします。
+    /// </summary>
+    /// <param name="own">表示する側のファイル情報。</param>
+    /// <param name="other">比較相手のファイル情報。</param>
+    /// <returns>表示用の文字列。ファイルがない場合は "missing"。</returns>
     private string Describe(DiffStamp own, DiffStamp other)
     {
         if (own == null) return "missing";
@@ -282,6 +311,10 @@ internal static class DeveloperDifferencerService
         return path;
     }
 
+    /// <summary>
+    ///     相対パスが、絶対パス・ドライブ指定・保護フォルダー・「.」「..」などを含まない安全なパスかどうかを検証します。
+    /// </summary>
+    /// <param name="relative">検証する相対パス。</param>
     private static void ValidateRelative(string relative)
     {
         if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative) || relative.Contains(':') ||
@@ -291,6 +324,10 @@ internal static class DeveloperDifferencerService
             throw new IOException("Protected or invalid relative path: " + relative);
     }
 
+    /// <summary>
+    ///     パスの各要素をたどり、ジャンクションやシンボリック リンクなどのリパース ポイントを経由していないことを確認します。新しいファイルの既存の親フォルダーも対象です。
+    /// </summary>
+    /// <param name="path">確認するパス。</param>
     private static void CheckComponents(string path)
     {
         // Do not follow junctions, symbolic links or other reparse points while
@@ -323,6 +360,20 @@ internal static class DeveloperDifferencerService
         }
     }
 
+    /// <summary>
+    ///     指定フォルダー配下を走査し、.gitignore と保護フォルダーを除いたファイルのサイズと更新日時を集めます。
+    /// </summary>
+    /// <param name="root">比較ルート。</param>
+    /// <param name="relativeFolder">走査するフォルダーの、比較ルートからの相対パス。空文字列の場合はルート全体。</param>
+    /// <param name="folders">見つかったフォルダーの相対パスの追加先。</param>
+    /// <param name="token">キャンセル トークン。</param>
+    /// <param name="progress">進捗の通知先。</param>
+    /// <param name="stage">進捗に表示する段階名。</param>
+    /// <param name="offset">進捗の件数に加算する値。</param>
+    /// <param name="total">進捗の総件数。</param>
+    /// <param name="nonEmptyFolders">ファイルを含むフォルダーの相対パスの追加先。</param>
+    /// <param name="ignore">.gitignore のマッチャー。null の場合は新しく作成します。</param>
+    /// <returns>相対パスをキーとするファイル情報。</returns>
     private static Dictionary<string, DiffStamp> ScanSelectedFolder(string root, string relativeFolder,
         HashSet<string> folders, CancellationToken token, IProgress<DiffProgress> progress = null, string stage = null,
         int offset = 0, int total = 0,
@@ -385,6 +436,13 @@ internal static class DeveloperDifferencerService
         return files;
     }
 
+    /// <summary>
+    ///     比較の進捗情報を作成します。総件数が不明な場合は処理済みの件数だけを表示します。
+    /// </summary>
+    /// <param name="stage">段階名。</param>
+    /// <param name="completed">処理済みの件数。</param>
+    /// <param name="total">総件数。0 以下の場合は不明。</param>
+    /// <returns>進捗情報。</returns>
     private static DiffProgress ReportCompare(string stage, int completed, int total)
     {
         if (total <= 0)
@@ -398,6 +456,12 @@ internal static class DeveloperDifferencerService
         };
     }
 
+    /// <summary>
+    ///     比較ルートと相対フォルダーから絶対パスを作成し、ルート外・.git 配下・リパース ポイント経由でないことを検証します。
+    /// </summary>
+    /// <param name="root">比較ルート。</param>
+    /// <param name="relativeFolder">比較ルートからの相対パス。</param>
+    /// <returns>検証済みの絶対パス。</returns>
     [return: NotNull]
     private static string SafeFolderPath(string root, string relativeFolder)
     {
@@ -414,6 +478,11 @@ internal static class DeveloperDifferencerService
         return path;
     }
 
+    /// <summary>
+    ///     名前が比較対象外の保護フォルダー名 (末尾の空白とドットを除いて判定) かどうかを判定します。
+    /// </summary>
+    /// <param name="name">フォルダー名。</param>
+    /// <returns>保護フォルダー名の場合は true。</returns>
     private static bool IsProtectedName(string name)
     {
         return IgnoredDirectoryLookup.Contains(name.AsSpan().TrimEnd(" ."));
@@ -430,6 +499,12 @@ internal static class DeveloperDifferencerService
         return directoryRelative.Length == 0 ? name : directoryRelative + "\\" + name;
     }
 
+    /// <summary>
+    ///     比較ルートからの相対パスを作成します。ルート外のパスは拒否します。
+    /// </summary>
+    /// <param name="root">比較ルート。</param>
+    /// <param name="path">変換するパス。</param>
+    /// <returns>相対パス。ルート自身の場合は空文字列。</returns>
     private static string RelativeFromRoot(string root, string path)
     {
         var normalizedRoot = root.TrimEnd('\\') + "\\";
@@ -475,6 +550,13 @@ internal static class DeveloperDifferencerService
         return result;
     }
 
+    /// <summary>
+    ///     比較ルート配下を走査して、ファイル情報、フォルダー、.gitignore ルールを含む比較用インデックスを作成します。
+    /// </summary>
+    /// <param name="root">比較ルート。</param>
+    /// <param name="token">キャンセル トークン。</param>
+    /// <param name="disabledIgnoreRules">無効にする .gitignore ルールのキー。</param>
+    /// <returns>作成したインデックス。</returns>
     internal static DiffIndex BuildIndex(string root, CancellationToken token,
         IEnumerable<string> disabledIgnoreRules = null)
     {
@@ -497,6 +579,20 @@ internal static class DeveloperDifferencerService
         };
     }
 
+    /// <summary>
+    ///     2 つのインデックスの写しから .gitignore で除外されるパスを取り除き、ファイルを分類した比較スナップショットを作成します。
+    /// </summary>
+    /// <param name="source">比較元のインデックス。</param>
+    /// <param name="target">比較先のインデックス。</param>
+    /// <param name="progress">進捗の通知先。</param>
+    /// <param name="compareTimestamp">更新日時を比較する場合は true。</param>
+    /// <param name="token">キャンセル トークン。</param>
+    /// <param name="onBatch">分類済みのファイルを一定件数ごとに受け取るコールバック。</param>
+    /// <param name="pathComparison">パスの並び順。null の場合は大文字と小文字を区別しない順。</param>
+    /// <param name="preciseCompare">XXH128 で内容を比較する場合は true。</param>
+    /// <param name="compareSize">サイズを比較する場合は true。</param>
+    /// <param name="compareAttributes">BOM の有無を比較する場合は true。</param>
+    /// <returns>比較スナップショット。</returns>
     internal static DiffSnapshot Compare(DiffIndex source, DiffIndex target,
         IProgress<DiffProgress> progress, bool compareTimestamp, CancellationToken token,
         Action<IReadOnlyList<DiffFile>> onBatch = null, Comparison<string> pathComparison = null,
@@ -553,6 +649,11 @@ internal static class DeveloperDifferencerService
         return result;
     }
 
+    /// <summary>
+    ///     インデックスのファイル辞書とフォルダー集合を複製します。キャッシュしたインデックスを別の相手と比較しても元が変わらないようにするためです。
+    /// </summary>
+    /// <param name="index">複製するインデックス。</param>
+    /// <returns>複製したインデックス。</returns>
     private static DiffIndex CopyIndex(DiffIndex index)
     {
         return new DiffIndex
@@ -566,6 +667,17 @@ internal static class DeveloperDifferencerService
         };
     }
 
+    /// <summary>
+    ///     比較元・比較先どちらかの .gitignore で無視されるファイルとフォルダーを、両側から取り除きます。
+    /// </summary>
+    /// <param name="source">比較元のルート。</param>
+    /// <param name="target">比較先のルート。</param>
+    /// <param name="left">比較元のファイル情報。</param>
+    /// <param name="right">比較先のファイル情報。</param>
+    /// <param name="sourceFolders">比較元のフォルダー。</param>
+    /// <param name="targetFolders">比較先のフォルダー。</param>
+    /// <param name="token">キャンセル トークン。</param>
+    /// <param name="disabled">無効にする .gitignore ルールのキー。</param>
     private static void ExcludeIgnored(string source, string target, Dictionary<string, DiffStamp> left,
         Dictionary<string, DiffStamp> right, HashSet<string> sourceFolders, HashSet<string> targetFolders,
         CancellationToken token,
@@ -596,6 +708,14 @@ internal static class DeveloperDifferencerService
         }
     }
 
+    /// <summary>
+    ///     指定フォルダーの直下だけを走査し、フォルダーとファイル情報を追加します。
+    /// </summary>
+    /// <param name="root">比較ルート。</param>
+    /// <param name="relativeFolder">走査するフォルダーの相対パス。</param>
+    /// <param name="folders">フォルダーの相対パスの追加先。</param>
+    /// <param name="files">ファイル情報の追加先。</param>
+    /// <param name="token">キャンセル トークン。</param>
     private static void ScanFolderLevel(string root, string relativeFolder, HashSet<string> folders,
         Dictionary<string, DiffStamp> files, CancellationToken token)
     {
@@ -640,6 +760,24 @@ internal static class DeveloperDifferencerService
         public ExceptionDispatchInfo Error;
     }
 
+    /// <summary>
+    ///     両側のファイル情報を比較して、各ファイルを同一・新規・削除・変更などに分類します。パスの検証は順次、内容の読み取りは並列に行います。
+    /// </summary>
+    /// <param name="left">比較元のファイル情報。</param>
+    /// <param name="right">比較先のファイル情報。</param>
+    /// <param name="includeSame">同一のファイルも結果に含める場合は true。</param>
+    /// <param name="compareTimestamp">更新日時を比較する場合は true。</param>
+    /// <param name="token">キャンセル トークン。</param>
+    /// <param name="progress">進捗の通知先。</param>
+    /// <param name="offset">進捗の件数に加算する値。</param>
+    /// <param name="onBatch">分類済みのファイルを一定件数ごとに受け取るコールバック。</param>
+    /// <param name="pathComparison">パスの並び順。</param>
+    /// <param name="sourceRoot">比較元のルート。</param>
+    /// <param name="targetRoot">比較先のルート。</param>
+    /// <param name="preciseCompare">XXH128 で内容を比較する場合は true。</param>
+    /// <param name="compareSize">サイズを比較する場合は true。</param>
+    /// <param name="compareAttributes">BOM の有無を比較する場合は true。</param>
+    /// <returns>分類したファイルの一覧。</returns>
     internal static List<DiffFile> Classify(Dictionary<string, DiffStamp> left, Dictionary<string, DiffStamp> right,
         bool includeSame = false, bool compareTimestamp = true, CancellationToken token = default,
         IProgress<DiffProgress> progress = null, int offset = 0,
@@ -777,6 +915,15 @@ internal static class DeveloperDifferencerService
         return files;
     }
 
+    /// <summary>
+    ///     比較に必要な場合に、BOM の有無と XXH128 ハッシュを読み取ります。精密比較では読み取り後のファイル情報も取得します。
+    /// </summary>
+    /// <param name="item">分類中の項目。</param>
+    /// <param name="preciseCompare">XXH128 で内容を比較する場合は true。</param>
+    /// <param name="compareTimestamp">更新日時を比較する場合は true。</param>
+    /// <param name="compareSize">サイズを比較する場合は true。</param>
+    /// <param name="compareAttributes">BOM の有無を比較する場合は true。</param>
+    /// <param name="token">キャンセル トークン。</param>
     private static void ReadContent(ClassifyWork item, bool preciseCompare, bool compareTimestamp,
         bool compareSize, bool compareAttributes, CancellationToken token)
     {
@@ -801,6 +948,18 @@ internal static class DeveloperDifferencerService
         item.TargetNow = b == null ? null : DiffStamp.Read(item.TargetPath);
     }
 
+    /// <summary>
+    ///     ハッシュを計算すべきかどうかを判定します。両側が存在し、有効なサイズ・日時・BOM のチェックがすべて一致する場合だけ計算します。
+    /// </summary>
+    /// <param name="source">比較元のファイル情報。</param>
+    /// <param name="target">比較先のファイル情報。</param>
+    /// <param name="compareTimestamp">更新日時を比較する場合は true。</param>
+    /// <param name="compareSize">サイズを比較する場合は true。</param>
+    /// <param name="compareAttributes">BOM の有無を比較する場合は true。</param>
+    /// <param name="sourceBom">比較元の BOM の有無。読み取れない場合は null。</param>
+    /// <param name="targetBom">比較先の BOM の有無。読み取れない場合は null。</param>
+    /// <param name="preciseCompare">精密比較が有効な場合は true。</param>
+    /// <returns>ハッシュを計算する場合は true。</returns>
     internal static bool ShouldHash(DiffStamp source, DiffStamp target, bool compareTimestamp, bool compareSize,
         bool compareAttributes, bool? sourceBom, bool? targetBom, bool preciseCompare)
     {
@@ -840,6 +999,11 @@ internal static class DeveloperDifferencerService
         return path;
     }
 
+    /// <summary>
+    ///     ファイルの先頭に BOM (UTF-8、UTF-16、UTF-32 BE) があるかどうかを判定します。
+    /// </summary>
+    /// <param name="path">ファイルのパス。</param>
+    /// <returns>BOM がある場合は true。読み取れない場合は null。</returns>
     internal static bool? HasBom(string path)
     {
         try
@@ -864,6 +1028,12 @@ internal static class DeveloperDifferencerService
 
     private const int HashBufferSize = 131072;
 
+    /// <summary>
+    ///     ファイルの XXH128 ハッシュを、プールしたバッファーで順次読み取りながら計算します。
+    /// </summary>
+    /// <param name="path">ファイルのパス。</param>
+    /// <param name="token">キャンセル トークン。</param>
+    /// <returns>16 進文字列のハッシュ。ファイルがない場合は null。</returns>
     internal static string HashFile(string path, CancellationToken token = default)
     {
         if (string.IsNullOrEmpty(path) || !File.Exists(path)) return null;
@@ -891,6 +1061,13 @@ internal static class DeveloperDifferencerService
         return Convert.ToHexString(xxh128.GetCurrentHash());
     }
 
+    /// <summary>
+    ///     同期の直前に、ファイルが比較時のサイズ・更新日時・ハッシュから変わっていないかを確認します。比較の設定に関係なく確認します。
+    /// </summary>
+    /// <param name="path">ファイルのパス。</param>
+    /// <param name="stamp">比較時のファイル情報。</param>
+    /// <param name="hash">比較時のハッシュ。null の場合はハッシュを確認しません。</param>
+    /// <returns>変わっていない場合は true。</returns>
     private static bool MatchesSnapshot(string path, DiffStamp stamp, string hash)
     {
         // Snapshot validation is independent of the user's comparison filters.
@@ -1142,11 +1319,21 @@ internal static class DeveloperDifferencerService
         return log;
     }
 
+    /// <summary>
+    ///     相対パスのフォルダーの深さを求めます。
+    /// </summary>
+    /// <param name="relativePath">相対パス。</param>
+    /// <returns>パス要素の数。</returns>
     private static int FolderDepth(string relativePath)
     {
         return relativePath.Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries).Length;
     }
 
+    /// <summary>
+    ///     ファイルが他のプロセスにロックされているかどうかを、排他で開けるかどうかで判定します。アクセス権の問題はロックとみなしません。
+    /// </summary>
+    /// <param name="path">ファイルのパス。</param>
+    /// <returns>共有違反またはロック違反の場合は true。</returns>
     private static bool IsFileLocked(string path)
     {
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return false;
@@ -1333,6 +1520,11 @@ internal static class DeveloperDifferencerService
         return log;
     }
 
+    /// <summary>
+    ///     比較ルートのフォルダー名から、ZIP 内の最上位フォルダー名を作成します。
+    /// </summary>
+    /// <param name="root">比較ルート。</param>
+    /// <returns>無効な文字を置き換えたフォルダー名。</returns>
     private static string ZipRootFolderName(string root)
     {
         var name = Path.GetFileName((root ?? "").TrimEnd('\\', '/'));
@@ -1342,6 +1534,13 @@ internal static class DeveloperDifferencerService
         return name;
     }
 
+    /// <summary>
+    ///     最上位フォルダーと相対パスから ZIP のエントリ名を作成します。
+    /// </summary>
+    /// <param name="wrapper">最上位フォルダー名。</param>
+    /// <param name="relative">相対パス。</param>
+    /// <param name="directory">フォルダーのエントリの場合は true。末尾にスラッシュを付けます。</param>
+    /// <returns>ZIP のエントリ名。</returns>
     private static string ZipEntryName(string wrapper, string relative, bool directory)
     {
         var entry = (relative ?? "").Replace('\\', '/').Trim('/');
@@ -1351,6 +1550,12 @@ internal static class DeveloperDifferencerService
         return directory ? combined + "/" : combined;
     }
 
+    /// <summary>
+    ///     ZIP に、指定パスとその親のフォルダー エントリをまだなければ追加します。
+    /// </summary>
+    /// <param name="archive">追加先の ZIP。</param>
+    /// <param name="entry">フォルダーのエントリ名。</param>
+    /// <param name="created">作成済みのフォルダー エントリ。</param>
     private static void AddZipDirectory(ZipArchive archive, string entry, HashSet<string> created)
     {
         if (archive == null || string.IsNullOrEmpty(entry)) return;
@@ -1368,6 +1573,12 @@ internal static class DeveloperDifferencerService
         }
     }
 
+    /// <summary>
+    ///     比較ルートと相対パスから安全な絶対パスを作成します。検証に失敗した場合は空文字列を返します。
+    /// </summary>
+    /// <param name="root">比較ルート。</param>
+    /// <param name="relative">相対パス。</param>
+    /// <returns>絶対パス。検証に失敗した場合は空文字列。</returns>
     private static string SafePathOrEmpty(string root, string relative)
     {
         try
@@ -1393,6 +1604,12 @@ internal static class DeveloperDifferencerService
         }
     }
 
+    /// <summary>
+    ///     Win32 API の GetFileInformationByHandle を呼び出し、ファイル ハンドルから属性・日時・サイズなどを取得します。
+    /// </summary>
+    /// <param name="handle">ファイル ハンドル。</param>
+    /// <param name="info">取得した情報。</param>
+    /// <returns>成功した場合は true。</returns>
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool GetFileInformationByHandle(SafeFileHandle handle, out HandleInfo info);
 

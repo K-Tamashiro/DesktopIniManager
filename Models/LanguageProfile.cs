@@ -5,6 +5,11 @@ namespace DesktopIniManager.Models;
 
 internal sealed class LanguageProfile
 {
+    /// <summary>
+    ///     言語プロファイルを作成します。
+    /// </summary>
+    /// <param name="name">プロファイル名。</param>
+    /// <param name="extensions">対象とするファイル拡張子。</param>
     public LanguageProfile(string name, params string[] extensions)
     {
         Name = name;
@@ -34,6 +39,10 @@ internal sealed class LanguageProfile
         new LanguageProfile("Document", ".xls", ".xlsx", ".xlsm", ".pdf")
     };
 
+    /// <summary>
+    ///     プロファイル名を返します。
+    /// </summary>
+    /// <returns>プロファイル名。</returns>
     public override string ToString()
     {
         return Name;

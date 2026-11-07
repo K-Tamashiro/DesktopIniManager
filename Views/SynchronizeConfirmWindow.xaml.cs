@@ -14,17 +14,45 @@ namespace DesktopIniManager.Views;
 
 internal partial class SynchronizeConfirmWindow
 {
+    /// <summary>
+    ///     同期確認ダイアログを作成します。
+    /// </summary>
     public SynchronizeConfirmWindow()
     {
         InitializeComponent();
     }
 
+    /// <summary>
+    ///     同期するファイルとフォルダーの一覧を表示し、実行するかどうかを確認します。
+    /// </summary>
+    /// <param name="owner">オーナー ウィンドウ。</param>
+    /// <param name="direction">同期の方向の表示文字列。</param>
+    /// <param name="files">同期するファイル。</param>
+    /// <param name="folders">同期するフォルダー。</param>
+    /// <param name="toTarget">比較元から比較先へ同期する場合は true。</param>
+    /// <param name="sourceRoot">比較元のルート。</param>
+    /// <param name="targetRoot">比較先のルート。</param>
+    /// <returns>実行する場合は true。</returns>
     internal static bool Confirm(Window owner, string direction, DiffFile[] files, DiffFolderSync[] folders,
         bool toTarget, string sourceRoot, string targetRoot)
     {
         return Confirm(owner, direction, files, folders, toTarget, sourceRoot, targetRoot, false, out _, out _);
     }
 
+    /// <summary>
+    ///     同期または ZIP 出力の対象と操作の一覧を表示し、実行するかどうかを確認します。ZIP の場合は出力先とファイル名も指定させます。
+    /// </summary>
+    /// <param name="owner">オーナー ウィンドウ。</param>
+    /// <param name="direction">処理の方向の表示文字列。</param>
+    /// <param name="files">対象のファイル。</param>
+    /// <param name="folders">対象のフォルダー。</param>
+    /// <param name="toTarget">比較元から比較先への処理の場合は true。</param>
+    /// <param name="sourceRoot">比較元のルート。</param>
+    /// <param name="targetRoot">比較先のルート。</param>
+    /// <param name="zipMode">ZIP 出力の場合は true。</param>
+    /// <param name="zipFileName">指定された ZIP ファイル名。</param>
+    /// <param name="zipFolder">指定された ZIP の出力先フォルダー。</param>
+    /// <returns>実行する場合は true。</returns>
     internal static bool Confirm(Window owner, string direction, DiffFile[] files, DiffFolderSync[] folders,
         bool toTarget, string sourceRoot, string targetRoot, bool zipMode, out string zipFileName, out string zipFolder)
     {
@@ -127,6 +155,11 @@ internal partial class SynchronizeConfirmWindow
         return true;
     }
 
+    /// <summary>
+    ///     ルート フォルダー名と現在の日時から、既定の ZIP ファイル名を作成します。
+    /// </summary>
+    /// <param name="root">ルート フォルダー。</param>
+    /// <returns>ZIP ファイル名。</returns>
     private static string CreateDefaultZipFileName(string root)
     {
         var name = Path.GetFileName((root ?? string.Empty).TrimEnd(Path.DirectorySeparatorChar,
@@ -137,6 +170,12 @@ internal partial class SynchronizeConfirmWindow
         return name + "_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".zip";
     }
 
+    /// <summary>
+    ///     入力欄の履歴の先頭の値を取得します。
+    /// </summary>
+    /// <param name="box">履歴付きの入力欄。</param>
+    /// <param name="fallback">履歴がない場合の値。</param>
+    /// <returns>履歴の先頭の値、または既定値。</returns>
     private static string FirstHistoryOrDefault(HistoryTextBox box, string fallback)
     {
         if (box == null) return fallback;
@@ -155,6 +194,12 @@ internal partial class SynchronizeConfirmWindow
         return fallback;
     }
 
+    /// <summary>
+    ///     フォルダーの同期で行う操作 (作成または削除) を判定します。
+    /// </summary>
+    /// <param name="folder">同期するフォルダー。</param>
+    /// <param name="toTarget">比較元から比較先へ同期する場合は true。</param>
+    /// <returns>"CreateDir"、"DeleteDir"、または操作がない場合は null。</returns>
     private static string FolderOperation(DiffFolderSync folder, bool toTarget)
     {
         var fromExists = toTarget ? folder.SourceExists : folder.TargetExists;
@@ -164,6 +209,11 @@ internal partial class SynchronizeConfirmWindow
         return null;
     }
 
+    /// <summary>
+    ///     操作名を表示用の文字列に変換します。
+    /// </summary>
+    /// <param name="operation">操作名。</param>
+    /// <returns>表示用の文字列。</returns>
     private static string LocalizedOperation(string operation)
     {
         if (operation == "Delete") return StringOverlay.Get("Differencer_Delete");
@@ -173,6 +223,11 @@ internal partial class SynchronizeConfirmWindow
         return StringOverlay.Get("Differencer_Overwrite");
     }
 
+    /// <summary>
+    ///     アイコンを表示する Image を作成します。
+    /// </summary>
+    /// <param name="icon">表示するアイコン。</param>
+    /// <returns>作成した Image。</returns>
     private static Image IconContent(ImageSource icon)
     {
         var image = new Image
@@ -185,6 +240,12 @@ internal partial class SynchronizeConfirmWindow
         return image;
     }
 
+    /// <summary>
+    ///     Segoe MDL2 Assets の記号とラベルを並べた表示を作成します。
+    /// </summary>
+    /// <param name="glyph">表示する記号。</param>
+    /// <param name="label">ラベル。</param>
+    /// <returns>作成したパネル。</returns>
     private static StackPanel ActionGlyph(string glyph, string label)
     {
         var content = new StackPanel { Orientation = Orientation.Horizontal };
@@ -200,6 +261,11 @@ internal partial class SynchronizeConfirmWindow
         return content;
     }
 
+    /// <summary>
+    ///     ZIP の出力先フォルダーを選ぶダイアログを表示します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private void BrowseZipPath_Click(object sender, RoutedEventArgs e)
     {
         var initial = string.IsNullOrWhiteSpace(ZipPathBox.Text)
@@ -211,11 +277,21 @@ internal partial class SynchronizeConfirmWindow
             ZipPathBox.Text = path;
     }
 
+    /// <summary>
+    ///     ダイアログを取り消します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private void Cancel_Click(object sender, RoutedEventArgs e)
     {
         DialogResult = false;
     }
 
+    /// <summary>
+    ///     実行を確定してダイアログを閉じます。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private void Sync_Click(object sender, RoutedEventArgs e)
     {
         DialogResult = true;

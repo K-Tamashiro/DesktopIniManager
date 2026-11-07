@@ -15,6 +15,11 @@ internal sealed class StartupState
     internal FolderTreeState Tree;
     internal bool TreeCompact;
 
+    /// <summary>
+    ///     設定、保存済みのフォルダー ツリー、既定アイコンを読み込み、起動に必要な状態をまとめます。
+    /// </summary>
+    /// <param name="report">進捗メッセージと完了ステップ数を受け取る通知。</param>
+    /// <returns>読み込んだ起動状態。</returns>
     internal static StartupState Load(Action<string, int> report)
     {
         report(Strings.Splash_LoadingSettings, 0);

@@ -16,12 +16,19 @@ internal sealed class ClipboardInputStore : IDisposable
     private readonly List<string> _files = new();
     private bool _disposed;
 
+    /// <summary>
+    ///     クリップボード内容の一時コピーを保存するフォルダーを決定します。
+    /// </summary>
+    /// <param name="root">一時フォルダーの親。null の場合はシステムの一時フォルダー。</param>
     internal ClipboardInputStore(string root = null)
     {
         _directory = Path.Combine(root ?? Path.GetTempPath(),
             "DesktopIniManager-clipboard-" + Guid.NewGuid().ToString("N"));
     }
 
+    /// <summary>
+    ///     作成した一時ファイルの削除をバックグラウンドで開始します。
+    /// </summary>
     public void Dispose()
     {
         if (_disposed) return;
@@ -29,6 +36,11 @@ internal sealed class ClipboardInputStore : IDisposable
         _ = CleanUpAsync();
     }
 
+    /// <summary>
+    ///     クリップボードのファイル・WAVE 音声・画像・テキストを一時ファイルにコピーし、比較に使えるパスを返します。
+    /// </summary>
+    /// <param name="data">クリップボードのデータ オブジェクト。</param>
+    /// <returns>作成した一時ファイルのパス (1 つまたは 2 つ)。</returns>
     internal string[] Capture(IDataObject data)
     {
         if (_disposed) throw new ObjectDisposedException(nameof(ClipboardInputStore));
@@ -101,6 +113,12 @@ internal sealed class ClipboardInputStore : IDisposable
             "貼り付け可能なファイル・WAVE音声・画像・テキストがありません。編集ソフト独自の音声形式の場合は、WAVを書き出してファイルをコピーしてください。");
     }
 
+    /// <summary>
+    ///     一時フォルダーに新しいファイルを作成し、指定の処理で内容を書き込みます。
+    /// </summary>
+    /// <param name="extension">作成するファイルの拡張子。</param>
+    /// <param name="write">出力ストリームへの書き込み処理。</param>
+    /// <returns>作成したファイルのパス。</returns>
     private string Write(string extension, Action<Stream> write)
     {
         Directory.CreateDirectory(_directory);
@@ -111,6 +129,9 @@ internal sealed class ClipboardInputStore : IDisposable
         return path;
     }
 
+    /// <summary>
+    ///     作成した一時ファイルとフォルダーの削除を、使用中のファイルが解放されるまで一定回数再試行します。
+    /// </summary>
     private async Task CleanUpAsync()
     {
         // Background comparison/sampling may briefly retain a file after window close.

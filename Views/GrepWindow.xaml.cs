@@ -30,6 +30,11 @@ public partial class GrepWindow
     private HwndSource _inputSource;
     private double _matchColumnBaseWidth = 550;
 
+    /// <summary>
+    ///     Grep ウィンドウを作成し、ViewModel、アイコン、列幅、検索範囲を初期化します。
+    /// </summary>
+    /// <param name="scopeProvider">メイン画面でチェックされたフォルダーを取得する処理。</param>
+    /// <param name="initialScopes">初期の検索範囲。</param>
     public GrepWindow(Func<IReadOnlyList<string>> scopeProvider, IReadOnlyList<string> initialScopes)
     {
         ViewModel = new GrepWindowViewModel(scopeProvider, Dispatcher, new UserDialogService(this));
@@ -92,6 +97,11 @@ public partial class GrepWindow
         };
     }
 
+    /// <summary>
+    ///     ファイルのドラッグ中にコピーのカーソルを表示します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">ドラッグ イベントのデータ。</param>
     private static void FolderDropPreview(object sender, DragEventArgs e)
     {
         if (e.Data == null || !e.Data.GetDataPresent(DataFormats.FileDrop))
@@ -101,6 +111,11 @@ public partial class GrepWindow
         e.Handled = true;
     }
 
+    /// <summary>
+    ///     ドロップされたフォルダーを検索範囲に追加します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">ドラッグ イベントのデータ。</param>
     private void GrepWindow_Drop(object sender, DragEventArgs e)
     {
         List<string> folders = FoldersFromDrop(e.Data);
@@ -109,6 +124,11 @@ public partial class GrepWindow
         e.Handled = true;
     }
 
+    /// <summary>
+    ///     ドロップされたデータからフォルダーを重複なく取り出します。ファイルの場合はその親フォルダーを使います。
+    /// </summary>
+    /// <param name="data">ドロップされたデータ。</param>
+    /// <returns>フォルダーのパス。</returns>
     private static List<string> FoldersFromDrop(IDataObject data)
     {
         var folders = new List<string>();
@@ -133,12 +153,22 @@ public partial class GrepWindow
         return folders;
     }
 
+    /// <summary>
+    ///     Shift キーを押しながらのマウス ホイールで、結果一覧を横にスクロールします。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">マウス ホイールのイベントデータ。</param>
     private void ResultsGrid_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
         if ((Keyboard.Modifiers & ModifierKeys.Shift) == 0) return;
         if (ScrollResultsHorizontally(-e.Delta)) e.Handled = true;
     }
 
+    /// <summary>
+    ///     結果一覧を横にスクロールします。
+    /// </summary>
+    /// <param name="delta">ホイールの回転量。</param>
+    /// <returns>スクロールした場合は true。</returns>
     private bool ScrollResultsHorizontally(int delta)
     {
         ScrollViewer viewer = FindVisualDescendants<ScrollViewer>(ResultsGrid).FirstOrDefault();
@@ -147,6 +177,15 @@ public partial class GrepWindow
         return true;
     }
 
+    /// <summary>
+    ///     チルト ホイール (WM_MOUSEHWHEEL) のメッセージを処理し、カーソルが結果一覧の上にある場合は横にスクロールします。
+    /// </summary>
+    /// <param name="hwnd">ウィンドウ ハンドル。</param>
+    /// <param name="message">ウィンドウ メッセージ。</param>
+    /// <param name="wParam">WPARAM。</param>
+    /// <param name="lParam">LPARAM。</param>
+    /// <param name="handled">処理済みかどうか。</param>
+    /// <returns>メッセージの戻り値。</returns>
     private IntPtr HorizontalWheelMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         const int mouseHorizontalWheel = 0x020E;
@@ -165,6 +204,10 @@ public partial class GrepWindow
         return IntPtr.Zero;
     }
 
+    /// <summary>
+    ///     パスの入力欄で常に末尾が見えるよう、イベント ハンドラーを登録します。
+    /// </summary>
+    /// <param name="box">対象の入力欄。</param>
     private void HookPathBox(TextBox box)
     {
         box.GotKeyboardFocus += (_, _) => ShowTextEnd(box);
@@ -175,6 +218,10 @@ public partial class GrepWindow
         };
     }
 
+    /// <summary>
+    ///     入力欄のキャレットを末尾に移動し、テキストの末尾を表示します。
+    /// </summary>
+    /// <param name="box">対象の入力欄。</param>
     private static void ShowTextEnd(TextBox box)
     {
         if (box == null) return;
@@ -192,11 +239,20 @@ public partial class GrepWindow
         ApplyGroupExpansion(sender as Expander);
     }
 
+    /// <summary>
+    ///     グループの表示内容が変わったときに、記録している展開状態を反映します。
+    /// </summary>
+    /// <param name="sender">対象の Expander。</param>
+    /// <param name="e">イベントデータ。</param>
     private void ResultGroupExpander_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         ApplyGroupExpansion(sender as Expander);
     }
 
+    /// <summary>
+    ///     グループの展開状態を、記録している状態または全体の既定値に合わせます。
+    /// </summary>
+    /// <param name="expander">対象の Expander。</param>
     private void ApplyGroupExpansion(Expander expander)
     {
         if (expander == null) return;
@@ -254,6 +310,10 @@ public partial class GrepWindow
         finally { _applyingGroupExpansion = false; }
     }
 
+    /// <summary>
+    ///     指定した結果が見えるよう結果一覧をスクロールします。
+    /// </summary>
+    /// <param name="match">表示する結果。</param>
     private void ScrollToMatch(GrepMatch match)
     {
         if (match == null || ResultsGrid == null) return;
@@ -272,12 +332,22 @@ public partial class GrepWindow
         }), DispatcherPriority.Background);
     }
 
+    /// <summary>
+    ///     グループ見出しからのファイルのドラッグに備えて、押した位置とグループを記録します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">マウス イベントのデータ。</param>
     private void GroupHeader_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         _groupDragPath = ResultGroupKey(FindAncestor<Expander>(sender as DependencyObject) ?? sender as Expander);
         _groupDragStart = e.GetPosition(null);
     }
 
+    /// <summary>
+    ///     グループ見出しから一定距離ドラッグしたときに、そのファイルを外部へドラッグします。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">マウス イベントのデータ。</param>
     private void GroupHeader_PreviewMouseMove(object sender, MouseEventArgs e)
     {
         if (e.LeftButton != MouseButtonState.Pressed || string.IsNullOrEmpty(_groupDragPath)) return;
@@ -289,6 +359,11 @@ public partial class GrepWindow
             DropOutService.DragExisting(sender as DependencyObject, new[] { path });
     }
 
+    /// <summary>
+    ///     グループ見出しのクリックで展開と折りたたみを切り替えます。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">マウス イベントのデータ。</param>
     private void GroupHeader_Click(object sender, MouseButtonEventArgs e)
     {
         if (e.OriginalSource is Button) return;
@@ -298,6 +373,11 @@ public partial class GrepWindow
         e.Handled = true;
     }
 
+    /// <summary>
+    ///     グループの結果を一覧から削除します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private void RemoveGroup_Click(object sender, RoutedEventArgs e)
     {
         e.Handled = true;
@@ -305,18 +385,33 @@ public partial class GrepWindow
         if (!string.IsNullOrEmpty(key)) ViewModel.RemoveGroup(key);
     }
 
+    /// <summary>
+    ///     グループのファイル パスをクリップボードにコピーします。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private void CopyGroupPath_Click(object sender, RoutedEventArgs e)
     {
         string key = GroupKeyFromSender(sender as DependencyObject);
         if (!string.IsNullOrEmpty(key)) ViewModel.CopyGroupPath(key);
     }
 
+    /// <summary>
+    ///     グループのファイルがあるフォルダーを開きます。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private void OpenGroupFolder_Click(object sender, RoutedEventArgs e)
     {
         string key = GroupKeyFromSender(sender as DependencyObject);
         if (!string.IsNullOrEmpty(key)) ViewModel.OpenGroupFolder(key);
     }
 
+    /// <summary>
+    ///     メニュー項目やボタンから、対象のグループのキーを取得します。
+    /// </summary>
+    /// <param name="source">イベントの送信元。</param>
+    /// <returns>グループのキー。見つからない場合は null。</returns>
     private static string GroupKeyFromSender(DependencyObject source)
     {
         var menuItem = source as MenuItem;
@@ -328,6 +423,12 @@ public partial class GrepWindow
         return expander == null ? string.Empty : ResultGroupKey(expander);
     }
 
+    /// <summary>
+    ///     ビジュアル ツリーを親方向にたどり、指定した型の要素を探します。
+    /// </summary>
+    /// <typeparam name="T">探す要素の型。</typeparam>
+    /// <param name="current">探し始める要素。</param>
+    /// <returns>見つかった要素。見つからない場合は null。</returns>
     private static T FindAncestor<T>(DependencyObject current) where T : DependencyObject
     {
         while (current != null)
@@ -339,6 +440,9 @@ public partial class GrepWindow
         return null;
     }
 
+    /// <summary>
+    ///     保存先を選ばせて、表示中の結果をテキスト ファイルに保存します。
+    /// </summary>
     private void SaveResults()
     {
         var dialog = new SaveFileDialog
@@ -369,6 +473,9 @@ public partial class GrepWindow
         }
     }
 
+    /// <summary>
+    ///     エディターの実行ファイルを選ばせて設定します。
+    /// </summary>
     private void BrowseEditor()
     {
         var dialog = new OpenFileDialog { Filter = Strings.Grep_EditorFilter, CheckFileExists = true };
@@ -377,10 +484,21 @@ public partial class GrepWindow
         ShowTextEnd(EditorBox);
     }
 
+    /// <summary>
+    ///     検索範囲を指定したフォルダーに置き換えます。
+    /// </summary>
+    /// <param name="scopes">検索範囲のフォルダー。</param>
     public void SetExplicitScopes(IReadOnlyList<string> scopes) => ViewModel.SetExplicitScopes(scopes);
 
+    /// <summary>
+    ///     メイン画面でチェックされているフォルダーを検索範囲として読み込み直します。
+    /// </summary>
     public void ReloadFromMainWindow() => ViewModel.ReloadFromMainWindow();
 
+    /// <summary>
+    ///     閉じる前に履歴と設定を保存し、列幅を記録します。履歴を保存できなかった場合は閉じません。
+    /// </summary>
+    /// <param name="e">イベントデータ。</param>
     protected override void OnClosing(CancelEventArgs e)
     {
         if (!ViewModel.Close()) { e.Cancel = true; return; }
@@ -391,6 +509,10 @@ public partial class GrepWindow
         base.OnClosing(e);
     }
 
+    /// <summary>
+    ///     保存された列幅が有効であれば適用し、そうでなければ既定の列幅を使います。
+    /// </summary>
+    /// <param name="widths">保存された列幅。</param>
     private void ApplyGrepColumnWidths(double[] widths)
     {
         ResultsGrid.RowHeaderWidth = 0;
@@ -416,16 +538,30 @@ public partial class GrepWindow
         }
     }
 
+    /// <summary>
+    ///     行のテキストが読み込まれたときに、一致箇所を強調表示します。
+    /// </summary>
+    /// <param name="sender">対象の TextBlock。</param>
+    /// <param name="e">イベントデータ。</param>
     private void MatchLine_Loaded(object sender, RoutedEventArgs e)
     {
         ApplyMatchHighlight(sender as TextBlock);
     }
 
+    /// <summary>
+    ///     行の表示内容が変わったときに、一致箇所を強調表示し直します。
+    /// </summary>
+    /// <param name="sender">対象の TextBlock。</param>
+    /// <param name="e">イベントデータ。</param>
     private void MatchLine_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         ApplyMatchHighlight(sender as TextBlock);
     }
 
+    /// <summary>
+    ///     行のテキスト内の一致箇所を赤で強調表示します。
+    /// </summary>
+    /// <param name="block">対象の TextBlock。</param>
     private static void ApplyMatchHighlight(TextBlock block)
     {
         if (block == null) return;
@@ -459,6 +595,9 @@ public partial class GrepWindow
 
     private bool _updatingGroupToggle;
 
+    /// <summary>
+    ///     Grep ウィンドウの各ボタンにアイコンを設定します。
+    /// </summary>
     private void ApplyGrepIcons()
     {
         SetIcon(CloseButtonIcon, 26);
@@ -476,12 +615,22 @@ public partial class GrepWindow
         UpdateResultGroupsIcon();
     }
 
+    /// <summary>
+    ///     Image にアイコン ライブラリのアイコンを設定します。
+    /// </summary>
+    /// <param name="image">対象の Image。</param>
+    /// <param name="index">アイコンのインデックス。</param>
     private static void SetIcon(Image image, int index)
     {
         if (image != null)
             image.Source = DifferencerStatusIcons.GetCustomIcon(index);
     }
 
+    /// <summary>
+    ///     すべてのグループの展開と折りたたみを切り替えます。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private void ResultGroupsToggle_Changed(object sender, RoutedEventArgs e)
     {
         if (_updatingGroupToggle) return;
@@ -490,6 +639,9 @@ public partial class GrepWindow
         UpdateResultGroupsIcon();
     }
 
+    /// <summary>
+    ///     展開・折りたたみボタンのアイコンとツールチップを更新します。
+    /// </summary>
     private void UpdateResultGroupsIcon()
     {
         bool expanded = ResultGroupsToggle != null && ResultGroupsToggle.IsChecked == true;
@@ -498,6 +650,11 @@ public partial class GrepWindow
             ResultGroupsToggle.ToolTip = expanded ? Strings.Common_Collapse : Strings.Common_Expand;
     }
 
+    /// <summary>
+    ///     履歴タブのダブルクリックで、そのタブを削除します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">マウス イベントのデータ。</param>
     private void HistoryTabStrip_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (sender is not ItemsControl control ||
@@ -510,12 +667,22 @@ public partial class GrepWindow
             ViewModel.DeleteHistoryTabCommand.Execute(item.DataContext);
     }
 
+    /// <summary>
+    ///     すべての履歴タブを削除します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private void DeleteAllHistoryTabs_Click(object sender, RoutedEventArgs e)
     {
         if (ViewModel.DeleteAllHistoryTabsCommand.CanExecute(null))
             ViewModel.DeleteAllHistoryTabsCommand.Execute(null);
     }
 
+    /// <summary>
+    ///     メニューを開いたタブ以外の履歴タブを削除します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private void DeleteOtherHistoryTabs_Click(object sender, RoutedEventArgs e)
     {
         var menu = (sender as MenuItem)?.Parent as ContextMenu;
@@ -527,15 +694,37 @@ public partial class GrepWindow
 
 internal sealed class GrepGroupDirectoryConverter : IValueConverter
 {
+    /// <summary>
+    ///     グループのパスからフォルダー部分を取り出します。
+    /// </summary>
+    /// <param name="value">グループのパス。</param>
+    /// <param name="targetType">変換先の型。</param>
+    /// <param name="parameter">変換パラメーター (使用しません)。</param>
+    /// <param name="culture">カルチャ。</param>
+    /// <returns>フォルダー部分。</returns>
     public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
     {
         SplitGroupPath(value as string, out string directory, out _);
         return directory;
     }
 
+    /// <summary>
+    ///     逆変換には対応しません。
+    /// </summary>
+    /// <param name="value">変換する値。</param>
+    /// <param name="targetType">変換先の型。</param>
+    /// <param name="parameter">変換パラメーター。</param>
+    /// <param name="culture">カルチャ。</param>
+    /// <returns>Binding.DoNothing。</returns>
     public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture) =>
         Binding.DoNothing;
 
+    /// <summary>
+    ///     グループのパスをフォルダー部分とファイル名に分けます。
+    /// </summary>
+    /// <param name="name">グループのパス。</param>
+    /// <param name="directory">フォルダー部分 (末尾の区切り文字を含む)。</param>
+    /// <param name="fileName">ファイル名。</param>
     internal static void SplitGroupPath(string name, out string directory, out string fileName)
     {
         directory = name ?? string.Empty;
@@ -551,12 +740,28 @@ internal sealed class GrepGroupDirectoryConverter : IValueConverter
 
 internal sealed class GrepGroupFileConverter : IValueConverter
 {
+    /// <summary>
+    ///     グループのパスからファイル名を取り出します。
+    /// </summary>
+    /// <param name="value">グループのパス。</param>
+    /// <param name="targetType">変換先の型。</param>
+    /// <param name="parameter">変換パラメーター (使用しません)。</param>
+    /// <param name="culture">カルチャ。</param>
+    /// <returns>ファイル名。</returns>
     public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
     {
         GrepGroupDirectoryConverter.SplitGroupPath(value as string, out _, out string fileName);
         return fileName;
     }
 
+    /// <summary>
+    ///     逆変換には対応しません。
+    /// </summary>
+    /// <param name="value">変換する値。</param>
+    /// <param name="targetType">変換先の型。</param>
+    /// <param name="parameter">変換パラメーター。</param>
+    /// <param name="culture">カルチャ。</param>
+    /// <returns>Binding.DoNothing。</returns>
     public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture) =>
         Binding.DoNothing;
 }

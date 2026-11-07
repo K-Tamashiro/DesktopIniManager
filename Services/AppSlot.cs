@@ -18,6 +18,12 @@ internal static class AppSlot
 
     public static event Action FrontRequested;
 
+    /// <summary>
+    ///     引数で指定されたスロット、または空いている最初のスロット (dim-1 から dim-5) を確保します。
+    /// </summary>
+    /// <param name="args">コマンドライン引数。-d1 から -d5 でスロットを指定できます。</param>
+    /// <param name="failure">確保できなかった場合のメッセージ。</param>
+    /// <returns>スロットを確保できた場合は true。</returns>
     public static bool TryAcquire(string[] args, out string failure)
     {
         failure = null;
@@ -36,12 +42,22 @@ internal static class AppSlot
         return false;
     }
 
+    /// <summary>
+    ///     スロットの状態を表す文字列を取得します。
+    /// </summary>
+    /// <param name="slot">スロット番号。</param>
+    /// <returns>自分が使用中なら "In Use"、他プロセスが使用中なら "Open"、空きなら "Free"。</returns>
     public static string StateText(int slot)
     {
         if (slot == Number) return "In Use";
         return IsHeld(slot) ? "Open" : "Free";
     }
 
+    /// <summary>
+    ///     指定スロットのミューテックスを別のプロセスが保持しているかどうかを判定します。
+    /// </summary>
+    /// <param name="slot">スロット番号。</param>
+    /// <returns>保持されている場合は true。</returns>
     private static bool IsHeld(int slot)
     {
         using (var mutex = new Mutex(false, @"Local\DesktopIniManager-dim-" + slot))
@@ -68,6 +84,11 @@ internal static class AppSlot
         }
     }
 
+    /// <summary>
+    ///     コマンドライン引数から -d1 から -d5 のスロット指定を取得します。
+    /// </summary>
+    /// <param name="args">コマンドライン引数。</param>
+    /// <returns>指定されたスロット番号。指定がない場合は 0。</returns>
     private static int RequestedSlot(string[] args)
     {
         if (args == null) return 0;
@@ -82,6 +103,11 @@ internal static class AppSlot
         return 0;
     }
 
+    /// <summary>
+    ///     スロットのミューテックスを取得し、前面表示要求を待ち受けるバックグラウンド スレッドを開始します。
+    /// </summary>
+    /// <param name="slot">スロット番号。</param>
+    /// <returns>取得できた場合は true。</returns>
     private static bool Acquire(int slot)
     {
         var mutex = new Mutex(false, @"Local\DesktopIniManager-dim-" + slot);
@@ -111,6 +137,10 @@ internal static class AppSlot
         return true;
     }
 
+    /// <summary>
+    ///     別プロセスで動作中のスロットに前面表示を要求します。
+    /// </summary>
+    /// <param name="slot">スロット番号。</param>
     public static void Activate(int slot)
     {
         if (slot == Number) return;
@@ -126,6 +156,9 @@ internal static class AppSlot
         }
     }
 
+    /// <summary>
+    ///     確保しているスロットのミューテックスを解放します。
+    /// </summary>
     public static void Release()
     {
         _slotMutex?.ReleaseMutex();

@@ -14,15 +14,25 @@ public sealed class L : MarkupExtension
     private static readonly Lock Gate = new();
     private static DispatcherOperation _pending;
 
+    /// <summary>
+    ///     表示カルチャの変更時に、登録済みのバインド先を更新するよう購読します。
+    /// </summary>
     static L()
     {
         StringOverlay.CultureChanged += (_, _) => Refresh();
     }
 
+    /// <summary>
+    ///     キーを指定せずにマークアップ拡張を作成します。
+    /// </summary>
     public L()
     {
     }
 
+    /// <summary>
+    ///     リソース キーを指定してマークアップ拡張を作成します。
+    /// </summary>
+    /// <param name="key">ローカライズ文字列のリソース キー。</param>
     public L(string key)
     {
         Key = key;
@@ -30,6 +40,11 @@ public sealed class L : MarkupExtension
 
     public string Key { get; set; }
 
+    /// <summary>
+    ///     ローカライズ文字列を返し、カルチャ変更時に更新できるようバインド先のプロパティを登録します。
+    /// </summary>
+    /// <param name="serviceProvider">マークアップ拡張のサービス プロバイダー。</param>
+    /// <returns>ローカライズ文字列。共有テンプレート内では自分自身。</returns>
     public override object ProvideValue(IServiceProvider serviceProvider)
     {
         var provide = serviceProvider.GetService(typeof(IProvideValueTarget)) as IProvideValueTarget;
@@ -50,6 +65,9 @@ public sealed class L : MarkupExtension
         return StringOverlay.Get(Key);
     }
 
+    /// <summary>
+    ///     登録済みのバインド先の更新を、UI スレッドで 1 回だけ実行されるようにスケジュールします。
+    /// </summary>
     private static void Refresh()
     {
         var dispatcher = Application.Current?.Dispatcher;
@@ -59,6 +77,9 @@ public sealed class L : MarkupExtension
         _pending = dispatcher.BeginInvoke(DispatcherPriority.DataBind, new Action(Apply));
     }
 
+    /// <summary>
+    ///     破棄済みのバインド先を取り除き、生存しているバインド先に現在のカルチャの文字列を設定します。
+    /// </summary>
     private static void Apply()
     {
         List<Target> live;
@@ -93,6 +114,12 @@ public sealed class L : MarkupExtension
     {
         private readonly WeakReference _reference;
 
+        /// <summary>
+        ///     バインド先のオブジェクトを弱参照で保持する登録情報を作成します。
+        /// </summary>
+        /// <param name="obj">バインド先のオブジェクト。</param>
+        /// <param name="property">バインド先のプロパティ。</param>
+        /// <param name="key">リソース キー。</param>
         internal Target(DependencyObject obj, DependencyProperty property, string key)
         {
             _reference = new WeakReference(obj);

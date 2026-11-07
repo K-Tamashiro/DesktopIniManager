@@ -20,11 +20,19 @@ internal sealed partial class DiffViewWindow
     private readonly HashSet<int> _targetSelectedEditHunks = [];
     private bool _savingText, _confirmingTextChanges, _allowEditedClose;
 
+    /// <summary>
+    ///     指定側で選択されている HUNK の集合を取得します。
+    /// </summary>
+    /// <param name="source">比較元の場合は true。</param>
+    /// <returns>選択されている HUNK の ID の集合。</returns>
     private HashSet<int> SelectedEditHunks(bool source)
     {
         return source ? _sourceSelectedEditHunks : _targetSelectedEditHunks;
     }
 
+    /// <summary>
+    ///     テキスト DIFF のコンテキスト メニュー (HUNK のコピー、元に戻す、保存など) を作成します。
+    /// </summary>
     private void InitializeDiffContextMenu()
     {
         var menu = new ContextMenu();
@@ -94,6 +102,11 @@ internal sealed partial class DiffViewWindow
         };
     }
 
+    /// <summary>
+    ///     ペインのヘッダーに、その側を保存するボタンを追加します。
+    /// </summary>
+    /// <param name="header">ボタンを追加するヘッダー。</param>
+    /// <param name="source">比較元の場合は true。</param>
     private void AddTextSaveButton(TextBlock header, bool source)
     {
         var button = new Button
@@ -112,6 +125,11 @@ internal sealed partial class DiffViewWindow
         header.Inlines.Add(new InlineUIContainer(button) { BaselineAlignment = BaselineAlignment.Center });
     }
 
+    /// <summary>
+    ///     テキスト DIFF の Ctrl キーとの組み合わせのショートカット (保存、元に戻すなど) を処理します。
+    /// </summary>
+    /// <param name="e">キー イベントのデータ。</param>
+    /// <returns>処理した場合は true。</returns>
     private bool HandleTextEditKey(KeyEventArgs e)
     {
         if (!ViewModel.IsText || Keyboard.Modifiers != ModifierKeys.Control) return false;
@@ -146,6 +164,10 @@ internal sealed partial class DiffViewWindow
         return false;
     }
 
+    /// <summary>
+    ///     ペインのテキスト選択に含まれる HUNK を、選択中の HUNK として記録します。
+    /// </summary>
+    /// <param name="pane">対象のペイン。</param>
     private void UpdateTextHunkSelection(RichTextBox pane)
     {
         if (_renderingContent || _savingText) return;
@@ -167,6 +189,11 @@ internal sealed partial class DiffViewWindow
         RefreshEditArrows();
     }
 
+    /// <summary>
+    ///     各 HUNK の横に、反対側へコピーする矢印ボタンを作成します。パッチ表示では適用できる比較元側だけに作成します。
+    /// </summary>
+    /// <param name="viewport">ボタンを配置するキャンバス。</param>
+    /// <param name="source">比較元側の場合は true。</param>
     private void BuildEditArrows(Canvas viewport, bool source)
     {
         while (viewport.Children.Count > 1) viewport.Children.RemoveAt(1);
@@ -211,6 +238,10 @@ internal sealed partial class DiffViewWindow
         PositionEditArrows(viewport, -Canvas.GetTop(viewport.Children[0]));
     }
 
+    /// <summary>
+    ///     HUNK の選択状態と、元に戻せるかどうかに応じて、矢印ボタンの見た目を更新します。
+    /// </summary>
+    /// <param name="viewport">ボタンを配置したキャンバス。</param>
     private void UpdateEditArrowAppearance(Canvas viewport)
     {
         var firstBySide = new Dictionary<bool, int>();
@@ -234,12 +265,19 @@ internal sealed partial class DiffViewWindow
         }
     }
 
+    /// <summary>
+    ///     両側の矢印ボタンの見た目を更新します。
+    /// </summary>
     private void RefreshEditArrows()
     {
         if (_leftList?.Tag is Canvas left) UpdateEditArrowAppearance(left);
         if (_rightList?.Tag is Canvas right) UpdateEditArrowAppearance(right);
     }
 
+    /// <summary>
+    ///     コピーした側の HUNK の選択とテキスト選択を解除します。
+    /// </summary>
+    /// <param name="source">比較元の場合は true。</param>
     private void ClearCopiedHunkSelection(bool source)
     {
         var pane = source ? _leftList : _rightList;
@@ -259,6 +297,11 @@ internal sealed partial class DiffViewWindow
         RefreshPatchMoveButtons();
     }
 
+    /// <summary>
+    ///     スクロール位置に合わせて矢印ボタンを配置します。
+    /// </summary>
+    /// <param name="viewport">ボタンを配置したキャンバス。</param>
+    /// <param name="offset">縦方向のスクロール位置。</param>
     private void PositionEditArrows(Canvas viewport, double offset)
     {
         foreach (var button in viewport.Children.OfType<Button>())
@@ -269,6 +312,9 @@ internal sealed partial class DiffViewWindow
         }
     }
 
+    /// <summary>
+    ///     編集後の内容で表示を作り直し、スクロール位置・選択・現在の HUNK を復元します。
+    /// </summary>
     private Task RenderTextEditsAsync()
     {
         if (_leftList == null || _rightList == null) return LoadContent(false, false);
@@ -322,6 +368,9 @@ internal sealed partial class DiffViewWindow
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    ///     未保存の変更を確認したうえで、ディスクから読み込み直します。
+    /// </summary>
     private async Task ReloadTextAsync()
     {
         if (_renderingContent || _savingText || !ViewModel.CanChangeComparison) return;
@@ -329,6 +378,9 @@ internal sealed partial class DiffViewWindow
         await ViewModel.ReloadFromDiskAsync();
     }
 
+    /// <summary>
+    ///     編集中の内容を現在の比較オプションで比較し直します。テキスト以外はディスクから読み込み直します。
+    /// </summary>
     private async Task RecompareWorkingTextAsync()
     {
         if (_renderingContent || _savingText || !ViewModel.CanChangeComparison) return;
@@ -351,6 +403,11 @@ internal sealed partial class DiffViewWindow
         await LoadContent(false);
     }
 
+    /// <summary>
+    ///     指定側の編集内容を保存します。保存できない文字がある場合はその位置を表示します。
+    /// </summary>
+    /// <param name="source">比較元を保存する場合は true。</param>
+    /// <returns>保存した場合、または保存の必要がない場合は true。</returns>
     private async Task<bool> SaveTextSideAsync(bool source)
     {
         if (ViewModel.IsPatch) return source || await SavePatchAsync();
@@ -389,6 +446,11 @@ internal sealed partial class DiffViewWindow
         return true;
     }
 
+    /// <summary>
+    ///     元のエンコーディングで表現できない文字の位置を表示し、その行を選択します。
+    /// </summary>
+    /// <param name="source">比較元の場合は true。</param>
+    /// <param name="index">テキスト全体での文字位置。</param>
     private async Task ShowEncodingErrorAsync(bool source, int index)
     {
         var (line, column) = ViewModel.EncodingErrorPosition(source, Math.Max(0, index));
@@ -416,6 +478,12 @@ internal sealed partial class DiffViewWindow
         pane.Selection.Select(start, end);
     }
 
+    /// <summary>
+    ///     段落内の文字位置に対応するテキスト位置を取得します。
+    /// </summary>
+    /// <param name="paragraph">対象の段落。</param>
+    /// <param name="offset">段落内の文字位置。</param>
+    /// <returns>テキスト位置。</returns>
     private static TextPointer TextPosition(Paragraph paragraph, int offset)
     {
         var position = paragraph.ContentStart;
@@ -435,6 +503,10 @@ internal sealed partial class DiffViewWindow
         return paragraph.ContentEnd;
     }
 
+    /// <summary>
+    ///     未保存の変更がある場合に、保存・破棄・取り消しを選ばせます。
+    /// </summary>
+    /// <returns>続行してよい場合は true。</returns>
     private async Task<bool> ConfirmTextChangesAsync()
     {
         if (_confirmingTextChanges || _savingText) return false;

@@ -63,6 +63,11 @@ public sealed class MainWindowPresentationService
     private Point _treeDragStart;
     private bool _updatingToggles;
 
+    /// <summary>
+    ///     メイン ウィンドウの表示処理を担うサービスを作成し、ViewModel、ウィンドウの配置、各コントロールのイベントを初期化します。
+    /// </summary>
+    /// <param name="window">対象のメイン ウィンドウ。</param>
+    /// <param name="startup">事前に読み込んだ起動状態。</param>
     internal MainWindowPresentationService(MainWindow window, StartupState startup)
     {
         _window = window;
@@ -197,11 +202,19 @@ public sealed class MainWindowPresentationService
 
     internal MainWindowViewModel ViewModel { get; }
 
+    /// <summary>
+    ///     メイン ウィンドウからリソースを検索します。
+    /// </summary>
+    /// <param name="key">リソース キー。</param>
+    /// <returns>見つかったリソース。</returns>
     private object FindResource(object key)
     {
         return _window.FindResource(key);
     }
 
+    /// <summary>
+    ///     キー操作・ドラッグ アンド ドロップ・ツリー・ファイル一覧など、ビューのイベントを ViewModel と表示処理に接続します。
+    /// </summary>
     private void ConnectView()
     {
         InputManager.Current.PreProcessInput += SwitchWindowShortcut;
@@ -303,6 +316,11 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     ファイルのドラッグ中にコピーのカーソルを表示します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">ドラッグ イベントのデータ。</param>
     private static void FolderDropPreview(object sender, DragEventArgs e)
     {
         if (e.Data == null || !e.Data.GetDataPresent(DataFormats.FileDrop))
@@ -312,6 +330,11 @@ public sealed class MainWindowPresentationService
         e.Handled = true;
     }
 
+    /// <summary>
+    ///     ドロップされたデータからフォルダーを取り出します。
+    /// </summary>
+    /// <param name="data">ドロップされたデータ。</param>
+    /// <returns>フォルダーのパス。</returns>
     private static List<string> FoldersFromDrop(IDataObject data)
     {
         var folders = new List<string>();
@@ -337,6 +360,11 @@ public sealed class MainWindowPresentationService
         return folders;
     }
 
+    /// <summary>
+    ///     ドロップされた最初のフォルダーを検索ルートに設定して保存し、ドロップされたフォルダーをツリーで選択します。ウィンドウ内からのドラッグ アウト中は無視します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">ドラッグ イベントのデータ。</param>
     private void MainWindow_Drop(object sender, DragEventArgs e)
     {
         if (_internalDragOut)
@@ -356,6 +384,11 @@ public sealed class MainWindowPresentationService
         e.Handled = true;
     }
 
+    /// <summary>
+    ///     ViewModel から要求されたビュー側の操作 (フォルダー選択、アイコン選択、Explorer で開くなど) を実行します。
+    /// </summary>
+    /// <param name="action">要求された操作。</param>
+    /// <param name="parameter">操作のパラメーター。</param>
     private void HandleInteraction(MainWindowAction action, object parameter)
     {
         try
@@ -390,6 +423,9 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     フォルダー選択ダイアログで検索ルートを選び、解析を開始します。
+    /// </summary>
     private void ChooseRoot()
     {
         try
@@ -414,6 +450,9 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     選択した検索ルートの解析を開始します。検索中の場合は取り消してから開始します。
+    /// </summary>
     private void StartSelectedRootAnalysis()
     {
         _analyzeSelectedRoot = true;
@@ -431,6 +470,11 @@ public sealed class MainWindowPresentationService
         ViewModel.GitSearchCommand.Execute(null);
     }
 
+    /// <summary>
+    ///     検索欄の Enter で検索を実行します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">キー イベントのデータ。</param>
     private void MainSearchKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Handled || Keyboard.Modifiers != ModifierKeys.None || QueryBox.IsHistoryOpen) return;
@@ -452,6 +496,11 @@ public sealed class MainWindowPresentationService
         e.Handled = true;
     }
 
+    /// <summary>
+    ///     ウィンドウ切り替えのショートカットを処理します。Ctrl+1/2/3/4 でメイン・Grep・Developer Differencer・DIFF ビューへ、Ctrl+Space で DIFF ビューを含めて順に切り替えます。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">入力の前処理のイベントデータ。</param>
     private void SwitchWindowShortcut(object sender, PreProcessInputEventArgs e)
     {
         if (!(e.StagingItem.Input is KeyEventArgs key) || key.RoutedEvent != Keyboard.PreviewKeyDownEvent
@@ -557,6 +606,9 @@ public sealed class MainWindowPresentationService
         }));
     }
 
+    /// <summary>
+    ///     アイコン ライブラリのファイルを選び、設定に保存します。
+    /// </summary>
     private void ChooseIconLibrary()
     {
         try
@@ -584,6 +636,9 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     アイコン ライブラリからアイコン グループを選ぶウィンドウを表示し、選んだアイコンを適用対象にします。
+    /// </summary>
     private void ChooseIcon()
     {
         try
@@ -620,6 +675,9 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     選択中のアイコンのプレビューを、アイコン ライブラリから読み込み直します。
+    /// </summary>
     private void RefreshSelectedIconPreview()
     {
         try
@@ -638,6 +696,10 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     フォルダーを検索ルートに設定して解析を開始します。
+    /// </summary>
+    /// <param name="folder">対象のフォルダー。</param>
     private void UseAsSearchLocation(FolderMatch folder)
     {
         var path = MainWindowViewModel.ExistingFolderPath(folder?.Path);
@@ -654,6 +716,10 @@ public sealed class MainWindowPresentationService
         StartSelectedRootAnalysis();
     }
 
+    /// <summary>
+    ///     フォルダーを Explorer で開きます。
+    /// </summary>
+    /// <param name="folder">対象のフォルダー。</param>
     private void OpenExplorer(FolderMatch folder)
     {
         if (folder == null || !Directory.Exists(folder.Path)) return;
@@ -667,6 +733,9 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     表示中のファイル名の一覧をテキスト ファイルに書き出し、エディターで開きます。
+    /// </summary>
     private void FileListToEditor()
     {
         try
@@ -690,6 +759,11 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     フォルダー ツリーを tree または tree /f 形式でテキスト ファイルに書き出し、エディターで開きます。
+    /// </summary>
+    /// <param name="folder">起点のフォルダー。</param>
+    /// <param name="includeFiles">ファイルも含める (tree /f) 場合は true。</param>
     private void TreeToEditor(FolderMatch folder, bool includeFiles)
     {
         if (folder == null) return;
@@ -713,6 +787,12 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     フォルダーのパスと、その配下のツリーを書き出します。
+    /// </summary>
+    /// <param name="text">書き込み先。</param>
+    /// <param name="folder">起点のフォルダー。</param>
+    /// <param name="includeFiles">ファイルも含める場合は true。</param>
     private void WriteContainedTree(StringBuilder text, FolderMatch folder, bool includeFiles)
     {
         if (folder == null) return;
@@ -720,6 +800,13 @@ public sealed class MainWindowPresentationService
         WriteContainedLevel(text, folder, string.Empty, includeFiles);
     }
 
+    /// <summary>
+    ///     フォルダー直下のファイルとサブフォルダーを、罫線付きの tree 形式で再帰的に書き出します。
+    /// </summary>
+    /// <param name="text">書き込み先。</param>
+    /// <param name="folder">対象のフォルダー。</param>
+    /// <param name="prefix">行頭の罫線。</param>
+    /// <param name="includeFiles">ファイルも含める場合は true。</param>
     private void WriteContainedLevel(StringBuilder text, FolderMatch folder, string prefix, bool includeFiles)
     {
         var files = includeFiles
@@ -755,6 +842,10 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     設定されたエディターでテキスト ファイルを開きます。
+    /// </summary>
+    /// <param name="path">ファイルのパス。</param>
     private static void OpenTextInEditor(string path)
     {
         var editor = GrepWindowViewModel.ExpandEditorPath(SettingsService.LoadEditorPath());
@@ -769,6 +860,10 @@ public sealed class MainWindowPresentationService
         Process.Start(new ProcessStartInfo(editor, arguments) { UseShellExecute = true });
     }
 
+    /// <summary>
+    ///     指定したフォルダーだけを選択して、Grep ウィンドウを開きます。
+    /// </summary>
+    /// <param name="folder">検索範囲のフォルダー。</param>
     private void GrepFolder(FolderMatch folder)
     {
         if (folder == null || !Directory.Exists(folder.Path)) return;
@@ -776,6 +871,10 @@ public sealed class MainWindowPresentationService
         OpenGrep(new[] { folder.Path });
     }
 
+    /// <summary>
+    ///     ファイルを関連付けられたアプリケーションで開きます。
+    /// </summary>
+    /// <param name="file">対象のファイル。</param>
     private void OpenAssociatedFile(FileListItem file)
     {
         if (file == null) return;
@@ -789,6 +888,10 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     ファイル一覧の右クリックで、選択を保ったままコンテキスト メニューを開くよう設定します。
+    /// </summary>
+    /// <param name="list">対象の一覧。</param>
     private void InitializeFileContextMenu(Selector list)
     {
         list.PreviewMouseRightButtonDown += (_, args) =>
@@ -802,6 +905,11 @@ public sealed class MainWindowPresentationService
         list.ContextMenu ??= new ContextMenu();
     }
 
+    /// <summary>
+    ///     ファイル一覧のコンテキスト メニューを、独自のコマンドと Explorer のシェル メニューを組み合わせて表示します。
+    /// </summary>
+    /// <param name="sender">対象の一覧。</param>
+    /// <param name="e">イベントデータ。</param>
     private void FileList_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
         if (sender is not Selector list) return;
@@ -859,6 +967,11 @@ public sealed class MainWindowPresentationService
         }), DispatcherPriority.Input);
     }
 
+    /// <summary>
+    ///     2 つのファイルを DIFF ビューで比較します。
+    /// </summary>
+    /// <param name="source">比較元のファイル。</param>
+    /// <param name="target">比較先のファイル。</param>
     private void OpenFileComparison(FileListItem source, FileListItem target)
     {
         try
@@ -888,6 +1001,10 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     選択したスクリプト ファイルを、確認のうえそのフォルダーで実行します。
+    /// </summary>
+    /// <param name="file">実行するスクリプト。</param>
     private void RunSelectedScript(FileListItem file)
     {
         if (file == null || !File.Exists(file.Path)) return;
@@ -921,12 +1038,23 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     スクリプト実行の表示文字列を取得します。翻訳がない場合は既定の文字列を使います。
+    /// </summary>
+    /// <param name="key">リソース キー。</param>
+    /// <param name="fallback">既定の文字列。</param>
+    /// <returns>表示文字列。</returns>
     private static string ScriptText(string key, string fallback)
     {
         var value = StringOverlay.Get(key);
         return string.IsNullOrEmpty(value) || value == key ? fallback : value;
     }
 
+    /// <summary>
+    ///     スクリプト入力欄の Enter でコマンドを実行します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">キー イベントのデータ。</param>
     private void ScriptBox_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter)
@@ -936,6 +1064,9 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     実行するスクリプト ファイルを選び、入力欄に設定します。
+    /// </summary>
     private void BrowseScriptCommand()
     {
         try
@@ -966,6 +1097,9 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     入力したコマンドの %d、%f、%n を展開し、確認のうえ実行します。
+    /// </summary>
     private void RunScriptCommand()
     {
         var template = ScriptBox.Text.Trim();
@@ -1029,6 +1163,11 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     コマンドを、終了後も閉じないコンソールで実行します。.ps1 は PowerShell の -NoExit、それ以外は cmd /k で実行します。
+    /// </summary>
+    /// <param name="workDir">作業フォルダー。</param>
+    /// <param name="command">実行するコマンド。</param>
     private static void StartKeepOpenConsole(string workDir, string command)
     {
         if (string.IsNullOrWhiteSpace(command)) return;
@@ -1060,6 +1199,11 @@ public sealed class MainWindowPresentationService
         Process.Start(psi);
     }
 
+    /// <summary>
+    ///     コマンドから最初のトークン (実行ファイル) を除いた残りを取得します。
+    /// </summary>
+    /// <param name="command">コマンド。</param>
+    /// <returns>残りの引数。</returns>
     private static string RestAfterFirstToken(string command)
     {
         if (string.IsNullOrWhiteSpace(command)) return string.Empty;
@@ -1074,12 +1218,25 @@ public sealed class MainWindowPresentationService
         return space < 0 ? string.Empty : text.Substring(space + 1).TrimStart();
     }
 
+    /// <summary>
+    ///     コマンドのテンプレートに %name 形式のトークンが含まれるかどうかを判定します。
+    /// </summary>
+    /// <param name="template">テンプレート。</param>
+    /// <param name="name">トークン名。</param>
+    /// <returns>含まれる場合は true。</returns>
     private static bool ContainsToken(string template, string name)
     {
         if (string.IsNullOrEmpty(template)) return false;
         return template.IndexOf("%" + name, StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
+    /// <summary>
+    ///     テンプレートの %d (フォルダー)、%f (ファイル)、%n (ファイル名) を展開します。引用符で囲まれたトークンは引用符付きで置き換えます。
+    /// </summary>
+    /// <param name="template">テンプレート。</param>
+    /// <param name="dir">フォルダーのパス。</param>
+    /// <param name="file">ファイルのパス。</param>
+    /// <returns>展開したコマンド。</returns>
     private static string ExpandScriptTokens(string template, string dir, string file)
     {
         var quotedDir = string.IsNullOrEmpty(dir) ? "\"%d\"" : "\"" + dir + "\"";
@@ -1101,6 +1258,11 @@ public sealed class MainWindowPresentationService
             .Replace("%N", name ?? "%N");
     }
 
+    /// <summary>
+    ///     コマンドの最初のトークン (引用符を考慮) を取得します。
+    /// </summary>
+    /// <param name="command">コマンド。</param>
+    /// <returns>最初のトークン。</returns>
     private static string FirstToken(string command)
     {
         if (string.IsNullOrWhiteSpace(command)) return string.Empty;
@@ -1115,6 +1277,11 @@ public sealed class MainWindowPresentationService
         return space < 0 ? text : text.Substring(0, space);
     }
 
+    /// <summary>
+    ///     パスに空白が含まれ、引用符で囲まれていない場合は引用符で囲みます。
+    /// </summary>
+    /// <param name="path">対象のパス。</param>
+    /// <returns>必要に応じて引用符で囲んだパス。</returns>
     private static string QuoteIfNeeded(string path)
     {
         if (string.IsNullOrEmpty(path)) return path;
@@ -1123,6 +1290,11 @@ public sealed class MainWindowPresentationService
         return path;
     }
 
+    /// <summary>
+    ///     閉じる前に Developer Differencer の状態を保存します。保存が終わるまでは閉じる処理を保留します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private async void OnClosing(object sender, CancelEventArgs e)
     {
         if (_differencerWindow != null && !_differencerSavedOnClose)
@@ -1149,11 +1321,19 @@ public sealed class MainWindowPresentationService
         if (!e.Cancel) ViewModel.SaveFolderTrees();
     }
 
+    /// <summary>
+    ///     メイン ウィンドウを閉じます。
+    /// </summary>
     private void Close()
     {
         _window.Close();
     }
 
+    /// <summary>
+    ///     ウィンドウが閉じたときに、イベントの購読を解除し、処理を取り消して、ツリー・設定・ウィンドウ位置を保存します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private void OnClosed(object sender, EventArgs e)
     {
         InputManager.Current.PreProcessInput -= SwitchWindowShortcut;
@@ -1184,6 +1364,9 @@ public sealed class MainWindowPresentationService
         SaveMainWindowPlacement();
     }
 
+    /// <summary>
+    ///     国旗アイコン付きの表示言語の選択欄を初期化し、現在の言語を選択します。
+    /// </summary>
     private void InitLanguageBox()
     {
         var flags = LanguageIconService.LoadFlagIcons();
@@ -1211,6 +1394,11 @@ public sealed class MainWindowPresentationService
         ScheduleResetCaption();
     }
 
+    /// <summary>
+    ///     表示言語の選択に合わせて、カルチャを切り替えます。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">選択変更のイベントデータ。</param>
     private void LanguageBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!_languageReady) return;
@@ -1221,11 +1409,17 @@ public sealed class MainWindowPresentationService
         ScheduleResetCaption();
     }
 
+    /// <summary>
+    ///     リセット ボタンの表示の更新を、表示言語の切り替え後に実行するようスケジュールします。
+    /// </summary>
     private void ScheduleResetCaption()
     {
         Dispatcher.BeginInvoke(new Action(UpdateResetCaption), DispatcherPriority.ContextIdle);
     }
 
+    /// <summary>
+    ///     リセット ボタンのツールチップを、現在の表示言語で更新します。
+    /// </summary>
     private void UpdateResetCaption()
     {
         if (ResetButton == null) return;
@@ -1238,6 +1432,9 @@ public sealed class MainWindowPresentationService
         ResetButton.ToolTip = tip;
     }
 
+    /// <summary>
+    ///     確認のうえ、設定・入力履歴・フォルダー一覧・比較状態などをすべて初期化します。
+    /// </summary>
     private void Reset()
     {
         var language = StringOverlay.ResolveCulture().TwoLetterISOLanguageName;
@@ -1291,16 +1488,27 @@ public sealed class MainWindowPresentationService
         ScheduleResetCaption();
     }
 
+    /// <summary>
+    ///     フォルダー ツリーをコンパクト表示にします。
+    /// </summary>
     private void CompactTree()
     {
         ApplyTreeDensity(true, true);
     }
 
+    /// <summary>
+    ///     フォルダー ツリーをゆったりした表示にします。
+    /// </summary>
     private void ComfortableTree()
     {
         ApplyTreeDensity(false, true);
     }
 
+    /// <summary>
+    ///     フォルダー ツリーの表示密度を適用して保存します。
+    /// </summary>
+    /// <param name="compact">コンパクト表示の場合は true。</param>
+    /// <param name="announce">ステータスに表示する場合は true。</param>
     private void ApplyTreeDensity(bool compact, bool announce)
     {
         ViewModel.TreeCompact = compact;
@@ -1309,6 +1517,9 @@ public sealed class MainWindowPresentationService
         if (announce) ViewModel.Status = compact ? Strings.Main_TreeCompact : Strings.Main_TreeComfortable;
     }
 
+    /// <summary>
+    ///     表示密度のトグルの状態とツールチップを更新します。
+    /// </summary>
     private void HighlightTreeDensityButtons()
     {
         if (TreeDensityToggle == null) return;
@@ -1320,6 +1531,9 @@ public sealed class MainWindowPresentationService
             _window.TreeDensityIcon.Source = DifferencerStatusIcons.GetCustomIcon(ViewModel.TreeCompact ? 91 : 90);
     }
 
+    /// <summary>
+    ///     メイン画面のツール バーの各ボタンにアイコンを設定します。
+    /// </summary>
     private void ApplyMainToolbarIcons()
     {
         UpdateNodeExpandIcon();
@@ -1352,12 +1566,22 @@ public sealed class MainWindowPresentationService
         // Theme selection is displayed by ThemeBox.
     }
 
+    /// <summary>
+    ///     Image にアイコン ライブラリのアイコンを設定します。
+    /// </summary>
+    /// <param name="image">対象の Image。</param>
+    /// <param name="index">アイコンのインデックス。</param>
     private static void SetToolbarIcon(Image image, int index)
     {
         if (image != null)
             image.Source = DifferencerStatusIcons.GetCustomIcon(index);
     }
 
+    /// <summary>
+    ///     フォルダー ツリーのすべての展開と折りたたみを切り替えます。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private void NodeExpandToggle_Changed(object sender, RoutedEventArgs e)
     {
         if (_updatingToggles) return;
@@ -1373,6 +1597,11 @@ public sealed class MainWindowPresentationService
         UpdateNodeExpandIcon();
     }
 
+    /// <summary>
+    ///     フォルダーとその子孫の展開状態を一括で設定します。
+    /// </summary>
+    /// <param name="folder">起点のフォルダー。</param>
+    /// <param name="expanded">展開する場合は true。</param>
     private static void SetTreeExpanded(FolderMatch folder, bool expanded)
     {
         if (folder == null)
@@ -1384,6 +1613,11 @@ public sealed class MainWindowPresentationService
             SetTreeExpanded(child, expanded);
     }
 
+    /// <summary>
+    ///     表示密度のトグルに合わせて、フォルダー ツリーの表示密度を切り替えます。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private void TreeDensityToggle_Changed(object sender, RoutedEventArgs e)
     {
         if (_updatingToggles) return;
@@ -1391,6 +1625,9 @@ public sealed class MainWindowPresentationService
         else CompactTree();
     }
 
+    /// <summary>
+    ///     展開・折りたたみボタンのアイコンを更新します。
+    /// </summary>
     private void UpdateNodeExpandIcon()
     {
         if (_window.NodeExpandIcon == null) return;
@@ -1398,6 +1635,9 @@ public sealed class MainWindowPresentationService
         _window.NodeExpandIcon.Source = DifferencerStatusIcons.GetCustomIcon(expanded ? 56 : 55);
     }
 
+    /// <summary>
+    ///     ファイルを一覧形式で表示します。
+    /// </summary>
     private void FileListView()
     {
         FileList.Visibility = Visibility.Visible;
@@ -1405,16 +1645,26 @@ public sealed class MainWindowPresentationService
         HighlightFileViewButtons(true, false);
     }
 
+    /// <summary>
+    ///     ファイルを小さいアイコンで表示します。
+    /// </summary>
     private void FileIconSmall()
     {
         ApplyFileIconSize(false);
     }
 
+    /// <summary>
+    ///     ファイルを大きいアイコンで表示します。
+    /// </summary>
     private void FileIconLarge()
     {
         ApplyFileIconSize(true);
     }
 
+    /// <summary>
+    ///     ファイルのアイコン表示に切り替え、アイコンの大きさを適用します。
+    /// </summary>
+    /// <param name="large">大きいアイコンの場合は true。</param>
     private async void ApplyFileIconSize(bool large)
     {
         _largeFileIcons = large;
@@ -1429,6 +1679,11 @@ public sealed class MainWindowPresentationService
         ViewModel.IsFileBusy = false;
     }
 
+    /// <summary>
+    ///     選択中の表示形式のボタンを強調表示します。
+    /// </summary>
+    /// <param name="list">一覧形式の場合は true。</param>
+    /// <param name="large">大きいアイコンの場合は true。</param>
     private void HighlightFileViewButtons(bool list, bool large)
     {
         var selected = (Brush)FindResource("ThemeSelected");
@@ -1438,17 +1693,29 @@ public sealed class MainWindowPresentationService
         if (FileIconSmallButton != null) FileIconSmallButton.Background = !list && !large ? selected : secondary;
     }
 
+    /// <summary>
+    ///     フォルダーの絞り込み文字列が変わったときに、少し待ってから絞り込むようタイマーを再開します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private void FolderFilter_TextChanged(object sender, TextChangedEventArgs e)
     {
         _filterTimer?.Stop();
         _filterTimer?.Start();
     }
 
+    /// <summary>
+    ///     フォルダーの絞り込み文字列をクリアします。
+    /// </summary>
     private void ClearFolderFilter()
     {
         ViewModel.FolderFilter = string.Empty;
     }
 
+    /// <summary>
+    ///     パスの入力欄で常に末尾が見えるよう、イベント ハンドラーを登録します。
+    /// </summary>
+    /// <param name="box">対象の入力欄。</param>
     private void HookPathBox(TextBox box)
     {
         if (box == null) return;
@@ -1460,6 +1727,10 @@ public sealed class MainWindowPresentationService
         };
     }
 
+    /// <summary>
+    ///     入力欄のキャレットを末尾に移動し、テキストの末尾を表示します。
+    /// </summary>
+    /// <param name="box">対象の入力欄。</param>
     private void ShowTextEnd(TextBox box)
     {
         if (box == null) return;
@@ -1470,6 +1741,10 @@ public sealed class MainWindowPresentationService
         }), DispatcherPriority.Loaded);
     }
 
+    /// <summary>
+    ///     検索中の進捗アニメーションを開始または停止します。
+    /// </summary>
+    /// <param name="value">検索中の場合は true。</param>
     private void SetSearching(bool value)
     {
         if (value)
@@ -1484,6 +1759,10 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     検索の進捗バーのマーキー アニメーションを開始または停止します。
+    /// </summary>
+    /// <param name="value">開始する場合は true。</param>
     private void AnimateSearchProgress(bool value)
     {
         SearchProgress.ApplyTemplate();
@@ -1505,12 +1784,20 @@ public sealed class MainWindowPresentationService
         transform.BeginAnimation(TranslateTransform.XProperty, animation, HandoffBehavior.SnapshotAndReplace);
     }
 
+    /// <summary>
+    ///     フォルダー ツリーの処理中表示を切り替えます。
+    /// </summary>
+    /// <param name="busy">処理中の場合は true。</param>
     private void SetTreePanelBusy(bool busy)
     {
         if (TreePanelBusy != null)
             ViewModel.IsTreeBusy = busy;
     }
 
+    /// <summary>
+    ///     テーマの選択欄で、指定したテーマを選択します。
+    /// </summary>
+    /// <param name="theme">テーマ名。</param>
     private void SelectThemeBox(string theme)
     {
         var normalized = ThemeService.Normalize(theme);
@@ -1525,6 +1812,11 @@ public sealed class MainWindowPresentationService
         _themeBoxReady = true;
     }
 
+    /// <summary>
+    ///     テーマの選択に合わせてテーマを適用します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">選択変更のイベントデータ。</param>
     private void ThemeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!_themeBoxReady) return;
@@ -1533,16 +1825,26 @@ public sealed class MainWindowPresentationService
         SetTheme(item.Content as string);
     }
 
+    /// <summary>
+    ///     ライト テーマを適用します。
+    /// </summary>
     private void LightTheme()
     {
         SetTheme("Light");
     }
 
+    /// <summary>
+    ///     ダーク テーマを適用します。
+    /// </summary>
     private void DarkTheme()
     {
         SetTheme("Dark");
     }
 
+    /// <summary>
+    ///     テーマを適用して保存し、選択欄とボタンの強調表示を更新します。
+    /// </summary>
+    /// <param name="theme">テーマ名。</param>
     private void SetTheme(string theme)
     {
         var normalized = ThemeService.Normalize(theme);
@@ -1555,6 +1857,9 @@ public sealed class MainWindowPresentationService
 
     // --- MainWindowPresentationService.Tree.cs ---
 
+    /// <summary>
+    ///     検索モードにして、Search タブだけを使えるようにします。
+    /// </summary>
     private void EnterSearchMode()
     {
         _searchModeActive = true;
@@ -1563,6 +1868,11 @@ public sealed class MainWindowPresentationService
         _window.SolutionTreeTab.IsEnabled = false;
     }
 
+    /// <summary>
+    ///     検索モード中に検索語が空になったときに、検索結果をクリアします。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private void QueryBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (!_searchModeActive || !string.IsNullOrWhiteSpace(QueryBox.Text)) return;
@@ -1573,6 +1883,11 @@ public sealed class MainWindowPresentationService
         _window.SolutionTreeTab.IsEnabled = true;
     }
 
+    /// <summary>
+    ///     検索語が空の状態で Physical または Solution タブを選んだときに、検索モードを終了します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">選択変更のイベントデータ。</param>
     private void TreeTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!_searchModeActive || !string.IsNullOrWhiteSpace(QueryBox.Text)) return;
@@ -1584,6 +1899,9 @@ public sealed class MainWindowPresentationService
         _window.SolutionTreeTab.IsEnabled = true;
     }
 
+    /// <summary>
+    ///     Search タブのルートを展開・選択して、ファイル一覧に表示します。
+    /// </summary>
     private void SelectSearchRootForFileList()
     {
         var root = ViewModel.SearchTabRoot;
@@ -1598,11 +1916,21 @@ public sealed class MainWindowPresentationService
         }), DispatcherPriority.Loaded);
     }
 
+    /// <summary>
+    ///     右クリックしたフォルダーの MSBuild メニューを準備します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">マウス イベントのデータ。</param>
     private void ResultsTree_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
         PrepareMsBuildMenu(FindFolderFromElement(e.OriginalSource as DependencyObject));
     }
 
+    /// <summary>
+    ///     フォルダーのドラッグ アウトに備えて、押した位置とフォルダーを記録します。チェック ボックス上では記録しません。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">マウス イベントのデータ。</param>
     private void ResultsTree_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         _treeDragFolder = FindFolderFromElement(e.OriginalSource as DependencyObject);
@@ -1611,6 +1939,11 @@ public sealed class MainWindowPresentationService
             _treeDragFolder = null;
     }
 
+    /// <summary>
+    ///     フォルダーを一定距離ドラッグしたときに、直下のファイルを一時フォルダーにコピーして外部へドラッグします。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">マウス イベントのデータ。</param>
     private async void ResultsTree_PreviewMouseMove(object sender, MouseEventArgs e)
     {
         if (_treeDragPreparing || e.LeftButton != MouseButtonState.Pressed || _treeDragFolder == null) return;
@@ -1648,6 +1981,11 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     ファイルのドラッグ アウトに備えて押した位置を記録し、ダブルクリックでは関連付けアプリで開きます。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">マウス イベントのデータ。</param>
     private void FileList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         _fileDragItem = FileFromElement(e.OriginalSource as DependencyObject);
@@ -1668,6 +2006,11 @@ public sealed class MainWindowPresentationService
             e.Handled = true;
     }
 
+    /// <summary>
+    ///     ファイルを一定距離ドラッグしたときに、選択中のファイルを外部へドラッグします。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">マウス イベントのデータ。</param>
     private void FileList_PreviewMouseMove(object sender, MouseEventArgs e)
     {
         if (e.LeftButton != MouseButtonState.Pressed || _fileDragItem == null) return;
@@ -1697,6 +2040,12 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     ファイルが一覧で選択されているかどうかを判定します。
+    /// </summary>
+    /// <param name="list">対象の一覧。</param>
+    /// <param name="item">判定するファイル。</param>
+    /// <returns>選択されている場合は true。</returns>
     private static bool IsFileSelected(ItemsControl list, FileListItem item)
     {
         var box = list as ListBox;
@@ -1711,6 +2060,11 @@ public sealed class MainWindowPresentationService
         return ReferenceEquals((list as Selector)?.SelectedItem, item);
     }
 
+    /// <summary>
+    ///     要素から親方向にたどり、対応するファイルの項目を探します。
+    /// </summary>
+    /// <param name="source">探し始める要素。</param>
+    /// <returns>ファイルの項目。見つからない場合は null。</returns>
     private static FileListItem FileFromElement(DependencyObject source)
     {
         for (var current = source;
@@ -1727,6 +2081,12 @@ public sealed class MainWindowPresentationService
         return null;
     }
 
+    /// <summary>
+    ///     ビジュアル ツリーを親方向にたどり、指定した型の要素を探します。
+    /// </summary>
+    /// <typeparam name="T">探す要素の型。</typeparam>
+    /// <param name="current">探し始める要素。</param>
+    /// <returns>見つかった要素。見つからない場合は null。</returns>
     private static T FindAncestor<T>(DependencyObject current) where T : DependencyObject
     {
         while (current != null)
@@ -1739,6 +2099,11 @@ public sealed class MainWindowPresentationService
         return null;
     }
 
+    /// <summary>
+    ///     フォルダーのコンテキスト メニューを開くときに、MSBuild メニューを準備して表示項目を調整します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private void ResultsTree_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
         var source = e.OriginalSource as FrameworkElement;
@@ -1748,6 +2113,10 @@ public sealed class MainWindowPresentationService
         ApplyMsBuildMenuVisibility(menu);
     }
 
+    /// <summary>
+    ///     フォルダーが属するソリューションのビルド構成から、Build と Rebuild のメニュー項目を作成します。
+    /// </summary>
+    /// <param name="folder">対象のフォルダー。</param>
     private void PrepareMsBuildMenu(FolderMatch folder)
     {
         _msBuildMenu.BuildItems.Clear();
@@ -1807,6 +2176,10 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     Solution タブでビルドできる場合だけ、MSBuild のメニュー項目を表示します。
+    /// </summary>
+    /// <param name="menu">対象のコンテキスト メニュー。</param>
     private void ApplyMsBuildMenuVisibility(ContextMenu menu)
     {
         if (menu == null) return;
@@ -1838,6 +2211,12 @@ public sealed class MainWindowPresentationService
         if (buildSeparator != null) buildSeparator.Visibility = visibility;
     }
 
+    /// <summary>
+    ///     タグが一致するメニュー項目を探します。
+    /// </summary>
+    /// <param name="menu">対象のメニュー。</param>
+    /// <param name="tag">探すタグ。</param>
+    /// <returns>見つかったメニュー項目。見つからない場合は null。</returns>
     private static MenuItem FindTaggedMenuItem(ItemsControl menu, string tag)
     {
         foreach (var item in menu.Items)
@@ -1855,6 +2234,12 @@ public sealed class MainWindowPresentationService
         return null;
     }
 
+    /// <summary>
+    ///     タグが一致する区切り線を探します。
+    /// </summary>
+    /// <param name="menu">対象のメニュー。</param>
+    /// <param name="tag">探すタグ。</param>
+    /// <returns>見つかった区切り線。見つからない場合は null。</returns>
     private static Separator FindTaggedSeparator(ItemsControl menu, string tag)
     {
         foreach (var item in menu.Items)
@@ -1867,6 +2252,12 @@ public sealed class MainWindowPresentationService
         return null;
     }
 
+    /// <summary>
+    ///     指定したビルド構成でソリューションを MSBuild でビルド (またはリビルド) し、コンソールで実行します。
+    /// </summary>
+    /// <param name="solutionFile">ソリューション ファイル。</param>
+    /// <param name="configurationPair">「構成|プラットフォーム」の組み合わせ。</param>
+    /// <param name="target">MSBuild のターゲット (Build または Rebuild)。</param>
     private void RunMsBuild(string solutionFile, string configurationPair, string target)
     {
         if (ViewModel.TreeViewIndex != 1) return;
@@ -1909,6 +2300,12 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     指定したビルド構成でソリューションを dotnet build でビルドし、コンソールで実行します。
+    /// </summary>
+    /// <param name="solutionFile">ソリューション ファイル。</param>
+    /// <param name="configurationPair">「構成|プラットフォーム」の組み合わせ。</param>
+    /// <param name="rebuild">リビルドする場合は true。</param>
     private void RunDotNetBuild(string solutionFile, string configurationPair, bool rebuild)
     {
         try
@@ -1934,6 +2331,10 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     vswhere.exe で MSBuild.exe を探し、見つからない場合は Visual Studio の既定のインストール先を探します。
+    /// </summary>
+    /// <returns>MSBuild.exe のパス。見つからない場合は null。</returns>
     private static string FindMsBuild()
     {
         var vswhere = Path.Combine(
@@ -1990,6 +2391,11 @@ public sealed class MainWindowPresentationService
         return null;
     }
 
+    /// <summary>
+    ///     要素から親方向にたどり、対応するフォルダーの項目を探します。
+    /// </summary>
+    /// <param name="source">探し始める要素。</param>
+    /// <returns>フォルダーの項目。見つからない場合は null。</returns>
     private static FolderMatch FindFolderFromElement(DependencyObject source)
     {
         for (var current = source;
@@ -2006,6 +2412,11 @@ public sealed class MainWindowPresentationService
         return null;
     }
 
+    /// <summary>
+    ///     要素から親方向にたどり、設定されているコンテキスト メニューを探します。
+    /// </summary>
+    /// <param name="source">探し始める要素。</param>
+    /// <returns>コンテキスト メニュー。見つからない場合は null。</returns>
     private static ContextMenu FindContextMenu(DependencyObject source)
     {
         for (var current = source;
@@ -2022,6 +2433,11 @@ public sealed class MainWindowPresentationService
         return null;
     }
 
+    /// <summary>
+    ///     フォルダーから親方向に最大 8 階層たどり、最初に見つかった .sln を返します。
+    /// </summary>
+    /// <param name="directory">探し始めるフォルダー。</param>
+    /// <returns>ソリューション ファイルのパス。見つからない場合は null。</returns>
     private static string FindSolutionFile(string directory)
     {
         var current = directory;
@@ -2046,6 +2462,11 @@ public sealed class MainWindowPresentationService
         return null;
     }
 
+    /// <summary>
+    ///     ネットワーク上のツリーで展開したフォルダーの子を遅延読み込みします。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private async void ResultsTree_ItemExpanded(object sender, RoutedEventArgs e)
     {
         if (!ViewModel.IsLazyNetworkTreeActive)
@@ -2069,6 +2490,11 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     ツリーで選択したフォルダーを現在のフォルダーにし、ファイル一覧を読み込みます。
+    /// </summary>
+    /// <param name="sender">選択が変わったツリー。</param>
+    /// <param name="e">選択変更のイベントデータ。</param>
     private async void ResultsTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
         if (_syncingTreeFromFile || !(e.NewValue is FolderMatch selected)) return;
@@ -2085,6 +2511,11 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     ファイルを選択したときに、そのファイルを含むフォルダーをツリーで表示します。右クリック時は除きます。
+    /// </summary>
+    /// <param name="sender">対象の一覧。</param>
+    /// <param name="e">選択変更のイベントデータ。</param>
     private void FileList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_syncingTreeFromFile) return;
@@ -2099,6 +2530,10 @@ public sealed class MainWindowPresentationService
         RevealFolderInCurrentTree(file.Path);
     }
 
+    /// <summary>
+    ///     指定したフォルダーに最も近いフォルダーを、現在のツリーで表示します。
+    /// </summary>
+    /// <param name="directory">フォルダーのパス。</param>
     private void RevealFolderInCurrentTree(string directory)
     {
         var roots = ViewModel.CurrentTreeRoots();
@@ -2118,6 +2553,10 @@ public sealed class MainWindowPresentationService
         ScheduleFolderIntoView(target);
     }
 
+    /// <summary>
+    ///     ルートから対象フォルダーまでを順に展開して表示するよう、処理を開始します。
+    /// </summary>
+    /// <param name="target">表示するフォルダー。</param>
     private void ScheduleFolderIntoView(FolderMatch target)
     {
         if (target == null)
@@ -2153,6 +2592,13 @@ public sealed class MainWindowPresentationService
             DispatcherPriority.Loaded);
     }
 
+    /// <summary>
+    ///     仮想化されたツリーで、パスの各階層の項目が生成されるのを待ちながら 1 階層ずつ展開します。
+    /// </summary>
+    /// <param name="host">現在の階層の項目を持つ要素。</param>
+    /// <param name="path">ルートから対象フォルダーまでのフォルダーの並び。</param>
+    /// <param name="level">展開する階層。</param>
+    /// <param name="retry">項目の生成待ちの再試行回数。</param>
     private void ExpandPathStep(ItemsControl host, List<FolderMatch> path, int level, int retry)
     {
         if (host == null || level >= path.Count)
@@ -2200,6 +2646,11 @@ public sealed class MainWindowPresentationService
             DispatcherPriority.Loaded);
     }
 
+    /// <summary>
+    ///     仮想化パネルで、指定したインデックスの項目を生成して表示させます。
+    /// </summary>
+    /// <param name="host">項目を持つ要素。</param>
+    /// <param name="index">項目のインデックス。</param>
     private void BringSiblingIndexIntoView(ItemsControl host, int index)
     {
         if (index < 0) return;
@@ -2223,6 +2674,12 @@ public sealed class MainWindowPresentationService
             viewer.ScrollToVerticalOffset(Math.Max(0, index - 2));
     }
 
+    /// <summary>
+    ///     ビジュアル ツリーから指定した型の子孫要素を探します。
+    /// </summary>
+    /// <typeparam name="T">探す要素の型。</typeparam>
+    /// <param name="root">探し始める要素。</param>
+    /// <returns>見つかった要素。見つからない場合は null。</returns>
     private static T FindVisualChild<T>(DependencyObject root) where T : DependencyObject
     {
         if (root == null) return null;
@@ -2236,6 +2693,11 @@ public sealed class MainWindowPresentationService
         return null;
     }
 
+    /// <summary>
+    ///     ツリーの項目を選択し、見えるようスクロールします。
+    /// </summary>
+    /// <param name="tree">対象のツリー。</param>
+    /// <param name="item">表示する項目。</param>
     private static void ScrollTreeItemIntoView(TreeView tree, TreeViewItem item)
     {
         if (tree == null || item == null) return;
@@ -2257,6 +2719,11 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     ビジュアル ツリーから、縦スクロールできる ScrollViewer を探します。
+    /// </summary>
+    /// <param name="root">探し始める要素。</param>
+    /// <returns>見つかった ScrollViewer。見つからない場合は null。</returns>
     private static ScrollViewer FindScrollViewer(DependencyObject root)
     {
         if (root is ScrollViewer viewer && viewer.VerticalScrollBarVisibility != ScrollBarVisibility.Disabled)
@@ -2272,6 +2739,10 @@ public sealed class MainWindowPresentationService
 
     // --- MainWindowPresentationService.Windows.cs ---
 
+    /// <summary>
+    ///     コマンドライン引数または保存された設定から、メイン ウィンドウの位置・サイズ・状態を復元します。
+    /// </summary>
+    /// <param name="arguments">コマンドライン引数。</param>
     private void RestoreWindowPlacement(string[] arguments)
     {
         double left, top = 0, width = 0, height = 0;
@@ -2294,6 +2765,9 @@ public sealed class MainWindowPresentationService
         ApplyPlacement(_window, left, top, width, height, state);
     }
 
+    /// <summary>
+    ///     メイン ウィンドウの通常時の位置・サイズと状態を保存します。
+    /// </summary>
     private void SaveMainWindowPlacement()
     {
         var bounds = _window.WindowState == WindowState.Normal
@@ -2305,6 +2779,10 @@ public sealed class MainWindowPresentationService
         SettingsService.SaveMainWindowPlacement(bounds.Left, bounds.Top, bounds.Width, bounds.Height, state);
     }
 
+    /// <summary>
+    ///     子ウィンドウをメイン ウィンドウと同じ位置・サイズで重ねて表示します。
+    /// </summary>
+    /// <param name="child">対象の子ウィンドウ。</param>
     private void OverlayOnMain(Window child)
     {
         if (child == null) return;
@@ -2315,6 +2793,15 @@ public sealed class MainWindowPresentationService
             _window.WindowState == WindowState.Minimized ? (int)WindowState.Normal : (int)_window.WindowState);
     }
 
+    /// <summary>
+    ///     ウィンドウの位置・サイズ・状態を、画面内に収まるよう調整して適用します。
+    /// </summary>
+    /// <param name="window">対象のウィンドウ。</param>
+    /// <param name="left">左端。</param>
+    /// <param name="top">上端。</param>
+    /// <param name="width">幅。</param>
+    /// <param name="height">高さ。</param>
+    /// <param name="state">ウィンドウの状態。</param>
     private void ApplyPlacement(Window window, double left, double top, double width, double height, int state)
     {
         if (window == null) return;
@@ -2339,6 +2826,13 @@ public sealed class MainWindowPresentationService
             window.WindowState = WindowState.Maximized;
     }
 
+    /// <summary>
+    ///     コマンドライン引数から、指定した名前に続く数値を読み取ります。
+    /// </summary>
+    /// <param name="arguments">コマンドライン引数。</param>
+    /// <param name="name">引数名。</param>
+    /// <param name="value">読み取った値。</param>
+    /// <returns>読み取れた場合は true。</returns>
     private static bool TryReadArgument(string[] arguments, string name, out double value)
     {
         value = 0;
@@ -2349,6 +2843,9 @@ public sealed class MainWindowPresentationService
         return false;
     }
 
+    /// <summary>
+    ///     Developer Differencer ウィンドウを開きます。すでに開いている場合は前面に表示します。
+    /// </summary>
     private void DeveloperDifferencer()
     {
         if (_differencerWindow == null)
@@ -2365,6 +2862,11 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     ビルド構成名 (Debug、Release、その他) に応じたメニュー アイコンの記号を取得します。
+    /// </summary>
+    /// <param name="pair">「構成|プラットフォーム」の組み合わせ。</param>
+    /// <returns>Segoe MDL2 Assets の記号。</returns>
     private static string ConfigIconGlyph(string pair)
     {
         var config = pair ?? string.Empty;
@@ -2379,6 +2881,10 @@ public sealed class MainWindowPresentationService
         return "\uE74C";
     }
 
+    /// <summary>
+    ///     指定した検索範囲で Grep ウィンドウを開きます。すでに開いている場合は検索範囲を置き換えて前面に表示します。
+    /// </summary>
+    /// <param name="scopes">検索範囲のフォルダー。null または空の場合は選択中のフォルダー。</param>
     private void OpenGrep(IReadOnlyList<string> scopes)
     {
         if (scopes == null || scopes.Count == 0)
@@ -2431,6 +2937,10 @@ public sealed class MainWindowPresentationService
         }
     }
 
+    /// <summary>
+    ///     ビルド構成のメニュー項目のスタイルを作成します。
+    /// </summary>
+    /// <returns>作成したスタイル。</returns>
     private static Style CreateBuildConfigurationItemStyle()
     {
         var style = new Style(typeof(MenuItem))

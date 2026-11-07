@@ -39,6 +39,11 @@ internal sealed partial class DiffViewWindow
     private double VideoPosition => Math.Clamp(_videoOrigin + _videoClock.Elapsed.TotalSeconds * _videoSpeed, 0,
         _videoSeek?.Maximum ?? 0);
 
+    /// <summary>
+    ///     ファイル サイズを B、KB、MB、GB の単位で表示用の文字列にします。
+    /// </summary>
+    /// <param name="bytes">ファイル サイズ (バイト)。</param>
+    /// <returns>表示用の文字列。</returns>
     private static string FormatVideoFileSize(long bytes)
     {
         const double unit = 1024.0;
@@ -49,6 +54,9 @@ internal sealed partial class DiffViewWindow
             : $"{bytes:0} B";
     }
 
+    /// <summary>
+    ///     動画と音声の再生を停止し、メディア操作の状態をリセットします。
+    /// </summary>
     private void ResetMediaController()
     {
         ResetAudio();
@@ -92,6 +100,9 @@ internal sealed partial class DiffViewWindow
         GifFrameHost.Visibility = Visibility.Collapsed;
     }
 
+    /// <summary>
+    ///     比較元と比較先の動画を並べて表示し、共通の再生操作を作成します。
+    /// </summary>
     private Task RenderVideos()
     {
         Body.Children.Clear();
@@ -216,6 +227,13 @@ internal sealed partial class DiffViewWindow
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    ///     動画を再生する MediaElement を作成します。
+    /// </summary>
+    /// <param name="path">動画ファイルのパス。</param>
+    /// <param name="missing">ファイルがない場合は true。</param>
+    /// <param name="source">比較元の場合は true。</param>
+    /// <returns>作成した MediaElement。</returns>
     private MediaElement CreateVideoElement(string path, bool missing, bool source)
     {
         var media = new MediaElement
@@ -233,6 +251,11 @@ internal sealed partial class DiffViewWindow
         return media;
     }
 
+    /// <summary>
+    ///     動画を開いたときに長さを表示し、シーク範囲と再生位置を更新します。
+    /// </summary>
+    /// <param name="sender">開いた MediaElement。</param>
+    /// <param name="e">イベントデータ。</param>
     private void Video_MediaOpened(object sender, RoutedEventArgs e)
     {
         var side = ReferenceEquals(sender, _leftMedia) ? 0 : 1;
@@ -245,6 +268,9 @@ internal sealed partial class DiffViewWindow
         FitVideosToViewport();
     }
 
+    /// <summary>
+    ///     大きい方の動画のサイズに合わせて、表示領域に収まるズーム倍率を設定します。
+    /// </summary>
     private void FitVideosToViewport()
     {
         if (_imageZoom == null || _leftScroll == null || _rightScroll == null) return;
@@ -264,6 +290,9 @@ internal sealed partial class DiffViewWindow
         _imageZoom.Value = scale;
     }
 
+    /// <summary>
+    ///     両側の動画の長さと遅延から、シーク バーの範囲を更新します。
+    /// </summary>
     private void UpdateVideoSeekRange()
     {
         if (_videoSeek == null) return;
@@ -283,6 +312,12 @@ internal sealed partial class DiffViewWindow
         UpdateVideoTimeLabel(TimeSpan.FromSeconds(VideoPosition));
     }
 
+    /// <summary>
+    ///     動画の音量スライダーとミュート ボタンを作成します。音声トラックがない場合は無効にします。
+    /// </summary>
+    /// <param name="media">対象の MediaElement。</param>
+    /// <param name="source">比較元の場合は true。</param>
+    /// <returns>作成したパネル。</returns>
     private Grid CreateVideoVolumePanel(MediaElement media, bool source)
     {
         var panel = new Grid { Margin = new Thickness(source ? 0 : 10, 0, source ? 10 : 0, 0) };
@@ -342,6 +377,9 @@ internal sealed partial class DiffViewWindow
         return panel;
     }
 
+    /// <summary>
+    ///     再生/一時停止、シーク バー、時刻表示、再生速度などの動画の操作部を作成します。
+    /// </summary>
     private void BuildVideoController()
     {
         var playGlyph = new TextBlock
@@ -487,6 +525,9 @@ internal sealed partial class DiffViewWindow
         };
     }
 
+    /// <summary>
+    ///     両側の動画の再生と一時停止を切り替えます。
+    /// </summary>
     private void ToggleVideoPlayback()
     {
         if (_leftMedia == null && _rightMedia == null) return;
@@ -526,6 +567,9 @@ internal sealed partial class DiffViewWindow
     }
 
     // ドラッグ中は左右の再生と共通時計を停止し、シーク完了後に元の再生状態へ戻す。
+    /// <summary>
+    ///     シーク バーのドラッグ開始時に、両側の再生と共通の時計を停止します。
+    /// </summary>
     private void BeginVideoSeekDrag()
     {
         if (_videoSeek == null || _videoDragging) return;
@@ -541,6 +585,9 @@ internal sealed partial class DiffViewWindow
         _videoSeekThrottle.Restart();
     }
 
+    /// <summary>
+    ///     シーク バーのドラッグ終了時に選んだ位置へ移動し、ドラッグ前に再生中だった場合は再開します。
+    /// </summary>
     private void EndVideoSeekDrag()
     {
         if (!_videoDragging || _videoSeek == null) return;
@@ -551,6 +598,11 @@ internal sealed partial class DiffViewWindow
         if (resume) ToggleVideoPlayback();
     }
 
+    /// <summary>
+    ///     シーク バーの値が変わったときに再生位置を移動します。ドラッグ中は移動の頻度を抑えます。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">値変更のイベントデータ。</param>
     private void VideoSeek_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         if (_videoSeeking || _videoSeek == null) return;
@@ -584,6 +636,10 @@ internal sealed partial class DiffViewWindow
         if (resume) ToggleVideoPlayback();
     }
 
+    /// <summary>
+    ///     両側の動画を指定した位置に移動します。
+    /// </summary>
+    /// <param name="seconds">移動先の位置 (秒)。</param>
     private void SeekVideo(double seconds)
     {
         _videoSeeking = true;
@@ -603,6 +659,10 @@ internal sealed partial class DiffViewWindow
         }
     }
 
+    /// <summary>
+    ///     「現在位置 / 全体の長さ」の時刻表示を更新します。
+    /// </summary>
+    /// <param name="pos">現在位置。</param>
     private void UpdateVideoTimeLabel(TimeSpan pos)
     {
         if (_videoTimeLabel == null || _videoSeek == null) return;
@@ -610,6 +670,11 @@ internal sealed partial class DiffViewWindow
         _videoTimeLabel.Text = $"{pos:hh\\:mm\\:ss} / {total:hh\\:mm\\:ss}";
     }
 
+    /// <summary>
+    ///     共通の再生位置を両側の動画に反映し、遅延を考慮して各側の再生・停止を切り替えます。
+    /// </summary>
+    /// <param name="position">共通の再生位置 (秒)。</param>
+    /// <param name="seek">各側の位置を移動する場合は true。</param>
     private void ApplyVideoPosition(double position, bool seek)
     {
         for (var side = 0; side < 2; side++)
@@ -628,6 +693,11 @@ internal sealed partial class DiffViewWindow
         }
     }
 
+    /// <summary>
+    ///     指定側の動画を、遅延を考慮した位置に移動し、再生範囲内かどうかで再生・停止を切り替えます。
+    /// </summary>
+    /// <param name="side">0 が比較元、1 が比較先。</param>
+    /// <param name="position">共通の再生位置 (秒)。</param>
     private void ApplyVideoSidePosition(int side, double position)
     {
         var item = side == 0 ? _leftMedia : _rightMedia;
@@ -642,6 +712,11 @@ internal sealed partial class DiffViewWindow
         _videoSidePlaying[side] = playing;
     }
 
+    /// <summary>
+    ///     指定側の動画の遅延を調整する入力欄を作成します。
+    /// </summary>
+    /// <param name="source">比較元の場合は true。</param>
+    /// <returns>作成した入力欄。</returns>
     private FrameworkElement CreateVideoDelay(bool source)
     {
         var side = source ? 0 : 1;

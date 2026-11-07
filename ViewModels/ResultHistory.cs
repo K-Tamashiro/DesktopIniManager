@@ -17,12 +17,24 @@ internal static class ResultHistoryStore
 
     internal static string DirectoryPath { get; set; } = Path.Combine(AppSlot.Directory, "result-history");
 
+    /// <summary>
+    ///     履歴の JSON ファイルを読み込みます。
+    /// </summary>
+    /// <typeparam name="T">読み込む型。</typeparam>
+    /// <param name="name">履歴の名前 (ファイル名)。</param>
+    /// <returns>読み込んだ値。ファイルがない場合は新しいインスタンス。</returns>
     internal static T Load<T>(string name) where T : new()
     {
         var path = Path.Combine(DirectoryPath, name + ".json");
         return File.Exists(path) ? JsonSerializer.Deserialize<T>(File.ReadAllText(path), Options) ?? new T() : new T();
     }
 
+    /// <summary>
+    ///     履歴を一時ファイルに書き込んでから置き換え、JSON ファイルとして安全に保存します。
+    /// </summary>
+    /// <typeparam name="T">保存する型。</typeparam>
+    /// <param name="name">履歴の名前 (ファイル名)。</param>
+    /// <param name="value">保存する値。</param>
     internal static void Save<T>(string name, T value)
     {
         Directory.CreateDirectory(DirectoryPath);

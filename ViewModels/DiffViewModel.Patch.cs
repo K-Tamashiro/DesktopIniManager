@@ -19,6 +19,12 @@ internal sealed partial class DiffViewModel
     internal bool IsPatch => Patch != null;
     internal bool HasPatchEdits => PatchFiles.Any(file => file.IsDirty);
 
+    /// <summary>
+    ///     解析済みのパッチでパッチ表示を初期化し、適用先のリポジトリを設定または前回の設定から復元します。
+    /// </summary>
+    /// <param name="document">解析済みのパッチ。</param>
+    /// <param name="path">パッチ ファイルのパス。</param>
+    /// <param name="root">適用先のリポジトリ。null の場合は前回のリポジトリを使います。</param>
     internal void InitializePatch(PatchDocument document, string path, string root)
     {
         Patch = document;
@@ -31,6 +37,10 @@ internal sealed partial class DiffViewModel
         else if (!RestorePatchRoot()) RefreshPatchRows();
     }
 
+    /// <summary>
+    ///     パッチ ファイルが変わった場合は読み込み直し、比較の Target ルートまたは前回のリポジトリを適用先に設定して表示を更新します。
+    /// </summary>
+    /// <param name="path">パッチ ファイルのパス。</param>
     private async Task LoadPatchAsync(string path)
     {
         if (!string.Equals(_loadedPatchPath, path, StringComparison.OrdinalIgnoreCase) || Patch == null)
@@ -48,6 +58,10 @@ internal sealed partial class DiffViewModel
         RefreshPatchRows();
     }
 
+    /// <summary>
+    ///     パッチ内の表示するファイルを切り替えます。
+    /// </summary>
+    /// <param name="index">ファイルのインデックス。</param>
     internal void SelectPatchFile(int index)
     {
         if (index < 0 || index >= PatchFiles.Count) return;
@@ -56,6 +70,11 @@ internal sealed partial class DiffViewModel
         RefreshPatchRows();
     }
 
+    /// <summary>
+    ///     適用先のリポジトリを設定し、各エントリの適用先ファイルを解決します。名前変更されたファイルは新しいパス、古いパスの順に探します。
+    ///     不正なパスがあった場合に途中まで切り替わった状態を残さないよう、すべて解決してから状態を変更します。
+    /// </summary>
+    /// <param name="root">リポジトリのフォルダー。</param>
     internal void SetPatchRoot(string root)
     {
         if (PatchFiles.Any(file => file.HasUserEdits && (!file.Entry.IsNew || file.TargetPath != null)))
@@ -131,6 +150,10 @@ internal sealed partial class DiffViewModel
     }
 
     // Uses the repository chosen last time, if it still exists.
+    /// <summary>
+    ///     前回選んだリポジトリがまだ存在すれば、適用先として設定します。
+    /// </summary>
+    /// <returns>設定できた場合は true。</returns>
     private bool RestorePatchRoot()
     {
         var saved = SettingsService.LoadPatchRoot();
@@ -150,6 +173,11 @@ internal sealed partial class DiffViewModel
         }
     }
 
+    /// <summary>
+    ///     指定フォルダーから親方向へたどり、パッチ内の既存ファイルを含むフォルダーをリポジトリのルートとして探します。
+    /// </summary>
+    /// <param name="folder">探し始めるフォルダー。</param>
+    /// <returns>リポジトリのルート。見つからない場合は null。</returns>
     private string RepositoryRootFrom(string folder)
     {
         for (; folder != null; folder = Path.GetDirectoryName(folder))
@@ -164,6 +192,12 @@ internal sealed partial class DiffViewModel
         return null;
     }
 
+    /// <summary>
+    ///     パッチ内の相対パスから適用先の絶対パスを作成し、リポジトリ外を指すパスやシンボリック リンク・ジャンクション経由のパスを拒否します。
+    /// </summary>
+    /// <param name="root">リポジトリのフォルダー。</param>
+    /// <param name="relative">パッチ内の相対パス。</param>
+    /// <returns>適用先の絶対パス。</returns>
     internal static string ResolvePatchPath(string root, string relative)
     {
         if (!PatchDocument.IsSafeRelativePath(relative)) throw new InvalidDataException("Unsafe patch path.");
@@ -182,6 +216,11 @@ internal sealed partial class DiffViewModel
         return path;
     }
 
+    /// <summary>
+    ///     表示中の変更ランが属するパッチ ハンクの適用位置を移動します。
+    /// </summary>
+    /// <param name="id">表示上の変更ランの ID。</param>
+    /// <param name="delta">移動する行数。</param>
     internal void MovePatchHunk(int id, int delta)
     {
         // Displayed ids are runs; moving shifts the whole patch hunk they belong to.
@@ -189,6 +228,9 @@ internal sealed partial class DiffViewModel
         RefreshPatchRows();
     }
 
+    /// <summary>
+    ///     現在のパッチ ファイルの比較行、左右の文書、ヘッダー情報を作り直して表示を更新します。
+    /// </summary>
     internal void RefreshPatchRows()
     {
         if (CurrentPatch == null) return;
@@ -221,6 +263,11 @@ internal sealed partial class DiffViewModel
             (Patch.DecodingErrorLines > 0 ? $" | Undecodable lines: {Patch.DecodingErrorLines} (affected hunks cannot be applied)" : "");
     }
 
+    /// <summary>
+    ///     適用先のファイルがない場合に、パッチの内容だけから変更前または変更後の文書を組み立てます。
+    /// </summary>
+    /// <param name="source">変更前の文書の場合は true。</param>
+    /// <returns>組み立てた文書。</returns>
     private TextDocument PatchProjection(bool source)
     {
         var length = _allLines.Select(row => source ? row.LeftNumber : row.RightNumber).DefaultIfEmpty().Max();
@@ -246,6 +293,11 @@ internal sealed partial class DiffViewModel
         return new TextDocument { Lines = text, Endings = endings, EncodingName = "PATCH", Newlines = "LF" };
     }
 
+    /// <summary>
+    ///     パスを再検証してから、適用後の内容を適用先のファイルに保存します。
+    /// </summary>
+    /// <param name="encoding">保存に使うエンコーディング。null の場合は元のエンコーディング。</param>
+    /// <param name="ending">新しい行に使う改行コード。null の場合は既定値。</param>
     internal void SavePatchTarget(Encoding encoding = null, string ending = null)
     {
         if (PatchRoot != null) ResolvePatchPath(PatchRoot, CurrentPatch.Entry.RelativePath);
@@ -253,6 +305,9 @@ internal sealed partial class DiffViewModel
         RefreshPatchRows();
     }
 
+    /// <summary>
+    ///     未保存のパッチ編集を破棄し、適用先のファイルの内容に戻します。
+    /// </summary>
     internal void DiscardPatchEdits()
     {
         foreach (var state in PatchFiles.Where(file => file.IsDirty)) state.AttachAfterDiscard();

@@ -17,6 +17,13 @@ public sealed partial class VolumePathIndex
 
     private readonly Dictionary<string, VolumePathNode> _nodes;
 
+    /// <summary>
+    ///     構築済みのノード辞書からパス インデックスを作成します。
+    /// </summary>
+    /// <param name="rootPath">インデックスのルート パス。</param>
+    /// <param name="nodes">パスをキーとするノード辞書。</param>
+    /// <param name="root">ルート ノード。</param>
+    /// <param name="projectFiles">列挙中に見つかったプロジェクト ファイルのパス。</param>
     private VolumePathIndex(
         string rootPath,
         Dictionary<string, VolumePathNode> nodes,
@@ -95,6 +102,11 @@ public sealed partial class VolumePathIndex
         return new VolumePathIndex(rootPath, nodes, root, new List<string>());
     }
 
+    /// <summary>
+    ///     各ノードを親ディレクトリ ノードに関連付けて階層と深さを設定し、子ノードを名前順に並べ替えます。
+    /// </summary>
+    /// <param name="nodes">パスをキーとするノード辞書。</param>
+    /// <param name="root">ルート ノード。</param>
     private static void LinkNodes(Dictionary<string, VolumePathNode> nodes, VolumePathNode root)
     {
         foreach (var node in nodes.Values.OrderBy(node => node.Path.Length).ToArray())
@@ -120,12 +132,22 @@ public sealed partial class VolumePathIndex
         }
     }
 
+    /// <summary>
+    ///     指定パスに対応するノードを検索します。
+    /// </summary>
+    /// <param name="path">検索するパス。</param>
+    /// <returns>見つかったノード。存在しない場合は null。</returns>
     public VolumePathNode Find(string path)
     {
         VolumePathNode node;
         return _nodes.TryGetValue(Normalize(path), out node) ? node : null;
     }
 
+    /// <summary>
+    ///     パスに検索語のいずれかを含むノードを列挙します。検索語が空の場合はすべてのディレクトリを返します。
+    /// </summary>
+    /// <param name="query">空白区切りの検索語。</param>
+    /// <returns>一致したノード。</returns>
     public IEnumerable<VolumePathNode> Search(string query)
     {
         if (string.IsNullOrWhiteSpace(query)) return Directories;
@@ -134,6 +156,12 @@ public sealed partial class VolumePathIndex
             terms.Any(term => node.Path.IndexOf(term.TrimStart('*'), StringComparison.OrdinalIgnoreCase) >= 0));
     }
 
+    /// <summary>
+    ///     拡張子またはファイル名が一致するファイル ノードを列挙します。
+    /// </summary>
+    /// <param name="extensions">対象とする拡張子。</param>
+    /// <param name="exactNames">完全一致で対象とするファイル名。</param>
+    /// <returns>一致したファイル ノード。</returns>
     public IEnumerable<VolumePathNode> FindFiles(IEnumerable<string> extensions, IEnumerable<string> exactNames = null)
     {
         var extensionSet =
@@ -142,6 +170,10 @@ public sealed partial class VolumePathIndex
         return Files.Where(node => extensionSet.Contains(Path.GetExtension(node.Name)) || nameSet.Contains(node.Name));
     }
 
+    /// <summary>
+    ///     .git を含むフォルダーをリポジトリのルートとして列挙します。
+    /// </summary>
+    /// <returns>リポジトリのルート ノード。</returns>
     public IEnumerable<VolumePathNode> RepositoryRoots()
     {
         return _nodes.Values
@@ -149,6 +181,11 @@ public sealed partial class VolumePathIndex
             .Select(node => node.Parent).Where(node => node != null).Distinct();
     }
 
+    /// <summary>
+    ///     パスを絶対パスに変換し、ドライブ ルート以外の末尾の区切り文字を取り除きます。
+    /// </summary>
+    /// <param name="path">正規化するパス。</param>
+    /// <returns>正規化したパス。空の場合は空文字列。</returns>
     public static string Normalize(string path)
     {
         if (string.IsNullOrWhiteSpace(path)) return string.Empty;
@@ -160,6 +197,12 @@ public sealed partial class VolumePathIndex
             : full.TrimEnd(Path.DirectorySeparatorChar);
     }
 
+    /// <summary>
+    ///     パスがルートと同じか、ルート配下にあるかどうかを判定します。
+    /// </summary>
+    /// <param name="path">判定するパス。</param>
+    /// <param name="root">基準となるルート パス。</param>
+    /// <returns>ルートと同じかその配下にある場合は true。</returns>
     public static bool IsWithin(string path, string root)
     {
         return string.Equals(path, root, StringComparison.OrdinalIgnoreCase) ||
@@ -170,6 +213,12 @@ public sealed partial class VolumePathIndex
 
 public sealed class VolumePathNode
 {
+    /// <summary>
+    ///     パスと属性からノードを作成します。
+    /// </summary>
+    /// <param name="path">ノードのフル パス。</param>
+    /// <param name="attributes">ファイル属性。</param>
+    /// <param name="forceDirectory">属性に関係なくディレクトリとして扱う場合は true。</param>
     internal VolumePathNode(string path, FileAttributes attributes, bool forceDirectory = false)
     {
         Path = path;

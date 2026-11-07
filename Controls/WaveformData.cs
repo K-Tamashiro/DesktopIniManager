@@ -16,6 +16,15 @@ public sealed class WaveformData
     private readonly int _leafCount;
     private readonly float[][] _minimum, _maximum;
 
+    /// <summary>
+    ///     チャンネルごとのビン最小値・最大値を受け取り、区間極値を高速に求めるためのブロック単位のセグメント木を構築します。
+    /// </summary>
+    /// <param name="min">チャンネルごとのビン最小値。</param>
+    /// <param name="max">チャンネルごとのビン最大値。</param>
+    /// <param name="rate">元音声のサンプリングレート。</param>
+    /// <param name="density">1 秒あたりのビン数。</param>
+    /// <param name="frames">元音声の総フレーム数。</param>
+    /// <param name="cancellation">構築処理のキャンセル トークン。</param>
     private WaveformData(float[][] min, float[][] max, int rate, int density, long frames,
         CancellationToken cancellation)
     {
@@ -61,17 +70,37 @@ public sealed class WaveformData
     public int BinCount => _minimum[0].Length;
     public double Duration { get; }
 
+    /// <summary>
+    ///     指定チャンネル・ビンの最小サンプル値を取得します。
+    /// </summary>
+    /// <param name="channel">チャンネル番号。</param>
+    /// <param name="bin">ビン番号。</param>
+    /// <returns>ビン内の最小サンプル値。</returns>
     public float Minimum(int channel, int bin)
     {
         return _minimum[channel][bin];
     }
 
+    /// <summary>
+    ///     指定チャンネル・ビンの最大サンプル値を取得します。
+    /// </summary>
+    /// <param name="channel">チャンネル番号。</param>
+    /// <param name="bin">ビン番号。</param>
+    /// <returns>ビン内の最大サンプル値。</returns>
     public float Maximum(int channel, int bin)
     {
         return _maximum[channel][bin];
     }
 
     // Exact extrema over [first, end). The original bins are never changed or discarded.
+    /// <summary>
+    ///     指定チャンネルのビン範囲 [first, end) における正確な最小値と最大値を求めます。
+    /// </summary>
+    /// <param name="channel">チャンネル番号。</param>
+    /// <param name="first">範囲の先頭ビン (含む)。</param>
+    /// <param name="end">範囲の終端ビン (含まない)。</param>
+    /// <param name="min">範囲内の最小値。</param>
+    /// <param name="max">範囲内の最大値。</param>
     internal void GetExtrema(int channel, int first, int end, out float min, out float max)
     {
         if ((uint)channel >= Channels || first < 0 || end > BinCount || first >= end)
@@ -114,6 +143,13 @@ public sealed class WaveformData
         }
     }
 
+    /// <summary>
+    ///     音声ファイルを読み込み、保持するビン数が上限を超えない密度で波形データを生成します。
+    /// </summary>
+    /// <param name="path">音声ファイルのパス。</param>
+    /// <param name="cancellation">読み込みのキャンセル トークン。</param>
+    /// <param name="binsPerSecond">要求する 1 秒あたりのビン数。</param>
+    /// <returns>生成した波形データ。</returns>
     public static WaveformData Load(string path, CancellationToken cancellation = default,
         int binsPerSecond = DefaultBinsPerSecond)
     {
@@ -126,6 +162,13 @@ public sealed class WaveformData
         return Read(reader, cancellation, binsPerSecond);
     }
 
+    /// <summary>
+    ///     サンプル プロバイダーから全サンプルを読み取り、チャンネル・ビンごとの最小値と最大値を集計します。
+    /// </summary>
+    /// <param name="source">読み取り元のサンプル プロバイダー。</param>
+    /// <param name="cancellation">読み取りのキャンセル トークン。</param>
+    /// <param name="binsPerSecond">要求する 1 秒あたりのビン数 (サンプリングレートを上限とします)。</param>
+    /// <returns>生成した波形データ。</returns>
     public static WaveformData Read(ISampleProvider source, CancellationToken cancellation = default,
         int binsPerSecond = DefaultBinsPerSecond)
     {

@@ -77,6 +77,13 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
     private bool _treeCompact = SettingsService.LoadTreeCompact();
     private string _treeSource;
 
+    /// <summary>
+    ///     Developer Differencer の ViewModel を作成し、コマンドと保存された設定を初期化します。
+    /// </summary>
+    /// <param name="dialogs">メッセージ表示に使うダイアログ サービス。</param>
+    /// <param name="dispatcher">UI スレッドのディスパッチャー。</param>
+    /// <param name="confirmSync">同期・ZIP 出力の確認ダイアログを表示する処理。</param>
+    /// <param name="openLog">同期ログ ウィンドウを開く処理。</param>
     internal DeveloperDifferencerViewModel(IUserDialogService dialogs, Dispatcher dispatcher,
         ConfirmSyncCallback confirmSync, Func<string, DiffSnapshot, ISynchronizationLog> openLog)
     {
@@ -377,6 +384,10 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
 
     public event Action<DiffRow> FileProgressRequested;
 
+    /// <summary>
+    ///     .gitignore ルールの設定に使うスナップショットを取得します。比較前の場合は両側のインデックスからルールを統合して作成します。
+    /// </summary>
+    /// <returns>ルールを含むスナップショット。取得できない場合は null。</returns>
     internal async Task<DiffSnapshot> GetIgnoreSnapshotAsync()
     {
         if (_closed || IsBusy) return null;
@@ -402,6 +413,10 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         };
     }
 
+    /// <summary>
+    ///     無効にする .gitignore ルールを反映します。比較前の場合はインデックスを作り直し、比較後の場合は再比較します。
+    /// </summary>
+    /// <param name="disabled">無効にするルールのキー。</param>
     internal async Task ApplyIgnoreRulesAsync(IEnumerable<string> disabled)
     {
         if (!CanConfigureIgnore) return;
@@ -427,6 +442,10 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
             await SelectHistoryTabAsync(previousTab);
     }
 
+    /// <summary>
+    ///     フォルダー ツリーで選択したフォルダーのファイルを一覧に表示します。
+    /// </summary>
+    /// <param name="path">比較ルートからのフォルダーの相対パス。</param>
     public void SelectFolder(string path)
     {
         if (_syncingTreeFromFile || IsBusy ||
@@ -445,6 +464,12 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         Filter();
     }
 
+    /// <summary>
+    ///     比較元または比較先のルートを設定し、そのインデックスの作成をやり直します。
+    /// </summary>
+    /// <param name="source">比較元の場合は true。</param>
+    /// <param name="path">ルートのパス。</param>
+    /// <param name="force">同じパスでもやり直す場合は true。</param>
     internal void ApplyRootPath(bool source, string path, bool force = false)
     {
         path = path ?? string.Empty;
@@ -478,6 +503,11 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    ///     比較元の入力が落ち着いてから、比較先の履歴から同じフォルダー名の候補を探して比較先に設定します。
+    /// </summary>
+    /// <param name="source">比較元のパス。</param>
+    /// <param name="target">比較先のパス。</param>
     private async Task LinkTargetFolderAsync(string source, string target)
     {
         var version = ++_rootLinkVersion;
@@ -491,16 +521,28 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
             ApplyRootPath(false, match);
     }
 
+    /// <summary>
+    ///     比較先の履歴から、比較元に対応するフォルダーを探して設定します。
+    /// </summary>
     internal void MatchTargetHistory()
     {
         if (!_closed && !IsBusy) _pendingRootLink = LinkTargetFolderAsync(SourcePath, TargetPath);
     }
 
+    /// <summary>
+    ///     実行中の比較先の候補探索を取り消します。
+    /// </summary>
     internal void CancelTargetHistoryMatch()
     {
         _rootLinkVersion++;
     }
 
+    /// <summary>
+    ///     比較先の履歴から、比較元と同じフォルダー名を持つエントリを探します。ドライブ ルートは対象外です。
+    /// </summary>
+    /// <param name="source">比較元のパス。</param>
+    /// <param name="history">比較先の履歴。</param>
+    /// <returns>見つかったフォルダー。見つからない場合は null。</returns>
     internal static string FindTargetHistoryMatch(string source, IEnumerable<string> history)
     {
         string FolderName(string path)
@@ -533,12 +575,19 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         return null;
     }
 
+    /// <summary>
+    ///     インデックス作成中の表示の変更を通知します。
+    /// </summary>
     private void NotifyIndexProgress()
     {
         OnPropertyChanged(nameof(IsSourceIndexing));
         OnPropertyChanged(nameof(IsTargetIndexing));
     }
 
+    /// <summary>
+    ///     インデックスの作成完了を待って、作成中の表示を更新します。
+    /// </summary>
+    /// <param name="pending">作成中のインデックス。</param>
     private async Task ObserveIndexProgressAsync(PendingIndex pending)
     {
         NotifyIndexProgress();
@@ -552,6 +601,10 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    ///     比較を取り消し、比較元または比較先のインデックスの作成をやり直します。
+    /// </summary>
+    /// <param name="source">比較元の場合は true。</param>
     private void RestartIndex(bool source)
     {
         _compareCts?.Cancel();
@@ -574,12 +627,19 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         OnPropertyChanged(nameof(CanConfigureIgnore));
     }
 
+    /// <summary>
+    ///     比較元または比較先のルートを再走査します。
+    /// </summary>
+    /// <param name="source">比較元の場合は true。</param>
     internal void RescanRoot(bool source)
     {
         if (!IsBusy)
             ApplyRootPath(source, source ? SourcePath : TargetPath, true);
     }
 
+    /// <summary>
+    ///     両側のインデックスを破棄します。
+    /// </summary>
     private void InvalidateIndexes()
     {
         _sourceIndex?.Cancel();
@@ -597,17 +657,29 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
 
     public event Action<bool?, bool> SyncDirectionIconRequested;
 
+    /// <summary>
+    ///     ファイル一覧の処理中表示を切り替えます。
+    /// </summary>
+    /// <param name="busyPanel">処理中の場合は true。</param>
+    /// <param name="message">表示するメッセージ。</param>
     internal void SetFilePanelBusy(bool busyPanel, string message = null)
     {
         IsFileBusy = busyPanel;
         if (message != null) BusyMessage = message;
     }
 
+    /// <summary>
+    ///     エラーをメッセージ ボックスで表示します。
+    /// </summary>
+    /// <param name="error">発生した例外。</param>
     internal void ShowError(Exception error)
     {
         _dialogs.Show(ErrorMessages.English(error), Strings.App_Title, MessageBoxButton.OK, MessageBoxImage.Error);
     }
 
+    /// <summary>
+    ///     インデックスの作成と比較を取り消し、ViewModel を閉じた状態にします。
+    /// </summary>
     internal void Close()
     {
         _closed = true;
@@ -620,6 +692,10 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         DetachSelectionHandlers();
     }
 
+    /// <summary>
+    ///     フォルダー選択ダイアログで比較元または比較先のルートを選びます。
+    /// </summary>
+    /// <param name="source">比較元の場合は true。</param>
     private void BrowseFolder(bool source)
     {
         try
@@ -638,6 +714,9 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    ///     選択しているファイルを DIFF ビューで開きます。表示できないバイナリ ファイルの場合はメッセージを表示します。
+    /// </summary>
     private void OpenDiff()
     {
         if (IsBusy || Snapshot == null || SelectedRow == null) return;
@@ -658,6 +737,10 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    ///     ファイル一覧に表示されている、DIFF ビューで比較できるファイルを取得します。
+    /// </summary>
+    /// <returns>比較できるファイルの一覧。</returns>
     internal IReadOnlyList<DiffFile> GetVisibleComparableFiles()
     {
         var visible = FileItems ?? Enumerable.Empty<DiffRow>();
@@ -667,6 +750,11 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
             .ToList();
     }
 
+    /// <summary>
+    ///     指定したファイルの行を選択し、そのフォルダーをツリーで表示します。
+    /// </summary>
+    /// <param name="file">選択するファイル。</param>
+    /// <returns>選択した行。見つからない場合は null。</returns>
     internal DiffRow SelectDisplayedFile(DiffFile file)
     {
         if (file == null) return null;
@@ -678,6 +766,10 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         return row;
     }
 
+    /// <summary>
+    ///     行のプレビューとアイコンを、同時実行数を制限して読み込みます。
+    /// </summary>
+    /// <param name="row">対象の行。</param>
     internal async Task LoadPreviewAsync(DiffRow row)
     {
         if (_closed || row == null || (Snapshot == null && !_comparing)) return;
@@ -697,6 +789,10 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    ///     パスを含むフォルダーをツリーで展開・選択して表示します。
+    /// </summary>
+    /// <param name="path">ファイルまたはフォルダーの相対パス。</param>
     private void RevealContainingFolder(string path)
     {
         if (_folders.Count == 0) return;
@@ -744,11 +840,17 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         else FolderRevealRequested(pathToTarget);
     }
 
+    /// <summary>
+    ///     ファイル選択に伴うツリーの同期を終了します。
+    /// </summary>
     internal void CompleteFolderReveal()
     {
         _syncingTreeFromFile = false;
     }
 
+    /// <summary>
+    ///     保存された比較元と比較先のパスを読み込みます。
+    /// </summary>
     internal void RestoreState()
     {
         try
@@ -779,6 +881,10 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    ///     選択したファイルとフォルダーを確認のうえ、指定した方向に同期します。完了後は自動で再比較します。
+    /// </summary>
+    /// <param name="toTarget">比較元から比較先へ同期する場合は true。</param>
     internal async Task SyncAsync(bool toTarget)
     {
         if (IsBusy || Snapshot == null) return;
@@ -850,6 +956,10 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         liveLog.Activate();
     }
 
+    /// <summary>
+    ///     選択したファイルとフォルダーを、確認のうえフォルダー構成を保ったまま ZIP に出力します。
+    /// </summary>
+    /// <param name="fromSource">比較元から出力する場合は true。</param>
     internal async Task ZipAsync(bool fromSource)
     {
         if (IsBusy || Snapshot == null) return;
@@ -934,6 +1044,9 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
 
     public event Action<string, string, string> CleanReportRequested;
 
+    /// <summary>
+    ///     比較元・比較先のソリューションを選んで MSBuild でクリーンし、結果を表示して再比較します。
+    /// </summary>
     internal async Task CleanAsync()
     {
         if (IsBusy) return;
@@ -1043,6 +1156,11 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    ///     ファイルが、表示対象外の obj または bin フォルダーに含まれていないかどうかを判定します。
+    /// </summary>
+    /// <param name="file">判定するファイル。</param>
+    /// <returns>表示対象の場合は true。</returns>
     internal bool IncludeBuildFolderFile(DiffFile file)
     {
         var directory = Path.GetDirectoryName(file.RelativePath) ?? "";
@@ -1051,6 +1169,11 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
                          (_showBin || !part.Equals("bin", StringComparison.OrdinalIgnoreCase)));
     }
 
+    /// <summary>
+    ///     フォルダーが、適用済みの obj・bin フィルターで表示対象かどうかを判定します。
+    /// </summary>
+    /// <param name="path">フォルダーの相対パス。</param>
+    /// <returns>表示対象の場合は true。</returns>
     internal bool IncludeBuildFolder(string path)
     {
         if (string.IsNullOrEmpty(path)) return true;
@@ -1059,6 +1182,9 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
                          (_appliedShowBin || !part.Equals("bin", StringComparison.OrdinalIgnoreCase)));
     }
 
+    /// <summary>
+    ///     obj・bin フォルダーの表示設定を適用し、ツリーと一覧を更新します。
+    /// </summary>
     internal void ApplyBuildFolderFilter()
     {
         _appliedShowObj = ShowObj;
@@ -1088,6 +1214,10 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
                  " identical (OBJ/BIN filters applied). Check items to synchronize.";
     }
 
+    /// <summary>
+    ///     ファイル一覧に表示されている Same のファイルの選択を一括で切り替えます。差分ファイルの選択は変更しません。
+    /// </summary>
+    /// <param name="value">選択する場合は true。</param>
     private void ApplySelectAllFiles(bool value)
     {
         if (IsBusy || Snapshot == null) return;
@@ -1131,6 +1261,10 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    ///     Same のファイルだけのフォルダーについて、選択されているファイルを解除します。
+    /// </summary>
+    /// <param name="folder">対象のフォルダー。</param>
     internal void ClearSameFolderSelection(DiffFolder folder)
     {
         if (IsBusy || Snapshot == null || folder == null || folder.CanSelect) return;
@@ -1150,6 +1284,9 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    ///     表示する比較結果の種類 (Same、Different、Source のみ、Target のみ) を適用します。
+    /// </summary>
     internal void ApplyCategoryFilter()
     {
         _kindMask = (ShowSame ? DiffKind.Same : 0) |
@@ -1159,6 +1296,9 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         if (Snapshot != null) ApplyKindFilter();
     }
 
+    /// <summary>
+    ///     ファイルの選択変更のイベント ハンドラーを解除します。
+    /// </summary>
     internal void DetachSelectionHandlers()
     {
         if (Snapshot != null)
@@ -1166,6 +1306,9 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
                 file.PropertyChanged -= FileSelectionChanged;
     }
 
+    /// <summary>
+    ///     現在のタブの状態を保存してから、比較結果の表示をクリアします。
+    /// </summary>
     internal void ClearComparisonView()
     {
         CaptureHistoryTab();
@@ -1191,6 +1334,9 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         UpdateSelectionSummary();
     }
 
+    /// <summary>
+    ///     選択中のフォルダーに表示されているファイルの比較結果を、ファイルごとに更新します。
+    /// </summary>
     internal async Task RefreshSelectedFolderAsync()
     {
         if (IsBusy || Snapshot == null) return;
@@ -1239,23 +1385,39 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    ///     ファイルがフォルダーの直下にあるかどうかを判定します。
+    /// </summary>
+    /// <param name="folder">フォルダーの相対パス。</param>
+    /// <param name="relativePath">ファイルの相対パス。</param>
+    /// <returns>直下にある場合は true。</returns>
     internal static bool IsDirectChildFile(string folder, string relativePath)
     {
         var parent = Path.GetDirectoryName(relativePath) ?? string.Empty;
         return string.Equals(parent, folder ?? string.Empty, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    ///     ファイル一覧に表示中のファイルがあるかどうかを判定します。
+    /// </summary>
+    /// <returns>ファイルがある場合は true。</returns>
     internal bool SelectedFolderHasDirectFiles()
     {
         return FileItems != null && FileItems.Any();
     }
 
+    /// <summary>
+    ///     再読み込みボタンを使えるかどうかを更新します。
+    /// </summary>
     internal void UpdateRefreshButtonState()
     {
         CanRefresh = !IsBusy && !_comparing && Snapshot != null && SelectedFolderHasDirectFiles();
         RefreshCommand.NotifyCanExecuteChanged();
     }
 
+    /// <summary>
+    ///     実行中の比較を取り消します。
+    /// </summary>
     internal void CancelCompare()
     {
         if (!_comparing) return;
@@ -1271,6 +1433,9 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         CanCancel = false;
     }
 
+    /// <summary>
+    ///     比較後にフォルダーの展開と選択をリセットし、ルートを選択します。
+    /// </summary>
     internal void ResetAfterComparison()
     {
         _selectedFolder = "";
@@ -1293,11 +1458,18 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
 
     internal event Action ComparisonCompleted;
 
+    /// <summary>
+    ///     新しい履歴タブで比較を実行します。
+    /// </summary>
     internal Task CompareAsync()
     {
         return CompareCoreAsync(false);
     }
 
+    /// <summary>
+    ///     両側のインデックスの作成を待って比較を実行し、結果のツリーと一覧を作成して履歴タブに保存します。
+    /// </summary>
+    /// <param name="replaceCurrent">新しいタブを作らず、現在のタブの結果を置き換える場合は true。</param>
     private async Task CompareCoreAsync(bool replaceCurrent)
     {
         if (IsBusy) return;
@@ -1443,6 +1615,10 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    ///     比較の進捗を表示します。総件数が不明な間は不確定表示にします。
+    /// </summary>
+    /// <param name="progress">進捗情報。</param>
     internal void UpdateProgress(DiffProgress progress)
     {
         if (!_comparing) return;
@@ -1459,6 +1635,12 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         Status = detail;
     }
 
+    /// <summary>
+    ///     ツリー作成の進捗を表示します。
+    /// </summary>
+    /// <param name="stage">段階名。</param>
+    /// <param name="completed">処理済みの件数。</param>
+    /// <param name="total">総件数。</param>
     private void SetTreeProgress(string stage, int completed, int total)
     {
         IsProgressVisible = true;
@@ -1468,6 +1650,12 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         BusyMessage = Status = stage + " " + completed.ToString("N0") + " / " + total.ToString("N0");
     }
 
+    /// <summary>
+    ///     各フォルダーが両側に存在するか、空かどうかを、保存済みの状態やインデックスからバックグラウンドで求めます。
+    /// </summary>
+    /// <param name="paths">フォルダーの相対パス。</param>
+    /// <param name="token">キャンセル トークン。</param>
+    /// <returns>フォルダーごとの状態。</returns>
     private Task<Dictionary<string, HistoryFolderState>> ReadFolderStatesAsync(string[] paths, CancellationToken token)
     {
         var saved = _restoringFolders;
@@ -1524,6 +1712,13 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         }, token).WaitAsync(token);
     }
 
+    /// <summary>
+    ///     比較結果のフォルダー ツリーを作成し、展開状態と選択フォルダーを復元します。
+    /// </summary>
+    /// <param name="paths">フォルダーの相対パス。</param>
+    /// <param name="expanded">展開するフォルダー。</param>
+    /// <param name="selected">選択するフォルダー。</param>
+    /// <param name="token">キャンセル トークン。</param>
     internal async Task BuildTreeAsync(IEnumerable<string> paths, IEnumerable<string> expanded, string selected,
         CancellationToken token)
     {
@@ -1675,6 +1870,10 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    ///     比較結果の種類のフィルターを、UI に処理を譲りながらフォルダーに適用します。
+    /// </summary>
+    /// <param name="token">キャンセル トークン。</param>
     internal async Task ApplyKindFilterAsync(CancellationToken token)
     {
         FolderItems = null;
@@ -1764,6 +1963,10 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
     }
 
+    /// <summary>
+    ///     比較結果の種類のフィルターをフォルダーに適用し、表示するツリーと一覧を更新します。ファイルの再走査はしません。
+    /// </summary>
+    /// <param name="preserveSelectedFolder">選択中のフォルダーを維持する場合は true。</param>
     internal void ApplyKindFilter(bool preserveSelectedFolder = false)
     {
         // Counts were built once with the snapshot. Switching categories does not rescan files or rebuild the base tree.
@@ -1797,6 +2000,9 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         UpdateSelectionSummary();
     }
 
+    /// <summary>
+    ///     表示対象のフォルダーの祖先フォルダーも表示対象にします。
+    /// </summary>
     private void PromoteVisibleFolderAncestors()
     {
         foreach (var folder in _folders.Values.Where(f => f.Visible && f.Path.Length > 0).ToArray())
@@ -1812,6 +2018,11 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    ///     フォルダーとその子孫の同期選択を一括で設定します。
+    /// </summary>
+    /// <param name="folder">起点のフォルダー。</param>
+    /// <param name="value">選択する場合は true。</param>
     private void SetFolderSelectionRecursive(DiffFolder folder, bool value)
     {
         if (!IncludeBuildFolder(folder.Path))
@@ -1824,12 +2035,19 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
             SetFolderSelectionRecursive(child, value);
     }
 
+    /// <summary>
+    ///     すべてのフォルダーの件数とチェック状態を数え直します。
+    /// </summary>
     internal void RefreshChecks()
     {
         foreach (var folder in _folders.Values) folder.Refresh();
         UpdateSelectionSummary();
     }
 
+    /// <summary>
+    ///     選択数だけを数え直します。差分の件数やアイコンは作り直しません。
+    /// </summary>
+    /// <param name="changedFolder">変更されたフォルダー。null の場合はすべてのフォルダー。</param>
     internal void RefreshSelectionChecks(DiffFolder changedFolder = null)
     {
         // Bulk check/uncheck changes only selection state.
@@ -1858,6 +2076,11 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         UpdateSelectionSummary();
     }
 
+    /// <summary>
+    ///     ファイルの選択が変わったときに、所属フォルダーと祖先フォルダーの選択数を更新します。
+    /// </summary>
+    /// <param name="sender">選択が変わったファイル。</param>
+    /// <param name="e">イベントデータ。</param>
     internal void FileSelectionChanged(object sender, PropertyChangedEventArgs e)
     {
         if (_bulk || Snapshot == null || e.PropertyName != "Selected") return;
@@ -1876,6 +2099,9 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         UpdateSelectionSummary();
     }
 
+    /// <summary>
+    ///     選択中のフォルダー数とファイル数の表示を更新します。
+    /// </summary>
     internal void UpdateSelectionSummary()
     {
         DiffFolder root = null;
@@ -1899,6 +2125,10 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         SelectionCountChanged?.Invoke(fileCount);
     }
 
+    /// <summary>
+    ///     選択中のフォルダーの直下にあるファイルの行に印を付けます。
+    /// </summary>
+    /// <param name="visible">表示する行。</param>
     private void MarkDirectFileRows(List<DiffRow> visible)
     {
         var folder = _selectedFolder ?? string.Empty;
@@ -1906,6 +2136,11 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
             row.SetDirectInSelectedFolder(IsDirectChildFile(folder, row.File.RelativePath));
     }
 
+    /// <summary>
+    ///     選択フォルダー直下のファイルを先に、子孫フォルダーのファイルを後に並べます。
+    /// </summary>
+    /// <param name="visible">表示する行。</param>
+    /// <returns>並べ替えた行。</returns>
     private static List<DiffRow> OrderSelectedFolderFirst(List<DiffRow> visible)
     {
         if (visible == null || visible.Count == 0)
@@ -1923,6 +2158,12 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         return selected;
     }
 
+    /// <summary>
+    ///     行をファイル名、相対パスの順で比較します。
+    /// </summary>
+    /// <param name="left">比較する行。</param>
+    /// <param name="right">比較する行。</param>
+    /// <returns>比較結果。</returns>
     private static int CompareDiffRows(DiffRow left, DiffRow right)
     {
         var name = StringComparer.CurrentCultureIgnoreCase.Compare(
@@ -1934,12 +2175,21 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
             right == null ? null : right.File.RelativePath);
     }
 
+    /// <summary>
+    ///     ツリーのルートの表示名を取得します。
+    /// </summary>
+    /// <returns>ルートのフォルダー名。ルートがない場合は "All folders"。</returns>
     internal string RootLabel()
     {
         return string.IsNullOrWhiteSpace(_treeSource) ? "All folders" :
             Path.GetFileName(_treeSource.TrimEnd('\\', '/')) is { Length: > 0 } name ? name : _treeSource;
     }
 
+    /// <summary>
+    ///     選択したフォルダーとファイルを、構造を保ったまま一時フォルダーにコピーします。
+    /// </summary>
+    /// <param name="fromSource">比較元からコピーする場合は true。</param>
+    /// <returns>作成した一時フォルダー。対象がない場合は null。</returns>
     internal string StageCheckedCopy(bool fromSource)
     {
         if (Snapshot == null) return null;
@@ -1962,6 +2212,9 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         return staged;
     }
 
+    /// <summary>
+    ///     選択項目だけを表示するフィルターが有効な場合に、ツリーをルートだけの表示に折りたたみ、ルートを選択します。
+    /// </summary>
     private void ApplyCheckedOnlyFolderCollapse()
     {
         if (_folders == null || _folders.Count == 0 || !_folders.ContainsKey(""))
@@ -1991,6 +2244,9 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         FolderItems = new[] { _folders[""] };
     }
 
+    /// <summary>
+    ///     選択中のフォルダー、種類、obj・bin、選択状態のフィルターを適用してファイル一覧を作成します。
+    /// </summary>
     internal void Filter()
     {
         var folderPrefix = _selectedFolder + "\\";
@@ -2017,6 +2273,10 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         UpdateRefreshButtonState();
     }
 
+    /// <summary>
+    ///     処理中かどうかを設定し、関係するプロパティとコマンドの状態を更新します。
+    /// </summary>
+    /// <param name="value">処理中の場合は true。</param>
     internal void SetBusy(bool value)
     {
         IsBusy = value;
@@ -2038,6 +2298,16 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         DeleteOtherHistoryTabsCommand?.NotifyCanExecuteChanged();
     }
 
+    /// <summary>
+    ///     1 つのファイルを再読み込みして比較し直し、結果と件数を更新します。
+    /// </summary>
+    /// <param name="file">対象のファイル。</param>
+    /// <param name="applyFilter">更新後にフィルターを適用し直す場合は true。</param>
+    /// <param name="compareTimestamp">更新日時を比較する場合は true。null の場合はファイルの設定を使います。</param>
+    /// <param name="preciseCompare">XXH128 で比較する場合は true。null の場合はファイルの設定を使います。</param>
+    /// <param name="compareSize">サイズを比較する場合は true。null の場合はファイルの設定を使います。</param>
+    /// <param name="compareAttributes">BOM の有無を比較する場合は true。null の場合はファイルの設定を使います。</param>
+    /// <returns>更新した場合は true。</returns>
     internal async Task<bool> RefreshFileAsync(DiffFile file, bool applyFilter = true,
         bool? compareTimestamp = null, bool? preciseCompare = null, bool? compareSize = null,
         bool? compareAttributes = null)
@@ -2150,6 +2420,9 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         return true;
     }
 
+    /// <summary>
+    ///     比較履歴と、比較元・比較先のパスを保存します。
+    /// </summary>
     internal void SaveState()
     {
         SaveHistory();
@@ -2173,6 +2446,9 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
     }
 
     // Call while interaction is disabled (closing) or IsBusy (comparison).
+    /// <summary>
+    ///     比較履歴と状態をバックグラウンドで保存します。操作が無効な間 (閉じるときや比較中) に呼び出します。
+    /// </summary>
     internal async Task SaveStateAsync()
     {
         CaptureHistoryTab();
@@ -2200,6 +2476,11 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         private readonly CancellationTokenSource _cancellation = new();
         private readonly string[] _disabled;
 
+        /// <summary>
+        ///     指定したルートのインデックスの作成をバックグラウンドで開始します。
+        /// </summary>
+        /// <param name="path">ルートのパス。</param>
+        /// <param name="disabled">無効にする .gitignore ルールのキー。</param>
         public PendingIndex(string path, IEnumerable<string> disabled)
         {
             Path = path;
@@ -2211,6 +2492,9 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         public string Path { get; }
         public Exception Error { get; private set; }
 
+        /// <summary>
+        ///     インデックスの作成を取り消します。
+        /// </summary>
         public void Cancel()
         {
             try
@@ -2222,6 +2506,11 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
             }
         }
 
+        /// <summary>
+        ///     インデックスをバックグラウンドで作成します。失敗した場合は例外を Error に記録します。
+        /// </summary>
+        /// <param name="path">ルートのパス。</param>
+        /// <returns>作成したインデックス。失敗した場合は null。</returns>
         private async Task<DiffIndex> BuildAsync(string path)
         {
             try

@@ -21,6 +21,19 @@ internal sealed class CodeGrepService
         "coverage"
     };
 
+    /// <summary>
+    ///     検索範囲内でプロファイルの拡張子に一致するファイルを並列に走査し、各行から検索語に一致する箇所を集めます。
+    /// </summary>
+    /// <param name="scopes">検索対象のルート フォルダー。</param>
+    /// <param name="profile">対象とする拡張子を定義した言語プロファイル。</param>
+    /// <param name="query">検索語または正規表現。</param>
+    /// <param name="regex">検索語を正規表現として扱う場合は true。</param>
+    /// <param name="matchCase">大文字と小文字を区別する場合は true。</param>
+    /// <param name="wholeWord">単語単位で一致させる場合は true。</param>
+    /// <param name="progress">処理済みファイル数と総ファイル数を受け取る進捗通知。</param>
+    /// <param name="token">キャンセル トークン。</param>
+    /// <param name="matchFound">一致が見つかるたびに呼び出されるコールバック。</param>
+    /// <returns>並べ替え済みの一致結果、対象ファイル数、読み飛ばしたファイル数。</returns>
     public GrepSearchResult Search(IReadOnlyList<string> scopes, LanguageProfile profile, string query,
         bool regex, bool matchCase, bool wholeWord, Action<int, int> progress, CancellationToken token,
         Action<GrepMatch> matchFound = null)
@@ -95,6 +108,14 @@ internal sealed class CodeGrepService
             .ThenBy(item => item.LineNumber).ToList(), files.Count, skipped);
     }
 
+    /// <summary>
+    ///     検索条件から、タイムアウト付きのコンパイル済み正規表現を作成します。
+    /// </summary>
+    /// <param name="query">検索語または正規表現。</param>
+    /// <param name="regex">検索語を正規表現として扱う場合は true。</param>
+    /// <param name="matchCase">大文字と小文字を区別する場合は true。</param>
+    /// <param name="wholeWord">単語境界で囲む場合は true。</param>
+    /// <returns>作成した正規表現。</returns>
     private static Regex BuildMatcher(string query, bool regex, bool matchCase, bool wholeWord)
     {
         var pattern = regex ? query : Regex.Escape(query);
@@ -104,6 +125,13 @@ internal sealed class CodeGrepService
         return new Regex(pattern, options, TimeSpan.FromSeconds(2));
     }
 
+    /// <summary>
+    ///     各検索範囲から対象拡張子のファイルを重複なく収集します。
+    /// </summary>
+    /// <param name="scopes">検索対象のルート フォルダー。</param>
+    /// <param name="extensions">対象とする拡張子。</param>
+    /// <param name="token">キャンセル トークン。</param>
+    /// <returns>収集したファイル パスの一覧。</returns>
     private static List<string> CollectFiles(IReadOnlyList<string> scopes, string[] extensions, CancellationToken token)
     {
         var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -118,6 +146,13 @@ internal sealed class CodeGrepService
         return files.ToList();
     }
 
+    /// <summary>
+    ///     ネイティブ列挙でフォルダーを再帰的に走査し、除外フォルダーと隠しフォルダーを除いて対象拡張子のファイルを追加します。
+    /// </summary>
+    /// <param name="root">走査を開始するフォルダー。</param>
+    /// <param name="extensions">対象とする拡張子の集合。</param>
+    /// <param name="files">見つかったファイルの追加先。</param>
+    /// <param name="token">キャンセル トークン。</param>
     private static void CollectFilesNative(string root, HashSet<string> extensions, HashSet<string> files,
         CancellationToken token)
     {
@@ -201,6 +236,11 @@ internal sealed class CodeGrepService
         }
     }
 
+    /// <summary>
+    ///     StreamReader から 1 行ずつ読み取り、読み終えたらリーダーを破棄します。
+    /// </summary>
+    /// <param name="reader">読み取り元のリーダー。</param>
+    /// <returns>行の列挙。</returns>
     private static IEnumerable<string> StreamLines(StreamReader reader)
     {
         using (reader)
@@ -210,6 +250,11 @@ internal sealed class CodeGrepService
         }
     }
 
+    /// <summary>
+    ///     読み込み済みのテキストを CR、LF、CRLF で行に分割して列挙します。
+    /// </summary>
+    /// <param name="text">分割するテキスト。</param>
+    /// <returns>行の列挙。</returns>
     private static IEnumerable<string> TextLines(string text)
     {
         // StringReader.ReadLine splits exactly like StreamReader.ReadLine (CR, LF, CRLF).
@@ -218,6 +263,11 @@ internal sealed class CodeGrepService
         while ((line = reader.ReadLine()) != null) yield return line;
     }
 
+    /// <summary>
+    ///     先頭のバイト列から BOM を判定し、BOM がなければ UTF-8 として有効かどうかで UTF-8 または Shift_JIS を選びます。
+    /// </summary>
+    /// <param name="stream">判定するストリーム。</param>
+    /// <returns>推定したエンコーディング。</returns>
     private static Encoding DetectEncoding(Stream stream)
     {
         var sample = new byte[4096];
@@ -240,6 +290,12 @@ internal sealed class CodeGrepService
         }
     }
 
+    /// <summary>
+    ///     ファイルが属する検索範囲を、長いパスから順に探します。
+    /// </summary>
+    /// <param name="path">ファイルのパス。</param>
+    /// <param name="orderedScopes">パスの長い順に並べた検索範囲。</param>
+    /// <returns>属する検索範囲。見つからない場合は null。</returns>
     private static string FindScope(string path, IReadOnlyList<string> orderedScopes)
     {
         for (var i = 0; i < orderedScopes.Count; i++)
@@ -248,12 +304,24 @@ internal sealed class CodeGrepService
         return null;
     }
 
+    /// <summary>
+    ///     パスがルート フォルダー配下にあるかどうかを判定します。
+    /// </summary>
+    /// <param name="path">判定するパス。</param>
+    /// <param name="root">ルート フォルダー。</param>
+    /// <returns>配下にある場合は true。</returns>
     private static bool IsUnderPath(string path, string root)
     {
         var normalizedRoot = root.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
         return path.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    ///     ルート フォルダーからの相対パスを作成します。
+    /// </summary>
+    /// <param name="root">基準となるルート フォルダー。</param>
+    /// <param name="path">変換するパス。</param>
+    /// <returns>相対パス。ルート配下でない場合は元のパス。</returns>
     private static string MakeRelativePath(string root, string path)
     {
         var normalizedRoot = root.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
@@ -265,6 +333,12 @@ internal sealed class CodeGrepService
 
 internal sealed class GrepSearchResult
 {
+    /// <summary>
+    ///     Grep 検索の結果を作成します。
+    /// </summary>
+    /// <param name="matches">一致した箇所の一覧。</param>
+    /// <param name="files">検索したファイル数。</param>
+    /// <param name="skipped">読み飛ばしたファイル数。</param>
     public GrepSearchResult(List<GrepMatch> matches, int files, int skipped)
     {
         Matches = matches;

@@ -14,11 +14,19 @@ internal static class ThemeService
         "Themes/DIM5_GreenTheme.xaml"
     };
 
+    /// <summary>
+    ///     ダークまたはライトのテーマを適用します。
+    /// </summary>
+    /// <param name="dark">ダーク テーマを適用する場合は true。</param>
     public static void Apply(bool dark)
     {
         Apply(dark ? "Dark" : "Light");
     }
 
+    /// <summary>
+    ///     指定したテーマのリソース辞書を、アプリケーションの既存テーマ辞書と置き換えます。
+    /// </summary>
+    /// <param name="theme">テーマ名 (Dark、Light、DIM1 から DIM5)。</param>
     public static void Apply(string theme)
     {
         var name = Normalize(theme);
@@ -43,6 +51,11 @@ internal static class ThemeService
         else dictionaries[dictionaries.IndexOf(current)] = replacement;
     }
 
+    /// <summary>
+    ///     テーマ名を既知のテーマ名に正規化します。不明な場合は Dark になります。
+    /// </summary>
+    /// <param name="theme">正規化するテーマ名。</param>
+    /// <returns>正規化したテーマ名。</returns>
     public static string Normalize(string theme)
     {
         switch ((theme ?? string.Empty).Trim().ToUpperInvariant())

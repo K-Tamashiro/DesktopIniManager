@@ -19,6 +19,9 @@ internal sealed partial class DiffViewWindow
     private TextBlock _sourcePixelDetails, _targetPixelDetails;
     private BitmapSource _sourcePixels, _targetPixels;
 
+    /// <summary>
+    ///     画像のナビゲーター、ピクセル情報、ズーム操作の表示をリセットします。
+    /// </summary>
     private void ResetImageNavigation()
     {
         StopImagePan();
@@ -31,6 +34,11 @@ internal sealed partial class DiffViewWindow
         _sourcePixelDetails = _targetPixelDetails = null;
     }
 
+    /// <summary>
+    ///     画像の縮小表示によるナビゲーターと、カーソル位置のピクセル情報の表示を作成します。
+    /// </summary>
+    /// <param name="width">画像の幅 (ピクセル)。</param>
+    /// <param name="height">画像の高さ (ピクセル)。</param>
     private void BuildImageNavigation(double width, double height)
     {
         _imageWidth = width;
@@ -106,6 +114,12 @@ internal sealed partial class DiffViewWindow
         SetImagePointDetails(new Point(-1, -1), false);
     }
 
+    /// <summary>
+    ///     ピクセル情報を表示するカードを追加します。
+    /// </summary>
+    /// <param name="name">カードの見出し。</param>
+    /// <param name="color">見出しの色のリソース名。</param>
+    /// <returns>ピクセル情報を表示するテキスト ブロック。</returns>
     private TextBlock AddPixelCard(string name, string color)
     {
         var text = new TextBlock
@@ -133,11 +147,21 @@ internal sealed partial class DiffViewWindow
         return text;
     }
 
+    /// <summary>
+    ///     画像のサイズを表示用の文字列にします。
+    /// </summary>
+    /// <param name="image">対象の画像。</param>
+    /// <returns>「幅 × 高さ px」の文字列。画像がない場合は「—」。</returns>
     private static string Dimensions(BitmapSource image)
     {
         return image == null ? "\u2014" : $"{image.PixelWidth} \u00D7 {image.PixelHeight} px";
     }
 
+    /// <summary>
+    ///     指定位置の両側のピクセル情報を表示します。ドラッグ中はクリックした位置の情報を保ちます。
+    /// </summary>
+    /// <param name="point">画像上の位置。</param>
+    /// <param name="rememberOrigin">ドラッグ開始位置として記録する場合は true。</param>
     private void SetImagePointDetails(Point point, bool rememberOrigin)
     {
         if (_sourcePixelDetails == null) return;
@@ -147,6 +171,12 @@ internal sealed partial class DiffViewWindow
         _targetPixelDetails.Text = DescribePixel(_targetPixels, point);
     }
 
+    /// <summary>
+    ///     画像上の位置の座標、RGB、アルファ値を表示用の文字列にします。
+    /// </summary>
+    /// <param name="pixels">対象の画像。</param>
+    /// <param name="point">画像上の位置。</param>
+    /// <returns>ピクセル情報の文字列。範囲外の場合は「—」。</returns>
     internal static string DescribePixel(BitmapSource pixels, Point point)
     {
         int x = (int)Math.Floor(point.X), y = (int)Math.Floor(point.Y);
@@ -157,6 +187,11 @@ internal sealed partial class DiffViewWindow
         return $"X:{x} Y:{y}\nRGB:{pixel[2]},{pixel[1]},{pixel[0]}\nA:{pixel[3]}";
     }
 
+    /// <summary>
+    ///     画像を、ピクセルを読み取れるフリーズ済みの BGRA32 形式に変換します。
+    /// </summary>
+    /// <param name="image">変換する画像。</param>
+    /// <returns>変換した画像。null の場合は null。</returns>
     private static BitmapSource PixelImage(BitmapSource image)
     {
         if (image == null)
@@ -188,6 +223,12 @@ internal sealed partial class DiffViewWindow
         return result;
     }
 
+    /// <summary>
+    ///     両側の画像を同じスクロール位置に移動します。
+    /// </summary>
+    /// <param name="x">横方向の位置。</param>
+    /// <param name="y">縦方向の位置。</param>
+    /// <returns>範囲内に収めた実際のスクロール位置。</returns>
     internal Point ScrollImagesTo(double x, double y)
     {
         if (_leftScroll == null || _rightScroll == null) return new Point();
@@ -202,6 +243,9 @@ internal sealed partial class DiffViewWindow
         return new Point(x, y);
     }
 
+    /// <summary>
+    ///     ナビゲーター上の表示範囲の枠を、現在のズームとスクロール位置に合わせて更新します。
+    /// </summary>
     private void UpdateImageNavigation()
     {
         if (_imageViewport == null || _leftScroll == null || _imageZoom == null) return;
@@ -214,6 +258,12 @@ internal sealed partial class DiffViewWindow
         Canvas.SetTop(_imageViewport, _navigationTop + _leftScroll.VerticalOffset / zoom * _navigationScale);
     }
 
+    /// <summary>
+    ///     2 つの画像のピクセルを XOR した差分画像を作成します。
+    /// </summary>
+    /// <param name="foreground">前面の画像。</param>
+    /// <param name="background">背面の画像。</param>
+    /// <returns>XOR した画像。</returns>
     internal static BitmapSource CreateXorBitmap(BitmapSource foreground, BitmapSource background)
     {
         var front = PixelImage(foreground);
@@ -248,6 +298,12 @@ internal sealed partial class DiffViewWindow
         return bitmap;
     }
 
+    /// <summary>
+    ///     両側の画像の差分を示すナビゲーター用の縮小画像を作成します。
+    /// </summary>
+    /// <param name="source">比較元の画像。</param>
+    /// <param name="target">比較先の画像。</param>
+    /// <returns>ナビゲーター用の画像。</returns>
     internal static BitmapSource CreateNavigationBitmap(BitmapSource source, BitmapSource target)
     {
         int width = (int)NavigatorWidth, height = (int)NavigatorHeight;

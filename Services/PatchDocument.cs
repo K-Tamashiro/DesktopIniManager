@@ -36,6 +36,10 @@ internal sealed class PatchFile
     internal List<PatchHunk> Hunks { get; } = [];
     internal bool IsNew => OldPath == "/dev/null";
     internal string RelativePath => NewPath == "/dev/null" ? OldPath : NewPath;
+    /// <summary>
+    ///     パッチ エントリの対象パスを返します。
+    /// </summary>
+    /// <returns>対象の相対パス。対応していないエントリの場合はその旨の文字列。</returns>
     public override string ToString() => RelativePath ?? "(unsupported entry)";
 }
 
@@ -48,10 +52,20 @@ internal sealed class PatchDocument
     internal string CommitMessage { get; private set; }
     internal string Author { get; private set; }
 
+    /// <summary>
+    ///     ファイルが .patch または .diff のパッチ ファイルかどうかを判定します。
+    /// </summary>
+    /// <param name="path">ファイルのパス。</param>
+    /// <returns>パッチ ファイルの場合は true。</returns>
     internal static bool IsPatch(string path) =>
         string.Equals(Path.GetExtension(path), ".patch", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(Path.GetExtension(path), ".diff", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    ///     パッチ ファイルを読み込んで解析します。32 MB を超えるファイルには対応しません。
+    /// </summary>
+    /// <param name="path">パッチ ファイルのパス。</param>
+    /// <returns>解析したパッチ。</returns>
     internal static PatchDocument Read(string path)
     {
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
@@ -61,6 +75,11 @@ internal sealed class PatchDocument
         return Parse(bytes);
     }
 
+    /// <summary>
+    ///     unified 形式のパッチを解析し、ファイルごとのハンクに分割します。各行は UTF-8、Shift_JIS の順にデコードします。
+    /// </summary>
+    /// <param name="bytes">パッチのバイト列。</param>
+    /// <returns>解析したパッチ。</returns>
     internal static PatchDocument Parse(byte[] bytes)
     {
         if (bytes.Contains((byte)0)) throw new InvalidDataException("A text patch cannot contain NUL bytes.");
@@ -173,6 +192,11 @@ internal sealed class PatchDocument
         return result;
     }
 
+    /// <summary>
+    ///     引用符と 8 進エスケープを含む Git のパス表記をデコードし、a/ または b/ の接頭辞を取り除きます。
+    /// </summary>
+    /// <param name="value">パッチ内のパス表記。</param>
+    /// <returns>デコードした相対パス。</returns>
     private static string DecodePath(string value)
     {
         if (value.StartsWith('"') && value.EndsWith('"'))
@@ -201,6 +225,10 @@ internal sealed class PatchDocument
             ? value[2..] : value;
     }
 
+    /// <summary>
+    ///     git format-patch 形式のメール ヘッダーから件名、作成者、コミット メッセージを読み取ります。
+    /// </summary>
+    /// <param name="lines">パッチの全行。</param>
     private void ReadCommitMessage(string[] lines)
     {
         if (lines.Length == 0 || !lines[0].StartsWith("From ", StringComparison.Ordinal)) return;
@@ -228,6 +256,11 @@ internal sealed class PatchDocument
         CommitMessage = string.Join(Environment.NewLine, body).Trim();
     }
 
+    /// <summary>
+    ///     MIME エンコードされたヘッダー値 (=?charset?B/Q?...?=) をデコードします。
+    /// </summary>
+    /// <param name="value">ヘッダー値。</param>
+    /// <returns>デコードした文字列。</returns>
     private static string DecodeHeader(string value)
     {
         value = Regex.Replace(value, @"(?<=\?=)\s+(?==\?)", "");
@@ -253,6 +286,11 @@ internal sealed class PatchDocument
         });
     }
 
+    /// <summary>
+    ///     パスが、絶対パス・ドライブ指定・「.」「..」・無効な文字を含まない安全な相対パスかどうかを判定します。
+    /// </summary>
+    /// <param name="path">判定するパス。</param>
+    /// <returns>安全な相対パスの場合は true。</returns>
     internal static bool IsSafeRelativePath(string path) => !string.IsNullOrWhiteSpace(path) &&
         !Path.IsPathRooted(path) && !path.Contains(':') &&
         path.Split('/', '\\').All(part => part.Length > 0 && part is not ("." or "..") &&

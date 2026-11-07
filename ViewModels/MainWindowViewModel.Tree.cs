@@ -15,6 +15,11 @@ namespace DesktopIniManager.ViewModels;
 
 internal sealed partial class MainWindowViewModel
 {
+    /// <summary>
+    ///     フォルダー ツリーに表示しないフォルダー名 (.vs、.git、.vscode、.idea) かどうかを判定します。
+    /// </summary>
+    /// <param name="name">フォルダー名。</param>
+    /// <returns>表示しない場合は true。</returns>
     internal static bool IsDroppedTreeFolder(string name)
     {
         return string.Equals(name, ".vs", StringComparison.OrdinalIgnoreCase)
@@ -23,6 +28,11 @@ internal sealed partial class MainWindowViewModel
                || string.Equals(name, ".idea", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    ///     パスに、フォルダー ツリーに表示しないフォルダーが含まれるかどうかを判定します。
+    /// </summary>
+    /// <param name="path">判定するパス。</param>
+    /// <returns>含まれる場合は true。</returns>
     internal static bool IsDroppedTreePath(string path)
     {
         if (string.IsNullOrWhiteSpace(path)) return false;
@@ -31,6 +41,11 @@ internal sealed partial class MainWindowViewModel
         return parts.Any(part => IsDroppedTreeFolder(part));
     }
 
+    /// <summary>
+    ///     最初は折りたたんで表示するビルド出力フォルダー (bin、obj) かどうかを判定します。
+    /// </summary>
+    /// <param name="item">判定するフォルダー。</param>
+    /// <returns>折りたたむ場合は true。</returns>
     internal static bool IsInitiallyCollapsedFolder(FolderMatch item)
     {
         var name = item?.Name;
@@ -38,6 +53,10 @@ internal sealed partial class MainWindowViewModel
                || string.Equals(name, "obj", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    ///     ビルド出力フォルダーを折りたたみます。
+    /// </summary>
+    /// <param name="items">対象のフォルダー。</param>
     internal static void CollapseBuildOutputFolders(IEnumerable<FolderMatch> items)
     {
         if (items == null) return;
@@ -46,6 +65,10 @@ internal sealed partial class MainWindowViewModel
                 item.IsExpanded = false;
     }
 
+    /// <summary>
+    ///     フォルダーを名前順・パス順に再帰的に並べ替えます。
+    /// </summary>
+    /// <param name="items">並べ替えるフォルダーのコレクション。</param>
     internal static void SortCollection(ObservableCollection<FolderMatch> items)
     {
         foreach (var item in items)
@@ -61,11 +84,18 @@ internal sealed partial class MainWindowViewModel
             items.Add(item);
     }
 
+    /// <summary>
+    ///     非表示や絞り込みで隠れていない、選択できるフォルダーを列挙します。
+    /// </summary>
+    /// <returns>選択できるフォルダー。</returns>
     internal IEnumerable<FolderMatch> SelectableFolders()
     {
         return CurrentItems().Where(item => !item.IsHidden && !item.IsFilterHidden);
     }
 
+    /// <summary>
+    ///     選択できるフォルダーの選択状態を反転します。
+    /// </summary>
     internal void InvertSelection()
     {
         foreach (var item in SelectableFolders())
@@ -73,16 +103,26 @@ internal sealed partial class MainWindowViewModel
         SyncAllFoldersSelectedFlag();
     }
 
+    /// <summary>
+    ///     現在のツリーのフォルダーをすべて展開します。
+    /// </summary>
     internal void ExpandAll()
     {
         foreach (var item in CurrentItems()) item.IsExpanded = true;
     }
 
+    /// <summary>
+    ///     現在のツリーのフォルダーをすべて折りたたみます。
+    /// </summary>
     internal void CollapseAll()
     {
         foreach (var item in CurrentItems()) item.IsExpanded = false;
     }
 
+    /// <summary>
+    ///     表示するツリー (Physical、Solution、Search) を切り替え、絞り込みと件数を更新します。
+    /// </summary>
+    /// <param name="view">0 が Physical、1 が Solution、2 が Search。</param>
     internal void ShowTreeView(int view)
     {
         _treeViewGeneration++;
@@ -103,6 +143,9 @@ internal sealed partial class MainWindowViewModel
         if (view == 1) _ = EnsureSolutionViewAsync();
     }
 
+    /// <summary>
+    ///     すべてのフォルダーが選択されているかどうかのフラグを更新します。
+    /// </summary>
     internal void SyncAllFoldersSelectedFlag()
     {
         var items = SelectableFolders().ToArray();
@@ -116,23 +159,37 @@ internal sealed partial class MainWindowViewModel
         RefreshScopedLabel();
     }
 
+    /// <summary>
+    ///     現在のタブに対応するツリーを表示元に設定し直します。
+    /// </summary>
     internal void RefreshTreeItemsSource()
     {
         TreeItems = TreeViewIndex == 0 ? _treeRoots : TreeViewIndex == 1 ? _solutionRoots : _searchRoots;
     }
 
+    /// <summary>
+    ///     表示中のフォルダー (または項目) の件数表示を更新します。
+    /// </summary>
     internal void UpdateVisibleCount()
     {
         CountLabel = string.Format(_solutionView ? Strings.Main_NItems : Strings.Main_NFolders,
             CurrentItems().Count(item => !item.IsHidden && !item.IsFilterHidden));
     }
 
+    /// <summary>
+    ///     現在のツリーの全フォルダーを取得します。絞り込み中は絞り込み後のフォルダーです。
+    /// </summary>
+    /// <returns>フォルダーの一覧。</returns>
     internal IEnumerable<FolderMatch> CurrentItems()
     {
         return _filteredViewItems ??
                Flatten(TreeViewIndex == 0 ? _treeRoots : TreeViewIndex == 1 ? _solutionRoots : _searchRoots).ToList();
     }
 
+    /// <summary>
+    ///     現在のツリーで表示されているフォルダー (非表示でなく、親が展開されている) を列挙します。
+    /// </summary>
+    /// <returns>表示中のフォルダー。</returns>
     internal IEnumerable<FolderMatch> VisibleItems()
     {
         return _filteredViewItems != null
@@ -140,6 +197,10 @@ internal sealed partial class MainWindowViewModel
             : FlattenVisible(TreeViewIndex == 0 ? _treeRoots : TreeViewIndex == 1 ? _solutionRoots : _searchRoots);
     }
 
+    /// <summary>
+    ///     子ノードに親ノードを再帰的に設定します。
+    /// </summary>
+    /// <param name="node">起点のノード。</param>
     internal static void AssignParents(FolderMatch node)
     {
         if (node == null) return;
@@ -150,6 +211,11 @@ internal sealed partial class MainWindowViewModel
         }
     }
 
+    /// <summary>
+    ///     ツリーを深さ優先で平坦化して列挙します。
+    /// </summary>
+    /// <param name="roots">ルート ノード。</param>
+    /// <returns>すべてのノード。</returns>
     internal static IEnumerable<FolderMatch> Flatten(IEnumerable<FolderMatch> roots)
     {
         foreach (var item in roots)
@@ -159,6 +225,11 @@ internal sealed partial class MainWindowViewModel
         }
     }
 
+    /// <summary>
+    ///     非表示のノードを除き、展開されているノードの子だけをたどって列挙します。
+    /// </summary>
+    /// <param name="roots">ルート ノード。</param>
+    /// <returns>表示中のノード。</returns>
     internal static IEnumerable<FolderMatch> FlattenVisible(IEnumerable<FolderMatch> roots)
     {
         foreach (var item in roots)
@@ -171,6 +242,12 @@ internal sealed partial class MainWindowViewModel
         }
     }
 
+    /// <summary>
+    ///     検索結果のフォルダーをバックグラウンドで親子関係のツリーに組み立て、Physical または Search のツリーに追加します。
+    /// </summary>
+    /// <param name="items">追加するフォルダー。</param>
+    /// <param name="token">キャンセル トークン。</param>
+    /// <param name="intoSearch">Search タブに追加する場合は true。</param>
     internal async Task AddTreeResultsAsync(IEnumerable<FolderMatch> items, CancellationToken token,
         bool intoSearch = false)
     {
@@ -239,6 +316,9 @@ internal sealed partial class MainWindowViewModel
         CountLabel = string.Format(Strings.Main_NFolders, _results.Count);
     }
 
+    /// <summary>
+    ///     選択中のフォルダーを非表示にします。
+    /// </summary>
     internal void HideSelected()
     {
         foreach (var item in CurrentItems())
@@ -247,6 +327,9 @@ internal sealed partial class MainWindowViewModel
         UpdateVisibleCount();
     }
 
+    /// <summary>
+    ///     非表示にしたフォルダーをすべて表示に戻します。
+    /// </summary>
     internal void Unhide()
     {
         foreach (var item in CurrentItems())
@@ -254,6 +337,10 @@ internal sealed partial class MainWindowViewModel
         UpdateVisibleCount();
     }
 
+    /// <summary>
+    ///     現在のタブのツリーのルートを取得します。
+    /// </summary>
+    /// <returns>ルート ノードのコレクション。</returns>
     internal ObservableCollection<FolderMatch> CurrentTreeRoots()
     {
         if (TreeViewIndex == 1) return _solutionRoots;
@@ -261,6 +348,12 @@ internal sealed partial class MainWindowViewModel
         return _treeRoots;
     }
 
+    /// <summary>
+    ///     指定フォルダー、またはその最も近い祖先に対応するノードを探します。
+    /// </summary>
+    /// <param name="roots">探索するルート ノード。</param>
+    /// <param name="directory">フォルダーのパス。</param>
+    /// <returns>見つかったノード。見つからない場合は null。</returns>
     internal FolderMatch FindFolderInRoots(ObservableCollection<FolderMatch> roots, string directory)
     {
         var current = directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
@@ -279,6 +372,9 @@ internal sealed partial class MainWindowViewModel
         return roots.Count > 0 ? roots[0] : null;
     }
 
+    /// <summary>
+    ///     フォルダー名の絞り込みを、前回の処理を取り消してからバックグラウンドで適用します。
+    /// </summary>
     internal async Task ApplyFolderFilterAsync()
     {
         _filterCts?.Cancel();
@@ -320,6 +416,9 @@ internal sealed partial class MainWindowViewModel
         }
     }
 
+    /// <summary>
+    ///     選択中のフォルダーに desktop.ini でアイコンを設定し、必要に応じて .gitignore に追加します。
+    /// </summary>
     internal void Apply()
     {
         var selected = VisibleItems().Where(item => item.IsActionable && item.IsSelected)
@@ -365,6 +464,9 @@ internal sealed partial class MainWindowViewModel
                   string.Join("\n", errors.Take(5)), Strings.App_Title);
     }
 
+    /// <summary>
+    ///     選択中のフォルダーのカスタム アイコンをリセットします。
+    /// </summary>
     internal void Remove()
     {
         var selected = VisibleItems().Where(item => item.IsActionable && item.IsSelected)
@@ -410,6 +512,11 @@ internal sealed partial class MainWindowViewModel
                   string.Join("\n", errors.Take(5)), Strings.App_Title);
     }
 
+    /// <summary>
+    ///     ドロップされたフォルダーに対応するツリーのノードを選択します。
+    /// </summary>
+    /// <param name="folders">ドロップされたフォルダー。</param>
+    /// <returns>選択したノードの数。</returns>
     internal int SelectDroppedFolders(IReadOnlyList<string> folders)
     {
         if (folders == null || folders.Count == 0) return 0;
@@ -433,6 +540,10 @@ internal sealed partial class MainWindowViewModel
         return selected;
     }
 
+    /// <summary>
+    ///     ソリューションのルート ノードにソリューションのアイコンを設定します。
+    /// </summary>
+    /// <param name="roots">ソリューションのルート ノード。</param>
     internal static void ApplySolutionRootIcons(IEnumerable<FolderMatch> roots)
     {
         var icon = DifferencerStatusIcons.GetSolutionIcon();
@@ -442,6 +553,9 @@ internal sealed partial class MainWindowViewModel
                 root.IconPreview = icon;
     }
 
+    /// <summary>
+    ///     保存されたフォルダー ツリーを復元します。
+    /// </summary>
     internal void RestoreFolderTrees()
     {
         try
@@ -478,6 +592,9 @@ internal sealed partial class MainWindowViewModel
         }
     }
 
+    /// <summary>
+    ///     完成したフォルダー ツリーを保存します。再構築中やキャンセルされた状態では、前回の完全なツリーを上書きしません。
+    /// </summary>
     internal void SaveFolderTrees()
     {
         // A cancelled/in-progress rebuild must not replace the last complete trees.

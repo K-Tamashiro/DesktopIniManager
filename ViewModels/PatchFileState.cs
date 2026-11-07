@@ -65,11 +65,20 @@ internal sealed class PatchFileState
     internal int AppliedCount => Enumerable.Range(0, Entry.Hunks.Count).Count(IsEdited);
     internal int PresentCount => _present.Count;
 
+    /// <summary>
+    ///     指定したハンクの変更後の内容が、適用先にすでに含まれているかどうかを判定します。
+    /// </summary>
+    /// <param name="id">パッチ ハンクの ID。</param>
+    /// <returns>すでに含まれている場合は true。</returns>
     internal bool IsPresent(int id) => _present.Contains(id);
 
     /// <summary>Runs of the last <see cref="Rows" /> call; row EditHunkId values index this list.</summary>
     internal IReadOnlyList<PatchRun> Runs => _runs;
 
+    /// <summary>
+    ///     パッチ内の 1 ファイル分の適用状態を作成し、各ハンクの初期位置をパッチの行番号から設定します。
+    /// </summary>
+    /// <param name="entry">パッチ内のファイル エントリ。</param>
     internal PatchFileState(PatchFile entry)
     {
         Entry = entry;
@@ -78,6 +87,12 @@ internal sealed class PatchFileState
         _lengths = entry.Hunks.Select(hunk => hunk.OldCount).ToArray();
     }
 
+    /// <summary>
+    ///     適用先のファイルを読み込み、git apply と同様に各ハンクの変更前の内容を最も近い位置で探して適用位置を決めます。
+    ///     変更後の内容だけが見つかった場合は適用済み、どちらも見つからない場合は不一致として扱います。
+    /// </summary>
+    /// <param name="path">適用先のファイル パス。</param>
+    /// <param name="fillNewFile">新規ファイルで適用先が存在しない場合に、パッチの内容で埋める場合は true。</param>
     internal void Attach(string path, bool fillNewFile = true)
     {
         if (HasUserEdits) throw new InvalidOperationException("Save or discard this target before replacing it.");
@@ -139,6 +154,13 @@ internal sealed class PatchFileState
 
     // Nearest position at or after lower where the lines match, searching outward
     // from expected; -1 when they occur nowhere. Mismatches end on the first line.
+    /// <summary>
+    ///     期待位置から外側に向かって、指定行が一致する最も近い位置を探します。
+    /// </summary>
+    /// <param name="lines">探す行。</param>
+    /// <param name="expected">期待する位置。</param>
+    /// <param name="lower">探索範囲の下限。</param>
+    /// <returns>一致した位置。見つからない場合は -1。</returns>
     private int Nearest(string[] lines, int expected, int lower)
     {
         expected = Math.Max(expected, lower);
@@ -161,6 +183,12 @@ internal sealed class PatchFileState
         }
     }
 
+    /// <summary>
+    ///     作業中の内容の指定位置に、指定した行が並んでいるかどうかを判定します。
+    /// </summary>
+    /// <param name="expected">比較する行。</param>
+    /// <param name="position">比較を始める位置。</param>
+    /// <returns>すべて一致する場合は true。</returns>
     private bool LinesAt(string[] expected, int position)
     {
         if (position < 0 || position + expected.Length > _working.Count) return false;
@@ -169,6 +197,10 @@ internal sealed class PatchFileState
         return true;
     }
 
+    /// <summary>
+    ///     新規ファイルのパッチに保存先のパスを割り当てます。すでに存在するパスは指定できません。
+    /// </summary>
+    /// <param name="path">保存先のパス。</param>
     internal void AssignNewPath(string path)
     {
         if (!Entry.IsNew || Original.OriginalBytes != null) throw new InvalidOperationException("Not a new patch target.");
@@ -177,11 +209,19 @@ internal sealed class PatchFileState
         HasTarget = true;
     }
 
+    /// <summary>
+    ///     指定したハンクに編集 (適用) が行われているかどうかを判定します。
+    /// </summary>
+    /// <param name="id">パッチ ハンクの ID。</param>
+    /// <returns>編集されている場合は true。</returns>
     private bool IsEdited(int id) => _edits.Any(edit => edit.HunkId == id);
 
     /// <summary>The whole patch hunk was applied by <see cref="Copy" />.</summary>
     internal bool IsApplied(int id) => _edits.Any(edit => edit.HunkId == id && edit.WholeHunk);
 
+    /// <summary>
+    ///     編集を破棄して、同じ適用先ファイルを読み込み直します。
+    /// </summary>
     internal void AttachAfterDiscard()
     {
         _working.Clear();
@@ -191,10 +231,26 @@ internal sealed class PatchFileState
         Attach(TargetPath, false);
     }
 
+    /// <summary>
+    ///     指定したハンクが適用先で占める行数を取得します。
+    /// </summary>
+    /// <param name="id">パッチ ハンクの ID。</param>
+    /// <returns>行数。</returns>
     private int Length(int id) => _lengths[id];
 
+    /// <summary>
+    ///     表示上の変更ランが属するパッチ ハンクを取得します。
+    /// </summary>
+    /// <param name="run">変更ランのインデックス。</param>
+    /// <returns>パッチ ハンクの ID。範囲外の場合は -1。</returns>
     internal int HunkOfRun(int run) => run >= 0 && run < _runs.Count ? _runs[run].HunkId : -1;
 
+    /// <summary>
+    ///     ハンクの適用位置を 1 行上下に移動できるかどうかを判定します。前後のハンクと重なる移動や、適用済みのハンクの移動はできません。
+    /// </summary>
+    /// <param name="id">パッチ ハンクの ID。</param>
+    /// <param name="delta">移動量 (1 または -1)。</param>
+    /// <returns>移動できる場合は true。</returns>
     internal bool CanMove(int id, int delta)
     {
         if (!CanApply || id < 0 || id >= Positions.Length || IsEdited(id) || IsPresent(id) || Math.Abs(delta) != 1) return false;
@@ -204,11 +260,21 @@ internal sealed class PatchFileState
         return next >= lower && next + Length(id) <= upper;
     }
 
+    /// <summary>
+    ///     移動できる場合に、ハンクの適用位置を移動します。
+    /// </summary>
+    /// <param name="id">パッチ ハンクの ID。</param>
+    /// <param name="delta">移動量 (1 または -1)。</param>
     internal void Move(int id, int delta)
     {
         if (CanMove(id, delta)) Positions[id] += delta;
     }
 
+    /// <summary>
+    ///     ハンクの現在位置の内容が、パッチの変更前 (適用済みの場合は変更後) の内容と一致するかどうかを判定します。
+    /// </summary>
+    /// <param name="id">パッチ ハンクの ID。</param>
+    /// <returns>一致する場合、または一部だけ適用されている場合は true。</returns>
     internal bool Matches(int id)
     {
         if (IsEdited(id) && !IsApplied(id)) return true; // partially applied runs: the user chose the lines
@@ -216,16 +282,36 @@ internal sealed class PatchFileState
         return LinesAt(IsApplied(id) || IsPresent(id) ? hunk.After : hunk.Before, Positions[id]);
     }
 
+    /// <summary>
+    ///     ハンクの範囲が適用先の内容に収まり、前後のハンクと重ならないかどうかを判定します。
+    /// </summary>
+    /// <param name="id">パッチ ハンクの ID。</param>
+    /// <returns>範囲内の場合は true。</returns>
     private bool InBounds(int id) => Positions[id] + Length(id) <= _working.Count &&
         (id == 0 || Positions[id] >= Positions[id - 1] + Length(id - 1)) &&
         (id == Positions.Length - 1 || Positions[id] + Length(id) <= Positions[id + 1]);
 
+    /// <summary>
+    ///     ハンク全体を現在の位置に適用できるかどうかを判定します。
+    /// </summary>
+    /// <param name="id">パッチ ハンクの ID。</param>
+    /// <returns>適用できる場合は true。</returns>
     internal bool CanCopy(int id) => CanApply && id >= 0 && id < Positions.Length && !IsEdited(id) && !IsPresent(id) &&
         !Entry.Hunks[id].HasDecodingErrors && InBounds(id);
 
+    /// <summary>
+    ///     表示上の変更ランを適用できるかどうかを判定します。
+    /// </summary>
+    /// <param name="run">変更ランのインデックス。</param>
+    /// <returns>適用できる場合は true。</returns>
     internal bool CanCopyRun(int run) => CanApply && run >= 0 && run < _runs.Count && _runs[run].Applied == null &&
         !Entry.Hunks[_runs[run].HunkId].HasDecodingErrors && InBounds(_runs[run].HunkId);
 
+    /// <summary>
+    ///     表示上の変更ランが適用済みかどうかを判定します。
+    /// </summary>
+    /// <param name="run">変更ランのインデックス。</param>
+    /// <returns>適用済みの場合は true。</returns>
     internal bool IsRunApplied(int run) => run >= 0 && run < _runs.Count && _runs[run].Applied != null &&
         _edits.Contains(_runs[run].Applied);
 
@@ -277,6 +363,15 @@ internal sealed class PatchFileState
         if (group.Count > 0) _undo.Push(group.ToArray());
     }
 
+    /// <summary>
+    ///     ハンク内の指定範囲を置き換え、同じハンクの後続の編集と後続のハンクの位置をずらして、編集として記録します。
+    /// </summary>
+    /// <param name="id">パッチ ハンクの ID。</param>
+    /// <param name="offset">ハンクの先頭からの位置。</param>
+    /// <param name="count">置き換える行数。</param>
+    /// <param name="replacement">置き換え後の行。</param>
+    /// <param name="whole">ハンク全体の適用の場合は true。</param>
+    /// <returns>記録した編集。</returns>
     private PatchEdit Replace(int id, int offset, int count, List<TextLine> replacement, bool whole)
     {
         var start = Positions[id] + offset;
@@ -293,6 +388,10 @@ internal sealed class PatchFileState
         return edit;
     }
 
+    /// <summary>
+    ///     編集を取り消して元の行に戻し、後続の編集とハンクの位置を調整します。
+    /// </summary>
+    /// <param name="edit">取り消す編集。</param>
     private void Revert(PatchEdit edit)
     {
         if (!_edits.Remove(edit)) return;
@@ -307,6 +406,11 @@ internal sealed class PatchFileState
         ShiftFollowing(edit.HunkId, delta);
     }
 
+    /// <summary>
+    ///     指定したハンクより後ろのハンクの位置をずらします。
+    /// </summary>
+    /// <param name="id">基準のパッチ ハンクの ID。</param>
+    /// <param name="delta">ずらす行数。</param>
     private void ShiftFollowing(int id, int delta)
     {
         for (var i = id + 1; i < Positions.Length; i++) Positions[i] += delta;
@@ -319,11 +423,18 @@ internal sealed class PatchFileState
             Revert(edit);
     }
 
+    /// <summary>
+    ///     表示上の変更ランの適用を取り消します。
+    /// </summary>
+    /// <param name="run">変更ランのインデックス。</param>
     internal void UndoRun(int run)
     {
         if (IsRunApplied(run)) Revert(_runs[run].Applied);
     }
 
+    /// <summary>
+    ///     最後に行った、まだ有効な編集グループを取り消します。
+    /// </summary>
     internal void Undo()
     {
         while (_undo.TryPop(out var group))
@@ -335,6 +446,10 @@ internal sealed class PatchFileState
         }
     }
 
+    /// <summary>
+    ///     作業中の内容から、元のエンコーディング・BOM・改行形式を保った文書を組み立てます。
+    /// </summary>
+    /// <returns>組み立てた文書。</returns>
     internal TextDocument Document()
     {
         var lines = _working.Select(line => line.Text).ToList();
@@ -355,6 +470,11 @@ internal sealed class PatchFileState
         };
     }
 
+    /// <summary>
+    ///     作業中の内容を適用先に保存し、保存後のファイルを読み込み直します。新規ファイルの場合は指定したエンコーディングと改行コードを使います。
+    /// </summary>
+    /// <param name="newEncoding">新規ファイルのエンコーディング。null の場合は BOM なし UTF-8。</param>
+    /// <param name="newEnding">新規ファイルの改行コード。</param>
     internal void Save(Encoding newEncoding = null, string newEnding = null)
     {
         if (!IsDirty) return;
@@ -382,6 +502,15 @@ internal sealed class PatchFileState
     // only when compareNewlines is on; otherwise such rows are unchanged and fold.
     // Changed rows get EditHunkId = their run's index in Runs; unchanged rows -1.
     // Rows of an applied run stay visible (Modified) so the run can be undone.
+    /// <summary>
+    ///     適用先とパッチを並べた表示用の行を作成します。テキスト比較と同じ規則で、改行コードと改行のみの行は改行比較が ON のときだけ差分とします。
+    ///     変更行には変更ランのインデックスを設定し、適用済みのランも元に戻せるよう表示したままにします。
+    /// </summary>
+    /// <param name="inline">文字単位の差分を計算する場合は true。</param>
+    /// <param name="ignoreCase">大文字と小文字を区別しない場合は true。</param>
+    /// <param name="ignoreSpaces">空白の違いを無視する場合は true。</param>
+    /// <param name="compareNewlines">改行コードと改行のみの行も比較する場合は true。</param>
+    /// <returns>表示用の行の一覧。</returns>
     internal List<DiffLine> Rows(bool inline, bool ignoreCase, bool ignoreSpaces, bool compareNewlines = false)
     {
         var rows = new List<DiffLine>();

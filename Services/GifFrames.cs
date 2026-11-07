@@ -13,6 +13,10 @@ internal sealed class GifFrames
     private readonly Frame[] _frames;
     private readonly int _width, _height;
 
+    /// <summary>
+    ///     GIF デコーダーから各フレームの位置、破棄方法、遅延、ピクセルを読み取り、論理画面のサイズと背景色を取得します。
+    /// </summary>
+    /// <param name="decoder">GIF デコーダー。</param>
     internal GifFrames(GifBitmapDecoder decoder)
     {
         _frames = decoder.Frames.Select(frame =>
@@ -37,17 +41,34 @@ internal sealed class GifFrames
 
     internal int Count => _frames.Length;
 
+    /// <summary>
+    ///     メタデータから整数値を読み取ります。
+    /// </summary>
+    /// <param name="metadata">読み取り元のメタデータ。</param>
+    /// <param name="query">メタデータのクエリ。</param>
+    /// <param name="fallback">値がない場合の既定値。</param>
+    /// <returns>読み取った値。</returns>
     private static int Read(BitmapMetadata metadata, string query, int fallback = 0)
     {
         if (metadata == null || !metadata.ContainsQuery(query)) return fallback;
         return Convert.ToInt32(metadata.GetQuery(query));
     }
 
+    /// <summary>
+    ///     フレームの表示時間を取得します。
+    /// </summary>
+    /// <param name="index">フレーム番号。</param>
+    /// <returns>表示時間 (ミリ秒)。</returns>
     internal int DelayMilliseconds(int index)
     {
         return _frames[index].Delay;
     }
 
+    /// <summary>
+    ///     先頭から指定フレームまでを破棄方法に従って論理画面上に合成し、そのフレームの表示画像を作成します。
+    /// </summary>
+    /// <param name="index">フレーム番号。</param>
+    /// <returns>合成した画像。範囲外の場合は null。</returns>
     internal BitmapSource Compose(int index)
     {
         if (index < 0 || index >= Count) return null;

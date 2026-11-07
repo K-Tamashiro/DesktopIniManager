@@ -23,6 +23,9 @@ internal sealed partial class DiffViewModel
         }
     }
 
+    /// <summary>
+    ///     VB6 フォームのデザイナー部分の展開と折りたたみを切り替え、表示行を更新します。
+    /// </summary>
     internal void ToggleDesignerHeader()
     {
         _designerHeaderExpanded = !_designerHeaderExpanded;

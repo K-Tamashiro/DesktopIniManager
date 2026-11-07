@@ -37,10 +37,17 @@ public class HistoryTextBox : TextBox
     private Button _button;
     private Window _owner;
 
+    /// <summary>
+    ///     既定の履歴ストアを使って、入力履歴付きのテキスト ボックスを作成します。
+    /// </summary>
     public HistoryTextBox() : this(DefaultStore)
     {
     }
 
+    /// <summary>
+    ///     指定した履歴ストアを使って入力履歴付きのテキスト ボックスを作成し、オーナー ウィンドウが閉じるときに履歴を記録するよう設定します。
+    /// </summary>
+    /// <param name="store">入力履歴のストア。</param>
     internal HistoryTextBox(InputHistoryStore store)
     {
         this._store = store;
@@ -63,9 +70,17 @@ public class HistoryTextBox : TextBox
         SelectionChanged += (_, _) => ApplyThinCaret();
     }
 
+    /// <summary>
+    ///     オーナー ウィンドウが閉じたときに入力値を履歴に記録します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private void OwnerClosed(object sender, EventArgs e)
     { CommitHistory(); }
 
+    /// <summary>
+    ///     テンプレートから履歴ボタン、一覧、ポップアップを取得し、イベント ハンドラーを登録し直します。
+    /// </summary>
     public override void OnApplyTemplate()
     {
         if (_button != null) _button.Click -= OpenHistory;
@@ -91,12 +106,19 @@ public class HistoryTextBox : TextBox
         ApplyThinCaret();
     }
 
+    /// <summary>
+    ///     フォーカスを得たときに、キャレットを細く表示します。
+    /// </summary>
+    /// <param name="e">イベントデータ。</param>
     protected override void OnGotKeyboardFocus(KeyboardFocusChangedEventArgs e)
     {
         base.OnGotKeyboardFocus(e);
         ApplyThinCaret();
     }
 
+    /// <summary>
+    ///     テキスト ボックスとアドーナー層のキャレットを、描画後に細くします。
+    /// </summary>
     private void ApplyThinCaret()
     {
         Dispatcher.BeginInvoke(new Action(() =>
@@ -107,6 +129,10 @@ public class HistoryTextBox : TextBox
         }), System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
+    /// <summary>
+    ///     ビジュアル ツリー内のキャレット要素を探し、幅を 1 ピクセルにします。
+    /// </summary>
+    /// <param name="root">探索を始める要素。</param>
     private static void NarrowCaretElements(DependencyObject root)
     {
         if (root == null) return;
@@ -128,12 +154,21 @@ public class HistoryTextBox : TextBox
         }
     }
 
+    /// <summary>
+    ///     現在の値を入力履歴に記録します。読み取り専用の場合や履歴キーがない場合は記録しません。
+    /// </summary>
     public void CommitHistory()
     {
         if (!IsReadOnly && !string.IsNullOrEmpty(HistoryKey))
             _store.Remember(HistoryKey, HistoryValue(HistoryKey, Text), !PreserveOrder);
     }
 
+    /// <summary>
+    ///     履歴に記録する値を整えます。Differencer のフォルダー履歴では末尾の区切り文字を取り除きます。
+    /// </summary>
+    /// <param name="key">履歴キー。</param>
+    /// <param name="value">入力値。</param>
+    /// <returns>記録する値。</returns>
     private static string HistoryValue(string key, string value)
     {
         if (string.IsNullOrEmpty(key) || string.IsNullOrWhiteSpace(value)) return value;
@@ -143,6 +178,10 @@ public class HistoryTextBox : TextBox
         return trimmed;
     }
 
+    /// <summary>
+    ///     入力値を設定し、この入力欄の履歴を消去します。
+    /// </summary>
+    /// <param name="text">設定する値。</param>
     public void ResetField(string text)
     {
         SetCurrentValue(TextProperty, text ?? string.Empty);
@@ -152,12 +191,20 @@ public class HistoryTextBox : TextBox
         if (_popup != null) _popup.IsOpen = false;
     }
 
+    /// <summary>
+    ///     フォーカスを失ったとき、履歴の一覧を開いていなければ入力値を記録します。
+    /// </summary>
+    /// <param name="e">イベントデータ。</param>
     protected override void OnLostKeyboardFocus(KeyboardFocusChangedEventArgs e)
     {
         base.OnLostKeyboardFocus(e);
         if (_popup == null || !_popup.IsOpen) CommitHistory();
     }
 
+    /// <summary>
+    ///     F4 または Alt+↓ で履歴の一覧を開き、Enter で入力値を記録します。
+    /// </summary>
+    /// <param name="e">キー イベントのデータ。</param>
     protected override void OnPreviewKeyDown(KeyEventArgs e)
     {
         if (e.Key == Key.F4 || (e.Key == Key.System && e.SystemKey == Key.Down))
@@ -166,6 +213,11 @@ public class HistoryTextBox : TextBox
         base.OnPreviewKeyDown(e);
     }
 
+    /// <summary>
+    ///     履歴の一覧を開きます。開いている場合は閉じます。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private void OpenHistory(object sender, RoutedEventArgs e)
     {
         if (IsReadOnly || _popup == null || _list == null || string.IsNullOrEmpty(HistoryKey)) return;
@@ -178,6 +230,11 @@ public class HistoryTextBox : TextBox
         _list.Focus();
     }
 
+    /// <summary>
+    ///     一覧の項目のクリックで、その履歴を入力値にします。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">マウス イベントのデータ。</param>
     private void SelectHistory(object sender, MouseButtonEventArgs e)
     {
         if (e.OriginalSource is DependencyObject source &&
@@ -188,6 +245,11 @@ public class HistoryTextBox : TextBox
         }
     }
 
+    /// <summary>
+    ///     一覧のキー操作を処理します。Enter で選択、Delete で削除、Esc または F4 で閉じます。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">キー イベントのデータ。</param>
     private void HistoryKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter) { ApplySelection(); e.Handled = true; }
@@ -200,6 +262,11 @@ public class HistoryTextBox : TextBox
         { _popup.IsOpen = false; Focus(); e.Handled = true; }
     }
 
+    /// <summary>
+    ///     一覧の項目の右クリックで、その履歴を削除するメニューを表示します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">マウス イベントのデータ。</param>
     private void DeleteHistory(object sender, MouseButtonEventArgs e)
     {
         if (e.OriginalSource is not DependencyObject source) return;
@@ -232,6 +299,10 @@ public class HistoryTextBox : TextBox
         menu.IsOpen = true;
     }
 
+    /// <summary>
+    ///     履歴から値を削除し、一覧を更新します。
+    /// </summary>
+    /// <param name="value">削除する値。</param>
     private void RemoveHistory(string value)
     {
         if (string.IsNullOrEmpty(HistoryKey) || string.IsNullOrWhiteSpace(value)) return;
@@ -240,11 +311,19 @@ public class HistoryTextBox : TextBox
         if (remaining.Count == 0 && _popup != null) _popup.IsOpen = false;
     }
 
+    /// <summary>
+    ///     一覧が閉じたときに、フォーカスをテキスト ボックスに戻します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private void PopupClosed(object sender, EventArgs e)
     {
         if (_list != null && _list.IsKeyboardFocusWithin) Focus();
     }
 
+    /// <summary>
+    ///     一覧で選択した履歴を入力値にして一覧を閉じ、HistoryItemApplied を通知します。
+    /// </summary>
     private void ApplySelection()
     {
         if (!(_list.SelectedItem is string value)) return;
@@ -271,6 +350,9 @@ public sealed class PathEndTextBlock : TextBlock
 
     private bool _updating;
 
+    /// <summary>
+    ///     パスの末尾を優先して省略表示するテキスト ブロックを作成します。
+    /// </summary>
     public PathEndTextBlock()
     {
         TextTrimming = TextTrimming.None;
@@ -280,6 +362,10 @@ public sealed class PathEndTextBlock : TextBlock
         SizeChanged += (_, _) => UpdateText(AvailableWidth());
     }
 
+    /// <summary>
+    ///     親の ListBoxItem から、表示に使える幅を求めます。
+    /// </summary>
+    /// <returns>表示に使える幅。</returns>
     private double AvailableWidth()
     {
         DependencyObject current = this;
@@ -293,6 +379,10 @@ public sealed class PathEndTextBlock : TextBlock
         return ActualWidth;
     }
 
+    /// <summary>
+    ///     パスが幅に収まらない場合に、先頭側を省略して末尾を残した文字列を表示します。
+    /// </summary>
+    /// <param name="width">表示に使える幅。</param>
     private void UpdateText(double width)
     {
         if (_updating) return;
@@ -328,6 +418,11 @@ public sealed class PathEndTextBlock : TextBlock
         finally { _updating = false; }
     }
 
+    /// <summary>
+    ///     現在のフォント設定で文字列を描画したときの幅を求めます。
+    /// </summary>
+    /// <param name="value">測定する文字列。</param>
+    /// <returns>描画幅。</returns>
     private double MeasureWidth(string value)
     {
         var text = new FormattedText(

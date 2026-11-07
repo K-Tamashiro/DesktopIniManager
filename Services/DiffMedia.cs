@@ -8,6 +8,11 @@ internal static class DiffMedia
     internal const string BinaryMessage =
         "Binary and cache files are not supported in Diff View. Only text files, supported images, videos, and MP3/WAV audio can be displayed.";
 
+    /// <summary>
+    ///     DIFF ビューで表示できないバイナリ ファイルやキャッシュ ファイルかどうかを拡張子で判定します。動画と音声は対象外です。
+    /// </summary>
+    /// <param name="path">判定するファイルのパス。</param>
+    /// <returns>表示できないバイナリ ファイルの場合は true。</returns>
     public static bool IsBinary(string path)
     {
         var ext = Path.GetExtension(path).ToLowerInvariant();
@@ -21,17 +26,32 @@ internal static class DiffMedia
         }.Contains(ext);
     }
 
+    /// <summary>
+    ///     画像として比較できるファイルかどうかを拡張子で判定します。
+    /// </summary>
+    /// <param name="path">判定するファイルのパス。</param>
+    /// <returns>対応する画像形式の場合は true。</returns>
     public static bool IsImage(string path)
     {
         return new[] { ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".ico", ".tif", ".tiff", ".wdp", ".jxr" }.Contains(
             Path.GetExtension(path).ToLowerInvariant());
     }
 
+    /// <summary>
+    ///     音声として比較できるファイル (MP3/WAV) かどうかを拡張子で判定します。
+    /// </summary>
+    /// <param name="path">判定するファイルのパス。</param>
+    /// <returns>対応する音声形式の場合は true。</returns>
     public static bool IsAudio(string path)
     {
         return new[] { ".mp3", ".wav", ".wave" }.Contains(Path.GetExtension(path).ToLowerInvariant());
     }
 
+    /// <summary>
+    ///     動画として比較できるファイルかどうかを拡張子で判定します。
+    /// </summary>
+    /// <param name="path">判定するファイルのパス。</param>
+    /// <returns>対応する動画形式の場合は true。</returns>
     public static bool IsVideo(string path)
     {
         return new[] { ".mp4", ".avi", ".mkv", ".mov", ".wmv", ".webm", ".m4v", ".mpg", ".mpeg" }.Contains(

@@ -39,6 +39,11 @@ internal sealed partial class DeveloperDifferencerViewModel
     public string HistoryRootsTooltip =>
         Snapshot == null ? "" : "Source: " + Snapshot.SourceRoot + "\nTarget: " + Snapshot.TargetRoot;
 
+    /// <summary>
+    ///     比較ルートのフォルダー名を取得します。
+    /// </summary>
+    /// <param name="path">比較ルートのパス。</param>
+    /// <returns>フォルダー名。</returns>
     private static string RootName(string path)
     {
         return Path.GetFileName(DisplayRoot(path));
@@ -46,6 +51,12 @@ internal sealed partial class DeveloperDifferencerViewModel
 
     // Snapshot roots keep a trailing separator for SafePath; the input boxes and
     // path history must not, or "C:\foo" and "C:\foo\" become two history entries.
+    /// <summary>
+    ///     比較ルートを表示用に整えます。末尾の区切り文字を取り除き、ドライブ ルートは「C:\」の形にします。
+    ///     スナップショットのルートは末尾に区切り文字を持ちますが、入力欄と履歴で同じパスが 2 件にならないようにするためです。
+    /// </summary>
+    /// <param name="path">比較ルートのパス。</param>
+    /// <returns>表示用のパス。</returns>
     internal static string DisplayRoot(string path)
     {
         if (string.IsNullOrWhiteSpace(path)) return path ?? "";
@@ -54,6 +65,9 @@ internal sealed partial class DeveloperDifferencerViewModel
         return trimmed;
     }
 
+    /// <summary>
+    ///     現在の比較結果と表示状態 (展開フォルダー、選択フォルダー、フィルター、状態) を選択中の履歴タブに保存します。
+    /// </summary>
     private void CaptureHistoryTab()
     {
         if (_selectedHistoryTab == null || Snapshot == null) return;
@@ -74,6 +88,10 @@ internal sealed partial class DeveloperDifferencerViewModel
         }).ToList();
     }
 
+    /// <summary>
+    ///     履歴タブが上限に達している場合、確認のうえ最も古いタブを削除して新しいタブの空きを作ります。
+    /// </summary>
+    /// <returns>新しいタブを追加できる場合は true。利用者が取り消した場合は false。</returns>
     private bool PrepareComparisonTab()
     {
         if (HistoryTabs.Count < ResultHistoryStore.Limit) return true;
@@ -99,6 +117,9 @@ internal sealed partial class DeveloperDifferencerViewModel
         return true;
     }
 
+    /// <summary>
+    ///     現在の比較結果を、作成日時をタイトルとする新しい履歴タブとして先頭に追加します。
+    /// </summary>
     private void AddComparisonTab()
     {
         var now = DateTime.Now;
@@ -110,6 +131,9 @@ internal sealed partial class DeveloperDifferencerViewModel
         NotifyHistory();
     }
 
+    /// <summary>
+    ///     履歴タブに関係するプロパティの変更を通知します。
+    /// </summary>
     private void NotifyHistory()
     {
         OnPropertyChanged(nameof(SelectedHistoryTab));
@@ -119,6 +143,10 @@ internal sealed partial class DeveloperDifferencerViewModel
         OnPropertyChanged(nameof(HistoryRootsTooltip));
     }
 
+    /// <summary>
+    ///     履歴タブを選択して表示します。発生した例外はエラー表示します。
+    /// </summary>
+    /// <param name="tab">選択する履歴タブ。</param>
     private async void SelectHistoryTab(ComparisonHistoryTab tab)
     {
         try
@@ -131,6 +159,11 @@ internal sealed partial class DeveloperDifferencerViewModel
         }
     }
 
+    /// <summary>
+    ///     現在のタブの状態を保存してから、指定した履歴タブの比較結果と表示状態を復元します。ファイル システムは再走査しません。
+    /// </summary>
+    /// <param name="tab">選択する履歴タブ。</param>
+    /// <param name="resetView">保存された表示状態を使わずに初期表示にする場合は true。</param>
     internal async Task SelectHistoryTabAsync(ComparisonHistoryTab tab, bool resetView = false)
     {
         if (IsBusy || tab == null) return;
@@ -238,6 +271,10 @@ internal sealed partial class DeveloperDifferencerViewModel
         }
     }
 
+    /// <summary>
+    ///     履歴タブを削除します。選択中のタブを削除した場合は、残りのタブを選択し直します。
+    /// </summary>
+    /// <param name="item">削除する履歴タブ。</param>
     private async void DeleteHistoryTab(object item)
     {
         var tab = item as ComparisonHistoryTab;
@@ -273,6 +310,9 @@ internal sealed partial class DeveloperDifferencerViewModel
         SaveHistory();
     }
 
+    /// <summary>
+    ///     すべての履歴タブを削除して比較表示をクリアし、履歴を保存します。
+    /// </summary>
     private void DeleteAllHistoryTabs()
     {
         if (IsBusy || HistoryTabs.Count == 0) return;
@@ -292,6 +332,10 @@ internal sealed partial class DeveloperDifferencerViewModel
         SaveHistory();
     }
 
+    /// <summary>
+    ///     指定したタブ以外の履歴タブを削除し、指定したタブを選択します。
+    /// </summary>
+    /// <param name="item">残す履歴タブ。</param>
     private async void DeleteOtherHistoryTabs(object item)
     {
         var tab = item as ComparisonHistoryTab;
@@ -321,6 +365,9 @@ internal sealed partial class DeveloperDifferencerViewModel
         SaveHistory();
     }
 
+    /// <summary>
+    ///     現在の状態を取り込んでから、比較履歴タブを保存します。
+    /// </summary>
     internal void SaveHistory()
     {
         try
@@ -336,6 +383,9 @@ internal sealed partial class DeveloperDifferencerViewModel
         }
     }
 
+    /// <summary>
+    ///     保存された比較履歴タブを新しい順に上限まで読み込みます。タブの見出しだけを復元し、比較結果はタブを選んだときに表示します。
+    /// </summary>
     internal async Task RestoreHistoryAsync()
     {
         try

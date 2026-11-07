@@ -23,6 +23,9 @@ public class WaveformControl : Control
     private bool _pressed, _dragged;
     private double _timelineDuration, _position;
 
+    /// <summary>
+    ///     波形表示コントロールを作成します。
+    /// </summary>
     public WaveformControl()
     {
         ClipToBounds = true;
@@ -52,11 +55,20 @@ public class WaveformControl : Control
 
     public event Action ViewChanged;
 
+    /// <summary>
+    ///     音声ファイルを読み込んで波形を表示します。
+    /// </summary>
+    /// <param name="path">音声ファイルのパス。</param>
     public void Load(string path)
     {
         SetData(WaveformData.Load(path));
     }
 
+    /// <summary>
+    ///     音声ファイルをバックグラウンドで読み込んで波形を表示します。後から開始した読み込みがある場合は結果を破棄します。
+    /// </summary>
+    /// <param name="path">音声ファイルのパス。</param>
+    /// <param name="cancellation">キャンセル トークン。</param>
     public async Task LoadAsync(string path, CancellationToken cancellation = default)
     {
         VerifyAccess();
@@ -69,6 +81,11 @@ public class WaveformControl : Control
         }).Task.ConfigureAwait(false);
     }
 
+    /// <summary>
+    ///     波形データを設定し、表示範囲全体を表示します。
+    /// </summary>
+    /// <param name="value">波形データ。</param>
+    /// <param name="totalDuration">タイムライン全体の長さ (秒)。0 の場合は波形データの長さ。</param>
     public void SetData(WaveformData value, double totalDuration = 0)
     {
         VerifyAccess();
@@ -93,6 +110,9 @@ public class WaveformControl : Control
         InvalidateVisual();
     }
 
+    /// <summary>
+    ///     振幅の拡大率を戻し、全体を表示します。
+    /// </summary>
     public void Fit()
     {
         AmplitudeScale = 1;
@@ -100,6 +120,11 @@ public class WaveformControl : Control
         InvalidateVisual();
     }
 
+    /// <summary>
+    ///     表示する時間範囲を設定します。範囲は最小表示時間と全体の長さの間に収めます。
+    /// </summary>
+    /// <param name="seconds">表示範囲の開始 (秒)。</param>
+    /// <param name="visibleSeconds">表示範囲の長さ (秒)。</param>
     public void SetViewRange(double seconds, double visibleSeconds)
     {
         VerifyAccess();
@@ -120,6 +145,11 @@ public class WaveformControl : Control
         ViewChanged?.Invoke();
     }
 
+    /// <summary>
+    ///     時間方向に拡大・縮小します。
+    /// </summary>
+    /// <param name="factor">拡大率。1 より大きいと拡大します。</param>
+    /// <param name="anchor">拡大の基準位置 (0 が左端、1 が右端)。</param>
     public void ZoomX(double factor, double anchor = 0)
     {
         if (!double.IsFinite(factor) || factor <= 0 || !double.IsFinite(anchor))
@@ -129,6 +159,10 @@ public class WaveformControl : Control
         SetViewRange(ViewStart + (ViewDuration - width) * anchor, width);
     }
 
+    /// <summary>
+    ///     振幅方向に拡大・縮小します。
+    /// </summary>
+    /// <param name="factor">拡大率。</param>
     public void ZoomY(double factor)
     {
         if (!double.IsFinite(factor) || factor <= 0) throw new ArgumentOutOfRangeException(nameof(factor));
@@ -136,34 +170,63 @@ public class WaveformControl : Control
         InvalidateVisual();
     }
 
+    /// <summary>
+    ///     時刻を表示上の X 座標に変換します。
+    /// </summary>
+    /// <param name="seconds">時刻 (秒)。</param>
+    /// <returns>X 座標。</returns>
     public double TimeToX(double seconds)
     {
         return ViewDuration > 0 ? (seconds - ViewStart) / ViewDuration * ActualWidth : 0;
     }
 
+    /// <summary>
+    ///     表示上の X 座標を時刻に変換します。
+    /// </summary>
+    /// <param name="x">X 座標。</param>
+    /// <returns>時刻 (秒)。</returns>
     public double XToTime(double x)
     {
         return Math.Clamp(ViewStart + x / Math.Max(1, ActualWidth) * ViewDuration, 0, Duration);
     }
 
+    /// <summary>
+    ///     振幅を、指定チャンネルの表示上の Y 座標に変換します。
+    /// </summary>
+    /// <param name="value">振幅。</param>
+    /// <param name="channel">チャンネル番号。</param>
+    /// <returns>Y 座標。</returns>
     public double AmplitudeToY(double value, int channel = 0)
     {
         var lane = ActualHeight / Math.Max(1, Data?.Channels ?? 1);
         return lane * (channel + 0.5) - value * AmplitudeScale * lane * 0.45;
     }
 
+    /// <summary>
+    ///     表示上の Y 座標を、指定チャンネルの振幅に変換します。
+    /// </summary>
+    /// <param name="y">Y 座標。</param>
+    /// <param name="channel">チャンネル番号。</param>
+    /// <returns>振幅。</returns>
     public double YToAmplitude(double y, int channel = 0)
     {
         var lane = ActualHeight / Math.Max(1, Data?.Channels ?? 1);
         return lane > 0 ? (lane * (channel + 0.5) - y) / (AmplitudeScale * lane * 0.45) : 0;
     }
 
+    /// <summary>
+    ///     再生位置のカーソルを移動します。
+    /// </summary>
+    /// <param name="value">再生位置。</param>
     public void SetPosition(TimeSpan value)
     {
         _position = Math.Clamp(value.TotalSeconds, 0, Duration);
         UpdateCursor();
     }
 
+    /// <summary>
+    ///     再生位置のカーソルの表示位置と表示・非表示を更新します。
+    /// </summary>
     private void UpdateCursor()
     {
         var x = TimeToX(_position);
@@ -171,6 +234,10 @@ public class WaveformControl : Control
         _cursorDrawing.Opacity = ViewDuration > 0 && x >= 0 && x <= ActualWidth ? 1 : 0;
     }
 
+    /// <summary>
+    ///     背景、チャンネルごとの波形、オーバーレイを描画します。
+    /// </summary>
+    /// <param name="dc">描画コンテキスト。</param>
     protected override void OnRender(DrawingContext dc)
     {
         base.OnRender(dc);
@@ -203,6 +270,12 @@ public class WaveformControl : Control
     }
 
     // Normal and difference-colored passes share the same immutable screen geometry.
+    /// <summary>
+    ///     指定チャンネルの波形を描画します。通常の描画と差分の色付き描画で同じジオメトリを共有します。
+    /// </summary>
+    /// <param name="dc">描画コンテキスト。</param>
+    /// <param name="channel">チャンネル番号。</param>
+    /// <param name="stroke">線の色。null の場合は前景色。</param>
     protected void DrawWaveform(DrawingContext dc, int channel, Brush stroke = null)
     {
         var geometry = GetWaveformGeometry(channel);
@@ -214,6 +287,11 @@ public class WaveformControl : Control
         dc.Pop();
     }
 
+    /// <summary>
+    ///     表示範囲の波形ジオメトリを作成し、表示条件が変わるまでキャッシュします。
+    /// </summary>
+    /// <param name="channel">チャンネル番号。</param>
+    /// <returns>波形のジオメトリ。表示できない場合は Geometry.Empty。</returns>
     internal Geometry GetWaveformGeometry(int channel)
     {
         if (Data == null || Data.BinCount == 0 || ViewDuration <= 0 || ActualWidth <= 0 || ActualHeight <= 0 ||
@@ -295,10 +373,18 @@ public class WaveformControl : Control
         return _cachedGeometry[channel] = geometry;
     }
 
+    /// <summary>
+    ///     派生クラスで波形の上に追加の描画を行います。既定では何もしません。
+    /// </summary>
+    /// <param name="dc">描画コンテキスト。</param>
     protected virtual void DrawOverlay(DrawingContext dc)
     {
     }
 
+    /// <summary>
+    ///     マウス ホイールで時間方向、Ctrl キーとの組み合わせで振幅方向に拡大・縮小します。
+    /// </summary>
+    /// <param name="e">マウス ホイールのイベントデータ。</param>
     protected override void OnMouseWheel(MouseWheelEventArgs e)
     {
         base.OnMouseWheel(e);
@@ -309,6 +395,10 @@ public class WaveformControl : Control
         e.Handled = true;
     }
 
+    /// <summary>
+    ///     ドラッグによる表示範囲の移動、またはクリックによる位置指定を開始します。
+    /// </summary>
+    /// <param name="e">マウス イベントのデータ。</param>
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonDown(e);
@@ -321,6 +411,10 @@ public class WaveformControl : Control
         e.Handled = true;
     }
 
+    /// <summary>
+    ///     ドラッグ中は表示範囲を移動します。
+    /// </summary>
+    /// <param name="e">マウス イベントのデータ。</param>
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
@@ -330,6 +424,10 @@ public class WaveformControl : Control
         if (_dragged) SetViewRange(_downStart - delta / Math.Max(1, ActualWidth) * ViewDuration, ViewDuration);
     }
 
+    /// <summary>
+    ///     ドラッグを終了します。ドラッグせずに離した場合はクリック位置の時刻を PositionClicked で通知します。
+    /// </summary>
+    /// <param name="e">マウス イベントのデータ。</param>
     protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonUp(e);
@@ -341,6 +439,10 @@ public class WaveformControl : Control
         e.Handled = true;
     }
 
+    /// <summary>
+    ///     マウスのキャプチャを失ったときにドラッグ状態を解除します。
+    /// </summary>
+    /// <param name="e">マウス イベントのデータ。</param>
     protected override void OnLostMouseCapture(MouseEventArgs e)
     {
         base.OnLostMouseCapture(e);

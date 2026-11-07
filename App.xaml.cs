@@ -16,6 +16,11 @@ public partial class App
 {
     private bool _startupReady;
 
+    /// <summary>
+    ///     アプリケーション起動時にスロットを確保し、カルチャ設定・スプラッシュ表示・起動状態の読み込みを行ってメインウィンドウを表示します。
+    ///     外部 DIFF 起動が要求された場合は単体の DIFF ビューアーを開きます。
+    /// </summary>
+    /// <param name="e">起動引数を含むイベントデータ。</param>
     protected override async void OnStartup(StartupEventArgs e)
     {
         var externalDiff = ExternalDiffLaunch.IsRequested(e.Args);
@@ -111,6 +116,10 @@ public partial class App
         }
     }
 
+    /// <summary>
+    ///     コマンドライン引数から外部 DIFF 起動情報を解析し、単体の DIFF ビューアーウィンドウをメインウィンドウとして表示します。
+    /// </summary>
+    /// <param name="args">比較元と比較先のパスを含むコマンドライン引数。</param>
     private void StartExternalDiff(string[] args)
     {
         try
@@ -138,6 +147,11 @@ public partial class App
         }
     }
 
+    /// <summary>
+    ///     UI スレッドで捕捉されなかった例外をログに記録し、メッセージを表示して処理済みにします。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">未処理例外のイベントデータ。</param>
     private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
         LogException(e.Exception);
@@ -146,6 +160,10 @@ public partial class App
         e.Handled = true;
     }
 
+    /// <summary>
+    ///     例外をトレース出力し、アプリケーションのスロットフォルダーにある last-error.log に書き込みます。
+    /// </summary>
+    /// <param name="exception">記録する例外。</param>
     private static void LogException(Exception exception)
     {
         Trace.TraceError("{0}", exception);

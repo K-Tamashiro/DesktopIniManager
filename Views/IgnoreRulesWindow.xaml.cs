@@ -13,6 +13,10 @@ internal partial class IgnoreRulesWindow
     public List<IgnoreRuleRow> Rules { get; }
     internal IEnumerable<string> DisabledRules => Rules.Where(r => !r.Exclude).Select(r => r.Key);
 
+    /// <summary>
+    ///     .gitignore ルールの除外設定ウィンドウを作成します。フォルダー パターンを先に並べます。
+    /// </summary>
+    /// <param name="snapshot">ルールを含む比較スナップショット。</param>
     internal IgnoreRulesWindow(DiffSnapshot snapshot)
     {
         var disabled = new HashSet<string>(snapshot.DisabledIgnoreRules ?? new(), StringComparer.Ordinal);
@@ -28,11 +32,21 @@ internal partial class IgnoreRulesWindow
         ApplyIcon.Source = DifferencerStatusIcons.GetCustomIcon(34);
     }
 
+    /// <summary>
+    ///     すべてのルールの除外設定を反転します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private void Invert_Click(object sender, RoutedEventArgs e)
     {
         foreach (var row in Rules) row.Exclude = !row.Exclude;
     }
 
+    /// <summary>
+    ///     設定を確定してダイアログを閉じます。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private void Apply_Click(object sender, RoutedEventArgs e) => DialogResult = true;
 }
 
@@ -44,6 +58,11 @@ internal sealed class IgnoreRuleRow : ObservableObject
     public string Pattern { get; }
     public string Location { get; }
 
+    /// <summary>
+    ///     .gitignore ルールの行を作成し、ルールがどちら側のどの .gitignore にあるかの表示を作ります。
+    /// </summary>
+    /// <param name="rule">ルールの情報。</param>
+    /// <param name="exclude">ルールを適用 (除外) する場合は true。</param>
     internal IgnoreRuleRow(GitIgnoreRuleInfo rule, bool exclude)
     {
         Key = rule.Key; Pattern = rule.Pattern; this._exclude = exclude;

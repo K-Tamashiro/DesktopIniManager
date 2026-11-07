@@ -20,6 +20,9 @@ internal sealed class CleanSolutionItem
 
 internal partial class CleanSolutionsWindow
 {
+    /// <summary>
+    ///     Solution Clean の対象を選ぶダイアログを作成します。
+    /// </summary>
     public CleanSolutionsWindow()
     {
         InitializeComponent();
@@ -27,6 +30,13 @@ internal partial class CleanSolutionsWindow
         RunButtonIcon.Source = DifferencerStatusIcons.GetCustomIcon(49);
     }
 
+    /// <summary>
+    ///     クリーンするソリューションとビルド構成を選ぶダイアログを表示します。実行中の DIM を含むソリューションは選択できません。
+    /// </summary>
+    /// <param name="owner">オーナー ウィンドウ。</param>
+    /// <param name="solutions">候補のソリューション ファイル。</param>
+    /// <param name="source">比較元のルート。</param>
+    /// <returns>選択結果。取り消した場合は null。</returns>
     internal static SolutionCleanSelection Choose(Window owner, IReadOnlyList<string> solutions, string source)
     {
         var dialog = new CleanSolutionsWindow { Owner = owner };
@@ -51,8 +61,18 @@ internal partial class CleanSolutionsWindow
 
     private SolutionCleanSelection Result { get; set; }
 
+    /// <summary>
+    ///     ダイアログを取り消します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private void Cancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
 
+    /// <summary>
+    ///     選択したソリューションとビルド構成を検証し、ダイアログを確定します。
+    /// </summary>
+    /// <param name="sender">イベントの送信元。</param>
+    /// <param name="e">イベントデータ。</param>
     private void Run_Click(object sender, RoutedEventArgs e)
     {
         var items = (SolutionList.ItemsSource as IEnumerable<CleanSolutionItem>) ?? Array.Empty<CleanSolutionItem>();

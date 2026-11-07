@@ -59,6 +59,15 @@ internal static class Diff
         return CreateDiffs(dataA, dataB);
     }
 
+    /// <summary>
+    ///     比較オプションを適用した各行を整数コードに変換します。同じ内容の行は同じコードになります。
+    /// </summary>
+    /// <param name="lines">変換する行。</param>
+    /// <param name="codeMap">行内容とコードの対応表 (両側で共有)。</param>
+    /// <param name="trimSpace">前後の空白を無視する場合は true。</param>
+    /// <param name="ignoreSpace">連続する空白を 1 つにまとめる場合は true。</param>
+    /// <param name="ignoreCase">大文字と小文字を区別しない場合は true。</param>
+    /// <returns>行ごとのコード。</returns>
     private static int[] EncodeLines(
         string[] lines,
         Dictionary<string, int> codeMap,
@@ -93,6 +102,10 @@ internal static class Diff
         return codes;
     }
 
+    /// <summary>
+    ///     変更範囲の直後が先頭と同じ値の場合に範囲を後ろへずらし、差分をより自然な位置にそろえます。
+    /// </summary>
+    /// <param name="data">最適化する差分データ。</param>
     private static void Optimize(DiffData data)
     {
         var startPos = 0;
@@ -117,6 +130,18 @@ internal static class Diff
         }
     }
 
+    /// <summary>
+    ///     Myers のアルゴリズムで、指定範囲の最短編集経路の中間スネークを前方・後方の両方向から探索します。
+    /// </summary>
+    /// <param name="dataA">比較元のデータ。</param>
+    /// <param name="lowerA">比較元の範囲の開始位置。</param>
+    /// <param name="upperA">比較元の範囲の終了位置。</param>
+    /// <param name="dataB">比較先のデータ。</param>
+    /// <param name="lowerB">比較先の範囲の開始位置。</param>
+    /// <param name="upperB">比較先の範囲の終了位置。</param>
+    /// <param name="downVector">前方探索用の作業配列。</param>
+    /// <param name="upVector">後方探索用の作業配列。</param>
+    /// <returns>中間スネークの位置。</returns>
     private static MiddleSnake FindMiddleSnake(
         DiffData dataA, int lowerA, int upperA,
         DiffData dataB, int lowerB, int upperB,
@@ -197,6 +222,17 @@ internal static class Diff
         throw new InvalidOperationException("Myers diff FindMiddleSnake did not converge.");
     }
 
+    /// <summary>
+    ///     共通の先頭と末尾を除いた範囲を中間スネークで再帰的に分割し、最長共通部分列に含まれない要素を変更済みとしてマークします。
+    /// </summary>
+    /// <param name="dataA">比較元のデータ。</param>
+    /// <param name="lowerA">比較元の範囲の開始位置。</param>
+    /// <param name="upperA">比較元の範囲の終了位置。</param>
+    /// <param name="dataB">比較先のデータ。</param>
+    /// <param name="lowerB">比較先の範囲の開始位置。</param>
+    /// <param name="upperB">比較先の範囲の終了位置。</param>
+    /// <param name="downVector">前方探索用の作業配列。</param>
+    /// <param name="upVector">後方探索用の作業配列。</param>
     private static void MarkLongestCommonSubsequence(
         DiffData dataA, int lowerA, int upperA,
         DiffData dataB, int lowerB, int upperB,
@@ -232,6 +268,12 @@ internal static class Diff
         }
     }
 
+    /// <summary>
+    ///     両側の変更マークを走査し、連続する変更をまとめた差分項目を作成します。
+    /// </summary>
+    /// <param name="dataA">比較元のデータ。</param>
+    /// <param name="dataB">比較先のデータ。</param>
+    /// <returns>差分項目の配列。</returns>
     private static Item[] CreateDiffs(DiffData dataA, DiffData dataB)
     {
         var diffs = new List<Item>();
@@ -270,6 +312,10 @@ internal static class Diff
 
 internal sealed class DiffData
 {
+    /// <summary>
+    ///     比較対象のコード列と変更マーク用の配列を作成します。
+    /// </summary>
+    /// <param name="data">比較対象のコード列。</param>
     public DiffData(int[] data)
     {
         ArgumentNullException.ThrowIfNull(data);

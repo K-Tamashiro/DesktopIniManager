@@ -22,22 +22,18 @@ public sealed partial class VolumePathIndex
     /// </summary>
     /// <param name="rootPath">インデックスのルート パス。</param>
     /// <param name="nodes">パスをキーとするノード辞書。</param>
-    /// <param name="root">ルート ノード。</param>
     /// <param name="projectFiles">列挙中に見つかったプロジェクト ファイルのパス。</param>
     private VolumePathIndex(
         string rootPath,
         Dictionary<string, VolumePathNode> nodes,
-        VolumePathNode root,
         List<string> projectFiles)
     {
         RootPath = rootPath;
         _nodes = nodes;
-        Root = root;
         ProjectFiles = projectFiles ?? new List<string>();
     }
 
     public string RootPath { get; }
-    public VolumePathNode Root { get; }
     public IReadOnlyList<string> ProjectFiles { get; }
     public IReadOnlyDictionary<string, VolumePathNode> Nodes => _nodes;
     public IEnumerable<VolumePathNode> Directories => _nodes.Values.Where(node => node.IsDirectory);
@@ -99,7 +95,7 @@ public sealed partial class VolumePathIndex
 
         LinkNodes(nodes, root);
         progress?.Invoke(scanned);
-        return new VolumePathIndex(rootPath, nodes, root, new List<string>());
+        return new VolumePathIndex(rootPath, nodes, new List<string>());
     }
 
     /// <summary>

@@ -272,15 +272,11 @@ internal sealed partial class MainWindowViewModel : ObservableObject
     public ParameterCommand TreeFilesToEditorCommand { get; private set; }
     public ParameterCommand FileListToEditorCommand { get; private set; }
     public ParameterCommand GrepFolderCommand { get; private set; }
-    public ParameterCommand CompactTreeCommand { get; private set; }
-    public ParameterCommand ComfortableTreeCommand { get; private set; }
     public ParameterCommand FileListViewCommand { get; private set; }
     public ParameterCommand FileIconSmallCommand { get; private set; }
     public ParameterCommand FileIconLargeCommand { get; private set; }
     public ParameterCommand ClearFolderFilterCommand { get; private set; }
     public ParameterCommand DeveloperDifferencerCommand { get; private set; }
-    public ParameterCommand LightThemeCommand { get; private set; }
-    public ParameterCommand DarkThemeCommand { get; private set; }
     public ParameterCommand ResetCommand { get; private set; }
     public ParameterCommand CloseCommand { get; private set; }
     public ObservableCollection<FileListItem> Files { get; } = new();
@@ -381,10 +377,6 @@ internal sealed partial class MainWindowViewModel : ObservableObject
             InteractionRequested?.Invoke(MainWindowAction.FileListToEditor, parameter));
         GrepFolderCommand =
             new ParameterCommand(parameter => InteractionRequested?.Invoke(MainWindowAction.GrepFolder, parameter));
-        CompactTreeCommand = new ParameterCommand(parameter =>
-            InteractionRequested?.Invoke(MainWindowAction.CompactTree, parameter));
-        ComfortableTreeCommand = new ParameterCommand(parameter =>
-            InteractionRequested?.Invoke(MainWindowAction.ComfortableTree, parameter));
         FileListViewCommand = new ParameterCommand(parameter =>
             InteractionRequested?.Invoke(MainWindowAction.FileListView, parameter));
         FileIconSmallCommand = new ParameterCommand(parameter =>
@@ -395,10 +387,6 @@ internal sealed partial class MainWindowViewModel : ObservableObject
             InteractionRequested?.Invoke(MainWindowAction.ClearFolderFilter, parameter));
         DeveloperDifferencerCommand = new ParameterCommand(parameter =>
             InteractionRequested?.Invoke(MainWindowAction.DeveloperDifferencer, parameter));
-        LightThemeCommand =
-            new ParameterCommand(parameter => InteractionRequested?.Invoke(MainWindowAction.LightTheme, parameter));
-        DarkThemeCommand =
-            new ParameterCommand(parameter => InteractionRequested?.Invoke(MainWindowAction.DarkTheme, parameter));
         ResetCommand =
             new ParameterCommand(parameter => InteractionRequested?.Invoke(MainWindowAction.Reset, parameter),
                 () => !IsSearching);

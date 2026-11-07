@@ -103,8 +103,10 @@ internal sealed class PatchDocument
                 try { text = sjis.GetString(bytes, start, length); }
                 catch (DecoderFallbackException)
                 {
-                    text = CodePagesEncodingProvider.Instance.GetEncoding(932, EncoderFallback.ExceptionFallback,
-                        new DecoderReplacementFallback("\uFFFD")).GetString(bytes, start, length);
+                    var replacing = CodePagesEncodingProvider.Instance.GetEncoding(932,
+                        EncoderFallback.ExceptionFallback, new DecoderReplacementFallback("\uFFFD"))
+                        ?? throw new NotSupportedException("Shift-JIS is unavailable.");
+                    text = replacing.GetString(bytes, start, length);
                     invalid = true;
                     result.DecodingErrorLines++;
                 }
@@ -135,6 +137,7 @@ internal sealed class PatchDocument
                 if (line[0] != '-') newRemaining--;
                 if (oldRemaining < 0 || newRemaining < 0)
                     throw new InvalidDataException($"Hunk line count mismatch at patch line {i + 1}.");
+                if (hunk == null) throw new InvalidDataException($"Hunk body without a header at patch line {i + 1}.");
                 hunk.Lines.Add(new PatchLine(line[0], line[1..], false, crlf));
                 hunk.HasDecodingErrors |= invalid;
                 continue;

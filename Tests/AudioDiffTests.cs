@@ -99,6 +99,19 @@ internal static class AudioDiffTests
         Check(original != null && ReferenceEquals(original, cache[0]), "overview reuses aggregated peaks during playback");
         return 0;
     }
+    private sealed class OverviewSamples : ISampleProvider
+    {
+        private static readonly float[] Samples = { 0.2f, -0.5f, 0.8f, -0.4f };
+        private int _offset;
+        public WaveFormat WaveFormat { get; } = WaveFormat.CreateIeeeFloatWaveFormat(2, 1);
+        public int Read(float[] buffer, int offset, int count)
+        {
+            int read = Math.Min(count, Samples.Length - _offset);
+            Array.Copy(Samples, _offset, buffer, offset, read);
+            _offset += read;
+            return read;
+        }
+    }
     private sealed class RepeatSamples : ISampleProvider
     {
         public WaveFormat WaveFormat { get; } = WaveFormat.CreateIeeeFloatWaveFormat(10, 2);
@@ -294,11 +307,11 @@ internal static class AudioDiffTests
 
     internal static int RunOverview()
     {
+        // One sample per bin at 2 Hz: the bin peaks are 0.2, 0.5, 0.8 and 0.4 over 2 seconds.
         var envelope = new AudioEnvelope
         {
             Channels = 1, Duration = 2,
-            Min = new[] { new[] { -0.2f, -0.5f, -0.8f, -0.4f } },
-            Max = new[] { new[] { 0.2f, 0.5f, 0.8f, 0.4f } }
+            Data = DesktopIniManager.Controls.WaveformData.Read(new OverviewSamples(), default, 2)
         };
         var overview = new AudioOverview(new[] { envelope, envelope }, 2)
         { Foreground = Brushes.White, Background = Brushes.Black };

@@ -1029,24 +1029,18 @@ internal sealed class AudioOverview : Control
         if (_barPeaks[side]?.Length == bars) return _barPeaks[side];
         var result = new float[bars];
         var envelope = _envelopes[side];
-        var bins = envelope.Data?.BinCount ?? envelope.Max[0].Length;
-        if (bins == 0) return result;
+        var data = envelope.Data;
+        if (data == null || data.BinCount == 0) return result;
+        var bins = data.BinCount;
         for (var bar = 0; bar < bars; bar++)
         {
             var first = Math.Min(bins - 1, (int)((long)bar * bins / bars));
             var last = Math.Min(bins, Math.Max(first + 1, (int)((long)(bar + 1) * bins / bars)));
             for (var ch = 0; ch < envelope.Channels; ch++)
-                if (envelope.Data != null)
-                {
-                    envelope.Data.GetExtrema(ch, first, last, out var min, out var max);
-                    result[bar] = Math.Max(result[bar], Math.Max(Math.Abs(min), max));
-                }
-                else
-                {
-                    for (var bin = first; bin < last; bin++)
-                        result[bar] = Math.Max(result[bar],
-                            Math.Max(Math.Abs(envelope.Min[ch][bin]), envelope.Max[ch][bin]));
-                }
+            {
+                data.GetExtrema(ch, first, last, out var min, out var max);
+                result[bar] = Math.Max(result[bar], Math.Max(Math.Abs(min), max));
+            }
         }
 
         return _barPeaks[side] = result;

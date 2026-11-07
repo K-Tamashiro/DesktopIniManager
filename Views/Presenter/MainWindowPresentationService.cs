@@ -404,15 +404,11 @@ public sealed class MainWindowPresentationService
                 case MainWindowAction.TreeFilesToEditor: TreeToEditor(parameter as FolderMatch, true); break;
                 case MainWindowAction.FileListToEditor: FileListToEditor(); break;
                 case MainWindowAction.GrepFolder: GrepFolder(parameter as FolderMatch); break;
-                case MainWindowAction.CompactTree: CompactTree(); break;
-                case MainWindowAction.ComfortableTree: ComfortableTree(); break;
                 case MainWindowAction.FileListView: FileListView(); break;
                 case MainWindowAction.FileIconSmall: FileIconSmall(); break;
                 case MainWindowAction.FileIconLarge: FileIconLarge(); break;
                 case MainWindowAction.ClearFolderFilter: ClearFolderFilter(); break;
                 case MainWindowAction.DeveloperDifferencer: DeveloperDifferencer(); break;
-                case MainWindowAction.LightTheme: LightTheme(); break;
-                case MainWindowAction.DarkTheme: DarkTheme(); break;
                 case MainWindowAction.Reset: Reset(); break;
                 case MainWindowAction.Close: Close(); break;
             }
@@ -1825,21 +1821,6 @@ public sealed class MainWindowPresentationService
         SetTheme(item.Content as string);
     }
 
-    /// <summary>
-    ///     ライト テーマを適用します。
-    /// </summary>
-    private void LightTheme()
-    {
-        SetTheme("Light");
-    }
-
-    /// <summary>
-    ///     ダーク テーマを適用します。
-    /// </summary>
-    private void DarkTheme()
-    {
-        SetTheme("Dark");
-    }
 
     /// <summary>
     ///     テーマを適用して保存し、選択欄とボタンの強調表示を更新します。

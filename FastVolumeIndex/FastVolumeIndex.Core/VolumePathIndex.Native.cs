@@ -153,7 +153,7 @@ public sealed partial class VolumePathIndex
         LinkNodes(nodes, root);
         token.ThrowIfCancellationRequested();
         progress?.Invoke(scanned);
-        return new VolumePathIndex(rootPath, nodes, root, projectFiles);
+        return new VolumePathIndex(rootPath, nodes, projectFiles);
     }
 
     /// <summary>

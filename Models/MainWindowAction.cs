@@ -11,15 +11,11 @@ internal enum MainWindowAction
     TreeFilesToEditor,
     FileListToEditor,
     GrepFolder,
-    CompactTree,
-    ComfortableTree,
     FileListView,
     FileIconSmall,
     FileIconLarge,
     ClearFolderFilter,
     DeveloperDifferencer,
-    LightTheme,
-    DarkTheme,
     Reset,
     Close
 }

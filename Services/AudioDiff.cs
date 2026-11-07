@@ -182,7 +182,6 @@ internal sealed class AudioEnvelope
     internal WaveformData Data;
     internal double Duration;
     internal bool FloatingPoint;
-    internal float[][] Min, Max;
     internal int SampleRate;
 
     /// <summary>

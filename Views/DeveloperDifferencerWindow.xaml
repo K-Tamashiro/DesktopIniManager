@@ -137,7 +137,7 @@
                 </Setter.Value>
             </Setter>
             <Style.Triggers>
-                <DataTrigger Binding="{Binding Path=IsDirectInSelectedFolder}" Value="True">
+                <DataTrigger Binding="{Binding Path=(vm:DiffRow.IsDirectInSelectedFolder)}" Value="True">
                     <Setter Property="Foreground" Value="{DynamicResource Ink}" />
                 </DataTrigger>
             </Style.Triggers>
@@ -185,8 +185,8 @@
             </Setter>
         </Style>
         <Style x:Key="FolderItemStyle" TargetType="TreeViewItem">
-            <Setter Property="IsExpanded" Value="{Binding Path=Expanded, Mode=TwoWay}" />
-            <Setter Property="IsSelected" Value="{Binding Path=Active, Mode=TwoWay}" />
+            <Setter Property="IsExpanded" Value="{Binding Path=(vm:DiffFolder.Expanded), Mode=TwoWay}" />
+            <Setter Property="IsSelected" Value="{Binding Path=(vm:DiffFolder.Active), Mode=TwoWay}" />
             <Setter Property="Foreground" Value="{DynamicResource Ink}" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -251,8 +251,8 @@
             </Style.Triggers>
         </Style>
         <Style x:Key="FrozenFolderItemStyle" TargetType="TreeViewItem">
-            <Setter Property="IsExpanded" Value="{Binding Path=Expanded, Mode=TwoWay}" />
-            <Setter Property="IsSelected" Value="{Binding Path=Active, Mode=TwoWay}" />
+            <Setter Property="IsExpanded" Value="{Binding Path=(vm:DiffFolder.Expanded), Mode=TwoWay}" />
+            <Setter Property="IsSelected" Value="{Binding Path=(vm:DiffFolder.Active), Mode=TwoWay}" />
             <Setter Property="Foreground" Value="{DynamicResource Ink}" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -451,7 +451,7 @@
                                 Padding="3,0"
                                 Background="Transparent"
                                 BorderThickness="0"
-                                Command="{Binding DataContext.DeleteHistoryTabCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                Command="{Binding Path=DataContext.(vm:DeveloperDifferencerViewModel.DeleteHistoryTabCommand), RelativeSource={RelativeSource AncestorType=ListBox}}"
                                 CommandParameter="{Binding}"
                                 Content="&#x00D7;"
                                 Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"

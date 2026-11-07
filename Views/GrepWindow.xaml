@@ -314,7 +314,7 @@
                                 Padding="3,0"
                                 Background="Transparent"
                                 BorderThickness="0"
-                                Command="{Binding DataContext.DeleteHistoryTabCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                Command="{Binding Path=DataContext.(models:GrepWindowViewModel.DeleteHistoryTabCommand), RelativeSource={RelativeSource AncestorType=ListBox}}"
                                 CommandParameter="{Binding}"
                                 Content="&#x00D7;"
                                 Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
@@ -357,7 +357,7 @@
                     Margin="8,0,0,0"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Center"
-                    Command="{Binding CloseCommand}"
+                    Command="{Binding Path=(models:GrepWindowViewModel.CloseCommand)}"
                     Style="{StaticResource IconButton}"
                     ToolTip="{loc:L Common_Close}">
                     <Image
@@ -401,13 +401,13 @@
                         </Style>
                     </ListBox.ItemContainerStyle>
                     <ListBox.ItemTemplate>
-                        <DataTemplate>
+                        <DataTemplate DataType="{x:Type models:GrepScopeItem}">
                             <CheckBox
                                 VerticalAlignment="Center"
                                 Content="{Binding FolderPath}"
                                 Foreground="{DynamicResource Ink}"
                                 IsChecked="{Binding IsEnabled, Mode=TwoWay}"
-                                IsEnabled="{Binding DataContext.CanEdit, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                IsEnabled="{Binding Path=DataContext.(models:GrepWindowViewModel.CanEdit), RelativeSource={RelativeSource AncestorType=Window}}" />
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
@@ -671,7 +671,7 @@
                     VirtualizingPanel.IsVirtualizingWhenGrouping="True"
                     VirtualizingPanel.VirtualizationMode="Standard">
                     <DataGrid.InputBindings>
-                        <MouseBinding Command="{Binding OpenMatchCommand}" MouseAction="LeftDoubleClick" />
+                        <MouseBinding Command="{Binding Path=(models:GrepWindowViewModel.OpenMatchCommand)}" MouseAction="LeftDoubleClick" />
                     </DataGrid.InputBindings>
                     <DataGrid.Resources>
                         <Style x:Key="NumericCellStyle" TargetType="TextBlock">
@@ -789,7 +789,7 @@
                                 </Style>
                             </GroupStyle.ContainerStyle>
                             <GroupStyle.HeaderTemplate>
-                                <DataTemplate>
+                                <DataTemplate DataType="{x:Type CollectionViewGroup}">
                                     <TextBlock Text="{Binding Name}" />
                                 </DataTemplate>
                             </GroupStyle.HeaderTemplate>
@@ -954,7 +954,7 @@
                     Grid.Column="4"
                     Margin="8,0,0,0"
                     VerticalAlignment="Stretch"
-                    Command="{Binding BrowseEditorCommand}"
+                    Command="{Binding Path=(models:GrepWindowViewModel.BrowseEditorCommand)}"
                     Style="{StaticResource IconButton}"
                     ToolTip="{loc:L Grep_BrowseEditor}">
                     <Image

@@ -1,7 +1,14 @@
-﻿DesktopIniManager v4.7.3
+﻿DesktopIniManager v4.7.6
 
 【概要】
 DesktopIniManager（DIM）は、開発用フォルダーやVisual Studioソリューションの解析、ファイル検索、Scoped Grep、フォルダー比較、DIFF表示、desktop.iniによるアイコン管理を統合したWindows向け開発支援ツールです。
+
+【v4.7.6の主な変更点】
+・パッチ表示で.rej（git am --reject／git apply --rejectが出力する、当たらなかったHunk）を開けるようにしました。本体からおおよその位置を探して並べるので、上下ボタンで位置を合わせて差分単位で適用できます。
+・行内差分で、桁数の違う数字も1の位から揃えて比較するようにしました（例：3739576→399006では1の位の6などの同じ桁は差分にしません。1.2.10→1.2.9のようにドットで区切った数字は区切りごとに比較）。
+・シンタックスハイライトに、Java、Kotlin、Gradle、JavaScript／TypeScript、PHP、CSS／SCSS／Less、HTML、C／C++（.c、.cpp、.hなど）、bat／cmd、PowerShell、sh、vbp／vbg／ini、properties、Android.mk／Makefile、CMakeLists.txt、ProGuard（.pro）、AIDLを追加しました。
+・HTML／PHPの中の<script>はJavaScript、<style>はCSS、<?php ～ ?>はPHPとして、1つのファイルの中でそれぞれ色分けします。
+・.so、.a、.o、.jar、.aar、.apk、.dex、.classなどAndroid／C++のバイナリをバイナリとして扱い、DIFF VIEWの次／前のファイル移動で飛ばすようにしました。拡張子で判定できない場合も、先頭にNULバイトを含むファイルはバイナリとして扱います（UTF-16／UTF-32のテキストは除く）。
 
 【v4.7.3の主な変更点】
 ・DIFF VIEWの余計な「Form header」ボタンを削除。VB6フォーム（.frm）のデザイナー部分は折り畳み行のクリックで展開します。

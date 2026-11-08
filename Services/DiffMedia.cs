@@ -25,7 +25,11 @@ internal static class DiffMedia
             ".cache",
             // VB6 のバイナリ リソース（フォーム .frx、ユーザー コントロール .ctx、デザイナー .dsx、
             // ActiveX ドキュメント .dox、プロパティ ページ .pgx）とコンポーネント。編集しないので比較対象から外す。
-            ".frx", ".ctx", ".dsx", ".dox", ".pgx", ".ocx", ".oca", ".tlb", ".res"
+            ".frx", ".ctx", ".dsx", ".dox", ".pgx", ".ocx", ".oca", ".tlb", ".res",
+            // Android（ネイティブ ライブラリ、アーカイブ、パッケージ、DEX、クラス、署名キー）。
+            ".so", ".a", ".o", ".jar", ".aar", ".apk", ".aab", ".dex", ".class", ".jks", ".keystore",
+            // C++ のビルド生成物（プリコンパイル済みヘッダー、インクリメンタル リンク、エクスポート、デバッグ情報）。
+            ".pch", ".ilk", ".exp", ".idb", ".ipch"
         }.Contains(ext);
     }
 

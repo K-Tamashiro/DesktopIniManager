@@ -1,4 +1,4 @@
-﻿# DesktopIniManager v4.7.3 Release
+﻿# DesktopIniManager v4.7.6 Release
 
 DesktopIniManager (DIM) is a Windows workspace for exploring development folders and Visual Studio solutions, finding files, running scoped searches, comparing folders, viewing differences, and managing folder icons through `desktop.ini`.
 
@@ -8,7 +8,7 @@ DesktopIniManager (DIM) is a Windows workspace for exploring development folders
 
 ## Download and setup
 
-Download **DesktopIniManager-v4.7.3-win-x64.zip** from the v4.7.3 Release GitHub release assets, not GitHub's source-code archive. The matching `.zip.sha256` contains the SHA-256 checksum.
+Download **DesktopIniManager-v4.7.6-win-x64.zip** from the v4.7.6 Release GitHub release assets, not GitHub's source-code archive. The matching `.zip.sha256` contains the SHA-256 checksum.
 
 - Windows 10 or 11, x64; .NET 10 Desktop Runtime (x64) installed separately.
 - Visual Studio Build Tools / MSBuild or .NET SDK for solution builds.
@@ -16,7 +16,20 @@ Download **DesktopIniManager-v4.7.3-win-x64.zip** from the v4.7.3 Release GitHub
 
 Extract into a fresh folder and run **DesktopIniManager.exe**. Keep the DLLs, JSON, Assets and Languages together. ExcelDataReader and PdfPig libraries are required for Document Grep.
 
-## What's new in v4.7.3 Release
+## What's new in v4.7.6 Release
+
+**Patch View**
+
+- `.rej` files written by `git am --reject` / `git apply --reject` (the hunks that did not apply) open like `.patch` files. Because rejected hunks no longer match the file exactly, each is placed where most of its pre-change lines match (nearest to its line number on ties); move it with the up/down controls and apply it run by run instead of copying it by eye.
+
+**Text DIFF VIEW**
+
+- Inline differences compare numbers of different lengths from the ones digit: `3739576` → `399006` keeps the matching ones digit `6`. Dotted numbers are compared part by part (`1.2.10` → `1.2.9`). Numbers of the same length are compared as before.
+- Syntax highlighting adds Java, Kotlin, Gradle, JavaScript / TypeScript, PHP, CSS / SCSS / Less, HTML, C / C++ (`.c`, `.cpp`, `.h`, …), batch files, PowerShell, shell scripts, `.vbp` / `.vbg` / `.ini`, `.properties`, `Android.mk` / Makefiles, `CMakeLists.txt`, ProGuard (`.pro`) and AIDL.
+- Mixed files are highlighted per language: `<script>` as JavaScript and `<style>` as CSS inside HTML and PHP, and `<?php … ?>` as PHP, carrying the state across embedded PHP (for example inside a JavaScript string or an attribute value).
+- Android / C++ binaries (`.so`, `.a`, `.o`, `.jar`, `.aar`, `.apk`, `.aab`, `.dex`, `.class`, `.jks`, `.keystore`, `.pch`, …) are treated as binary and skipped when moving to the next / previous file. Files whose first 8 KB contain a NUL byte are also treated as binary, so an unlisted extension no longer stops navigation (UTF-16 / UTF-32 text is excluded).
+
+## Included from v4.7.3 Release
 
 **Text DIFF VIEW**
 
@@ -152,11 +165,11 @@ Git difftool configuration:
     prompt = false
 ```
 
-In GitKraken select **Git Config Default**. Text DIFF VIEW supports bidirectional HUNK copying, Undo and Save. The text view provides syntax highlighting (auto-detected from the extension: C#, VB6 / VB.NET, XAML / XML, SQL, JSON; switchable with the Syntax Highlight check box), original line numbers, Source/Target colored frames, a difference map, inline and whitespace differences, line-ending markers and loading progress. The ≠ / ※ controls (or Ctrl+0) toggle differences-only and all-lines views; the last mode is saved.
+In GitKraken select **Git Config Default**. Text DIFF VIEW supports bidirectional HUNK copying, Undo and Save. The text view provides syntax highlighting (auto-detected from the extension or file name: C#, VB6 / VB.NET, XAML / XML, SQL, JSON, Java, Kotlin, Gradle, JavaScript / TypeScript, PHP, CSS, HTML with embedded script / style / PHP, C / C++, batch, PowerShell, shell, INI / properties, Makefile, CMake and ProGuard; switchable with the Syntax Highlight check box), original line numbers, Source/Target colored frames, a difference map, inline and whitespace differences, line-ending markers and loading progress. The ≠ / ※ controls (or Ctrl+0) toggle differences-only and all-lines views; the last mode is saved.
 
 ## Patch View
 
-Open a `.patch` / `.diff` file from Developer Differencer (**Open patch / diff**), with **Patch…** in DIFF VIEW, or by dropping it. The Patch selector lists the changed files; the target file follows it once the repository root is known (the comparison Target root, or the repository folder chosen with the **Target** button, icon 75). Without an actual target the view previews before → after and shows no apply arrows. With a target, the left pane is the patch's post-change text and the right pane is the actual file; apply runs left to right only.
+Open a `.patch` / `.diff` / `.rej` file from Developer Differencer (**Open patch / diff**), with **Patch…** in DIFF VIEW, or by dropping it. The Patch selector lists the changed files; the target file follows it once the repository root is known (the comparison Target root, or the repository folder chosen with the **Target** button, icon 75). Without an actual target the view previews before → after and shows no apply arrows. With a target, the left pane is the patch's post-change text and the right pane is the actual file; apply runs left to right only.
 
 Hunks are located at the nearest matching position like `git apply`. The status bar reports applied hunks, hunks already in the target and context mismatches. Select a HUNK and hover over its frame to show the up/down controls, which move the whole patch hunk by one line. Close or switch files freely: per-file working text and undo are retained, and DIM asks to save, discard or cancel when closing with unsaved changes.
 
@@ -204,7 +217,7 @@ DIM1–DIM5 are independent processes. **In Use** identifies the current slot, *
 
 Freeware by Tamayan / ZEBRASOFT. [Website](http://dim.zebrasoft.co.jp/) · [Repository and issues](https://github.com/K-Tamashiro/DesktopIniManager) · tamayan@zebrasoft.co.jp.
 
-` scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> ` packages prebuilt v4.7.3 binaries; omitting that option runs `dotnet publish`. Archives and checksums are written to `release/`.
+` scripts/Build-Release.ps1 -PrebuiltDirectory <release-output> ` packages prebuilt v4.7.6 binaries; omitting that option runs `dotnet publish`. Archives and checksums are written to `release/`.
 
 ## Keyboard shortcuts and startup options
 

@@ -17,7 +17,25 @@ internal sealed partial class DiffViewWindow
         Xml,
         Json,
         VisualBasic,
-        Sql
+        Sql,
+        Java,
+        Kotlin,
+        Groovy,
+        JavaScript,
+        TypeScript,
+        Php,
+        Css,
+        Scss,
+        Html,
+        Batch,
+        PowerShell,
+        Shell,
+        Ini,
+        Properties,
+        Cpp,
+        Make,
+        CMake,
+        ProGuard
     }
 
     // C# の字句状態（複数行コメントの中）。
@@ -53,8 +71,8 @@ internal sealed partial class DiffViewWindow
         [".xsl"] = SyntaxKind.Xml,
         [".xslt"] = SyntaxKind.Xml,
         [".svg"] = SyntaxKind.Xml,
-        [".htm"] = SyntaxKind.Xml,
-        [".html"] = SyntaxKind.Xml,
+        [".htm"] = SyntaxKind.Html,
+        [".html"] = SyntaxKind.Html,
         [".json"] = SyntaxKind.Json,
         [".bas"] = SyntaxKind.VisualBasic,
         [".frm"] = SyntaxKind.VisualBasic,
@@ -65,7 +83,57 @@ internal sealed partial class DiffViewWindow
         [".pag"] = SyntaxKind.VisualBasic,
         [".vb"] = SyntaxKind.VisualBasic,
         [".vbs"] = SyntaxKind.VisualBasic,
-        [".sql"] = SyntaxKind.Sql
+        [".sql"] = SyntaxKind.Sql,
+        [".java"] = SyntaxKind.Java,
+        [".kt"] = SyntaxKind.Kotlin,
+        [".kts"] = SyntaxKind.Kotlin,
+        [".gradle"] = SyntaxKind.Groovy,
+        [".groovy"] = SyntaxKind.Groovy,
+        [".js"] = SyntaxKind.JavaScript,
+        [".mjs"] = SyntaxKind.JavaScript,
+        [".cjs"] = SyntaxKind.JavaScript,
+        [".jsx"] = SyntaxKind.JavaScript,
+        [".ts"] = SyntaxKind.TypeScript,
+        [".mts"] = SyntaxKind.TypeScript,
+        [".cts"] = SyntaxKind.TypeScript,
+        [".tsx"] = SyntaxKind.TypeScript,
+        [".php"] = SyntaxKind.Php,
+        [".phtml"] = SyntaxKind.Php,
+        [".css"] = SyntaxKind.Css,
+        [".scss"] = SyntaxKind.Scss,
+        [".less"] = SyntaxKind.Scss,
+        [".bat"] = SyntaxKind.Batch,
+        [".cmd"] = SyntaxKind.Batch,
+        [".ps1"] = SyntaxKind.PowerShell,
+        [".psm1"] = SyntaxKind.PowerShell,
+        [".psd1"] = SyntaxKind.PowerShell,
+        [".sh"] = SyntaxKind.Shell,
+        [".bash"] = SyntaxKind.Shell,
+        [".ini"] = SyntaxKind.Ini,
+        [".vbp"] = SyntaxKind.Ini,
+        [".vbg"] = SyntaxKind.Ini,
+        [".properties"] = SyntaxKind.Properties,
+        [".c"] = SyntaxKind.Cpp,
+        [".cpp"] = SyntaxKind.Cpp,
+        [".cc"] = SyntaxKind.Cpp,
+        [".cxx"] = SyntaxKind.Cpp,
+        [".h"] = SyntaxKind.Cpp,
+        [".hpp"] = SyntaxKind.Cpp,
+        [".hh"] = SyntaxKind.Cpp,
+        [".hxx"] = SyntaxKind.Cpp,
+        [".inl"] = SyntaxKind.Cpp,
+        [".mk"] = SyntaxKind.Make,
+        [".cmake"] = SyntaxKind.CMake,
+        [".pro"] = SyntaxKind.ProGuard,
+        [".aidl"] = SyntaxKind.Java
+    };
+
+    // 拡張子で判定できないファイル (拡張子より優先)。
+    private static readonly Dictionary<string, SyntaxKind> SyntaxByFileName = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Makefile"] = SyntaxKind.Make,
+        ["GNUmakefile"] = SyntaxKind.Make,
+        ["CMakeLists.txt"] = SyntaxKind.CMake
     };
 
     private static readonly HashSet<string> VisualBasicKeywords = new(StringComparer.OrdinalIgnoreCase)
@@ -121,7 +189,9 @@ internal sealed partial class DiffViewWindow
             if (!ReferenceEquals(path, _syntaxSourcePath))
             {
                 _syntaxSourcePath = path;
-                _syntaxKind = SyntaxByExtension.GetValueOrDefault(Path.GetExtension(path), SyntaxKind.None);
+                _syntaxKind = SyntaxByFileName.TryGetValue(Path.GetFileName(path), out var byName)
+                    ? byName
+                    : SyntaxByExtension.GetValueOrDefault(Path.GetExtension(path), SyntaxKind.None);
             }
 
             return _syntaxKind;
@@ -135,7 +205,9 @@ internal sealed partial class DiffViewWindow
     /// <returns>行をまたぐ状態を持つ場合は true。</returns>
     private static bool HasLexState(SyntaxKind language)
     {
-        return language is SyntaxKind.CSharp or SyntaxKind.Xml or SyntaxKind.Sql;
+        return language is not (SyntaxKind.None or SyntaxKind.Json or SyntaxKind.VisualBasic or SyntaxKind.Batch or
+            SyntaxKind.Shell or SyntaxKind.Ini or SyntaxKind.Properties or SyntaxKind.Make or SyntaxKind.CMake or
+            SyntaxKind.ProGuard);
     }
 
     /// <summary>
@@ -180,10 +252,68 @@ internal sealed partial class DiffViewWindow
             case SyntaxKind.Sql:
                 AddSqlRuns(paragraph, text, ref state);
                 return;
-            default:
+            case SyntaxKind.None:
                 paragraph?.Inlines.Add(new Run(text));
                 return;
         }
+
+        // 範囲単位の字句解析 (Web 系・スクリプト系)。
+        var writer = new SyntaxWriter(this, paragraph, text);
+        switch (language)
+        {
+            case SyntaxKind.Java:
+                LexCode(writer, 0, text.Length, JavaStyle, ref state);
+                break;
+            case SyntaxKind.Kotlin:
+                LexCode(writer, 0, text.Length, KotlinStyle, ref state);
+                break;
+            case SyntaxKind.Groovy:
+                LexCode(writer, 0, text.Length, GroovyStyle, ref state);
+                break;
+            case SyntaxKind.JavaScript:
+                LexCode(writer, 0, text.Length, JavaScriptStyle, ref state);
+                break;
+            case SyntaxKind.TypeScript:
+                LexCode(writer, 0, text.Length, TypeScriptStyle, ref state);
+                break;
+            case SyntaxKind.Php:
+                LexPhp(writer, ref state);
+                break;
+            case SyntaxKind.Css:
+            case SyntaxKind.Scss:
+                LexCss(writer, 0, text.Length, language == SyntaxKind.Scss, ref state);
+                break;
+            case SyntaxKind.Html:
+                state = LexHtml(writer, 0, text.Length, state);
+                break;
+            case SyntaxKind.Batch:
+                LexBatch(writer);
+                break;
+            case SyntaxKind.PowerShell:
+                LexPowerShell(writer, ref state);
+                break;
+            case SyntaxKind.Shell:
+                LexShell(writer);
+                break;
+            case SyntaxKind.Ini:
+            case SyntaxKind.Properties:
+                LexIni(writer, language == SyntaxKind.Properties);
+                break;
+            case SyntaxKind.Cpp:
+                LexCode(writer, 0, text.Length, CppStyle, ref state);
+                break;
+            case SyntaxKind.Make:
+                LexMake(writer);
+                break;
+            case SyntaxKind.CMake:
+                LexCMake(writer);
+                break;
+            case SyntaxKind.ProGuard:
+                LexProGuard(writer);
+                break;
+        }
+
+        writer.Finish();
     }
 
     /// <summary>

@@ -810,6 +810,12 @@ internal sealed partial class DiffViewModel : ObservableObject
                 : DetectUnicodeEncoding(bytes) ?? new UTF8Encoding(false, true);
         }
 
+        // 拡張子で判定できないバイナリ (.so など) を、先頭 8 KB の NUL バイトで判定する。
+        // UTF-16 / UTF-32 (BOM 付き、または BOM なしで判定されたもの) は NUL を含むので対象外。
+        if (encoding.CodePage is not (1200 or 1201 or 12000 or 12001) &&
+            bytes.AsSpan(0, Math.Min(bytes.Length, 8192)).Contains((byte)0))
+            throw new InvalidDataException(DiffMedia.BinaryMessage);
+
         string text;
         var decodingErrorLine = 0;
         try

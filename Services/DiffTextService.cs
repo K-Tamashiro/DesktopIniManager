@@ -638,18 +638,14 @@ internal static class DiffTextService
             }
         }
 
-        // Numbers replaced by numbers of the same length compare digit by digit at the same
-        // position: 17430 -> 17745 keeps "17" and marks "430"/"745"; 1.2.3 -> 1.3.0 marks the
-        // second and third digits only. Other changes are marked as runs.
+        // 数値を数値で置き換えた場合は桁ごとに比較する（桁数が違っても 1 の位から揃える。詳細は MarkNumbers）。
+        // 17430 -> 17745 は "17" を残して "430"/"745" を、3739576 -> 399006 は 1 の位の 6 などを残してマークする。
+        // それ以外の変更はランとしてマークする。
         bool Positional(Diff.Item change)
         {
             if (change.DeletedA != change.InsertedB || change.DeletedA == 0) return false;
             for (var k = 0; k < change.DeletedA; k++)
-            {
-                var l = leftTokens[change.StartA + k].Number;
-                var r = rightTokens[change.StartB + k].Number;
-                if (l == null || r == null || l.Length != r.Length) return false;
-            }
+                if (leftTokens[change.StartA + k].Number == null || rightTokens[change.StartB + k].Number == null) return false;
             return true;
         }
 
@@ -661,12 +657,7 @@ internal static class DiffTextService
                 {
                     var l = leftTokens[change.StartA + k];
                     var r = rightTokens[change.StartB + k];
-                    for (var c = 0; c < l.Number.Length; c++)
-                    {
-                        if (l.Number[c] == r.Number[c]) continue;
-                        a[l.Start + c] = true;
-                        b[r.Start + c] = true;
-                    }
+                    MarkNumbers(l.Number, r.Number, a, l.Start, b, r.Start);
                 }
                 continue;
             }
@@ -676,5 +667,73 @@ internal static class DiffTextService
         }
 
         return (a, b);
+    }
+
+    /// <summary>
+    ///     2 つの数値を桁ごとに比較し、異なる桁をマークします。同じ長さの場合は同じ位置どうしで比較します。
+    ///     長さが違う場合は、両方に 0x (0X) の接頭辞があれば接頭辞は位置で比べ、残りをドットで区切って区切りの単位を左から揃え、
+    ///     各単位の中は 1 の位 (右) から揃えます。片側にしかない桁や区切りの単位 (直前のドットを含む) はマークします。
+    /// </summary>
+    /// <param name="left">比較元の数値。</param>
+    /// <param name="right">比較先の数値。</param>
+    /// <param name="leftMask">比較元の表示位置ごとの変更フラグ。</param>
+    /// <param name="leftStart">比較元の数値の表示開始位置。</param>
+    /// <param name="rightMask">比較先の表示位置ごとの変更フラグ。</param>
+    /// <param name="rightStart">比較先の数値の表示開始位置。</param>
+    private static void MarkNumbers(string left, string right, bool[] leftMask, int leftStart, bool[] rightMask, int rightStart)
+    {
+        // 同じ長さの数値は従来どおり同じ位置どうしで比較する (1.2.3 -> 1.3.0 は 2 桁目と 3 桁目だけ)。
+        if (left.Length == right.Length)
+        {
+            for (var c = 0; c < left.Length; c++)
+                if (left[c] != right[c]) leftMask[leftStart + c] = rightMask[rightStart + c] = true;
+            return;
+        }
+
+        static bool HasHexPrefix(string value) => value.Length > 2 && value[0] == '0' && value[1] is 'x' or 'X';
+
+        var body = 0;
+        if (HasHexPrefix(left) && HasHexPrefix(right))
+        {
+            if (left[1] != right[1]) leftMask[leftStart + 1] = rightMask[rightStart + 1] = true;
+            body = 2;
+        }
+
+        // ドット区切りの単位 (開始位置、終端位置)。先頭以外の単位の開始位置の直前はドット。
+        static List<(int Start, int End)> Segments(string value, int start)
+        {
+            var segments = new List<(int, int)>();
+            for (var i = start; i <= value.Length; i++)
+            {
+                if (i < value.Length && value[i] != '.') continue;
+                segments.Add((start, i));
+                start = i + 1;
+            }
+            return segments;
+        }
+
+        var leftSegments = Segments(left, body);
+        var rightSegments = Segments(right, body);
+        var paired = Math.Min(leftSegments.Count, rightSegments.Count);
+        for (var s = 0; s < paired; s++)
+        {
+            var (leftFrom, leftTo) = leftSegments[s];
+            var (rightFrom, rightTo) = rightSegments[s];
+            for (int l = leftTo - 1, r = rightTo - 1; l >= leftFrom || r >= rightFrom; l--, r--)
+            {
+                if (l >= leftFrom && r >= rightFrom && left[l] == right[r]) continue;
+                if (l >= leftFrom) leftMask[leftStart + l] = true;
+                if (r >= rightFrom) rightMask[rightStart + r] = true;
+            }
+        }
+
+        static void MarkExtra(List<(int Start, int End)> segments, int from, bool[] mask, int start)
+        {
+            for (var s = from; s < segments.Count; s++)
+                for (var i = segments[s].Start - 1; i < segments[s].End; i++) mask[start + i] = true;
+        }
+
+        MarkExtra(leftSegments, paired, leftMask, leftStart);
+        MarkExtra(rightSegments, paired, rightMask, rightStart);
     }
 }

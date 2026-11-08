@@ -187,7 +187,7 @@ internal sealed partial class DiffViewWindow
     {
         if (_renderingContent || !await ConfirmTextChangesAsync()) return;
         var dialog = new OpenFileDialog
-        { Filter = "Patch / Diff|*.patch;*.diff|All files|*.*", CheckFileExists = true };
+        { Filter = "Patch / Diff|*.patch;*.diff;*.rej|All files|*.*", CheckFileExists = true };
         if (dialog.ShowDialog(this) != true) return;
         try
         {

@@ -688,7 +688,7 @@ public partial class DeveloperDifferencerWindow
     private async void PatchViewButton_Click(object sender, RoutedEventArgs e)
     {
         if (ViewModel.IsBusy) return;
-        var picker = new Microsoft.Win32.OpenFileDialog { Filter = "Patch / Diff|*.patch;*.diff|All files|*.*", CheckFileExists = true };
+        var picker = new Microsoft.Win32.OpenFileDialog { Filter = "Patch / Diff|*.patch;*.diff;*.rej|All files|*.*", CheckFileExists = true };
         if (picker.ShowDialog(this) != true) return;
         PatchViewButton.IsEnabled = false;
         try

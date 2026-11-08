@@ -34,6 +34,10 @@ internal sealed class PatchFile
     internal string NewPath { get; set; }
     internal string UnsupportedReason { get; set; }
     internal List<PatchHunk> Hunks { get; } = [];
+
+    // .rej（適用に失敗したハンク）のエントリ。適用先で完全一致しない前提で、おおよその位置を探す。
+    internal bool IsReject { get; set; }
+
     internal bool IsNew => OldPath == "/dev/null";
     internal string RelativePath => NewPath == "/dev/null" ? OldPath : NewPath;
     /// <summary>
@@ -53,13 +57,22 @@ internal sealed class PatchDocument
     internal string Author { get; private set; }
 
     /// <summary>
-    ///     ファイルが .patch または .diff のパッチ ファイルかどうかを判定します。
+    ///     ファイルが .patch、.diff、.rej のパッチ ファイルかどうかを判定します。
     /// </summary>
     /// <param name="path">ファイルのパス。</param>
     /// <returns>パッチ ファイルの場合は true。</returns>
     internal static bool IsPatch(string path) =>
         string.Equals(Path.GetExtension(path), ".patch", StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(Path.GetExtension(path), ".diff", StringComparison.OrdinalIgnoreCase);
+        string.Equals(Path.GetExtension(path), ".diff", StringComparison.OrdinalIgnoreCase) ||
+        IsReject(path);
+
+    /// <summary>
+    ///     ファイルが .rej (git apply --reject や patch が出力する、適用に失敗したハンク) かどうかを判定します。
+    /// </summary>
+    /// <param name="path">ファイルのパス。</param>
+    /// <returns>.rej の場合は true。</returns>
+    private static bool IsReject(string path) =>
+        string.Equals(Path.GetExtension(path), ".rej", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     ///     パッチ ファイルを読み込んで解析します。32 MB を超えるファイルには対応しません。
@@ -72,7 +85,10 @@ internal sealed class PatchDocument
         if (stream.Length > 32 * 1024 * 1024) throw new IOException("Patches over 32 MB are not supported.");
         var bytes = new byte[stream.Length];
         stream.ReadExactly(bytes);
-        return Parse(bytes);
+        var result = Parse(bytes);
+        if (IsReject(path))
+            foreach (var file in result.Files) file.IsReject = true;
+        return result;
     }
 
     /// <summary>
@@ -150,6 +166,31 @@ internal sealed class PatchDocument
                 {
                     file.OldPath = DecodePath(paths[0].Value);
                     file.NewPath = DecodePath(paths[1].Value);
+                }
+                result.Files.Add(file);
+                hunk = null;
+            }
+            else if (line.StartsWith("diff a/", StringComparison.Ordinal))
+            {
+                // git apply --reject の .rej：「diff a/パス b/パス<TAB>(rejected hunks)」の後に --- / +++ なしでハンクが続く。
+                // パスは引用符なしで空白を含みうるため、前後が同じパスになる位置で分割する。
+                var names = line[5..].Split('\t')[0];
+                var middle = names.Length / 2;
+                file = new PatchFile { IsReject = true };
+                if (names.Length % 2 == 1 && names[middle] == ' ' && names[(middle + 1)..].StartsWith("b/", StringComparison.Ordinal) &&
+                    names[2..middle] == names[(middle + 3)..])
+                {
+                    file.OldPath = names[2..middle];
+                    file.NewPath = names[(middle + 3)..];
+                }
+                else
+                {
+                    var paths = Regex.Matches(names, "[^ ]+");
+                    if (paths.Count == 2)
+                    {
+                        file.OldPath = DecodePath(paths[0].Value);
+                        file.NewPath = DecodePath(paths[1].Value);
+                    }
                 }
                 result.Files.Add(file);
                 hunk = null;

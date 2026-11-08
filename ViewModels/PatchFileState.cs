@@ -140,6 +140,15 @@ internal sealed class PatchFileState
                 continue;
             }
 
+            // .rej のハンクは完全一致しないので、変更前の行が最も多く一致する位置を目安に置く（上下の調整は利用者が行う）。
+            var approximate = Entry.IsReject ? Approximate(hunk.Before, expected, lower) : -1;
+            if (approximate >= 0)
+            {
+                Positions[i] = approximate;
+                offset = approximate - baseline;
+                continue;
+            }
+
             Positions[i] = Math.Max(expected, lower);
         }
 
@@ -181,6 +190,34 @@ internal sealed class PatchFileState
             }
             if (!inRange) return -1;
         }
+    }
+
+    /// <summary>
+    ///     指定行のうち空行以外が、前後の空白を除いて最も多く一致する位置を探します。同数の場合は期待位置に近い方を選びます。
+    /// </summary>
+    /// <param name="lines">探す行。</param>
+    /// <param name="expected">期待する位置。</param>
+    /// <param name="lower">探索範囲の下限。</param>
+    /// <returns>見つかった位置。1 行も一致しない場合は -1。</returns>
+    private int Approximate(string[] lines, int expected, int lower)
+    {
+        var wanted = lines.Select(line => line.Trim()).ToArray();
+        var working = _working.Select(line => line.Text.Trim()).ToArray();
+        var best = -1;
+        var bestScore = 0;
+        for (var position = lower; position + wanted.Length <= working.Length; position++)
+        {
+            var score = 0;
+            for (var i = 0; i < wanted.Length; i++)
+                if (wanted[i].Length > 0 && string.Equals(working[position + i], wanted[i], StringComparison.Ordinal))
+                    score++;
+            if (score > bestScore || score == bestScore && score > 0 && Math.Abs(position - expected) < Math.Abs(best - expected))
+            {
+                best = position;
+                bestScore = score;
+            }
+        }
+        return best;
     }
 
     /// <summary>

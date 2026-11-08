@@ -1663,6 +1663,16 @@
                             Stretch="Uniform" />
                     </Button>
                     <Button
+                        x:Name="DiffViewButton"
+                        Margin="8,0,0,0"
+                        Style="{StaticResource IconButton}"
+                        ToolTip="DIFF VIEW">
+                        <Image
+                            x:Name="DiffViewButtonIcon"
+                            RenderOptions.BitmapScalingMode="HighQuality"
+                            Stretch="Uniform" />
+                    </Button>
+                    <Button
                         x:Name="RemoveButton"
                         Margin="8,0,0,0"
                         Command="{Binding RemoveCommand}"

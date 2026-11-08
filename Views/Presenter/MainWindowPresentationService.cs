@@ -287,6 +287,7 @@ public sealed class MainWindowPresentationService
         _window.TreeTabs.SelectionChanged += TreeTabs_SelectionChanged;
         _window.LanguageBox.SelectionChanged += LanguageBox_SelectionChanged;
         _window.ThemeBox.SelectionChanged += ThemeBox_SelectionChanged;
+        _window.DiffViewButton.Click += (_, _) => OpenStandaloneDiffView();
         _window.RunScriptButton.Click += (_, _) => RunScriptCommand();
         _window.BrowseScriptButton.Click += (_, _) => BrowseScriptCommand();
         _window.ScriptBox.PreviewKeyDown += ScriptBox_PreviewKeyDown;
@@ -540,10 +541,7 @@ public sealed class MainWindowPresentationService
                 case Key.D3:
                 case Key.NumPad3: destination = 3; break;
                 case Key.D4:
-                case Key.NumPad4:
-                    destination = 4;
-                    selectedViewer = viewers.FirstOrDefault(window => window.Owner == null);
-                    break;
+                case Key.NumPad4: destination = 4; break;
 
                 default: return;
             }
@@ -571,20 +569,9 @@ public sealed class MainWindowPresentationService
                 }
                 else if (destination == 4)
                 {
-                    if (selectedViewer == null)
-                    {
-                        var launch = ExternalDiffLaunch.Parse(new[] { "-diff" });
-                        var snapshot = launch.CreateSnapshot();
-                        selectedViewer =
-                            new DiffViewWindow(snapshot, snapshot.Files[0], launch.SourcePath, launch.TargetPath)
-                            {
-                                Width = Math.Max(900, _window.ActualWidth),
-                                Height = Math.Max(600, _window.ActualHeight)
-                            };
-                        selectedViewer.Show();
-                    }
-
-                    WindowActivationService.BringToFront(selectedViewer, true);
+                    // Ctrl+Space の巡回で選ばれた DIFF ビューはそのまま前面に出します。
+                    if (selectedViewer != null) WindowActivationService.BringToFront(selectedViewer, true);
+                    else OpenStandaloneDiffView();
                 }
                 else if (_grepWindow != null)
                 {
@@ -600,6 +587,35 @@ public sealed class MainWindowPresentationService
                 ViewModel.ShowError(Strings.App_Unhandled, ex);
             }
         }));
+    }
+
+    /// <summary>
+    ///     単体の DIFF ビューを前面に出します。開いていない場合は空の状態で新しく開きます。
+    /// </summary>
+    private void OpenStandaloneDiffView()
+    {
+        try
+        {
+            var viewer = Application.Current.Windows.OfType<DiffViewWindow>()
+                .FirstOrDefault(window => window.IsVisible && window.Owner == null);
+            if (viewer == null)
+            {
+                var launch = ExternalDiffLaunch.Parse(new[] { "-diff" });
+                var snapshot = launch.CreateSnapshot();
+                viewer = new DiffViewWindow(snapshot, snapshot.Files[0], launch.SourcePath, launch.TargetPath)
+                {
+                    Width = Math.Max(900, _window.ActualWidth),
+                    Height = Math.Max(600, _window.ActualHeight)
+                };
+                viewer.Show();
+            }
+
+            WindowActivationService.BringToFront(viewer, true);
+        }
+        catch (Exception ex)
+        {
+            ViewModel.ShowError(Strings.App_Unhandled, ex);
+        }
     }
 
     /// <summary>
@@ -1545,6 +1561,7 @@ public sealed class MainWindowPresentationService
         SetToolbarIcon(_window.RemoveButtonIcon, 50);
         SetToolbarIcon(_window.DifferencerButtonIcon, 51);
         SetToolbarIcon(_window.GrepButtonIcon, 71);
+        SetToolbarIcon(_window.DiffViewButtonIcon, 52);
         SetToolbarIcon(_window.ApplyButtonIcon, 34);
         SetToolbarIcon(_window.RunScriptIcon, 89);
         SetToolbarIcon(_window.BrowseScriptIcon, 88);

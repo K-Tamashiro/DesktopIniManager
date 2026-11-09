@@ -33,11 +33,11 @@ internal sealed partial class DeveloperDifferencerViewModel
     public RelayCommand DeleteAllHistoryTabsCommand { get; }
     public ParameterCommand DeleteOtherHistoryTabsCommand { get; }
     public string HistoryRoots => Snapshot == null ? "" : HistorySourceRoot + "   " + HistoryTargetRoot;
-    public string HistorySourceRoot => Snapshot == null ? "" : "Source: \u2026" + RootName(Snapshot.SourceRoot);
-    public string HistoryTargetRoot => Snapshot == null ? "" : "Target: \u2026" + RootName(Snapshot.TargetRoot);
+    public string HistorySourceRoot => Snapshot == null ? "" : string.Format(StringOverlay.Get("History_SourceRootShort"), RootName(Snapshot.SourceRoot));
+    public string HistoryTargetRoot => Snapshot == null ? "" : string.Format(StringOverlay.Get("History_TargetRootShort"), RootName(Snapshot.TargetRoot));
 
     public string HistoryRootsTooltip =>
-        Snapshot == null ? "" : "Source: " + Snapshot.SourceRoot + "\nTarget: " + Snapshot.TargetRoot;
+        Snapshot == null ? "" : string.Format(StringOverlay.Get("History_RootsTip"), Snapshot.SourceRoot, Snapshot.TargetRoot);
 
     /// <summary>
     ///     比較ルートのフォルダー名を取得します。
@@ -250,7 +250,7 @@ internal sealed partial class DeveloperDifferencerViewModel
             _selectedHistoryTab = null;
             ClearComparisonView();
             _folders.Clear();
-            Status = "Compare cancelled";
+            Status = StringOverlay.Get("Differencer_TextCancelled");
         }
         catch
         {

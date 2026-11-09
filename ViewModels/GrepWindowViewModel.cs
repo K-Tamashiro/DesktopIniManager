@@ -48,7 +48,7 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
     private CancellationTokenSource _searchCts;
     private GrepMatch _selectedMatch;
     private LanguageProfile _selectedProfile;
-    private string _status = Strings.Common_Ready;
+    private string _status = StringOverlay.Get("Common_Ready");
     private bool? _useRegex = false;
     private bool? _wholeWord = false;
 
@@ -317,7 +317,7 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
     {
         if (_searchCts != null)
         {
-            Status = Strings.Grep_CancelBeforeChange;
+            Status = StringOverlay.Get("Grep_CancelBeforeChange");
             return;
         }
 
@@ -332,7 +332,7 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
     {
         if (_searchCts != null)
         {
-            Status = Strings.Grep_CancelBeforeChange;
+            Status = StringOverlay.Get("Grep_CancelBeforeChange");
             return;
         }
 
@@ -347,7 +347,7 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
     {
         if (_searchCts != null)
         {
-            Status = Strings.Grep_CancelBeforeChange;
+            Status = StringOverlay.Get("Grep_CancelBeforeChange");
             return;
         }
 
@@ -379,7 +379,7 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         }
 
         UpdateScopeCountLabel();
-        Status = EnabledScopePaths().Length == 0 ? Strings.Grep_NoFoldersSelected : Strings.Common_Ready;
+        Status = EnabledScopePaths().Length == 0 ? StringOverlay.Get("Grep_NoFoldersSelected") : StringOverlay.Get("Common_Ready");
     }
 
     /// <summary>
@@ -392,7 +392,7 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         if (e.PropertyName != nameof(GrepScopeItem.IsEnabled)) return;
         UpdateScopeCountLabel();
         if (!IsSearching)
-            Status = EnabledScopePaths().Length == 0 ? Strings.Grep_NoFoldersSelected : Strings.Common_Ready;
+            Status = EnabledScopePaths().Length == 0 ? StringOverlay.Get("Grep_NoFoldersSelected") : StringOverlay.Get("Common_Ready");
     }
 
     /// <summary>
@@ -402,7 +402,7 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
     {
         var enabled = Scopes.Count(item => item.IsEnabled);
         var total = Scopes.Count;
-        var format = total == 1 ? Strings.Grep_FolderSingular : Strings.Grep_FolderPlural;
+        var format = total == 1 ? StringOverlay.Get("Grep_FolderSingular") : StringOverlay.Get("Grep_FolderPlural");
         ScopeCountLabel = enabled == total
             ? string.Format(format, total)
             : string.Format(format, enabled) + " / " + total;
@@ -425,7 +425,7 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         ResultGroupsResetRequested?.Invoke();
         Matches.Clear();
         NotifyListCommands();
-        Status = Strings.Common_Ready;
+        Status = StringOverlay.Get("Common_Ready");
     }
 
     /// <summary>
@@ -520,7 +520,7 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            _dialogs.Show(string.Format(Strings.Grep_EditorFailed, ErrorMessages.English(ex)), DialogTitle,
+            _dialogs.Show(string.Format(StringOverlay.Get("Grep_EditorFailed"), ErrorMessages.English(ex)), DialogTitle,
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -624,19 +624,19 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         var scopes = EnabledScopePaths();
         if (Scopes.Count == 0)
         {
-            _dialogs.Show(Strings.Grep_SelectFolders, DialogTitle);
+            _dialogs.Show(StringOverlay.Get("Grep_SelectFolders"), DialogTitle);
             return;
         }
 
         if (scopes.Length == 0)
         {
-            _dialogs.Show(Strings.Grep_NoFoldersSelected, DialogTitle);
+            _dialogs.Show(StringOverlay.Get("Grep_NoFoldersSelected"), DialogTitle);
             return;
         }
 
         if (string.IsNullOrEmpty(query))
         {
-            _dialogs.Show(Strings.Grep_EnterText, DialogTitle);
+            _dialogs.Show(StringOverlay.Get("Grep_EnterText"), DialogTitle);
             return;
         }
 
@@ -644,7 +644,7 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         var extensions = ParseExtensions(Extensions);
         if (extensions.Length == 0)
         {
-            _dialogs.Show(Strings.Grep_EnterExtensions, DialogTitle);
+            _dialogs.Show(StringOverlay.Get("Grep_EnterExtensions"), DialogTitle);
             return;
         }
 
@@ -670,7 +670,7 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
                     (done, total) => _dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                     {
                         if (_searchCts?.Token == searchToken && !searchToken.IsCancellationRequested)
-                            Status = string.Format(Strings.Grep_SearchingFiles, done.ToString("N0"),
+                            Status = string.Format(StringOverlay.Get("Grep_SearchingFiles"), done.ToString("N0"),
                                 total.ToString("N0"));
                     })), searchToken,
                     match =>
@@ -681,7 +681,7 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
                     (done, total) => _dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                     {
                         if (_searchCts?.Token == searchToken && !searchToken.IsCancellationRequested)
-                            Status = string.Format(Strings.Grep_SearchingFiles, done.ToString("N0"),
+                            Status = string.Format(StringOverlay.Get("Grep_SearchingFiles"), done.ToString("N0"),
                                 total.ToString("N0"));
                     })), searchToken,
                     match =>
@@ -691,26 +691,26 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
             await DrainAllPendingMatchesAsync(cts.Token);
             cts.Token.ThrowIfCancellationRequested();
             Status = result.SkippedCount == 0
-                ? string.Format(Strings.Grep_Result, result.Matches.Count.ToString("N0"),
+                ? string.Format(StringOverlay.Get("Grep_Result"), result.Matches.Count.ToString("N0"),
                     result.FileCount.ToString("N0"))
-                : string.Format(Strings.Grep_ResultSkipped, result.Matches.Count.ToString("N0"),
+                : string.Format(StringOverlay.Get("Grep_ResultSkipped"), result.Matches.Count.ToString("N0"),
                     result.FileCount.ToString("N0"), result.SkippedCount);
         }
         catch (OperationCanceledException)
         {
             _pendingMatches = new ConcurrentQueue<GrepMatch>();
-            Status = Strings.Grep_SearchCancelled;
+            Status = StringOverlay.Get("Grep_SearchCancelled");
         }
         catch (ArgumentException ex)
         {
-            _dialogs.Show(string.Format(Strings.Grep_InvalidExpression, ErrorMessages.English(ex)), DialogTitle,
+            _dialogs.Show(string.Format(StringOverlay.Get("Grep_InvalidExpression"), ErrorMessages.English(ex)), DialogTitle,
                 MessageBoxButton.OK, MessageBoxImage.Warning);
-            Status = Strings.Grep_InvalidExpressionStatus;
+            Status = StringOverlay.Get("Grep_InvalidExpressionStatus");
         }
         catch (Exception ex)
         {
             _dialogs.Show(ErrorMessages.English(ex), DialogTitle, MessageBoxButton.OK, MessageBoxImage.Error);
-            Status = Strings.Grep_SearchFailed;
+            Status = StringOverlay.Get("Grep_SearchFailed");
         }
         finally
         {
@@ -828,7 +828,7 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         _pendingMatches = new ConcurrentQueue<GrepMatch>();
         IsCancelling = true;
         CancelCommand.NotifyCanExecuteChanged();
-        Status = Strings.Grep_Cancelling;
+        Status = StringOverlay.Get("Grep_Cancelling");
     }
 
     /// <summary>
@@ -854,7 +854,7 @@ internal sealed partial class GrepWindowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            _dialogs.Show(string.Format(Strings.Grep_EditorFailed, ErrorMessages.English(ex)), DialogTitle,
+            _dialogs.Show(string.Format(StringOverlay.Get("Grep_EditorFailed"), ErrorMessages.English(ex)), DialogTitle,
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }

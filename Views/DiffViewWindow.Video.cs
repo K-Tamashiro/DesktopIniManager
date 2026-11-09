@@ -143,7 +143,7 @@ internal sealed partial class DiffViewWindow
             Maximum = 4,
             Value = 1,
             Width = 120,
-            ToolTip = "Shared zoom for Source and Target",
+            ToolTip = StringOverlay.Get("Diff_SharedZoomTip"),
             VerticalAlignment = VerticalAlignment.Center,
             Style = TryFindResource("ZoomSlider") as Style
         };
@@ -189,10 +189,10 @@ internal sealed partial class DiffViewWindow
             };
             zoomTitle.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
             chromeRow.Children.Add(zoomTitle);
-            chromeRow.Children.Add(ImageZoomStepButton("\uE738", "Zoom out",
+            chromeRow.Children.Add(ImageZoomStepButton("\uE738", StringOverlay.Get("Diff_ZoomOut"),
                 () => { zoom.Value = Math.Max(zoom.Minimum, zoom.Value / 1.25); }));
             chromeRow.Children.Add(zoom);
-            chromeRow.Children.Add(ImageZoomStepButton("\uE710", "Zoom in",
+            chromeRow.Children.Add(ImageZoomStepButton("\uE710", StringOverlay.Get("Diff_ZoomIn"),
                 () => { zoom.Value = Math.Min(zoom.Maximum, zoom.Value * 1.25); }));
             chromeRow.Children.Add(zoomLabel);
             wrapper.Children.Add(chrome);
@@ -399,7 +399,7 @@ internal sealed partial class DiffViewWindow
             Width = 40,
             Height = 40,
             Margin = new Thickness(0, 0, 8, 0),
-            ToolTip = "Play / Pause",
+            ToolTip = StringOverlay.Get("Diff_PlayPause"),
             Padding = new Thickness(0)
         };
         // Ensure content is visible even with app button styles

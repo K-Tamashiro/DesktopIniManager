@@ -15,10 +15,6 @@ internal static class StringOverlay
     private static Dictionary<string, string> _map = new(StringComparer.Ordinal);
     private static bool _loaded;
 
-    // Two-letter language of the loaded overlay. Get() is called for every
-    // localized string, so it must not probe culture.txt on disk each time.
-    private static string _language;
-
     internal static event EventHandler CultureChanged;
 
     /// <summary>
@@ -52,7 +48,6 @@ internal static class StringOverlay
         {
             culture ??= CultureInfo.GetCultureInfo("en");
             _map = ReadMap(culture);
-            _language = culture.TwoLetterISOLanguageName;
             _loaded = true;
         }
     }
@@ -110,62 +105,30 @@ internal static class StringOverlay
     }
 
     /// <summary>
-    ///     キーに対応するローカライズ文字列を、組み込みの上書き・言語ファイル・リソースの順に検索して取得します。
+    ///     キーに対応するローカライズ文字列を、言語ファイル・リソースの順に検索して取得します。
     /// </summary>
     /// <param name="key">リソース キー。</param>
     /// <returns>ローカライズ文字列。見つからない場合はキー自体。</returns>
     internal static string Get(string key)
     {
         Dictionary<string, string> current;
-        string language;
         lock (Gate)
         {
             if (!_loaded)
             {
                 var culture = ResolveCulture();
                 _map = ReadMap(culture);
-                _language = culture.TwoLetterISOLanguageName;
                 _loaded = true;
             }
 
             current = _map;
-            language = _language;
         }
 
-        var builtin = Builtin(key, language);
-        if (!string.IsNullOrEmpty(builtin)) return builtin;
         if (current.TryGetValue(key, out string value) && !string.IsNullOrEmpty(value))
             return Unescape(value);
         value = Strings.ResourceManager.GetString(key, Strings.Culture);
         if (!string.IsNullOrEmpty(value)) return value;
         return Strings.ResourceManager.GetString(key, CultureInfo.InvariantCulture) ?? key;
-    }
-
-    /// <summary>
-    ///     言語ファイルより優先するコード内蔵の翻訳を取得します。
-    /// </summary>
-    /// <param name="key">リソース キー。</param>
-    /// <param name="language">2 文字の言語コード。</param>
-    /// <returns>内蔵の翻訳。対象外のキーの場合は null。</returns>
-    private static string Builtin(string key, string language)
-    {
-        if (key == "Main_IconRemove" || key == "Main_IconReset")
-        {
-            if (language == "ja") return "アイコンリセット";
-            if (language == "zh") return "重置图标";
-            if (language == "ko") return "아이콘 재설정";
-            return "Icon Reset";
-        }
-
-        if (key == "Main_RemoveSettings")
-        {
-            if (language == "ja") return "フォルダーのカスタムアイコンをリセットします";
-            if (language == "zh") return "重置文件夹自定义图标";
-            if (language == "ko") return "폴더 사용자 지정 아이콘을 재설정합니다";
-            return "Reset custom folder icons";
-        }
-
-        return null;
     }
 
     /// <summary>

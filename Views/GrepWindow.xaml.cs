@@ -60,6 +60,7 @@ public partial class GrepWindow
         ViewModel.ResultGroupsExpansionRequested += SetResultGroupsExpanded;
         ViewModel.Initialize(initialScopes);
         AllowDrop = true;
+        DropZoneHighlight.Attach(this, () => !ViewModel.IsSearching, ScopeList);
         PreviewDragEnter += FolderDropPreview;
         PreviewDragOver += FolderDropPreview;
         PreviewDrop += GrepWindow_Drop;
@@ -447,7 +448,7 @@ public partial class GrepWindow
     {
         var dialog = new SaveFileDialog
         {
-            Filter = Strings.Grep_SaveFilter,
+            Filter = StringOverlay.Get("Grep_SaveFilter"),
             FileName = "grep-results.txt",
             AddExtension = true,
             DefaultExt = "txt"
@@ -478,7 +479,7 @@ public partial class GrepWindow
     /// </summary>
     private void BrowseEditor()
     {
-        var dialog = new OpenFileDialog { Filter = Strings.Grep_EditorFilter, CheckFileExists = true };
+        var dialog = new OpenFileDialog { Filter = StringOverlay.Get("Grep_EditorFilter"), CheckFileExists = true };
         if (dialog.ShowDialog(this) != true) return;
         ViewModel.EditorPath = dialog.FileName; EditorBox.CommitHistory();
         ShowTextEnd(EditorBox);
@@ -647,7 +648,7 @@ public partial class GrepWindow
         bool expanded = ResultGroupsToggle != null && ResultGroupsToggle.IsChecked == true;
         SetIcon(ResultGroupsIcon, expanded ? 56 : 55);
         if (ResultGroupsToggle != null)
-            ResultGroupsToggle.ToolTip = expanded ? Strings.Common_Collapse : Strings.Common_Expand;
+            ResultGroupsToggle.ToolTip = expanded ? StringOverlay.Get("Common_Collapse") : StringOverlay.Get("Common_Expand");
     }
 
     /// <summary>

@@ -91,6 +91,7 @@
     <Compile Include="Views\DiffViewWindow.Video.cs" />
     <Compile Include="Views\Presenter\MainWindowPresentationService.cs" />
     <Compile Include="Views\VirtualizingUniformGrid.cs" />
+    <Compile Include="Views\DropZoneHighlight.cs" />
     <Compile Include="Views\AboutWindow.cs" />
     <Compile Include="Services\UserDialogService.cs" />
     <Compile Include="Services\ISynchronizationLog.cs" />

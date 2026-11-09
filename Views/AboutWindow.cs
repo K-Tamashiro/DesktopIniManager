@@ -22,7 +22,7 @@ internal sealed class AboutWindow : Window
     /// </summary>
     internal AboutWindow()
     {
-        Title = "DesktopIniManager — About";
+        Title = StringOverlay.Get("About_WindowTitle");
         Width = 660;
         SizeToContent = SizeToContent.Height;
         ResizeMode = ResizeMode.NoResize;
@@ -49,7 +49,7 @@ internal sealed class AboutWindow : Window
         { Text = "DesktopIniManager", FontSize = 20, FontWeight = FontWeights.SemiBold });
         details.Children.Add(new TextBlock
         {
-            Text = $"Version {version}  ·  {(Environment.Is64BitProcess ? "64" : "32")}-bit",
+            Text = string.Format(StringOverlay.Get("About_Version"), version, Environment.Is64BitProcess ? "64" : "32"),
             Margin = new Thickness(0, 6, 0, 0)
         });
         // Keep the original version area's height; the longer contents scroll inside it.
@@ -57,31 +57,31 @@ internal sealed class AboutWindow : Window
         var versionHeight = details.DesiredSize.Height;
         details.Children.Add(new TextBlock
         {
-            Text = "Libraries / APIs",
+            Text = StringOverlay.Get("About_Libraries"),
             FontWeight = FontWeights.SemiBold,
             Margin = new Thickness(0, 14, 0, 6)
         });
         AddComponent(details, ".NET / WPF", Environment.Version.ToString(),
-            "UI rendering, image decoding, GIF / video playback");
-        AddComponent(details, "Windows API", null, "Shell / User32 / Kernel32 — file, icon, and window operations");
+            StringOverlay.Get("About_WpfDescription"));
+        AddComponent(details, "Windows API", null, StringOverlay.Get("About_WindowsApiDescription"));
         AddComponent(details, "ExcelDataReader", VersionOf(typeof(ExcelReaderFactory).Assembly),
-            "Excel file reading · MIT", "ExcelDataReader-LICENSE.txt");
+            StringOverlay.Get("About_ExcelDescription"), "ExcelDataReader-LICENSE.txt");
         AddComponent(details, "PdfPig", VersionOf(typeof(PdfDocument).Assembly),
-            "PDF text extraction · Apache-2.0", "PdfPig-LICENSE.txt");
+            StringOverlay.Get("About_PdfDescription"), "PdfPig-LICENSE.txt");
         AddComponent(details, "NAudio", VersionOf(typeof(AudioFileReader).Assembly),
-            "Audio decoding and playback · MIT", "NAudio-LICENSE.txt");
+            StringOverlay.Get("About_NAudioDescription"), "NAudio-LICENSE.txt");
         AddComponent(details, "System.IO.Hashing", VersionOf(typeof(XxHash64).Assembly),
-            "Hashing for file comparison", "System.IO.Hashing-NOTICES.txt", "Bundled notices TXT");
+            StringOverlay.Get("About_HashDescription"), "System.IO.Hashing-NOTICES.txt", StringOverlay.Get("About_NoticesLink"));
         AddComponent(details, "Mathertel Diff", null,
-            "Text diff algorithm (DIM-modified) · BSD-3-Clause", "Mathertel-Diff-LICENSE.txt");
-        AddComponent(details, "FastVolumeIndex.Core", null, "DIM file indexing and search component");
+            StringOverlay.Get("About_DiffDescription"), "Mathertel-Diff-LICENSE.txt");
+        AddComponent(details, "FastVolumeIndex.Core", null, StringOverlay.Get("About_IndexDescription"));
         footer.Children.Add(new ScrollViewer
         {
             Height = versionHeight,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             Content = details,
-            ToolTip = "Scroll to view libraries, APIs, and licenses"
+            ToolTip = StringOverlay.Get("About_ScrollTip")
         });
         var close = new Button
         {
@@ -120,7 +120,7 @@ internal sealed class AboutWindow : Window
     /// <param name="license">埋め込みのライセンス ファイル名。null の場合はリンクを表示しません。</param>
     /// <param name="linkLabel">ライセンス リンクの表示文字列。</param>
     private void AddComponent(Panel panel, string name, string version, string description,
-        string license = null, string linkLabel = "License TXT")
+        string license = null, string linkLabel = null)
     {
         var item = new StackPanel { Margin = new Thickness(0, 0, 10, 12) };
         item.Children.Add(new TextBlock
@@ -133,7 +133,7 @@ internal sealed class AboutWindow : Window
         if (license != null)
         {
             var text = new TextBlock { Margin = new Thickness(0, 3, 0, 0) };
-            var link = new Hyperlink(new Run(linkLabel));
+            var link = new Hyperlink(new Run(linkLabel ?? StringOverlay.Get("About_LicenseLink")));
             link.SetResourceReference(TextElement.ForegroundProperty, "Accent");
             link.Click += (_, _) => ShowLicense(name, license);
             text.Inlines.Add(link);
@@ -154,7 +154,7 @@ internal sealed class AboutWindow : Window
         using var stream = typeof(AboutWindow).Assembly.GetManifestResourceStream("DIM.Licenses." + file);
         if (stream == null)
         {
-            MessageBox.Show(this, "License document not found: " + file, Title, MessageBoxButton.OK,
+            MessageBox.Show(this, string.Format(StringOverlay.Get("About_LicenseMissing"), file), Title, MessageBoxButton.OK,
                 MessageBoxImage.Warning);
             return;
         }

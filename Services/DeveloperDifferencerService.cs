@@ -1,4 +1,5 @@
-﻿using FastVolumeIndex;
+﻿using DesktopIniManager.Properties;
+using FastVolumeIndex;
 using Microsoft.Win32.SafeHandles;
 using System;
 using System.Buffers;
@@ -161,14 +162,14 @@ internal sealed class DiffFile : INotifyPropertyChanged
     public bool CanSync => !AttributeUnreadable && Kind != DiffKind.Same;
     public bool CanToggleSelection => CanSync || Selected;
 
-    public string State => AttributeUnreadable ? "ATTR unreadable (BOM)" :
-        Kind == DiffKind.Same ? "Same" :
-        Source == null ? "Target only" :
-        Target == null ? "Source only" :
-        AttributeDifferent ? "ATTR differs (BOM)" :
-        ContentDifferent ? "Content differs" :
-        !CompareTimestamp || Source.ModifiedUtcSeconds == Target.ModifiedUtcSeconds ? "Size differs" :
-        CompareSize && Source.Size != Target.Size ? "Time / size differs" : "Time differs";
+    public string State => AttributeUnreadable ? StringOverlay.Get("File_StateAttrUnreadable") :
+        Kind == DiffKind.Same ? StringOverlay.Get("File_StateSame") :
+        Source == null ? StringOverlay.Get("File_StateTargetOnly") :
+        Target == null ? StringOverlay.Get("File_StateSourceOnly") :
+        AttributeDifferent ? StringOverlay.Get("File_StateAttrDiffers") :
+        ContentDifferent ? StringOverlay.Get("File_StateContentDiffers") :
+        !CompareTimestamp || Source.ModifiedUtcSeconds == Target.ModifiedUtcSeconds ? StringOverlay.Get("File_StateSizeDiffers") :
+        CompareSize && Source.Size != Target.Size ? StringOverlay.Get("File_StateTimeSizeDiffers") : StringOverlay.Get("File_StateTimeDiffers");
 
     public string SourceInfo => Describe(Source, Target);
     public string TargetInfo => Describe(Target, Source);
@@ -195,20 +196,20 @@ internal sealed class DiffFile : INotifyPropertyChanged
     /// <returns>表示用の文字列。ファイルがない場合は "missing"。</returns>
     private string Describe(DiffStamp own, DiffStamp other)
     {
-        if (own == null) return "missing";
+        if (own == null) return StringOverlay.Get("File_StateMissing");
         if (CompareAttributes && (ReferenceEquals(own, Source) ? SourceBom : TargetBom) == null)
-            return "ATTR unreadable (BOM)\n" + own.Describe();
+            return StringOverlay.Get("File_StateAttrUnreadable") + "\n" + own.Describe();
         var state = other == null
             ? ""
             : Kind == DiffKind.Same
-                ? "Same\n"
+                ? StringOverlay.Get("File_StateSame") + "\n"
                 : CompareTimestamp && own.ModifiedUtcSeconds != other.ModifiedUtcSeconds
-                    ? own.ModifiedUtcSeconds > other.ModifiedUtcSeconds ? "NEW\n" : "OLD\n"
+                    ? own.ModifiedUtcSeconds > other.ModifiedUtcSeconds ? StringOverlay.Get("File_StateNew") + "\n" : StringOverlay.Get("File_StateOld") + "\n"
                     : AttributeDifferent
-                        ? "ATTR differs (BOM)\n"
+                        ? StringOverlay.Get("File_StateAttrDiffers") + "\n"
                         : ContentDifferent
-                            ? "Content differs\n"
-                            : "Size differs\n";
+                            ? StringOverlay.Get("File_StateContentDiffers") + "\n"
+                            : StringOverlay.Get("File_StateSizeDiffers") + "\n";
         return state + own.Describe();
     }
 }
@@ -285,7 +286,7 @@ internal static class DeveloperDifferencerService
     public static string Root(string path)
     {
         var root = Path.GetFullPath(path).TrimEnd('\\') + "\\";
-        if (Protected(root)) throw new IOException("Choose a root outside .git.");
+        if (Protected(root)) throw new IOException(StringOverlay.Get("Err_RootInsideGit")).Localized();
         if (!Directory.Exists(root)) throw new DirectoryNotFoundException(root);
         CheckComponents(root);
         return root;
@@ -296,7 +297,7 @@ internal static class DeveloperDifferencerService
     {
         if (source.StartsWith(target, StringComparison.OrdinalIgnoreCase) ||
             target.StartsWith(source, StringComparison.OrdinalIgnoreCase))
-            throw new IOException("Roots must not be equal or nested.");
+            throw new IOException(StringOverlay.Get("Err_RootsNested")).Localized();
     }
 
     /// <summary>Resolves a relative file path while enforcing comparison boundaries.</summary>
@@ -306,7 +307,7 @@ internal static class DeveloperDifferencerService
         ValidateRelative(relative);
         var path = Path.GetFullPath(Path.Combine(root, relative));
         if (!path.StartsWith(root.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase) || Protected(path))
-            throw new IOException("Refused a path outside the root or inside .git.");
+            throw new IOException(StringOverlay.Get("Err_RefusedPath")).Localized();
         CheckComponents(path);
         return path;
     }
@@ -321,7 +322,7 @@ internal static class DeveloperDifferencerService
             Protected(relative) ||
             relative.Replace('/', '\\').Split('\\').Any(p =>
                 p == ".." || p == "." || p.Length == 0 || p.EndsWith(" ") || p.EndsWith(".")))
-            throw new IOException("Protected or invalid relative path: " + relative);
+            throw new IOException(string.Format(StringOverlay.Get("Err_ProtectedPath"), relative)).Localized();
     }
 
     /// <summary>
@@ -334,7 +335,7 @@ internal static class DeveloperDifferencerService
         // resolving a path. This includes existing ancestors of a new file.
         var full = Path.GetFullPath(path);
         var root = Path.GetPathRoot(full);
-        if (string.IsNullOrEmpty(root)) throw new IOException("Invalid path: " + path);
+        if (string.IsNullOrEmpty(root)) throw new IOException(string.Format(StringOverlay.Get("Err_InvalidPath"), path)).Localized();
         var current = root;
         foreach (var component in full.Substring(root.Length).Split(
                      new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
@@ -356,7 +357,7 @@ internal static class DeveloperDifferencerService
             }
 
             if ((attributes & FileAttributes.ReparsePoint) != 0)
-                throw new IOException("Reparse points are excluded: " + current);
+                throw new IOException(string.Format(StringOverlay.Get("Err_ReparsePoint"), current)).Localized();
         }
     }
 
@@ -447,7 +448,7 @@ internal static class DeveloperDifferencerService
     {
         if (total <= 0)
             return new DiffProgress
-            { Stage = stage + "  " + completed.ToString("N0") + " files", Completed = completed, Total = 0 };
+            { Stage = string.Format(StringOverlay.Get("Differencer_StageCount"), stage, completed.ToString("N0")), Completed = completed, Total = 0 };
         return new DiffProgress
         {
             Stage = stage + "  " + completed.ToString("N0") + " / " + Math.Max(1, total).ToString("N0"),
@@ -469,11 +470,11 @@ internal static class DeveloperDifferencerService
             relativeFolder.Contains(':') || Protected(relativeFolder) ||
             relativeFolder.Replace('/', '\\').Split('\\').Any(p =>
                 p == ".." || p == "." || p.Length == 0 || p.EndsWith(" ") || p.EndsWith(".")))
-            throw new IOException("Protected or invalid relative folder: " + relativeFolder);
+            throw new IOException(string.Format(StringOverlay.Get("Err_ProtectedFolder"), relativeFolder)).Localized();
 
         var path = Path.GetFullPath(Path.Combine(root, relativeFolder));
         if (!path.StartsWith(root.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase) || Protected(path))
-            throw new IOException("Refused a folder outside the root or inside .git.");
+            throw new IOException(StringOverlay.Get("Err_RefusedFolder")).Localized();
         CheckComponents(path);
         return path;
     }
@@ -512,7 +513,7 @@ internal static class DeveloperDifferencerService
         if (string.Equals(full.TrimEnd('\\'), root.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
             return string.Empty;
         if (!full.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
-            throw new IOException("Path is outside the comparison root: " + full);
+            throw new IOException(string.Format(StringOverlay.Get("Err_OutsideRoot"), full)).Localized();
         return full.Substring(normalizedRoot.Length);
     }
 
@@ -529,14 +530,14 @@ internal static class DeveloperDifferencerService
         // Scan each side once; the total becomes known after collecting its metadata.
         var total = 0;
 
-        progress?.Report(ReportCompare("Comparing source\u2026", 0, total));
+        progress?.Report(ReportCompare(StringOverlay.Get("Differencer_StageSource"), 0, total));
         var sourceFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "" };
         var targetFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "" };
-        var left = ScanSelectedFolder(source, string.Empty, sourceFolders, token, progress, "Comparing source\u2026", 0,
+        var left = ScanSelectedFolder(source, string.Empty, sourceFolders, token, progress, StringOverlay.Get("Differencer_StageSource"), 0,
             total);
 
-        progress?.Report(ReportCompare("Comparing target\u2026", left.Count, total));
-        var right = ScanSelectedFolder(target, string.Empty, targetFolders, token, progress, "Comparing target\u2026",
+        progress?.Report(ReportCompare(StringOverlay.Get("Differencer_StageTarget"), left.Count, total));
+        var right = ScanSelectedFolder(target, string.Empty, targetFolders, token, progress, StringOverlay.Get("Differencer_StageTarget"),
             left.Count, total);
         ExcludeIgnored(source, target, left, right, sourceFolders, targetFolders, token);
         result.SourceFolders = sourceFolders;
@@ -545,7 +546,7 @@ internal static class DeveloperDifferencerService
             StringComparer.OrdinalIgnoreCase);
 
         total = Math.Max(1, left.Count + right.Count);
-        progress?.Report(ReportCompare("Classifying differences\u2026", total, total));
+        progress?.Report(ReportCompare(StringOverlay.Get("Differencer_StageClassify"), total, total));
         result.Files = Classify(left, right, true, compareTimestamp, token, progress, total);
         return result;
     }
@@ -607,7 +608,7 @@ internal static class DeveloperDifferencerService
         ExcludeIgnored(source.Root, target.Root, source.Files, target.Files, source.Folders, target.Folders, token,
             disabled);
         var total = Math.Max(1, source.Files.Count + target.Files.Count);
-        progress?.Report(ReportCompare("Classifying differences\u2026", 0, total));
+        progress?.Report(ReportCompare(StringOverlay.Get("Differencer_StageClassify"), 0, total));
         return new DiffSnapshot
         {
             SourceRoot = source.Root,
@@ -854,7 +855,7 @@ internal static class DeveloperDifferencerService
                 var item = work[j];
                 work[j] = null;
                 if (progress != null && index % 128 == 0)
-                    progress.Report(ReportCompare("Classifying differences\u2026", index, paths.Length));
+                    progress.Report(ReportCompare(StringOverlay.Get("Differencer_StageClassify"), index, paths.Length));
                 if (item.IsProtected) continue;
                 item.Error?.Throw();
                 var a = item.Source;
@@ -863,7 +864,7 @@ internal static class DeveloperDifferencerService
                 var targetBom = compareAttributes && b != null ? item.TargetBom : false;
                 if (item.HashMissing)
                 {
-                    progress?.Report(ReportCompare("Skipped changed file: " + path, index + 1, paths.Length));
+                    progress?.Report(ReportCompare(string.Format(StringOverlay.Get("Differencer_StageSkipped"), path), index + 1, paths.Length));
                     continue;
                 }
 
@@ -874,7 +875,7 @@ internal static class DeveloperDifferencerService
                     // Exclude this stale entry; a fresh comparison will pick it up.
                     if (!DiffStamp.Same(a, item.SourceNow, true) || !DiffStamp.Same(b, item.TargetNow, true))
                     {
-                        progress?.Report(ReportCompare("Skipped changed file: " + path, index + 1, paths.Length));
+                        progress?.Report(ReportCompare(string.Format(StringOverlay.Get("Differencer_StageSkipped"), path), index + 1, paths.Length));
                         continue;
                     }
 
@@ -910,7 +911,7 @@ internal static class DeveloperDifferencerService
         }
 
         if (batch?.Count > 0) onBatch(batch.ToArray());
-        progress?.Report(ReportCompare("Classifying differences\u2026", Math.Max(1, paths.Length),
+        progress?.Report(ReportCompare(StringOverlay.Get("Differencer_StageClassify"), Math.Max(1, paths.Length),
             Math.Max(1, paths.Length)));
         return files;
     }
@@ -981,11 +982,11 @@ internal static class DeveloperDifferencerService
         ValidateRelative(relative);
         var path = Path.GetFullPath(Path.Combine(root, relative));
         if (!path.StartsWith(root.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase))
-            throw new IOException("Refused a path outside the root or inside .git.");
+            throw new IOException(StringOverlay.Get("Err_RefusedPath")).Localized();
         try
         {
             if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
-                throw new IOException("Reparse points are excluded: " + path);
+                throw new IOException(string.Format(StringOverlay.Get("Err_ReparsePoint"), path)).Localized();
         }
         catch (FileNotFoundException)
         {
@@ -1150,7 +1151,7 @@ internal static class DeveloperDifferencerService
 
                     if (!MatchesSnapshot(left, file.Source, file.SourceHash) ||
                         !MatchesSnapshot(right, file.Target, file.TargetHash))
-                        throw new IOException("Changed after compare. Compare again.");
+                        throw new IOException(StringOverlay.Get("Err_ChangedAfterCompare")).Localized();
                     if (operation == "Delete")
                     {
                         File.Delete(to);
@@ -1159,7 +1160,7 @@ internal static class DeveloperDifferencerService
                     else
                     {
                         Directory.CreateDirectory(Path.GetDirectoryName(to)
-                                                  ?? throw new IOException("The destination has no parent directory."));
+                                                  ?? throw new IOException(StringOverlay.Get("Err_NoDestinationParent")).Localized());
                         var destinationRoot = toTarget ? snapshot.TargetRoot : snapshot.SourceRoot;
                         var temporaryRelative = Path.Combine(Path.GetDirectoryName(file.RelativePath) ?? "",
                             ".dim-sync-" + Guid.NewGuid().ToString("N") + ".tmp");
@@ -1173,7 +1174,7 @@ internal static class DeveloperDifferencerService
                             SafePath(snapshot.TargetRoot, file.RelativePath);
                             if (!MatchesSnapshot(left, file.Source, file.SourceHash) ||
                                 !MatchesSnapshot(right, file.Target, file.TargetHash))
-                                throw new IOException("Changed during copy. Compare again.");
+                                throw new IOException(StringOverlay.Get("Err_ChangedDuringCopy")).Localized();
                             if (File.Exists(to))
                             {
                                 RejectHardLinks(to);
@@ -1203,7 +1204,7 @@ internal static class DeveloperDifferencerService
                     if (!MatchesSnapshot(to, toTarget ? file.Source : file.Target,
                             toTarget ? file.SourceHash : file.TargetHash))
                         throw new IOException(
-                            "Synchronization verification failed: destination timestamp, size or existence differs. Compare again.");
+                            StringOverlay.Get("Err_SyncVerifyFailed")).Localized();
                     writeLog(logIndex, "OK " + operation + " " + file.RelativePath);
                 }
                 catch (Exception ex)
@@ -1233,7 +1234,7 @@ internal static class DeveloperDifferencerService
 
         // Complete file retries before directory deletion, so successfully retried
         // deletions can leave one-sided directories empty.
-        if (fileRetryQueue.Count > 0) onLog?.Invoke("RETRY " + fileRetryQueue.Count + " queued file operation(s)");
+        if (fileRetryQueue.Count > 0) onLog?.Invoke("RETRY " + string.Format(StringOverlay.Get("Log_RetryFiles"), fileRetryQueue.Count));
         while (fileRetryQueue.Count > 0) fileRetryQueue.Dequeue()();
 
         // Directory differences are applied after file operations. This lets file deletions
@@ -1272,7 +1273,7 @@ internal static class DeveloperDifferencerService
                     var rightFolder = SafeFolderPath(snapshot.TargetRoot, folder.RelativePath);
                     var origin = toTarget ? leftFolder : rightFolder;
                     if (Directory.Exists(origin) != fromExists)
-                        throw new IOException("Folder changed after compare. Compare again.");
+                        throw new IOException(StringOverlay.Get("Err_FolderChanged")).Localized();
 
                     var destination = toTarget ? rightFolder : leftFolder;
                     var destinationExists = Directory.Exists(destination);
@@ -1287,13 +1288,13 @@ internal static class DeveloperDifferencerService
                     }
 
                     if (destinationExists != expectedDestinationExists)
-                        throw new IOException("Destination folder changed after compare. Compare again.");
+                        throw new IOException(StringOverlay.Get("Err_DestinationFolderChanged")).Localized();
                     if (fromExists) Directory.CreateDirectory(destination);
                     else if (destinationExists) Directory.Delete(destination, false);
                     folderCommitted = true;
 
                     if (Directory.Exists(destination) != fromExists)
-                        throw new IOException("Folder synchronization verification failed. Compare again.");
+                        throw new IOException(StringOverlay.Get("Err_FolderVerifyFailed")).Localized();
                     writeLog(logIndex, "OK " + operation + " " + folder.RelativePath);
                 }
                 catch (Exception ex)
@@ -1314,7 +1315,7 @@ internal static class DeveloperDifferencerService
 
         // Retry directory operations once after the normal directory pass.
         if (folderRetryQueue.Count > 0)
-            onLog?.Invoke("RETRY " + folderRetryQueue.Count + " queued folder operation(s)");
+            onLog?.Invoke("RETRY " + string.Format(StringOverlay.Get("Log_RetryFolders"), folderRetryQueue.Count));
         while (folderRetryQueue.Count > 0) folderRetryQueue.Dequeue()();
         return log;
     }
@@ -1365,12 +1366,12 @@ internal static class DeveloperDifferencerService
     public static string ComposeZipPath(string folder, string fileName)
     {
         if (string.IsNullOrWhiteSpace(folder))
-            throw new IOException("ZIP output folder is empty.");
+            throw new IOException(StringOverlay.Get("Err_ZipFolderEmpty")).Localized();
         var name = (fileName ?? "").Trim();
         if (name.Length == 0)
-            throw new IOException("ZIP file name is empty.");
+            throw new IOException(StringOverlay.Get("Err_ZipNameEmpty")).Localized();
         if (name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
-            throw new IOException("ZIP file name contains invalid characters: " + name);
+            throw new IOException(string.Format(StringOverlay.Get("Err_ZipNameInvalid"), name)).Localized();
         if (!name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
             name += ".zip";
         var directory = Path.GetFullPath(folder.Trim());
@@ -1433,7 +1434,7 @@ internal static class DeveloperDifferencerService
 
         if (files.Count == 0 && folders.Count == 0)
         {
-            writeLog("FAIL no selected files exist on the chosen side");
+            writeLog("FAIL " + StringOverlay.Get("Log_NoSelectedFiles"));
             return log;
         }
 
@@ -1496,7 +1497,7 @@ internal static class DeveloperDifferencerService
             {
                 // Never replace an existing archive with an incomplete ZIP.
                 File.Delete(tempZipPath);
-                writeLog("FAIL archive incomplete; existing archive preserved: " + zipPath);
+                writeLog("FAIL " + string.Format(StringOverlay.Get("Log_ArchiveIncomplete"), zipPath));
             }
             else
             {
@@ -1600,7 +1601,7 @@ internal static class DeveloperDifferencerService
             HandleInfo info;
             if (!GetFileInformationByHandle(stream.SafeFileHandle, out info))
                 throw new Win32Exception(Marshal.GetLastWin32Error());
-            if (info.Links > 1) throw new IOException("Hard links are excluded: " + path);
+            if (info.Links > 1) throw new IOException(string.Format(StringOverlay.Get("Err_HardLink"), path)).Localized();
         }
     }
 

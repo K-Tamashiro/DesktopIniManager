@@ -27,10 +27,10 @@ internal partial class CleanReportWindow
         var report = new CleanReportWindow
         {
             Owner = owner,
-            Title = "Solution Clean"
+            Title = StringOverlay.Get("Clean_ReportTitle")
         };
         report.SummaryText.Text = summary;
-        report.LogPathText.Text = string.Format(Strings.Differencer_LogLabel, logPath);
+        report.LogPathText.Text = string.Format(StringOverlay.Get("Differencer_LogLabel"), logPath);
         report.LogBox.Text = log;
         report.LogBox.ScrollToHome();
         report.Show();

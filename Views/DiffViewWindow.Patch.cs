@@ -54,7 +54,7 @@ internal sealed partial class DiffViewWindow
                     Content = icon,
                     Style = TryFindResource("IconButton") as Style,
                     Background = Brushes.Transparent,
-                    ToolTip = side == 0 ? "Open patch file" : "Select repository folder",
+                    ToolTip = StringOverlay.Get(side == 0 ? "Patch_OpenFile" : "Patch_SelectRepository"),
                     VerticalAlignment = VerticalAlignment.Center
                 };
                 System.Windows.Automation.AutomationProperties.SetName(browse, label);
@@ -105,7 +105,7 @@ internal sealed partial class DiffViewWindow
             };
             _patchCommitExpander = new Expander
             {
-                Header = "Commit message",
+                Header = StringOverlay.Get("Patch_CommitMessage"),
                 Content = _patchCommitText,
                 // Restore the last state; it is saved on every change.
                 IsExpanded = SettingsService.LoadDiffFlag("commit-expanded", true)
@@ -127,7 +127,7 @@ internal sealed partial class DiffViewWindow
                 sourceBox.ItemsSource = entries;
                 sourceBox.SelectedIndex = ViewModel.PatchIndex;
             }
-            _patchRootText.Text = ViewModel.PatchRoot ?? "No target repository selected";
+            _patchRootText.Text = ViewModel.PatchRoot ?? StringOverlay.Get("Patch_NoRepository");
             _patchRootText.ToolTip = ViewModel.PatchRoot;
             _patchCommitText.Text = string.Join(Environment.NewLine,
                 new[] { ViewModel.Patch.CommitTitle, ViewModel.Patch.Author, ViewModel.Patch.CommitMessage }
@@ -150,7 +150,7 @@ internal sealed partial class DiffViewWindow
         try
         {
             var root = NativeFolderPicker.Show(new WindowInteropHelper(this).Handle, ViewModel.PatchRoot,
-                "Patch target repository");
+                StringOverlay.Get("Patch_TargetRepository"));
             if (root == null) return;
             ViewModel.SelectPatchRoot(root);
             await LoadContent(false, false);
@@ -187,7 +187,7 @@ internal sealed partial class DiffViewWindow
     {
         if (_renderingContent || !await ConfirmTextChangesAsync()) return;
         var dialog = new OpenFileDialog
-        { Filter = "Patch / Diff|*.patch;*.diff;*.rej|All files|*.*", CheckFileExists = true };
+        { Filter = StringOverlay.Get("Patch_FileFilter"), CheckFileExists = true };
         if (dialog.ShowDialog(this) != true) return;
         try
         {
@@ -220,7 +220,7 @@ internal sealed partial class DiffViewWindow
             {
                 var root = NativeFolderPicker.Show(new WindowInteropHelper(this).Handle,
                     Path.GetDirectoryName(dialog.FileName),
-                    "Select the repository root matching the patch relative path");
+                    StringOverlay.Get("Patch_SelectRepositoryRoot"));
                 if (root == null) return false;
                 ViewModel.SelectPatchRoot(root);
             }
@@ -301,7 +301,7 @@ internal sealed partial class DiffViewWindow
                     Visibility = Visibility.Hidden,
                     Padding = new Thickness(0),
                     Tag = (delta < 0 ? row : last, delta, id, row == last),
-                    ToolTip = delta < 0 ? "Move hunk up one line" : "Move hunk down one line",
+                    ToolTip = StringOverlay.Get(delta < 0 ? "Patch_MoveHunkUp" : "Patch_MoveHunkDown"),
                     IsEnabled = ViewModel.CurrentPatch.CanMove(ViewModel.CurrentPatch.HunkOfRun(id), delta)
                 };
                 button.Click += async (_, e) =>
@@ -347,7 +347,7 @@ internal sealed partial class DiffViewWindow
             var dialog = new Window
             {
                 Owner = this,
-                Title = "New file format",
+                Title = StringOverlay.Get("Patch_NewFileFormat"),
                 SizeToContent = SizeToContent.WidthAndHeight,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 ResizeMode = ResizeMode.NoResize

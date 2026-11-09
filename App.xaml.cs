@@ -28,7 +28,7 @@ public partial class App
         // a slot mutex or installing its front-request listener.
         if (!externalDiff && !AppSlot.TryAcquire(e.Args, out var slotFailure))
         {
-            MessageBox.Show(slotFailure, "desktop.ini Manager", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(slotFailure, StringOverlay.Get("App_Title"), MessageBoxButton.OK, MessageBoxImage.Information);
             Shutdown();
             return;
         }
@@ -61,7 +61,7 @@ public partial class App
             var progress = new Progress<Tuple<string, int>>(step => splash.Report(step.Item1, step.Item2));
             var state = await Task.Run(() => StartupState.Load((message, completed) =>
                 ((IProgress<Tuple<string, int>>)progress).Report(Tuple.Create(message, completed))));
-            splash.Report(Strings.Splash_BuildingWorkspace, 3);
+            splash.Report(StringOverlay.Get("Splash_BuildingWorkspace"), 3);
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             var main = new MainWindow(state);
             MainWindow = main;
@@ -69,7 +69,7 @@ public partial class App
             if (!string.IsNullOrWhiteSpace(main.ViewModel.RootPath)
                 && Directory.Exists(main.ViewModel.RootPath.Trim()))
             {
-                splash.Report(Strings.Splash_BuildingWorkspace, 3);
+                splash.Report(StringOverlay.Get("Splash_BuildingWorkspace"), 3);
                 splash.SetBusy(true);
                 PropertyChangedEventHandler onStatus = (_, args) =>
                 {
@@ -100,7 +100,7 @@ public partial class App
             main.Show();
             await rendered.Task;
             _startupReady = true;
-            splash.Report(Strings.Splash_Ready, 4);
+            splash.Report(StringOverlay.Get("Splash_Ready"), 4);
             splash.Close();
             WindowActivationService.BringToFront(main);
             ShutdownMode = ShutdownMode.OnMainWindowClose;
@@ -108,7 +108,7 @@ public partial class App
         catch (Exception ex)
         {
             LogException(ex);
-            MessageBox.Show(string.Format(Strings.App_StartFailed, ErrorMessages.English(ex)), Strings.App_ProductName,
+            MessageBox.Show(string.Format(StringOverlay.Get("App_StartFailed"), ErrorMessages.English(ex)), StringOverlay.Get("App_ProductName"),
                 MessageBoxButton.OK, MessageBoxImage.Error);
             _startupReady = true;
             splash?.Close();
@@ -142,7 +142,7 @@ public partial class App
         {
             LogException(ex);
             MessageBox.Show(ErrorMessages.English(ex) + "\n\n" + ExternalDiffLaunch.Usage,
-                "DIM DIFF VIEW", MessageBoxButton.OK, MessageBoxImage.Error);
+                StringOverlay.Get("App_DiffViewTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(1);
         }
     }
@@ -155,8 +155,8 @@ public partial class App
     private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
         LogException(e.Exception);
-        MessageBox.Show(string.Format(Strings.App_Unhandled, ErrorMessages.English(e.Exception)),
-            Strings.App_Title, MessageBoxButton.OK, MessageBoxImage.Error);
+        MessageBox.Show(string.Format(StringOverlay.Get("App_Unhandled"), ErrorMessages.English(e.Exception)),
+            StringOverlay.Get("App_Title"), MessageBoxButton.OK, MessageBoxImage.Error);
         e.Handled = true;
     }
 

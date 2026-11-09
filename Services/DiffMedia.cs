@@ -1,3 +1,4 @@
+using DesktopIniManager.Properties;
 using System.IO;
 using System.Linq;
 
@@ -5,8 +6,8 @@ namespace DesktopIniManager.Services;
 
 internal static class DiffMedia
 {
-    internal const string BinaryMessage =
-        "Binary and cache files are not supported in Diff View. Only text files, supported images, videos, and MP3/WAV audio can be displayed.";
+    internal static string BinaryMessage =>
+        StringOverlay.Get("Diff_BinaryNotSupported");
 
     /// <summary>
     ///     DIFF ビューで表示できないバイナリ ファイルやキャッシュ ファイルかどうかを拡張子で判定します。動画と音声は対象外です。

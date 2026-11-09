@@ -26,7 +26,7 @@ internal sealed class IconGroupBrowserViewModel : ObservableObject
 
     public string FilePath { get; }
     public IReadOnlyList<IconGroupResource> Groups { get; }
-    public string CountLabel => string.Format(Strings.Icon_NIcons, Groups.Count);
+    public string CountLabel => string.Format(StringOverlay.Get("Icon_NIcons"), Groups.Count);
 
     public IconGroupResource SelectedGroup
     {

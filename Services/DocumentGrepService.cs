@@ -1,4 +1,5 @@
-﻿using DesktopIniManager.Models;
+﻿using DesktopIniManager.Properties;
+using DesktopIniManager.Models;
 using ExcelDataReader;
 using FastVolumeIndex;
 using System;
@@ -167,7 +168,7 @@ internal sealed class DocumentGrepService
             do
             {
                 token.ThrowIfCancellationRequested();
-                var sheet = string.IsNullOrEmpty(reader.Name) ? "Sheet" : reader.Name;
+                var sheet = string.IsNullOrEmpty(reader.Name) ? StringOverlay.Get("Grep_DefaultSheet") : reader.Name;
                 var row = 0;
                 while (reader.Read())
                 {
@@ -331,7 +332,7 @@ internal sealed class DocumentGrepService
             while (reader.Read())
             {
                 if (reader.NodeType != XmlNodeType.Element || reader.LocalName != "sheet") continue;
-                var name = reader.GetAttribute("name") ?? "Sheet";
+                var name = reader.GetAttribute("name") ?? StringOverlay.Get("Grep_DefaultSheet");
                 var id = reader.GetAttribute("id",
                              "http://schemas.openxmlformats.org/officeDocument/2006/relationships")
                          ?? reader.GetAttribute("id", "http://purl.oclc.org/ooxml/officeDocument/relationships");

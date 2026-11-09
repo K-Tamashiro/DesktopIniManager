@@ -69,7 +69,7 @@ internal partial class SynchronizeConfirmWindow
         folders = folders ?? Array.Empty<DiffFolderSync>();
         dialog.SummaryText.Text = heading + "   \u2022   " + files.Length + " " + unit;
         if (folders.Length > 0)
-            dialog.SummaryText.Text += "   \u2022   " + folders.Length + (folders.Length == 1 ? " folder" : " folders");
+            dialog.SummaryText.Text += "   \u2022   " + string.Format(StringOverlay.Get(folders.Length == 1 ? "Sync_FolderSingular" : "Sync_FolderPlural"), folders.Length);
         dialog.SourceLabelText.Text = StringOverlay.Get("Differencer_Source");
         dialog.TargetLabelText.Text = StringOverlay.Get("Differencer_Target");
         dialog.SourcePathText.Text = sourceRoot;
@@ -218,8 +218,8 @@ internal partial class SynchronizeConfirmWindow
     {
         if (operation == "Delete") return StringOverlay.Get("Differencer_Delete");
         if (operation == "Copy") return StringOverlay.Get("Differencer_Copy");
-        if (operation == "CreateDir") return "Create folder";
-        if (operation == "DeleteDir") return "Delete folder";
+        if (operation == "CreateDir") return StringOverlay.Get("Sync_CreateFolder");
+        if (operation == "DeleteDir") return StringOverlay.Get("Sync_DeleteFolder");
         return StringOverlay.Get("Differencer_Overwrite");
     }
 

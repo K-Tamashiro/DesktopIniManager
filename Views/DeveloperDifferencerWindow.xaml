@@ -648,7 +648,7 @@
                         IsChecked="{Binding CompareSize, Mode=TwoWay}"
                         IsEnabled="{Binding CanEdit}"
                         Style="{StaticResource TransparentCompareToggle}"
-                        ToolTip="Compare file sizes"
+                        ToolTip="{loc:L Differencer_CompareSizesTip}"
                         Unchecked="CompareModeToggle_Changed">
                         <Image
                             x:Name="CompareSizeIcon"
@@ -664,7 +664,7 @@
                         IsChecked="{Binding CompareAttributes, Mode=TwoWay}"
                         IsEnabled="{Binding CanEdit}"
                         Style="{StaticResource TransparentCompareToggle}"
-                        ToolTip="ATTR: compare BOM presence (first 4 bytes only)"
+                        ToolTip="{loc:L Differencer_CompareAttrTip}"
                         Unchecked="CompareModeToggle_Changed">
                         <Image
                             x:Name="CompareAttributesIcon"
@@ -680,7 +680,7 @@
                         IsChecked="{Binding PreciseCompare, Mode=TwoWay}"
                         IsEnabled="{Binding CanEdit}"
                         Style="{StaticResource TransparentCompareToggle}"
-                        ToolTip="XXH128 content comparison (precise check)"
+                        ToolTip="{loc:L Differencer_CompareHashTip}"
                         Unchecked="CompareModeToggle_Changed">
                         <Image
                             x:Name="PreciseCompareIcon"
@@ -727,7 +727,7 @@
                         IsChecked="{Binding SelectAllFiles, Mode=TwoWay}"
                         IsEnabled="{Binding CanFilter}"
                         Style="{StaticResource IconToggleButton}"
-                        ToolTip="Select / clear all files">
+                        ToolTip="{loc:L Differencer_SelectAllFilesTip}">
                         <Image
                             x:Name="SelectAllFilesIcon"
                             RenderOptions.BitmapScalingMode="HighQuality"
@@ -740,7 +740,7 @@
                         IsChecked="{Binding CheckedOnlyFilter, Mode=TwoWay}"
                         IsEnabled="{Binding CanFilter}"
                         Style="{StaticResource IconToggleButton}"
-                        ToolTip="Show checked files only">
+                        ToolTip="{loc:L Differencer_CheckedOnlyTip}">
                         <Image
                             x:Name="CheckedOnlyIcon"
                             RenderOptions.BitmapScalingMode="HighQuality"
@@ -763,8 +763,8 @@
                             Margin="8,0,0,0"
                             Click="PatchViewButton_Click"
                             Style="{StaticResource IconButton}"
-                            ToolTip="Open patch / diff"
-                            AutomationProperties.Name="Open patch / diff">
+                            ToolTip="{loc:L Differencer_OpenPatch}"
+                            AutomationProperties.Name="{loc:L Differencer_OpenPatch}">
                         <Image x:Name="PatchViewIcon" RenderOptions.BitmapScalingMode="HighQuality" Stretch="Uniform" />
                     </Button>
                 </StackPanel>
@@ -874,10 +874,10 @@
                         <WrapPanel x:Name="CategoryFilters" IsEnabled="{Binding CanFilter}">
                             <Button
                                 x:Name="RefreshCompareButton"
-                                AutomationProperties.Name="Refresh selected folder"
+                                AutomationProperties.Name="{loc:L Differencer_RefreshFolder}"
                                 Command="{Binding RefreshCommand}"
                                 Style="{StaticResource FilterActionButtonStyle}"
-                                ToolTip="Refresh selected folder">
+                                ToolTip="{loc:L Differencer_RefreshFolder}">
                                 <Image
                                     x:Name="RefreshCompareIcon"
                                     Width="22"
@@ -939,7 +939,7 @@
                             </CheckBox>
                             <CheckBox
                                 x:Name="ObjFilter"
-                                AutomationProperties.Name="Show OBJ"
+                                AutomationProperties.Name="{loc:L Differencer_ShowObjName}"
                                 Command="{Binding BuildFolderFilterCommand}"
                                 IsChecked="{Binding ShowObj}"
                                 Style="{StaticResource KindFilterStyle}"
@@ -953,7 +953,7 @@
                             </CheckBox>
                             <CheckBox
                                 x:Name="BinFilter"
-                                AutomationProperties.Name="Show BIN"
+                                AutomationProperties.Name="{loc:L Differencer_ShowBinName}"
                                 Command="{Binding BuildFolderFilterCommand}"
                                 IsChecked="{Binding ShowBin}"
                                 Style="{StaticResource KindFilterStyle}"

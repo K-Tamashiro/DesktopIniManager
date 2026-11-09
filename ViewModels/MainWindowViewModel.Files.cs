@@ -20,7 +20,8 @@ internal sealed partial class MainWindowViewModel
     private readonly object _physicalFileScanGate = new();
     private readonly List<object> _searchMatches = new();
 
-    private string _fileListCountLabel = string.Format(Strings.Main_NItems, 0);
+    private int _fileListCount;
+    private string _fileListCountLabel = string.Format(StringOverlay.Get("Main_NItems"), 0);
     private RelayCommand _nextSearchMatchCommand;
     private bool _physicalFileScanComplete;
     private CancellationTokenSource _physicalFileScanCts;
@@ -39,7 +40,17 @@ internal sealed partial class MainWindowViewModel
     public string FileListCountLabel
     {
         get => _fileListCountLabel;
-        set => SetProperty(ref _fileListCountLabel, value);
+        private set => SetProperty(ref _fileListCountLabel, value);
+    }
+
+    /// <summary>
+    ///     ファイル一覧の件数表示を設定します。言語の切り替え時に作り直せるよう、件数を記憶します。
+    /// </summary>
+    /// <param name="count">件数。</param>
+    private void SetFileListCount(int count)
+    {
+        _fileListCount = count;
+        FileListCountLabel = string.Format(StringOverlay.Get("Main_NItems"), count);
     }
 
     public RelayCommand PrevSearchMatchCommand =>
@@ -325,7 +336,7 @@ internal sealed partial class MainWindowViewModel
             Files.Add(new FileListItem(path, searchKeys, selectedFolder));
         }
 
-        FileListCountLabel = string.Format(Strings.Main_NItems, Files.Count);
+        SetFileListCount(Files.Count);
     }
 
     /// <summary>
@@ -421,7 +432,7 @@ internal sealed partial class MainWindowViewModel
         _fileListCts = fileListCts;
         Files.Clear();
         _displayedPhysicalFiles.Clear();
-        FileListCountLabel = string.Format(Strings.Main_NItems, 0);
+        SetFileListCount(0);
         SyncSearchMatches(null, null);
 
         if (folder != null)
@@ -430,7 +441,7 @@ internal sealed partial class MainWindowViewModel
             else if (TreeViewIndex == 1) _solutionCurrent = folder;
         }
 
-        FilePanelTitle = folder == null ? Strings.Common_Files : string.Format(Strings.Main_FilesHeader, folder.Name);
+        FilePanelTitle = folder == null ? StringOverlay.Get("Common_Files") : string.Format(StringOverlay.Get("Main_FilesHeader"), folder.Name);
         FilePanelPath = folder?.Path;
         if (folder == null || string.IsNullOrEmpty(folder.Path))
         {
@@ -566,7 +577,7 @@ internal sealed partial class MainWindowViewModel
                     await Dispatcher.Yield(DispatcherPriority.Background);
             }
 
-            FileListCountLabel = string.Format(Strings.Main_NItems, loaded.Count);
+            SetFileListCount(loaded.Count);
             var preferred = loaded.FirstOrDefault(item => item.IsSearchMatch && item.IsDirectChild)
                             ?? loaded.FirstOrDefault(item => item.IsSearchMatch);
             SyncSearchMatches(loaded, preferred, folder: folder);
@@ -1015,7 +1026,7 @@ internal sealed partial class MainWindowViewModel
         var scopes = PrepareGrepScopes();
         if (scopes.Count == 0)
         {
-            _dialogs.Show(Strings.Main_NoGrepFolders, Strings.App_Title, MessageBoxButton.OK,
+            _dialogs.Show(StringOverlay.Get("Main_NoGrepFolders"), StringOverlay.Get("App_Title"), MessageBoxButton.OK,
                 MessageBoxImage.Information);
             return;
         }
@@ -1115,7 +1126,7 @@ internal sealed partial class MainWindowViewModel
     internal void RefreshScopedLabel()
     {
         var count = CollectSelectedFolderPaths(false).Count;
-        var label = "Scoped " + count;
+        var label = string.Format(StringOverlay.Get("Main_ScopedCount"), count);
         if (!string.Equals(_scopedLabel, label, StringComparison.Ordinal))
             ScopedLabel = label;
     }

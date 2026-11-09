@@ -52,8 +52,8 @@ internal sealed partial class MainWindowViewModel
         _searchResultCount = 0;
         Files.Clear();
         ClearSearchHits();
-        FileListCountLabel = string.Format(Strings.Main_NItems, 0);
-        FilePanelTitle = Strings.Common_Files;
+        SetFileListCount(0);
+        FilePanelTitle = StringOverlay.Get("Common_Files");
         FilePanelPath = null;
         RefreshTreeItemsSource();
     }
@@ -106,12 +106,12 @@ internal sealed partial class MainWindowViewModel
         }
         catch (OperationCanceledException)
         {
-            Status = Strings.Main_SearchCancelled;
+            SetStatus("Main_SearchCancelled");
         }
         catch (Exception ex)
         {
-            _dialogs.Show(ErrorMessages.English(ex), Strings.App_Title);
-            Status = Strings.Main_SearchFailed;
+            _dialogs.Show(ErrorMessages.English(ex), StringOverlay.Get("App_Title"));
+            SetStatus("Main_SearchFailed");
         }
         finally
         {
@@ -169,7 +169,7 @@ internal sealed partial class MainWindowViewModel
         if (!Directory.Exists(root))
         {
             if (!quietMissingRoot)
-                _dialogs.Show(Strings.Main_LocationMissing, Strings.App_Title);
+                _dialogs.Show(StringOverlay.Get("Main_LocationMissing"), StringOverlay.Get("App_Title"));
             return;
         }
 
@@ -205,7 +205,7 @@ internal sealed partial class MainWindowViewModel
         }
 
         if (gitSearchRequested) ShowTreeView(0);
-        CountLabel = Strings.Main_ZeroMatches;
+        SetCountLabel("Main_ZeroMatches", 0);
         SetSearching(true);
         try
         {
@@ -254,12 +254,12 @@ internal sealed partial class MainWindowViewModel
         }
         catch (OperationCanceledException)
         {
-            Status = Strings.Main_SearchCancelled;
+            SetStatus("Main_SearchCancelled");
         }
         catch (Exception ex)
         {
-            _dialogs.Show(ErrorMessages.English(ex), Strings.App_Title);
-            Status = Strings.Main_SearchFailed;
+            _dialogs.Show(ErrorMessages.English(ex), StringOverlay.Get("App_Title"));
+            SetStatus("Main_SearchFailed");
         }
         finally
         {
@@ -299,12 +299,12 @@ internal sealed partial class MainWindowViewModel
                 foreach (var child in children)
                     if (!_results.Contains(child))
                         _results.Add(child);
-                CountLabel = string.Format(Strings.Main_NFolders, _results.Count);
+                SetCountLabel("Main_NFolders", _results.Count);
             }
             else if (TreeViewIndex == 2)
             {
                 _searchResultCount += children.Count;
-                CountLabel = string.Format(Strings.Main_NFolders, _searchResultCount);
+                SetCountLabel("Main_NFolders", _searchResultCount);
             }
         }
         finally
@@ -344,7 +344,7 @@ internal sealed partial class MainWindowViewModel
             _searchRoots.Add(rootNode);
             _searchResultCount = 1 + children.Count;
             RefreshTreeItemsSource();
-            CountLabel = string.Format(Strings.Main_NFolders, _searchResultCount);
+            SetCountLabel("Main_NFolders", _searchResultCount);
         }
         else
         {
@@ -355,7 +355,7 @@ internal sealed partial class MainWindowViewModel
             _treeRoots.Clear();
             _treeRoots.Add(rootNode);
             RefreshTreeItemsSource();
-            CountLabel = string.Format(Strings.Main_NFolders, _results.Count);
+            SetCountLabel("Main_NFolders", _results.Count);
         }
     }
 
@@ -490,7 +490,7 @@ internal sealed partial class MainWindowViewModel
                         _dispatcher.BeginInvoke(new Action(() =>
                         {
                             if (!IsSearching) return;
-                            Status = string.Format(Strings.Main_IndexedFoldersEllipsis, count.ToString("N0"));
+                            SetStatus("Main_IndexedFoldersEllipsis", count.ToString("N0"));
                         }), DispatcherPriority.Background);
                     }, token);
                 token.ThrowIfCancellationRequested();
@@ -507,7 +507,7 @@ internal sealed partial class MainWindowViewModel
             _dispatcher.BeginInvoke(new Action(() =>
             {
                 if (!IsSearching) return;
-                Status = Strings.Main_BuildingTree;
+                SetStatus("Main_BuildingTree");
             }));
             return new StandardSearchResult(merged, matches);
         }, token);
@@ -522,7 +522,7 @@ internal sealed partial class MainWindowViewModel
     internal async Task ApplyStandardDevelopmentAnalysis(bool enabled, VolumePathIndex paths, CancellationToken token)
     {
         if (!enabled) return;
-        Status = string.Format(Strings.Main_FoldersAnalyzing, _results.Count);
+        SetStatus("Main_FoldersAnalyzing", _results.Count);
         await Dispatcher.Yield(DispatcherPriority.Background);
         var analysis = await Task.Run(() => new FastFolderSearchService().AnalyzeDevelopment(paths, token), token);
         var updated = 0;
@@ -622,8 +622,8 @@ internal sealed partial class MainWindowViewModel
                             if (generation != _solutionGeneration || token.IsCancellationRequested
                                                                   || _solutionReady || TreeViewIndex != 1 ||
                                                                   !IsTreeBusy) return;
-                            CountLabel = string.Format(Strings.Main_NItems, count);
-                            Status = string.Format(Strings.Main_SolutionsFound, count)
+                            SetCountLabel("Main_NItems", count);
+                            Status = string.Format(StringOverlay.Get("Main_SolutionsFound"), count)
                                      + " / " + solutions.Count.ToString("N0") + "  " + name;
                         }), DispatcherPriority.Background);
                     }
@@ -663,7 +663,7 @@ internal sealed partial class MainWindowViewModel
         var viewGeneration = _treeViewGeneration;
         var task = StartSolutionAnalysis(_solutionAnalysisRoot ?? _folderTreeRoot, _solutionPathIndex);
         SetTreePanelBusy(true);
-        Status = Strings.Main_BuildingTree;
+        SetStatus("Main_BuildingTree");
         try
         {
             await task;
@@ -671,8 +671,8 @@ internal sealed partial class MainWindowViewModel
                 TreeViewIndex != 1) return;
             if (_solutionReady) ShowTreeView(1);
             else if (_solutionError != null)
-                ShowError(Strings.Main_SearchFailed, _solutionError);
-            else Status = Strings.Main_SearchCancelled;
+                ShowError(StringOverlay.Get("Main_SearchFailed"), _solutionError);
+            else SetStatus("Main_SearchCancelled");
         }
         finally
         {

@@ -1,3 +1,4 @@
+using DesktopIniManager.Properties;
 using DesktopIniManager.Services;
 using System;
 using System.Collections.Generic;
@@ -95,7 +96,7 @@ internal sealed class PatchFileState
     /// <param name="fillNewFile">新規ファイルで適用先が存在しない場合に、パッチの内容で埋める場合は true。</param>
     internal void Attach(string path, bool fillNewFile = true)
     {
-        if (HasUserEdits) throw new InvalidOperationException("Save or discard this target before replacing it.");
+        if (HasUserEdits) throw new InvalidOperationException(StringOverlay.Get("Err_PatchSaveBeforeReplace")).Localized();
         TargetPath = path;
         HasTarget = File.Exists(path) || Entry.IsNew;
         Original = File.Exists(path) ? DiffViewModel.ReadDocument(path) : new TextDocument { EncodingName = "UTF-8", Newlines = "CRLF" };
@@ -240,8 +241,8 @@ internal sealed class PatchFileState
     /// <param name="path">保存先のパス。</param>
     internal void AssignNewPath(string path)
     {
-        if (!Entry.IsNew || Original.OriginalBytes != null) throw new InvalidOperationException("Not a new patch target.");
-        if (File.Exists(path)) throw new IOException("The new target already exists. Select it as an existing target before applying hunks.");
+        if (!Entry.IsNew || Original.OriginalBytes != null) throw new InvalidOperationException(StringOverlay.Get("Err_PatchNotNew")).Localized();
+        if (File.Exists(path)) throw new IOException(StringOverlay.Get("Err_PatchTargetExists")).Localized();
         TargetPath = path;
         HasTarget = true;
     }
@@ -358,7 +359,7 @@ internal sealed class PatchFileState
     internal void Copy(IEnumerable<int> ids)
     {
         var selected = ids.Distinct().OrderBy(id => id).ToArray();
-        if (selected.Any(id => !CanCopy(id))) throw new InvalidOperationException("A selected hunk cannot be applied at its current position.");
+        if (selected.Any(id => !CanCopy(id))) throw new InvalidOperationException(StringOverlay.Get("Err_PatchHunkPosition")).Localized();
         var group = new List<PatchEdit>();
         foreach (var id in selected)
         {
@@ -515,7 +516,7 @@ internal sealed class PatchFileState
     internal void Save(Encoding newEncoding = null, string newEnding = null)
     {
         if (!IsDirty) return;
-        if (string.IsNullOrWhiteSpace(TargetPath)) throw new IOException("Select a target path before saving.");
+        if (string.IsNullOrWhiteSpace(TargetPath)) throw new IOException(StringOverlay.Get("Err_PatchNoTargetPath")).Localized();
         var document = Document();
         if (Original.OriginalBytes == null)
         {

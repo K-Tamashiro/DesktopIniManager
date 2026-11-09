@@ -30,7 +30,7 @@ try {
         'UglyToad.PdfPig.DocumentLayoutAnalysis.dll', 'UglyToad.PdfPig.Fonts.dll',
         'UglyToad.PdfPig.Package.dll', 'UglyToad.PdfPig.Tokenization.dll', 'UglyToad.PdfPig.Tokens.dll',
         'Assets/DeveloperDifferencer_iconset.icl', 'Assets/Flag.icl', 'Assets/folder_set.icl',
-        'Languages/culture.txt', 'Languages/ja.txt', 'Languages/ko.txt', 'Languages/zh-Hans.txt'
+        'Languages/culture.txt', 'Languages/en.txt', 'Languages/ja.txt', 'Languages/ko.txt', 'Languages/zh-Hans.txt'
     )
     $expected += @(Get-ChildItem -LiteralPath (Join-Path $repoRoot 'docs') -Recurse -File | ForEach-Object {
         [IO.Path]::GetRelativePath($repoRoot, $_.FullName).Replace('\', '/')

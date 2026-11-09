@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DesktopIniManager.Properties;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -21,7 +22,7 @@ internal sealed class DesktopIniService
     {
         if (!Directory.Exists(folder)) throw new DirectoryNotFoundException(folder);
         if (!File.Exists(resourcePath))
-            throw new FileNotFoundException("The icon resource was not found.", resourcePath);
+            throw new FileNotFoundException(StringOverlay.Get("Err_IconResourceMissing"), resourcePath).Localized();
         var ini = Path.Combine(folder, "desktop.ini");
         var content = "[.ShellClassInfo]\r\nIconResource=" + resourcePath + "," + index + "\r\n";
 

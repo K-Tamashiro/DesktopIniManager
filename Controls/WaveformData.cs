@@ -175,7 +175,7 @@ public sealed class WaveformData
         if (source == null) throw new ArgumentNullException(nameof(source));
         int rate = source.WaveFormat.SampleRate, channels = source.WaveFormat.Channels;
         if (binsPerSecond < 1) throw new ArgumentOutOfRangeException(nameof(binsPerSecond));
-        if (rate < 1 || channels < 1) throw new ArgumentException(Strings.InvalidAudioFormat, nameof(source));
+        if (rate < 1 || channels < 1) throw new ArgumentException(StringOverlay.Get("InvalidAudioFormat"), nameof(source));
         // Preserve every sample when the source rate is lower than the requested density.
         binsPerSecond = Math.Min(binsPerSecond, rate);
         var min = new List<float>[channels];

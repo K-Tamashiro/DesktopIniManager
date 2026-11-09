@@ -51,8 +51,8 @@ internal partial class CleanSolutionsWindow
                 IsSource = isSource,
                 IsChecked = !locked,
                 IsEnabled = !locked,
-                Tip = locked ? Strings.Differencer_DimLockedTip : path,
-                SideLabel = isSource ? Strings.Differencer_SourceLeft : Strings.Differencer_TargetRight
+                Tip = locked ? StringOverlay.Get("Differencer_DimLockedTip") : path,
+                SideLabel = isSource ? StringOverlay.Get("Differencer_SourceLeft") : StringOverlay.Get("Differencer_TargetRight")
             };
         }).ToList();
         if (dialog.ShowDialog() != true) return null;
@@ -85,7 +85,7 @@ internal partial class CleanSolutionsWindow
         if (selected.Length == 0 || configurations.Length == 0 ||
             configurations.Any(item => item.Any(ch => !char.IsLetterOrDigit(ch) && ch != ' ' && ch != '_' && ch != '-')))
         {
-            MessageBox.Show(this, Strings.Differencer_SelectSolutions);
+            MessageBox.Show(this, StringOverlay.Get("Differencer_SelectSolutions"));
             return;
         }
         Result = new SolutionCleanSelection { Solutions = selected, Configurations = configurations };

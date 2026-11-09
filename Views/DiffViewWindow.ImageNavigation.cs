@@ -1,3 +1,4 @@
+using DesktopIniManager.Properties;
 using System;
 using System.Windows;
 using System.Windows.Controls;
@@ -51,7 +52,7 @@ internal sealed partial class DiffViewWindow
         ImageDetails.Children.Clear();
         var sizes = new TextBlock
         {
-            Text = "Source: " + Dimensions(ViewModel.SourceImage) + "\nTarget: " + Dimensions(ViewModel.TargetImage),
+            Text = string.Format(StringOverlay.Get("Diff_SourceDimensions"), Dimensions(ViewModel.SourceImage), Dimensions(ViewModel.TargetImage)),
             VerticalAlignment = VerticalAlignment.Center,
             TextAlignment = TextAlignment.Right,
             Margin = new Thickness(0, 0, 8, 0)
@@ -68,7 +69,7 @@ internal sealed partial class DiffViewWindow
             ClipToBounds = true,
             Background = Brushes.Black,
             Margin = new Thickness(0, 0, 8, 0),
-            ToolTip = "Source + Target 50% / differences highlighted. Drag the frame to navigate."
+            ToolTip = StringOverlay.Get("Diff_NavigatorTip")
         };
         _imageNavigator.Children.Add(new Image
         {
@@ -109,8 +110,8 @@ internal sealed partial class DiffViewWindow
             e.Handled = true;
         };
         ImageDetails.Children.Add(_imageNavigator);
-        _sourcePixelDetails = AddPixelCard("Source", "SourceColor");
-        _targetPixelDetails = AddPixelCard("Target", "TargetColor");
+        _sourcePixelDetails = AddPixelCard(StringOverlay.Get("Diff_SideSource"), "SourceColor");
+        _targetPixelDetails = AddPixelCard(StringOverlay.Get("Diff_SideTarget"), "TargetColor");
         SetImagePointDetails(new Point(-1, -1), false);
     }
 

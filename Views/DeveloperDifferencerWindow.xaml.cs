@@ -123,6 +123,7 @@ public partial class DeveloperDifferencerWindow
             ViewModel.Close();
         };
         AllowDrop = true;
+        DropZoneHighlight.Attach(this, () => !_zipDragging, SourceBox, TargetBox);
         PreviewDragEnter += FolderDropPreview;
         PreviewDragOver += FolderDropPreview;
         PreviewDrop += Differencer_Drop;
@@ -688,7 +689,7 @@ public partial class DeveloperDifferencerWindow
     private async void PatchViewButton_Click(object sender, RoutedEventArgs e)
     {
         if (ViewModel.IsBusy) return;
-        var picker = new Microsoft.Win32.OpenFileDialog { Filter = "Patch / Diff|*.patch;*.diff;*.rej|All files|*.*", CheckFileExists = true };
+        var picker = new Microsoft.Win32.OpenFileDialog { Filter = StringOverlay.Get("Patch_FileFilter"), CheckFileExists = true };
         if (picker.ShowDialog(this) != true) return;
         PatchViewButton.IsEnabled = false;
         try
@@ -704,7 +705,7 @@ public partial class DeveloperDifferencerWindow
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ErrorMessages.English(ex), "Patch View", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(this, ErrorMessages.English(ex), StringOverlay.Get("Patch_ViewTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally { PatchViewButton.IsEnabled = true; }
     }
@@ -807,7 +808,7 @@ public partial class DeveloperDifferencerWindow
         bool expanded = NodeExpandToggle != null && NodeExpandToggle.IsChecked == true;
         SetIcon(NodeExpandIcon, expanded ? 56 : 55);
         if (NodeExpandToggle != null)
-            NodeExpandToggle.ToolTip = expanded ? Strings.Common_Collapse : Strings.Common_Expand;
+            NodeExpandToggle.ToolTip = expanded ? StringOverlay.Get("Common_Collapse") : StringOverlay.Get("Common_Expand");
     }
 
     /// <summary>
@@ -818,7 +819,7 @@ public partial class DeveloperDifferencerWindow
         bool compact = ViewModel.TreeCompact;
         SetIcon(TreeDensityIcon, compact ? 91 : 90);
         if (TreeDensityToggle != null)
-            TreeDensityToggle.ToolTip = compact ? Strings.Main_TreeCompact : Strings.Main_TreeComfortable;
+            TreeDensityToggle.ToolTip = compact ? StringOverlay.Get("Main_TreeCompact") : StringOverlay.Get("Main_TreeComfortable");
     }
 
     /// <summary>

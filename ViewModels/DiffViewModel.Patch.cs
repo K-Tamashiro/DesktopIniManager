@@ -1,3 +1,4 @@
+using DesktopIniManager.Properties;
 using DesktopIniManager.Services;
 using System;
 using System.Collections.Generic;
@@ -78,7 +79,7 @@ internal sealed partial class DiffViewModel
     internal void SetPatchRoot(string root)
     {
         if (PatchFiles.Any(file => file.HasUserEdits && (!file.Entry.IsNew || file.TargetPath != null)))
-            throw new InvalidOperationException("Save or discard patch edits before changing the repository.");
+            throw new InvalidOperationException(StringOverlay.Get("Err_PatchSaveBeforeRepo")).Localized();
         root = Path.GetFullPath(root);
         if (!Directory.Exists(root)) throw new DirectoryNotFoundException(root);
         // Resolve every entry before changing state: a rejected path must not
@@ -200,18 +201,18 @@ internal sealed partial class DiffViewModel
     /// <returns>適用先の絶対パス。</returns>
     internal static string ResolvePatchPath(string root, string relative)
     {
-        if (!PatchDocument.IsSafeRelativePath(relative)) throw new InvalidDataException("Unsafe patch path.");
+        if (!PatchDocument.IsSafeRelativePath(relative)) throw new InvalidDataException(StringOverlay.Get("Err_PatchUnsafePath")).Localized();
         var basePath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
         var path = Path.GetFullPath(Path.Combine(basePath, relative.Replace('/', Path.DirectorySeparatorChar)));
         if (!path.StartsWith(basePath + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidDataException("Patch path escapes the target repository.");
+            throw new InvalidDataException(StringOverlay.Get("Err_PatchEscapes")).Localized();
         for (var current = path; !string.Equals(current, basePath, StringComparison.OrdinalIgnoreCase);
              current = Path.GetDirectoryName(current))
         {
-            if (current == null) throw new InvalidDataException("Invalid patch target.");
+            if (current == null) throw new InvalidDataException(StringOverlay.Get("Err_PatchInvalidTarget")).Localized();
             if ((System.IO.File.Exists(current) || Directory.Exists(current)) &&
                 (System.IO.File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
-                throw new InvalidDataException("Patch targets through symbolic links or junctions are not supported.");
+                throw new InvalidDataException(StringOverlay.Get("Err_PatchLinks")).Localized();
         }
         return path;
     }
@@ -254,13 +255,13 @@ internal sealed partial class DiffViewModel
         var mismatches = CurrentPatch.HasTarget
             ? Enumerable.Range(0, CurrentPatch.Entry.Hunks.Count).Count(id => !CurrentPatch.Matches(id)) : 0;
         Status = CurrentPatch.Entry.UnsupportedReason ??
-            (CurrentPatch.HasTarget ? "Patch → Target"
-                : PatchRoot != null ? $"Target not found under repository: {CurrentPatch.Entry.RelativePath} (preview before → after)"
-                : "Patch preview (before → after)") +
-            $" | Applied {CurrentPatch.AppliedCount}/{CurrentPatch.Entry.Hunks.Count}" +
-            (CurrentPatch.PresentCount > 0 ? $" | Already in target: {CurrentPatch.PresentCount}" : "") +
-            (mismatches > 0 ? $" | Context mismatch: {mismatches}" : "") +
-            (Patch.DecodingErrorLines > 0 ? $" | Undecodable lines: {Patch.DecodingErrorLines} (affected hunks cannot be applied)" : "");
+            (CurrentPatch.HasTarget ? StringOverlay.Get("Patch_StatusTarget")
+                : PatchRoot != null ? string.Format(StringOverlay.Get("Patch_StatusNoTarget"), CurrentPatch.Entry.RelativePath)
+                : StringOverlay.Get("Patch_StatusPreview")) +
+            " | " + string.Format(StringOverlay.Get("Patch_StatusApplied"), CurrentPatch.AppliedCount, CurrentPatch.Entry.Hunks.Count) +
+            (CurrentPatch.PresentCount > 0 ? " | " + string.Format(StringOverlay.Get("Patch_StatusPresent"), CurrentPatch.PresentCount) : "") +
+            (mismatches > 0 ? " | " + string.Format(StringOverlay.Get("Patch_StatusMismatch"), mismatches) : "") +
+            (Patch.DecodingErrorLines > 0 ? " | " + string.Format(StringOverlay.Get("Patch_StatusUndecodable"), Patch.DecodingErrorLines) : "");
     }
 
     /// <summary>

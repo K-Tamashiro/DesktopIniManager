@@ -69,7 +69,7 @@ internal sealed class GrepHistoryTab : ObservableObject
     public bool MatchCase { get; set; }
     public bool WholeWord { get; set; }
     public string Filter { get; set; } = "";
-    public string Status { get; set; } = "Ready";
+    public string Status { get; set; } = StringOverlay.Get("Differencer_TextReady");
     public List<string> Scopes { get; set; } = new();
     public List<string> EnabledScopes { get; set; } = new();
     public List<GrepMatch> Matches { get; set; } = new();
@@ -87,7 +87,7 @@ internal sealed class ComparisonHistoryTab
     public bool ShowBin { get; set; }
     public string Status { get; set; }
     public List<HistoryFolderState> FolderStates { get; set; } = new();
-    public string Roots => "Source: " + Snapshot?.SourceRoot + "   Target: " + Snapshot?.TargetRoot;
+    public string Roots => string.Format(StringOverlay.Get("History_Roots"), Snapshot?.SourceRoot, Snapshot?.TargetRoot);
 }
 
 internal sealed class HistoryFolderState

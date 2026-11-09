@@ -455,7 +455,7 @@ internal sealed partial class DiffViewWindow
     {
         var (line, column) = ViewModel.EncodingErrorPosition(source, Math.Max(0, index));
         MessageBox.Show(this, string.Format(StringOverlay.Get("Diff_EncodingError"),
-                source ? "Source" : "Target", (source ? ViewModel.SourceText : ViewModel.TargetText).EncodingName, line,
+                StringOverlay.Get(source ? "Diff_SideSource" : "Diff_SideTarget"), (source ? ViewModel.SourceText : ViewModel.TargetText).EncodingName, line,
                 column + 1),
             StringOverlay.Get("Diff_SaveError"), MessageBoxButton.OK, MessageBoxImage.Warning);
         if (ViewModel.DifferencesOnly) ViewModel.ToggleDifferencesOnly();

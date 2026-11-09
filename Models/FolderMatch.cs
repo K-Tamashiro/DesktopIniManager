@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DesktopIniManager.Properties;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -76,7 +77,47 @@ internal sealed class FolderMatch : INotifyPropertyChanged
             if (_reason == value) return;
             _reason = value;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Reason)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DisplayReason)));
         }
+    }
+
+    /// <summary>
+    ///     画面に表示する理由の文字列です。Reason は判定と保存に使うため英語の内部形式のまま保持します。
+    /// </summary>
+    public string DisplayReason => LocalizeReason(_reason);
+
+    /// <summary>
+    ///     内部形式の理由を、言語リソースの文言に変換します。
+    /// </summary>
+    /// <param name="reason">内部形式の理由。</param>
+    /// <returns>表示用の文字列。</returns>
+    private static string LocalizeReason(string reason)
+    {
+        const string solution = "Solution  ", project = "Project  ", name = "Name: ", contents = "Contents: ";
+        if (string.IsNullOrEmpty(reason)) return reason;
+        if (reason == "Folder") return StringOverlay.Get("Reason_Folder");
+        if (reason == "Empty folder") return StringOverlay.Get("Reason_EmptyFolder");
+        if (reason == "Solution folder") return StringOverlay.Get("Reason_SolutionFolder");
+        if (reason.StartsWith(solution, StringComparison.Ordinal))
+            return string.Format(StringOverlay.Get("Reason_SolutionProjects"),
+                reason.Substring(solution.Length).Replace(" projects", string.Empty));
+        if (reason.StartsWith(project, StringComparison.Ordinal))
+            return string.Format(StringOverlay.Get("Reason_Project"), reason.Substring(project.Length));
+        if (reason.StartsWith(name, StringComparison.Ordinal))
+            return string.Format(StringOverlay.Get("Reason_Name"), reason.Substring(name.Length));
+        if (reason.StartsWith(contents, StringComparison.Ordinal))
+            return string.Format(StringOverlay.Get("Reason_Contents"), reason.Substring(contents.Length));
+
+        // フォルダー解析の結果は「Repository  SLN ×2  Project ×1  cs ×5」のように 2 つの空白で区切られている。
+        var parts = reason.Split("  ");
+        for (var index = 0; index < parts.Length; index++)
+            if (parts[index] == "Repository")
+                parts[index] = StringOverlay.Get("Reason_Repository");
+            else if (parts[index].StartsWith("Project \u00D7", StringComparison.Ordinal))
+                parts[index] = string.Format(StringOverlay.Get("Reason_ProjectCount"), parts[index].Substring(9));
+            else if (parts[index].StartsWith("(no extension)", StringComparison.Ordinal))
+                parts[index] = StringOverlay.Get("Reason_NoExtension") + parts[index].Substring(14);
+        return string.Join("  ", parts);
     }
 
     public string DisplayName { get; set; }

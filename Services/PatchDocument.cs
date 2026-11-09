@@ -1,3 +1,4 @@
+using DesktopIniManager.Properties;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -44,7 +45,7 @@ internal sealed class PatchFile
     ///     パッチ エントリの対象パスを返します。
     /// </summary>
     /// <returns>対象の相対パス。対応していないエントリの場合はその旨の文字列。</returns>
-    public override string ToString() => RelativePath ?? "(unsupported entry)";
+    public override string ToString() => RelativePath ?? StringOverlay.Get("Patch_UnsupportedEntry");
 }
 
 internal sealed class PatchDocument
@@ -82,7 +83,7 @@ internal sealed class PatchDocument
     internal static PatchDocument Read(string path)
     {
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-        if (stream.Length > 32 * 1024 * 1024) throw new IOException("Patches over 32 MB are not supported.");
+        if (stream.Length > 32 * 1024 * 1024) throw new IOException(StringOverlay.Get("Err_PatchTooLarge")).Localized();
         var bytes = new byte[stream.Length];
         stream.ReadExactly(bytes);
         var result = Parse(bytes);
@@ -98,7 +99,7 @@ internal sealed class PatchDocument
     /// <returns>解析したパッチ。</returns>
     internal static PatchDocument Parse(byte[] bytes)
     {
-        if (bytes.Contains((byte)0)) throw new InvalidDataException("A text patch cannot contain NUL bytes.");
+        if (bytes.Contains((byte)0)) throw new InvalidDataException(StringOverlay.Get("Err_PatchNul")).Localized();
         var result = new PatchDocument();
         var utf8 = new UTF8Encoding(false, true);
         var sjis = CodePagesEncodingProvider.Instance.GetEncoding(932, EncoderFallback.ExceptionFallback,
@@ -129,7 +130,7 @@ internal sealed class PatchDocument
             }
             lines.Add((text, invalid, crlf));
             start = i + 1;
-            if (lines.Count > 200000) throw new InvalidDataException("Patch exceeds 200,000 lines.");
+            if (lines.Count > 200000) throw new InvalidDataException(StringOverlay.Get("Err_PatchTooManyLines")).Localized();
         }
 
         result.ReadCommitMessage(lines.Select(line => line.Text).ToArray());
@@ -148,12 +149,12 @@ internal sealed class PatchDocument
             if (oldRemaining > 0 || newRemaining > 0)
             {
                 if (line.Length == 0 || line[0] is not (' ' or '+' or '-'))
-                    throw new InvalidDataException($"Invalid hunk body at patch line {i + 1}.");
+                    throw new InvalidDataException(string.Format(StringOverlay.Get("Err_PatchHunkBody"), i + 1)).Localized();
                 if (line[0] != '+') oldRemaining--;
                 if (line[0] != '-') newRemaining--;
                 if (oldRemaining < 0 || newRemaining < 0)
-                    throw new InvalidDataException($"Hunk line count mismatch at patch line {i + 1}.");
-                if (hunk == null) throw new InvalidDataException($"Hunk body without a header at patch line {i + 1}.");
+                    throw new InvalidDataException(string.Format(StringOverlay.Get("Err_PatchHunkCount"), i + 1)).Localized();
+                if (hunk == null) throw new InvalidDataException(string.Format(StringOverlay.Get("Err_PatchHunkNoHeader"), i + 1)).Localized();
                 hunk.Lines.Add(new PatchLine(line[0], line[1..], false, crlf));
                 hunk.HasDecodingErrors |= invalid;
                 continue;
@@ -210,12 +211,12 @@ internal sealed class PatchDocument
             else if (line.StartsWith("@@ ", StringComparison.Ordinal))
             {
                 var match = HunkHeader.Match(line);
-                if (file == null || !match.Success) throw new InvalidDataException("Invalid unified patch header.");
+                if (file == null || !match.Success) throw new InvalidDataException(StringOverlay.Get("Err_PatchHeader")).Localized();
                 int Number(int index, int fallback = 1) => match.Groups[index].Success
                     ? int.Parse(match.Groups[index].Value, CultureInfo.InvariantCulture) : fallback;
                 hunk = new PatchHunk { OldStart = Number(1), OldCount = Number(2), NewStart = Number(3), NewCount = Number(4) };
                 if (Math.Max(hunk.OldStart, hunk.NewStart) > 100000 || Math.Max(hunk.OldCount, hunk.NewCount) > 100000)
-                    throw new InvalidDataException("Patch line coordinates exceed 100,000 lines.");
+                    throw new InvalidDataException(StringOverlay.Get("Err_PatchCoordinates")).Localized();
                 file.Hunks.Add(hunk);
                 oldRemaining = hunk.OldCount;
                 newRemaining = hunk.NewCount;
@@ -223,16 +224,16 @@ internal sealed class PatchDocument
             else if (file != null && (line.StartsWith("GIT binary patch", StringComparison.Ordinal) ||
                      line.StartsWith("Binary files ", StringComparison.Ordinal) ||
                      line.Contains("120000", StringComparison.Ordinal) && line.Contains("mode", StringComparison.Ordinal)))
-                file.UnsupportedReason = "Binary or symbolic-link patch";
+                file.UnsupportedReason = StringOverlay.Get("Patch_UnsupportedBinary");
         }
-        if (oldRemaining != 0 || newRemaining != 0) throw new InvalidDataException("Truncated patch hunk.");
+        if (oldRemaining != 0 || newRemaining != 0) throw new InvalidDataException(StringOverlay.Get("Err_PatchTruncated")).Localized();
         foreach (var entry in result.Files)
         {
-            if (entry.Hunks.Count == 0) entry.UnsupportedReason ??= "No text hunks (metadata-only change)";
+            if (entry.Hunks.Count == 0) entry.UnsupportedReason ??= StringOverlay.Get("Patch_UnsupportedNoHunks");
             if (!IsSafeRelativePath(entry.RelativePath) || entry.OldPath != "/dev/null" && !IsSafeRelativePath(entry.OldPath))
-                entry.UnsupportedReason = "Unsafe relative path";
+                entry.UnsupportedReason = StringOverlay.Get("Patch_UnsupportedPath");
         }
-        if (result.Files.Count == 0) throw new InvalidDataException("No unified patch entries were found.");
+        if (result.Files.Count == 0) throw new InvalidDataException(StringOverlay.Get("Err_PatchNoEntries")).Localized();
         return result;
     }
 

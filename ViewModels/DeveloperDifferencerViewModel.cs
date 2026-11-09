@@ -27,7 +27,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
     private bool _appliedShowBin;
     private bool _appliedShowObj;
     private bool _bulk;
-    private string _busyMessage = "Please wait\u2026";
+    private string _busyMessage = StringOverlay.Get("Differencer_TextPleaseWait");
     private HashSet<string> _cachedVisibleFolders;
     private bool _canCancel;
     private bool _canFilter;
@@ -44,7 +44,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
     private string _countLabel = string.Empty;
     private HashSet<string> _disabledIgnoreRules = new(StringComparer.Ordinal);
     private IEnumerable<DiffRow> _fileItems;
-    private string _filePanelTitle = "Files";
+    private string _filePanelTitle = StringOverlay.Get("Differencer_TextFiles");
     private IReadOnlyList<DiffFolder> _folderItems;
     private bool _isBusy;
     private bool _isFileBusy;
@@ -70,7 +70,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
     private bool _showTargetOnly = true;
     private PendingIndex _sourceIndex, _targetIndex;
     private string _sourcePath = string.Empty;
-    private string _status = "Ready";
+    private string _status = StringOverlay.Get("Differencer_TextReady");
     private ObservableCollection<DiffRow> _streamingRows;
     private bool _syncingTreeFromFile;
     private string _targetPath = string.Empty;
@@ -674,7 +674,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
     /// <param name="error">発生した例外。</param>
     internal void ShowError(Exception error)
     {
-        _dialogs.Show(ErrorMessages.English(error), Strings.App_Title, MessageBoxButton.OK, MessageBoxImage.Error);
+        _dialogs.Show(ErrorMessages.English(error), StringOverlay.Get("App_Title"), MessageBoxButton.OK, MessageBoxImage.Error);
     }
 
     /// <summary>
@@ -701,7 +701,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         try
         {
             var path = ChooseFolder?.Invoke(source ? SourcePath : TargetPath,
-                source ? "Source folder" : "Target folder");
+                StringOverlay.Get(source ? "Differencer_TextSourceFolder" : "Differencer_TextTargetFolder"));
             if (path == null) return;
             ApplyRootPath(source, path);
             if (source) MatchTargetHistory();
@@ -723,7 +723,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         var file = SelectedRow.File;
         if (DiffMedia.IsBinary(file.RelativePath))
         {
-            _dialogs.Show(DiffMedia.BinaryMessage, "Diff View", MessageBoxButton.OK, MessageBoxImage.Information);
+            _dialogs.Show(DiffMedia.BinaryMessage, StringOverlay.Get("Diff_ViewCaption"), MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -873,11 +873,11 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
             _cachedVisibleFolders = null;
             RestartIndex(true);
             RestartIndex(false);
-            Status = "Source and Target restored. Click Compare to build the difference tree.";
+            Status = StringOverlay.Get("Differencer_TextRestored");
         }
         catch (Exception ex)
         {
-            Status = "Failed to restore tree: " + ErrorMessages.English(ex);
+            Status = string.Format(StringOverlay.Get("Differencer_TextRestoreFailed"), ErrorMessages.English(ex));
         }
     }
 
@@ -895,7 +895,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
             { RelativePath = f.Path, SourceExists = f.SourceExists, TargetExists = f.TargetExists })
             .ToArray();
         if (files.Length == 0 && selectedFolders.Length == 0) return;
-        var direction = toTarget ? "Source to Target" : "Target to Source";
+        var direction = StringOverlay.Get(toTarget ? "Differencer_TextSourceToTarget" : "Differencer_TextTargetToSource");
         bool confirmed;
         SyncDirectionIconRequested?.Invoke(toTarget, false);
         try
@@ -934,11 +934,11 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
                 var path = Path.Combine(StateDirectory,
                     "differencer-sync-" + DateTime.Now.ToString("yyyyMMdd-HHmmss-fff") + ".log");
                 File.WriteAllText(path, report);
-                liveLog.AppendLine("Log: " + path);
+                liveLog.AppendLine(string.Format(StringOverlay.Get("Differencer_LogPath"), path));
             }
             catch (Exception ex)
             {
-                liveLog.AppendLine("Failed to save log: " + ErrorMessages.English(ex));
+                liveLog.AppendLine(string.Format(StringOverlay.Get("Differencer_TextSaveLogFailed"), ErrorMessages.English(ex)));
             }
 
             liveLog.Complete(log.Count(l => l.StartsWith("OK ")), log.Count(l => l.StartsWith("FAIL ")),
@@ -1025,11 +1025,11 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
                 var path = Path.Combine(StateDirectory,
                     "differencer-zip-" + DateTime.Now.ToString("yyyyMMdd-HHmmss-fff") + ".log");
                 File.WriteAllText(path, report);
-                liveLog.AppendLine("Log: " + path);
+                liveLog.AppendLine(string.Format(StringOverlay.Get("Differencer_LogPath"), path));
             }
             catch (Exception ex)
             {
-                liveLog.AppendLine("Failed to save log: " + ErrorMessages.English(ex));
+                liveLog.AppendLine(string.Format(StringOverlay.Get("Differencer_TextSaveLogFailed"), ErrorMessages.English(ex)));
             }
 
             liveLog.Complete(log.Count(l => l.StartsWith("OK ")), log.Count(l => l.StartsWith("FAIL ")),
@@ -1057,18 +1057,18 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         try
         {
             string source = SourcePath, target = TargetPath;
-            Status = Strings.Differencer_FindingSolutions;
+            Status = StringOverlay.Get("Differencer_FindingSolutions");
             var solutions = await Task.Run(() => SolutionCleanService.FindSolutions(source, target));
             if (solutions.Count == 0)
             {
-                Status = Strings.Differencer_NoSolutions;
+                Status = StringOverlay.Get("Differencer_NoSolutions");
                 return;
             }
 
             var selection = ChooseCleanSolutions?.Invoke(solutions, source);
             if (selection == null)
             {
-                Status = Strings.Differencer_CleanCancelled;
+                Status = StringOverlay.Get("Differencer_CleanCancelled");
                 return;
             }
 
@@ -1086,12 +1086,12 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
                 foreach (var config in configurations)
                 {
                     var label = Path.GetFileName(solution) + " [" + config + "]";
-                    Status = string.Format(Strings.Differencer_Cleaning, solution + " [" + config + "]");
-                    SetFilePanelBusy(true, string.Format(Strings.Differencer_Cleaning, label + "\u2026"));
+                    Status = string.Format(StringOverlay.Get("Differencer_Cleaning"), solution + " [" + config + "]");
+                    SetFilePanelBusy(true, string.Format(StringOverlay.Get("Differencer_Cleaning"), label + "\u2026"));
                     completed++;
                     details.AppendLine(new string('\u2500', 56));
                     details.AppendLine("[" + completed + "/" + total + "] " + label);
-                    details.AppendLine("Path: " + solution);
+                    details.AppendLine(string.Format(StringOverlay.Get("Clean_ReportPath"), solution));
                     details.AppendLine();
                     try
                     {
@@ -1105,23 +1105,23 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
                         if (!string.IsNullOrWhiteSpace(result.Output))
                             details.AppendLine(result.Output.TrimEnd());
                         details.AppendLine();
-                        details.AppendLine(result.Code == 0 ? "Result: OK" : "Result: FAIL (exit " + result.Code + ")");
+                        details.AppendLine(result.Code == 0 ? StringOverlay.Get("Clean_ReportOk") : string.Format(StringOverlay.Get("Clean_ReportFailExit"), result.Code));
                     }
                     catch (Exception ex)
                     {
                         failures++;
-                        details.AppendLine("Result: FAIL");
+                        details.AppendLine(StringOverlay.Get("Clean_ReportFail"));
                         details.AppendLine(ErrorMessages.English(ex));
                     }
 
                     details.AppendLine();
                 }
 
-            var summary = string.Format(Strings.Differencer_CleanComplete, completed - failures, failures);
+            var summary = string.Format(StringOverlay.Get("Differencer_CleanComplete"), completed - failures, failures);
             var report = new StringBuilder();
-            report.AppendLine("Solution Clean");
-            report.AppendLine("Date: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
-            report.AppendLine("Total: " + completed + "    OK: " + (completed - failures) + "    FAIL: " + failures);
+            report.AppendLine(StringOverlay.Get("Clean_ReportTitle"));
+            report.AppendLine(string.Format(StringOverlay.Get("Clean_ReportDate"), DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")));
+            report.AppendLine(string.Format(StringOverlay.Get("Clean_ReportTotal"), completed, completed - failures, failures));
             report.AppendLine();
             report.Append(details);
             Directory.CreateDirectory(StateDirectory);
@@ -1136,7 +1136,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Status = string.Format(Strings.Differencer_CleanFailed, ErrorMessages.English(ex));
+            Status = string.Format(StringOverlay.Get("Differencer_CleanFailed"), ErrorMessages.English(ex));
             ShowError(ex);
         }
         finally
@@ -1209,9 +1209,8 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         foreach (var folder in _folders.Values)
             folder.RefreshIcon();
 
-        Status = _folders[""].CountFor(DiffKind.Differences) + " differences / " +
-                 _folders[""].CountFor(DiffKind.Same) +
-                 " identical (OBJ/BIN filters applied). Check items to synchronize.";
+        Status = string.Format(StringOverlay.Get("Differencer_FilterStatus"),
+            _folders[""].CountFor(DiffKind.Differences), _folders[""].CountFor(DiffKind.Same));
     }
 
     /// <summary>
@@ -1330,7 +1329,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         SelectedRow = null;
         OpenDiffCommand.NotifyCanExecuteChanged();
         CanFilter = false;
-        FilePanelTitle = "Files";
+        FilePanelTitle = StringOverlay.Get("Differencer_TextFiles");
         UpdateSelectionSummary();
     }
 
@@ -1356,8 +1355,8 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         var refreshed = 0;
         SetBusy(true);
         CanCancel = false;
-        SetFilePanelBusy(true, "Refreshing visible files\u2026");
-        Status = "Refreshing " + targets.Length + " visible file(s)\u2026";
+        SetFilePanelBusy(true, StringOverlay.Get("Differencer_RefreshingVisible"));
+        Status = string.Format(StringOverlay.Get("Differencer_RefreshingCount"), targets.Length);
 
         try
         {
@@ -1369,13 +1368,12 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
 
             // Rebuild the visible list only once; individual rows may have changed kind.
             ApplyKindFilter(true);
-            Status = "Visible files refreshed: " + targets.Length + " checked, " + refreshed +
-                     " updated. " + _folders[""].CountFor(DiffKind.Differences) +
-                     " differences / " + _folders[""].CountFor(DiffKind.Same) + " identical.";
+            Status = string.Format(StringOverlay.Get("Differencer_RefreshedVisible"), targets.Length, refreshed,
+            _folders[""].CountFor(DiffKind.Differences), _folders[""].CountFor(DiffKind.Same));
         }
         catch (Exception ex)
         {
-            Status = "Refresh failed: " + ErrorMessages.English(ex);
+            Status = string.Format(StringOverlay.Get("Differencer_RefreshFailed"), ErrorMessages.English(ex));
             ShowError(ex);
         }
         finally
@@ -1429,7 +1427,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         {
         }
 
-        Status = "Cancelling comparison\u2026";
+        Status = StringOverlay.Get("Differencer_TextCancelling");
         CanCancel = false;
     }
 
@@ -1491,8 +1489,8 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         IsProgressVisible = true;
         ProgressIndeterminate = true;
         Status = PreciseCompare
-            ? "Scanning files and calculating XXH128 hashes\u2026"
-            : "Scanning files and comparing timestamps and sizes\u2026";
+            ? StringOverlay.Get("Differencer_ScanHash")
+            : StringOverlay.Get("Differencer_ScanMeta");
         string source = SourcePath, target = TargetPath;
         if (_sourceIndex != null && !string.Equals(_sourceIndex.Path, source, StringComparison.OrdinalIgnoreCase))
         {
@@ -1519,7 +1517,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
                 if (!classificationToken.IsCancellationRequested) UpdateProgress(value);
             });
             var compareTimestamp = CompareTimestamp;
-            BusyMessage = Status = "Preparing source / target indexes\u2026";
+            BusyMessage = Status = StringOverlay.Get("Differencer_PreparingIndexes");
             var indexes = await Task.WhenAll(leftIndex.Task, rightIndex.Task).WaitAsync(token);
             token.ThrowIfCancellationRequested();
             if (leftIndex.Error != null) throw leftIndex.Error;
@@ -1549,8 +1547,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
                         last = row;
                     }
 
-                    FilePanelTitle = "Files \u2014 " + (displayFolder.Length == 0 ? "all levels" : displayFolder) +
-                                     " (" + _streamingRows.Count + ")";
+                    FilePanelTitle = FilesTitle(displayFolder, _streamingRows.Count);
                     if (last != null) FileProgressRequested?.Invoke(last);
                 }, DispatcherPriority.Background),
                 (left, right) =>
@@ -1563,15 +1560,15 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
                 }, PreciseCompare, CompareSize, CompareAttributes), token);
             classification.Cancel();
             token.ThrowIfCancellationRequested();
-            Status = "Updating the difference tree\u2026";
-            BusyMessage = "Updating the difference tree and file list\u2026";
+            Status = StringOverlay.Get("Differencer_TextUpdatingTree");
+            BusyMessage = StringOverlay.Get("Differencer_UpdatingTreeAndList");
             Snapshot = fresh;
             _treeSource = source;
             await BuildTreeAsync(Snapshot.Folders, Array.Empty<string>(), "", token);
             ResetAfterComparison();
             ComparisonCompleted?.Invoke();
-            Status = _folders[""].CountFor(DiffKind.Differences) + " differences / " +
-                     _folders[""].CountFor(DiffKind.Same) + " identical. Check items to synchronize.";
+            Status = string.Format(StringOverlay.Get("Differencer_SummaryStatus"),
+                _folders[""].CountFor(DiffKind.Differences), _folders[""].CountFor(DiffKind.Same));
             if (replacedTab != null)
             {
                 _selectedHistoryTab = replacedTab;
@@ -1588,12 +1585,12 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         catch (OperationCanceledException)
         {
             ClearComparisonView();
-            Status = "Compare cancelled";
+            Status = StringOverlay.Get("Differencer_TextCancelled");
         }
         catch (Exception ex)
         {
             ClearComparisonView();
-            Status = "Compare failed (sync disabled): " + ErrorMessages.English(ex);
+            Status = string.Format(StringOverlay.Get("Differencer_TextCompareFailed"), ErrorMessages.English(ex));
             ShowError(ex);
         }
         finally
@@ -1630,7 +1627,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
             ProgressValue = Math.Max(0, Math.Min(progress.Completed, ProgressMaximum));
         }
 
-        var detail = string.IsNullOrEmpty(progress.Stage) ? "Please wait\u2026" : progress.Stage;
+        var detail = string.IsNullOrEmpty(progress.Stage) ? StringOverlay.Get("Differencer_TextPleaseWait") : progress.Stage;
         BusyMessage = detail;
         Status = detail;
     }
@@ -1703,7 +1700,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
                     _dispatcher.Invoke(() =>
                     {
                         if (!_closed && !token.IsCancellationRequested)
-                            SetTreeProgress("Reading folder state\u2026", done, paths.Length);
+                            SetTreeProgress(StringOverlay.Get("Differencer_TreeReadingState"), done, paths.Length);
                     }, DispatcherPriority.Background);
                 }
             }
@@ -1725,7 +1722,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         var progressWasVisible = IsProgressVisible;
         try
         {
-            SetTreeProgress("Preparing folders\u2026", 0, 0);
+            SetTreeProgress(StringOverlay.Get("Differencer_TreePreparing"), 0, 0);
             await Dispatcher.Yield(DispatcherPriority.Background);
             token.ThrowIfCancellationRequested();
             _folders.Clear();
@@ -1751,7 +1748,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
                 .ThenBy(p => p, StringComparer.CurrentCultureIgnoreCase)
                 .ToArray();
             var folderStates = await ReadFolderStatesAsync(orderedPaths, token);
-            SetTreeProgress("Building folders\u2026", 0, orderedPaths.Length);
+            SetTreeProgress(StringOverlay.Get("Differencer_TreeBuilding"), 0, orderedPaths.Length);
 
             var processed = 0;
             foreach (var path in orderedPaths)
@@ -1798,7 +1795,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
 
                 if (++processed % 64 == 0)
                 {
-                    SetTreeProgress("Building folders\u2026", processed, orderedPaths.Length);
+                    SetTreeProgress(StringOverlay.Get("Differencer_TreeBuilding"), processed, orderedPaths.Length);
                     await Dispatcher.Yield(DispatcherPriority.Background);
                 }
             }
@@ -1806,7 +1803,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
             if (Snapshot != null)
             {
                 processed = 0;
-                SetTreeProgress("Assigning files to folders\u2026", 0, Snapshot.Files.Count);
+                SetTreeProgress(StringOverlay.Get("Differencer_TreeAssigning"), 0, Snapshot.Files.Count);
                 foreach (var file in Snapshot.Files)
                 {
                     token.ThrowIfCancellationRequested();
@@ -1821,21 +1818,21 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
 
                     if (++processed % 256 == 0)
                     {
-                        SetTreeProgress("Assigning files to folders\u2026", processed, Snapshot.Files.Count);
+                        SetTreeProgress(StringOverlay.Get("Differencer_TreeAssigning"), processed, Snapshot.Files.Count);
                         await Dispatcher.Yield(DispatcherPriority.Background);
                     }
                 }
             }
 
             processed = 0;
-            SetTreeProgress("Updating folder counts\u2026", 0, _folders.Count);
+            SetTreeProgress(StringOverlay.Get("Differencer_TreeCounting"), 0, _folders.Count);
             foreach (var folder in _folders.Values)
             {
                 token.ThrowIfCancellationRequested();
                 folder.Refresh();
                 if (++processed % 128 == 0)
                 {
-                    SetTreeProgress("Updating folder counts\u2026", processed, _folders.Count);
+                    SetTreeProgress(StringOverlay.Get("Differencer_TreeCounting"), processed, _folders.Count);
                     await Dispatcher.Yield(DispatcherPriority.Background);
                 }
             }
@@ -1860,9 +1857,9 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
                 }
             }
 
-            SetTreeProgress("Updating folder display\u2026", 0, _folders.Count);
+            SetTreeProgress(StringOverlay.Get("Differencer_TreeDisplay"), 0, _folders.Count);
             await ApplyKindFilterAsync(token);
-            SetTreeProgress("Updating folder display\u2026", _folders.Count, _folders.Count);
+            SetTreeProgress(StringOverlay.Get("Differencer_TreeDisplay"), _folders.Count, _folders.Count);
         }
         finally
         {
@@ -1888,7 +1885,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
                                   ? folder.CountFor(_kindMask) > 0 || folder.MatchesFolderMask(_kindMask)
                                   : _cachedVisibleFolders == null || _cachedVisibleFolders.Contains(folder.Path)));
             folder.Label = (folder.Path.Length == 0 ? RootLabel() : Path.GetFileName(folder.Path)) +
-                           (Snapshot == null ? " (not compared)" : " (" + folder.CountFor(_kindMask) + ")");
+                           (Snapshot == null ? " " + StringOverlay.Get("Differencer_TextNotCompared") : " (" + folder.CountFor(_kindMask) + ")");
 
             if (++processed % 128 == 0)
                 await Dispatcher.Yield(DispatcherPriority.Background);
@@ -1955,8 +1952,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
             FileItems = visible;
         }
 
-        FilePanelTitle = "Files \u2014 " + (_selectedFolder.Length == 0 ? "all levels" : _selectedFolder) + " (" +
-                         visible.Count + ")";
+        FilePanelTitle = FilesTitle(_selectedFolder, visible.Count);
         UpdateSelectionSummary();
 
         // Allow the current collection to render without hiding or replacing it.
@@ -1980,7 +1976,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
                                   ? folder.CountFor(_kindMask) > 0 || folder.MatchesFolderMask(_kindMask)
                                   : _cachedVisibleFolders == null || _cachedVisibleFolders.Contains(folder.Path)));
             folder.Label = (folder.Path.Length == 0 ? RootLabel() : Path.GetFileName(folder.Path)) +
-                           (Snapshot == null ? " (not compared)" : " (" + folder.CountFor(_kindMask) + ")");
+                           (Snapshot == null ? " " + StringOverlay.Get("Differencer_TextNotCompared") : " (" + folder.CountFor(_kindMask) + ")");
         }
 
         if (preserveSelectedFolder) _folders[_selectedFolder].Visible = true;
@@ -2115,8 +2111,9 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
             : _folders.Values.Count(f =>
                 f.FolderCanSync && f.FolderSelected && IncludeBuildFolder(f.Path) && f.MatchesFolderMask(_kindMask));
         var hidden = root == null ? 0 : count - root.SelectedFor(_kindMask) - visibleSelectedFolders;
-        CountLabel = "Folder " + selectedFolderCount + " / Files " + fileCount
-                     + (hidden > 0 ? " (includes " + hidden + " hidden)" : "");
+        CountLabel = hidden > 0
+        ? string.Format(StringOverlay.Get("Differencer_CountLabelHidden"), selectedFolderCount, fileCount, hidden)
+        : string.Format(StringOverlay.Get("Differencer_CountLabel"), selectedFolderCount, fileCount);
         CanSynchronize = !IsBusy && count > 0;
         ForwardCommand.NotifyCanExecuteChanged();
         ReverseCommand.NotifyCanExecuteChanged();
@@ -2176,12 +2173,24 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
     }
 
     /// <summary>
+    ///     ファイル一覧の見出しを作成します。
+    /// </summary>
+    /// <param name="folder">表示中のフォルダー。空文字列の場合は全階層。</param>
+    /// <param name="count">表示中のファイル数。</param>
+    /// <returns>見出しの文字列。</returns>
+    private static string FilesTitle(string folder, int count)
+    {
+        return string.Format(StringOverlay.Get("Differencer_FilesTitle"),
+            folder.Length == 0 ? StringOverlay.Get("Differencer_AllLevels") : folder, count);
+    }
+
+    /// <summary>
     ///     ツリーのルートの表示名を取得します。
     /// </summary>
-    /// <returns>ルートのフォルダー名。ルートがない場合は "All folders"。</returns>
+    /// <returns>ルートのフォルダー名。ルートがない場合は「すべてのフォルダー」を表す文字列。</returns>
     internal string RootLabel()
     {
-        return string.IsNullOrWhiteSpace(_treeSource) ? "All folders" :
+        return string.IsNullOrWhiteSpace(_treeSource) ? StringOverlay.Get("Differencer_TextAllFolders") :
             Path.GetFileName(_treeSource.TrimEnd('\\', '/')) is { Length: > 0 } name ? name : _treeSource;
     }
 
@@ -2207,8 +2216,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
             .Select(f => f.RelativePath).ToList();
         var staged = DropOutService.StageStructuredCopy(root, files, dirs);
         if (staged == null)
-            throw new InvalidOperationException("No selected files or folders exist on " +
-                                                (fromSource ? "Source." : "Target."));
+            throw new InvalidOperationException(StringOverlay.Get(fromSource ? "Err_NoSelectionSource" : "Err_NoSelectionTarget")).Localized();
         return staged;
     }
 
@@ -2268,8 +2276,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
             _syncingTreeFromFile = wasSyncing;
         }
 
-        FilePanelTitle = "Files \u2014 " + (_selectedFolder.Length == 0 ? "all levels" : _selectedFolder) + " (" +
-                         visible.Count + ")";
+        FilePanelTitle = FilesTitle(_selectedFolder, visible.Count);
         UpdateRefreshButtonState();
     }
 
@@ -2284,7 +2291,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         CanFilter = !value && Snapshot != null;
         OnPropertyChanged(nameof(CanConfigureIgnore));
         CanCancel = value && _comparing;
-        SetFilePanelBusy(value, value ? "Please wait\u2026" : null);
+        SetFilePanelBusy(value, value ? StringOverlay.Get("Differencer_TextPleaseWait") : null);
         UpdateSelectionSummary();
         UpdateRefreshButtonState();
         CompareCommand.NotifyCanExecuteChanged();
@@ -2344,7 +2351,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
             if (useHash && ((hashRequired && (sourceHash == null || targetHash == null)) ||
                             !DiffStamp.Same(sourceStamp, DiffStamp.Read(sourcePath), true) ||
                             !DiffStamp.Same(targetStamp, DiffStamp.Read(targetPath), true)))
-                throw new IOException("File changed during comparison. Compare again: " + file.RelativePath);
+                throw new IOException(string.Format(StringOverlay.Get("Err_FileChangedDuringCompare"), file.RelativePath)).Localized();
             return (sourceStamp, targetStamp, sourceHash, targetHash, sourceBom, targetBom);
         });
 
@@ -2412,9 +2419,9 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         if (applyFilter)
         {
             ApplyKindFilter();
-            Status = _folders[""].CountFor(DiffKind.Differences) + " differences / " +
-                     _folders[""].CountFor(DiffKind.Same) + " identical. External edit refreshed: " +
-                     refreshedFile.RelativePath;
+            Status = string.Format(StringOverlay.Get("Differencer_ExternalRefreshed"),
+                _folders[""].CountFor(DiffKind.Differences), _folders[""].CountFor(DiffKind.Same),
+                refreshedFile.RelativePath);
         }
 
         return true;
@@ -2441,7 +2448,7 @@ internal sealed partial class DeveloperDifferencerViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Status = "Failed to save tree: " + ErrorMessages.English(ex);
+            Status = string.Format(StringOverlay.Get("Differencer_TextSaveTreeFailed"), ErrorMessages.English(ex));
         }
     }
 

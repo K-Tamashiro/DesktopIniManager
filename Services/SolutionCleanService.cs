@@ -121,14 +121,14 @@ internal static class SolutionCleanService
     {
         var vswhere = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
             "Microsoft Visual Studio", "Installer", "vswhere.exe");
-        if (!File.Exists(vswhere)) throw new IOException(Strings.Clean_VswhereMissing);
+        if (!File.Exists(vswhere)) throw new IOException(StringOverlay.Get("Clean_VswhereMissing"));
         string output;
         var exit = Run(vswhere,
             "-latest -products * -requires Microsoft.Component.MSBuild -find MSBuild\\**\\Bin\\MSBuild.exe",
             Path.GetDirectoryName(vswhere), out output);
         var path = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
             .FirstOrDefault(File.Exists);
-        if (exit != 0 || path == null) throw new IOException(Strings.Clean_MsbuildMissing);
+        if (exit != 0 || path == null) throw new IOException(StringOverlay.Get("Clean_MsbuildMissing"));
         return path;
     }
 
@@ -143,10 +143,10 @@ internal static class SolutionCleanService
     internal static int Clean(string msbuild, string solution, string configuration, out string output)
     {
         if (ContainsRunningApplication(solution))
-            throw new IOException(Strings.Clean_RunningDim);
+            throw new IOException(StringOverlay.Get("Clean_RunningDim"));
         if (string.IsNullOrWhiteSpace(configuration) ||
             configuration.Any(c => !char.IsLetterOrDigit(c) && c != ' ' && c != '_' && c != '-'))
-            throw new ArgumentException(Strings.Clean_BadConfiguration);
+            throw new ArgumentException(StringOverlay.Get("Clean_BadConfiguration"));
         DeveloperDifferencerService.SafePath(Path.GetDirectoryName(solution) + Path.DirectorySeparatorChar,
             Path.GetFileName(solution));
         return Run(msbuild,

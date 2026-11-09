@@ -1,4 +1,5 @@
-﻿using DesktopIniManager.Services;
+﻿using DesktopIniManager.Properties;
+using DesktopIniManager.Services;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -285,7 +286,7 @@ public class HistoryTextBox : TextBox
             VerticalAlignment = VerticalAlignment.Center
         };
         deleteIcon.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
-        var delete = new MenuItem { Header = "Delete", Icon = deleteIcon };
+        var delete = new MenuItem { Header = StringOverlay.Get("History_MenuDelete"), Icon = deleteIcon };
         string value = item.Content as string;
         delete.Click += (_, _) => RemoveHistory(value);
         menu.Items.Add(delete);

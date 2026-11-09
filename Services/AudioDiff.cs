@@ -1,4 +1,5 @@
-﻿using DesktopIniManager.Controls;
+﻿using DesktopIniManager.Properties;
+using DesktopIniManager.Controls;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 using System;
@@ -230,7 +231,7 @@ internal sealed class AudioEnvelope
     {
         if (string.IsNullOrEmpty(path) || !File.Exists(path)) return null;
         var data = WaveformData.Load(path, cancellation);
-        if (data.Channels > 2) throw new InvalidDataException("Audio Diff supports mono and stereo audio.");
+        if (data.Channels > 2) throw new InvalidDataException(StringOverlay.Get("Err_AudioChannels")).Localized();
         var result = new AudioEnvelope
         {
             Data = data,

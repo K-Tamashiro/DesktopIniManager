@@ -40,7 +40,7 @@
                     VerticalAlignment="Center"
                     Foreground="{DynamicResource Ink}"
                     IsExpanded="True"
-                    ToolTip="Show / hide toolbar"
+                    ToolTip="{loc:L Diff_ToolbarToggle}"
                     Visibility="Collapsed" />
             </StackPanel>
             <TextBlock
@@ -97,7 +97,7 @@
                     VerticalAlignment="Center"
                     RenderOptions.BitmapScalingMode="HighQuality"
                     Stretch="Uniform"
-                    ToolTip="External Diff" />
+                    ToolTip="{loc:L Diff_ExternalDiff}" />
                 <history:HistoryTextBox
                     x:Name="ExternalDiffBox"
                     Grid.Column="1"
@@ -113,7 +113,7 @@
                     Text="{Binding ExternalDiff, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                     TextAlignment="Left"
                     TextWrapping="NoWrap"
-                    ToolTip="External diff command. Use {source} and {target}." />
+                    ToolTip="{loc:L Diff_ExternalDiffTip}" />
             </Grid>
 
             <Grid
@@ -260,17 +260,17 @@
                 x:Name="ShowSpacesBox"
                 Margin="0,0,16,0"
                 IsChecked="{Binding ShowSpaces, Mode=TwoWay}"
-                Content="Show spaces / tabs" />
+                Content="{loc:L Diff_ShowSpaces}" />
             <CheckBox
                 x:Name="ShowNewlinesBox"
                 IsChecked="{Binding ShowNewlines, Mode=TwoWay}"
-                Content="Show line endings" />
+                Content="{loc:L Diff_ShowLineEndings}" />
             <!-- 右端：拡張子から言語を自動判定して色分けする（既定 ON）。 -->
             <CheckBox
                 x:Name="SyntaxHighlightBox"
                 DockPanel.Dock="Right"
                 IsChecked="{Binding SyntaxHighlight, Mode=TwoWay}"
-                Content="Syntax Highlight" />
+                Content="{loc:L Diff_SyntaxHighlight}" />
         </DockPanel>
         <StackPanel
             x:Name="LoadProgressPanel"
@@ -368,7 +368,7 @@
                 VerticalAlignment="Bottom"
                 Foreground="{DynamicResource Ink}"
                 IsExpanded="True"
-                ToolTip="Shrink one-line folds to a line"
+                ToolTip="{loc:L Diff_ShrinkFolds}"
                 Visibility="Collapsed" />
             <Grid Grid.Row="1"
                   Grid.Column="2"

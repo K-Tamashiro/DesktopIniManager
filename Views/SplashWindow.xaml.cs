@@ -23,7 +23,7 @@ internal partial class SplashWindow
             Height = SystemParameters.WorkArea.Height * 0.9;
             Width = Height * 2;
         }
-        Copyright.Text = string.Format(Strings.Splash_Copyright, DateTime.Now.Year);
+        Copyright.Text = string.Format(StringOverlay.Get("Splash_Copyright"), DateTime.Now.Year);
     }
 
     /// <summary>

@@ -207,7 +207,7 @@ internal sealed partial class DiffViewWindow
         busyContent.Children.Add(busyBar);
         var busyText = new TextBlock
         {
-            Text = "Analyzing audio differences...",
+            Text = StringOverlay.Get("Diff_AnalyzingAudio"),
             Margin = new Thickness(0, 10, 0, 0),
             HorizontalAlignment = HorizontalAlignment.Center
         };
@@ -244,7 +244,7 @@ internal sealed partial class DiffViewWindow
                 Maximum = 1,
                 Value = SettingsService.LoadDiffAudioVolume(side == 0),
                 VerticalAlignment = VerticalAlignment.Center,
-                ToolTip = side == 0 ? "Source volume" : "Target volume",
+                ToolTip = StringOverlay.Get(side == 0 ? "Diff_SourceVolumeTip" : "Diff_TargetVolumeTip"),
                 IsMoveToPointEnabled = true
             };
             volume.Style = TryFindResource("AudioVolumeSlider") as Style;
@@ -274,8 +274,8 @@ internal sealed partial class DiffViewWindow
                 return button;
             }
 
-            volumePanel.Children.Add(Icon(142, "Mute (0%)", 0));
-            var maximum = Icon(141, "Maximum (100%)", 1);
+            volumePanel.Children.Add(Icon(142, StringOverlay.Get("Diff_MuteTip"), 0));
+            var maximum = Icon(141, StringOverlay.Get("Diff_MaximumTip"), 1);
             Grid.SetColumn(maximum, 2);
             volumePanel.Children.Add(maximum);
             Grid.SetColumn(volumePanel, side == 0 ? 0 : 2);
@@ -289,7 +289,7 @@ internal sealed partial class DiffViewWindow
         var play = new Button
         {
             Content = "▶",
-            ToolTip = "Play / Pause",
+            ToolTip = StringOverlay.Get("Diff_PlayPause"),
             IsEnabled = duration > 0,
             Style = (Style)FindResource("AudioPlayButton")
         };
@@ -301,7 +301,7 @@ internal sealed partial class DiffViewWindow
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(8, 0, 8, 0),
             IsMoveToPointEnabled = true,
-            ToolTip = "Seek"
+            ToolTip = StringOverlay.Get("Diff_Seek")
         };
         seek.Style = TryFindResource("AudioSeekSlider") as Style;
         var time = new TextBlock { VerticalAlignment = VerticalAlignment.Center, FontSize = 11 };
@@ -438,7 +438,7 @@ internal sealed partial class DiffViewWindow
             Width = 150,
             VerticalAlignment = VerticalAlignment.Center,
             Style = TryFindResource("ZoomSlider") as Style,
-            ToolTip = "Horizontal waveform zoom"
+            ToolTip = StringOverlay.Get("Diff_WaveformZoom")
         };
 
         void UpdateMaximum()
@@ -452,10 +452,10 @@ internal sealed partial class DiffViewWindow
         var row = new StackPanel { Orientation = Orientation.Horizontal };
         row.Children.Add(new TextBlock
         { Text = StringOverlay.Get("Diff_Zoom"), VerticalAlignment = VerticalAlignment.Center });
-        row.Children.Add(ImageZoomStepButton("\uE738", "Zoom out",
+        row.Children.Add(ImageZoomStepButton("\uE738", StringOverlay.Get("Diff_ZoomOut"),
             () => zoom.Value = Math.Max(zoom.Minimum, zoom.Value - 100)));
         row.Children.Add(zoom);
-        row.Children.Add(ImageZoomStepButton("\uE710", "Zoom in",
+        row.Children.Add(ImageZoomStepButton("\uE710", StringOverlay.Get("Diff_ZoomIn"),
             () => zoom.Value = Math.Min(zoom.Maximum, zoom.Value + 100)));
         row.Children.Add(label);
         var chrome = new Border
@@ -487,10 +487,10 @@ internal sealed partial class DiffViewWindow
             Content = differenceIcon,
             Style = TryFindResource("IconToggleButton") as Style,
             Margin = new Thickness(0, 0, 8, 8),
-            ToolTip = "Highlight audio differences (decoded samples, before volume adjustment)",
+            ToolTip = StringOverlay.Get("Diff_HighlightAudioTip"),
             IsChecked = _audioDifferenceEnabled
         };
-        AutomationProperties.SetName(differenceToggle, "Highlight audio differences");
+        AutomationProperties.SetName(differenceToggle, StringOverlay.Get("Diff_HighlightAudio"));
 
         void UpdateDifferenceMode()
         {
@@ -517,10 +517,10 @@ internal sealed partial class DiffViewWindow
             Content = repeatIcon,
             Style = TryFindResource("IconToggleButton") as Style,
             Margin = new Thickness(0, 0, 8, 8),
-            ToolTip = "リピート：波形マップをドラッグしてA–B範囲を選択",
+            ToolTip = StringOverlay.Get("Diff_RepeatTip"),
             IsEnabled = duration > 0
         };
-        AutomationProperties.SetName(repeatToggle, "A–Bリピート");
+        AutomationProperties.SetName(repeatToggle, StringOverlay.Get("Diff_RepeatName"));
 
         void UpdateRepeat()
         {
@@ -570,12 +570,12 @@ internal sealed partial class DiffViewWindow
                 GroupName = group,
                 Content = image,
                 IsChecked = i == 2,
-                ToolTip = $"再生速度 {speed:0.##}倍",
+                ToolTip = string.Format(StringOverlay.Get("Diff_PlaybackSpeed"), speed.ToString("0.##")),
                 Margin = new Thickness(0, 0, 2, 0),
                 Style = (Style)FindResource("AudioSpeedRadioButton")
             };
             RenderOptions.SetBitmapScalingMode(image, BitmapScalingMode.HighQuality);
-            AutomationProperties.SetName(radio, $"再生速度 {speed:0.##}倍");
+            AutomationProperties.SetName(radio, string.Format(StringOverlay.Get("Diff_PlaybackSpeed"), speed.ToString("0.##")));
             radio.Checked += (_, _) =>
             {
                 foreach (var item in speedGroup.Children)
@@ -608,7 +608,7 @@ internal sealed partial class DiffViewWindow
         var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         var caption = new TextBlock
         {
-            Text = "Delay",
+            Text = StringOverlay.Get("Diff_Delay"),
             FontSize = 10,
             Margin = new Thickness(0, 0, 5, 0),
             VerticalAlignment = VerticalAlignment.Center
@@ -625,7 +625,7 @@ internal sealed partial class DiffViewWindow
             Background = Brushes.Transparent,
             TextAlignment = TextAlignment.Right,
             VerticalContentAlignment = VerticalAlignment.Center,
-            ToolTip = "0.1秒単位。正の値は遅らせ、負の値は先に進めます。"
+            ToolTip = StringOverlay.Get("Diff_DelayTip")
         };
         input.SetResourceReference(ForegroundProperty, "Ink");
         var textHost = new FrameworkElementFactory(typeof(ScrollViewer));
@@ -643,7 +643,7 @@ internal sealed partial class DiffViewWindow
         };
         frame.SetResourceReference(Border.BackgroundProperty, "CardBackground");
         frame.SetResourceReference(Border.BorderBrushProperty, "Line");
-        AutomationProperties.SetName(input, (source ? "Source" : "Target") + " delay in seconds");
+        AutomationProperties.SetName(input, StringOverlay.Get(source ? "Diff_DelaySourceName" : "Diff_DelayTargetName"));
 
         void Refresh()
         {
@@ -722,7 +722,7 @@ internal sealed partial class DiffViewWindow
         row.Children.Add(arrows);
         var unit = new TextBlock
         {
-            Text = "s",
+            Text = StringOverlay.Get("Diff_UnitSeconds"),
             FontSize = 10,
             Margin = new Thickness(3, 0, 0, 0),
             VerticalAlignment = VerticalAlignment.Center
@@ -765,7 +765,7 @@ internal sealed class AudioOverview : Control
         _envelopes = envelopes;
         _duration = duration;
         ClipToBounds = true;
-        ToolTip = "Source / Target — click waveform to seek; output level at right";
+        ToolTip = StringOverlay.Get("Diff_WaveformTip");
     }
 
     internal bool RepeatEnabled { get; private set; }
@@ -1244,10 +1244,10 @@ internal sealed class AudioTimeline : Grid
             TextWrapping = TextWrapping.Wrap
         };
         label.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
-        label.Inlines.Add(new Run(source ? "Source" : "Target"));
+        label.Inlines.Add(new Run(StringOverlay.Get(source ? "Diff_SideSource" : "Diff_SideTarget")));
         if (current == null)
         {
-            label.Inlines.Add(" — No file");
+            label.Inlines.Add(" — " + StringOverlay.Get("Diff_NoFile"));
             return label;
         }
 
@@ -1268,15 +1268,15 @@ internal sealed class AudioTimeline : Grid
         Add("", TimeSpan.FromSeconds(current.Duration).ToString(@"hh\:mm\:ss\.fff"),
             (long)Math.Round(current.Duration * 1000) !=
             (long)Math.Round((other?.Duration ?? 0) * 1000));
-        Add("Sample Rate: ", Number(current.SampleRate / 1000.0, "0.0##") + " kHz",
+        Add(StringOverlay.Get("Diff_SampleRate") + " ", Number(current.SampleRate / 1000.0, "0.0##") + " kHz",
             current.SampleRate != other?.SampleRate);
-        Add("Bit Depth: ",
-            current.BitDepth.HasValue ? current.BitDepth + (current.FloatingPoint ? " bit float" : " bit") : "N/A",
+        Add(StringOverlay.Get("Diff_BitDepth") + " ",
+            current.BitDepth.HasValue ? current.BitDepth + (current.FloatingPoint ? " bit float" : " bit") : StringOverlay.Get("Diff_NotAvailable"),
             current.BitDepth != other?.BitDepth || current.FloatingPoint != other?.FloatingPoint);
-        Add("Bit Rate: ", current.BitRate.HasValue ? Number(current.BitRate.Value / 1000.0, "0.###") + " kbps" : "N/A",
+        Add(StringOverlay.Get("Diff_BitRate") + " ", current.BitRate.HasValue ? Number(current.BitRate.Value / 1000.0, "0.###") + " kbps" : StringOverlay.Get("Diff_NotAvailable"),
             current.BitRate != other?.BitRate);
         label.ToolTip =
-            "PCM bit rate = sample rate × bit depth × channels. MP3 shows average encoded bit rate; bit depth is not applicable.";
+            StringOverlay.Get("Diff_BitRateTip");
         return label;
     }
 
@@ -1418,7 +1418,7 @@ internal sealed class AudioWaveform : WaveformControl
     internal AudioWaveform(AudioEnvelope envelope, double duration)
     {
         SetData(envelope?.Data, duration);
-        ToolTip = "Wheel: time zoom / Ctrl+wheel: amplitude / Drag: pan / Click: seek";
+        ToolTip = StringOverlay.Get("Diff_WaveDetailTip");
     }
 
     internal bool ShowDifferences

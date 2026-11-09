@@ -1,4 +1,5 @@
-﻿using DesktopIniManager.Services;
+﻿using DesktopIniManager.Properties;
+using DesktopIniManager.Services;
 using DesktopIniManager.ViewModels;
 using System;
 using System.Windows;
@@ -25,12 +26,12 @@ internal partial class SynchronizationLogWindow : ISynchronizationLog
     internal SynchronizationLogWindow(Window owner, string direction, DiffSnapshot snapshot) : this()
     {
         Owner = owner;
-        Title = "Synchronization / ZIP";
-        SummaryText.Text = direction + " \u2014 processing\u2026";
+        Title = StringOverlay.Get("Sync_LogTitle");
+        SummaryText.Text = string.Format(StringOverlay.Get("Sync_Processing"), direction);
         Show();
         AppendLine(direction);
-        AppendLine("Source: " + snapshot.SourceRoot);
-        AppendLine("Target: " + snapshot.TargetRoot);
+        AppendLine(string.Format(StringOverlay.Get("Sync_LogSource"), snapshot.SourceRoot));
+        AppendLine(string.Format(StringOverlay.Get("Sync_LogTarget"), snapshot.TargetRoot));
         AppendLine(new string('-', 80));
         Activate();
     }
@@ -42,7 +43,9 @@ internal partial class SynchronizationLogWindow : ISynchronizationLog
     public void AppendLine(string line)
     {
         if (!IsVisible) return;
-        if (line != null && line.StartsWith("Log: ", StringComparison.Ordinal))
+        // 言語ファイルの書式から接頭辞を取り出し、ログ ファイル行を判定する。
+        var logPrefix = StringOverlay.Get("Differencer_LogPath").Split("{0}")[0];
+        if (line != null && logPrefix.Length > 0 && line.StartsWith(logPrefix, StringComparison.Ordinal))
             LogPathText.Text = line;
         Log.AppendText(line + Environment.NewLine);
         Log.ScrollToEnd();
@@ -57,9 +60,9 @@ internal partial class SynchronizationLogWindow : ISynchronizationLog
     public void Complete(int succeeded, int failed, int locked)
     {
         AppendLine(new string('-', 80));
-        AppendLine("Complete  OK " + succeeded + " / FAIL " + failed + " / LOCKED " + locked);
-        SummaryText.Text = "Complete: " + succeeded + " succeeded / " + failed + " failed / " + locked + " locked";
-        Title = "Synchronization / ZIP result";
+        AppendLine(string.Format(StringOverlay.Get("Sync_LogComplete"), succeeded, failed, locked));
+        SummaryText.Text = string.Format(StringOverlay.Get("Sync_Summary"), succeeded, failed, locked);
+        Title = StringOverlay.Get("Sync_LogResultTitle");
     }
 
     /// <summary>

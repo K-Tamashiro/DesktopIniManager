@@ -27,10 +27,14 @@ internal sealed partial class MainWindowViewModel : ObservableObject
     private bool? _addToGitIgnore = false;
     private bool _allFoldersSelected;
     private int _baseTreeView;
-    private string _countLabel = Strings.Main_ZeroMatches;
+    private string _countLabel = StringOverlay.Get("Main_ZeroMatches");
+    private string _countLabelKey = "Main_ZeroMatches";
+    private object[] _statusArgs = [];
+    private string _statusKey = "Common_Ready";
+    private int _countLabelValue;
     private CancellationTokenSource _fileListCts;
     private string _filePanelPath;
-    private string _filePanelTitle = Strings.Common_Files;
+    private string _filePanelTitle = StringOverlay.Get("Common_Files");
     private CancellationTokenSource _filterCts;
     private IReadOnlyList<FolderMatch> _filteredViewItems;
     private string _folderFilter = string.Empty;
@@ -49,10 +53,10 @@ internal sealed partial class MainWindowViewModel : ObservableObject
     private CancellationTokenSource _searchCts;
     private int _searchResultCount;
     private ImageSource _selectedIcon;
-    private string _selectedIconLabel = Strings.Main_NotSelected;
+    private string _selectedIconLabel = StringOverlay.Get("Main_NotSelected");
     private ImageSource _selectedIconPreview;
     private bool _solutionView;
-    private string _status = Strings.Common_Ready;
+    private string _status = StringOverlay.Get("Common_Ready");
     private bool _treeCompact;
     private IEnumerable<FolderMatch> _treeItems;
 
@@ -119,8 +123,8 @@ internal sealed partial class MainWindowViewModel : ObservableObject
             _searchResultCount = 0;
             ClearSearchHits();
             FilePanelPath = null;
-            FilePanelTitle = Strings.Common_Files;
-            FileListCountLabel = string.Format(Strings.Main_NItems, 0);
+            FilePanelTitle = StringOverlay.Get("Common_Files");
+            SetFileListCount(0);
             SetFilePanelBusy(false);
             SetProperty(ref _rootPath, value);
             RefreshTreeItemsSource();
@@ -163,13 +167,53 @@ internal sealed partial class MainWindowViewModel : ObservableObject
     public string Status
     {
         get => _status;
-        set => SetProperty(ref _status, value);
+        set
+        {
+            _statusKey = null;
+            _statusArgs = null;
+            SetProperty(ref _status, value);
+        }
+    }
+
+    /// <summary>
+    ///     ステータスを、言語リソースのキーと値から設定します。言語の切り替え時に作り直せるよう、どちらも記憶します。
+    /// </summary>
+    /// <param name="key">文言のリソース キー。</param>
+    /// <param name="args">書式に埋め込む値。</param>
+    internal void SetStatus(string key, params object[] args)
+    {
+        Status = args.Length == 0 ? StringOverlay.Get(key) : string.Format(StringOverlay.Get(key), args);
+        _statusKey = key;
+        _statusArgs = args;
     }
 
     public string CountLabel
     {
         get => _countLabel;
-        set => SetProperty(ref _countLabel, value);
+        private set => SetProperty(ref _countLabel, value);
+    }
+
+    /// <summary>
+    ///     件数表示を、言語リソースのキーと件数から設定します。言語の切り替え時に作り直せるよう、どちらも記憶します。
+    /// </summary>
+    /// <param name="key">書式のリソース キー。</param>
+    /// <param name="count">件数。</param>
+    internal void SetCountLabel(string key, int count)
+    {
+        _countLabelKey = key;
+        _countLabelValue = count;
+        CountLabel = string.Format(StringOverlay.Get(key), count);
+    }
+
+    /// <summary>
+    ///     フォルダー数、ファイル一覧の件数、ステータスの表示を、現在の表示言語で作り直します。
+    ///     キーを記憶していないステータス (エラーの詳細やファイル名を含むもの) はそのまま残します。
+    /// </summary>
+    internal void RefreshLocalizedTexts()
+    {
+        SetCountLabel(_countLabelKey, _countLabelValue);
+        SetFileListCount(_fileListCount);
+        if (_statusKey != null) SetStatus(_statusKey, _statusArgs);
     }
 
     public bool AllFoldersSelected
@@ -415,8 +459,8 @@ internal sealed partial class MainWindowViewModel : ObservableObject
         _selectedIconPreview = preview;
         SelectedIcon = preview;
         SelectedIconLabel = preview == null
-            ? Strings.Main_NotSelected
-            : string.Format(Strings.Main_IndexN, index);
+            ? StringOverlay.Get("Main_NotSelected")
+            : string.Format(StringOverlay.Get("Main_IndexN"), index);
     }
 
     /// <summary>
@@ -427,7 +471,7 @@ internal sealed partial class MainWindowViewModel : ObservableObject
         SelectedIconIndex = 0;
         _selectedIconPreview = null;
         SelectedIcon = null;
-        SelectedIconLabel = Strings.Main_NotSelected;
+        SelectedIconLabel = StringOverlay.Get("Main_NotSelected");
     }
 
     /// <summary>
@@ -442,8 +486,8 @@ internal sealed partial class MainWindowViewModel : ObservableObject
         _selectedIconPreview = preview;
         SelectedIcon = preview;
         SelectedIconLabel = available
-            ? string.Format(Strings.Main_IndexN, index)
-            : Strings.Main_PreviewUnavailable;
+            ? string.Format(StringOverlay.Get("Main_IndexN"), index)
+            : StringOverlay.Get("Main_PreviewUnavailable");
     }
 
     public event Action SearchHistoryRequested;
@@ -460,7 +504,7 @@ internal sealed partial class MainWindowViewModel : ObservableObject
     /// <param name="error">発生した例外。</param>
     private void ReportCommandError(Exception error)
     {
-        ShowError(Strings.App_Unhandled, error);
+        ShowError(StringOverlay.Get("App_Unhandled"), error);
     }
 
     /// <summary>
@@ -553,7 +597,7 @@ internal sealed partial class MainWindowViewModel : ObservableObject
     internal void ShowError(string message, Exception ex)
     {
         Status = message;
-        _dialogs.Show(message + "\n\n" + ErrorMessages.English(ex), Strings.App_Title, MessageBoxButton.OK,
+        _dialogs.Show(message + "\n\n" + ErrorMessages.English(ex), StringOverlay.Get("App_Title"), MessageBoxButton.OK,
             MessageBoxImage.Error);
     }
 

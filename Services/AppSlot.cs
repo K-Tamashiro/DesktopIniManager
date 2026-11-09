@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DesktopIniManager.Properties;
+using System;
 using System.IO;
 using System.Threading;
 
@@ -31,14 +32,14 @@ internal static class AppSlot
         if (requested > 0)
         {
             if (Acquire(requested)) return true;
-            failure = "dim-" + requested + " は起動中です。";
+            failure = string.Format(StringOverlay.Get("App_SlotRunning"), "dim-" + requested);
             return false;
         }
 
         for (var slot = 1; slot <= 5; slot++)
             if (Acquire(slot))
                 return true;
-        failure = "dim-1 から dim-5 はすべて起動中です。";
+        failure = StringOverlay.Get("App_AllSlotsRunning");
         return false;
     }
 

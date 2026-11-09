@@ -135,11 +135,8 @@ internal sealed partial class MainWindowViewModel
         _ = ApplyFolderFilterAsync();
         UpdateVisibleCount();
         SyncAllFoldersSelectedFlag();
-        Status = view == 0
-            ? string.Format(Strings.Main_FoldersFound, _results.Count)
-            : view == 1
-                ? string.Format(Strings.Main_SolutionsFound, _solutionRoots.Count)
-                : string.Format(Strings.Main_SearchResults, _searchResultCount);
+        SetStatus(view == 0 ? "Main_FoldersFound" : view == 1 ? "Main_SolutionsFound" : "Main_SearchResults",
+            view == 0 ? _results.Count : view == 1 ? _solutionRoots.Count : _searchResultCount);
         if (view == 1) _ = EnsureSolutionViewAsync();
     }
 
@@ -172,7 +169,7 @@ internal sealed partial class MainWindowViewModel
     /// </summary>
     internal void UpdateVisibleCount()
     {
-        CountLabel = string.Format(_solutionView ? Strings.Main_NItems : Strings.Main_NFolders,
+        SetCountLabel(_solutionView ? "Main_NItems" : "Main_NFolders",
             CurrentItems().Count(item => !item.IsHidden && !item.IsFilterHidden));
     }
 
@@ -252,7 +249,7 @@ internal sealed partial class MainWindowViewModel
         bool intoSearch = false)
     {
         var source = items.Where(item => !IsDroppedTreePath(item.Path)).ToList();
-        Status = string.Format(Strings.Main_BuildingRows, source.Count.ToString("N0"));
+        SetStatus("Main_BuildingRows", source.Count.ToString("N0"));
         var built = await Task.Run(() =>
         {
             var roots = new List<FolderMatch>();
@@ -304,7 +301,7 @@ internal sealed partial class MainWindowViewModel
             foreach (var root in built.Roots) _searchRoots.Add(root);
             SetSearchResultCount(built.Items.Count);
             RefreshTreeItemsSource();
-            CountLabel = string.Format(Strings.Main_SearchResults, _searchResultCount);
+            SetCountLabel("Main_SearchResults", _searchResultCount);
             return;
         }
 
@@ -313,7 +310,7 @@ internal sealed partial class MainWindowViewModel
         _treeRoots.Clear();
         foreach (var root in built.Roots) _treeRoots.Add(root);
         RefreshTreeItemsSource();
-        CountLabel = string.Format(Strings.Main_NFolders, _results.Count);
+        SetCountLabel("Main_NFolders", _results.Count);
     }
 
     /// <summary>
@@ -427,11 +424,11 @@ internal sealed partial class MainWindowViewModel
         var addToGitIgnore = AddToGitIgnore == true;
         if (selected.Count == 0)
         {
-            _dialogs.Show(Strings.Main_SelectOneFolder, Strings.App_Title);
+            _dialogs.Show(StringOverlay.Get("Main_SelectOneFolder"), StringOverlay.Get("App_Title"));
             return;
         }
 
-        if (_dialogs.Show(string.Format(Strings.Main_ConfirmApply, selected.Count), Strings.App_Title,
+        if (_dialogs.Show(string.Format(StringOverlay.Get("Main_ConfirmApply"), selected.Count), StringOverlay.Get("App_Title"),
                 MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK) return;
 
         var succeeded = 0;
@@ -456,12 +453,12 @@ internal sealed partial class MainWindowViewModel
         if (changedFolders.Count > 0)
             service.NotifyExplorer(changedFolders);
 
-        Status = string.Format(Strings.Main_AppliedTo, succeeded);
+        SetStatus("Main_AppliedTo", succeeded);
         _dialogs.Show(
             errors.Count == 0
-                ? Strings.Main_ApplyOk
-                : string.Format(Strings.Main_ApplyResult, succeeded, errors.Count) + "\n\n" +
-                  string.Join("\n", errors.Take(5)), Strings.App_Title);
+                ? StringOverlay.Get("Main_ApplyOk")
+                : string.Format(StringOverlay.Get("Main_ApplyResult"), succeeded, errors.Count) + "\n\n" +
+                  string.Join("\n", errors.Take(5)), StringOverlay.Get("App_Title"));
     }
 
     /// <summary>
@@ -474,11 +471,11 @@ internal sealed partial class MainWindowViewModel
             .Select(group => group.First()).ToList();
         if (selected.Count == 0)
         {
-            _dialogs.Show(Strings.Main_SelectOneFolder, Strings.App_Title);
+            _dialogs.Show(StringOverlay.Get("Main_SelectOneFolder"), StringOverlay.Get("App_Title"));
             return;
         }
 
-        if (_dialogs.Show(string.Format(Strings.Main_ConfirmRemove, selected.Count), Strings.App_Title,
+        if (_dialogs.Show(string.Format(StringOverlay.Get("Main_ConfirmRemove"), selected.Count), StringOverlay.Get("App_Title"),
                 MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK) return;
 
         var succeeded = 0;
@@ -504,12 +501,12 @@ internal sealed partial class MainWindowViewModel
         if (changedFolders.Count > 0)
             service.NotifyExplorer(changedFolders);
 
-        Status = string.Format(Strings.Main_RemovedFrom, succeeded);
+        SetStatus("Main_RemovedFrom", succeeded);
         _dialogs.Show(
             errors.Count == 0
-                ? Strings.Main_RemoveOk
-                : string.Format(Strings.Main_RemoveResult, succeeded, errors.Count) + "\n\n" +
-                  string.Join("\n", errors.Take(5)), Strings.App_Title);
+                ? StringOverlay.Get("Main_RemoveOk")
+                : string.Format(StringOverlay.Get("Main_RemoveResult"), succeeded, errors.Count) + "\n\n" +
+                  string.Join("\n", errors.Take(5)), StringOverlay.Get("App_Title"));
     }
 
     /// <summary>
@@ -562,7 +559,7 @@ internal sealed partial class MainWindowViewModel
         {
             if (_startup?.TreeError != null)
             {
-                Status = string.Format(Strings.Main_RestoreTreesFailed, _startup.TreeError);
+                SetStatus("Main_RestoreTreesFailed", _startup.TreeError);
                 return;
             }
 
@@ -584,11 +581,11 @@ internal sealed partial class MainWindowViewModel
             _folderTreeRoot = state.Root;
             _solutionReady = true;
             ShowTreeView(state.View == 1 ? 1 : 0);
-            Status = Strings.Main_TreesRestored;
+            SetStatus("Main_TreesRestored");
         }
         catch (Exception ex)
         {
-            Status = string.Format(Strings.Main_RestoreTreesFailed, ErrorMessages.English(ex));
+            SetStatus("Main_RestoreTreesFailed", ErrorMessages.English(ex));
         }
     }
 
@@ -614,7 +611,7 @@ internal sealed partial class MainWindowViewModel
         }
         catch (Exception ex)
         {
-            Status = string.Format(Strings.Main_SaveTreesFailed, ErrorMessages.English(ex));
+            SetStatus("Main_SaveTreesFailed", ErrorMessages.English(ex));
         }
     }
 }

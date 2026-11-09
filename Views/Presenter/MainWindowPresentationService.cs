@@ -291,16 +291,15 @@ public sealed class MainWindowPresentationService
         _window.RunScriptButton.Click += (_, _) => RunScriptCommand();
         _window.BrowseScriptButton.Click += (_, _) => BrowseScriptCommand();
         _window.ScriptBox.PreviewKeyDown += ScriptBox_PreviewKeyDown;
-        _window.RunScriptButton.ToolTip = ScriptText("Main_RunScript",
-            "Run  \u2014  execute the command (%d folder / %f file / %n name)");
+        _window.RunScriptButton.ToolTip = StringOverlay.Get("Main_RunScript");
         _window.BrowseScriptButton.ToolTip =
-            ScriptText("Main_BrowseScript", "Browse  \u2014  pick .bat / .cmd / .ps1 / .vbs");
-        _window.ScriptBox.ToolTip = ScriptText("Main_ScriptTooltip",
-            "Command. %d = folder, %f = file path, %n = file name. Quote as \"%d\" to wrap.");
+            StringOverlay.Get("Main_BrowseScript");
+        _window.ScriptBox.ToolTip = StringOverlay.Get("Main_ScriptTooltip");
         _window.Closing += OnClosing;
         _window.Closed += OnClosed;
         ViewModel.InteractionRequested += HandleInteraction;
         _window.AllowDrop = true;
+        DropZoneHighlight.Attach(_window, () => !_internalDragOut, RootBox);
         _window.PreviewDragEnter += FolderDropPreview;
         _window.PreviewDragOver += FolderDropPreview;
         _window.PreviewDrop += MainWindow_Drop;
@@ -416,7 +415,7 @@ public sealed class MainWindowPresentationService
         }
         catch (Exception error)
         {
-            ViewModel.ShowError(Strings.App_Unhandled, error);
+            ViewModel.ShowError(StringOverlay.Get("App_Unhandled"), error);
         }
     }
 
@@ -431,7 +430,7 @@ public sealed class MainWindowPresentationService
                 ? ViewModel.RootPath
                 : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             var result = NativeFolderPicker.Show(new WindowInteropHelper(_window).Handle, selectedPath,
-                Strings.Main_SelectSearchFolder);
+                StringOverlay.Get("Main_SelectSearchFolder"));
             if (!string.IsNullOrEmpty(result))
             {
                 ViewModel.RootPath = result;
@@ -443,7 +442,7 @@ public sealed class MainWindowPresentationService
         }
         catch (Exception ex)
         {
-            ViewModel.ShowError(Strings.Main_FolderPickerFailed, ex);
+            ViewModel.ShowError(StringOverlay.Get("Main_FolderPickerFailed"), ex);
         }
     }
 
@@ -584,7 +583,7 @@ public sealed class MainWindowPresentationService
             }
             catch (Exception ex)
             {
-                ViewModel.ShowError(Strings.App_Unhandled, ex);
+                ViewModel.ShowError(StringOverlay.Get("App_Unhandled"), ex);
             }
         }));
     }
@@ -614,7 +613,7 @@ public sealed class MainWindowPresentationService
         }
         catch (Exception ex)
         {
-            ViewModel.ShowError(Strings.App_Unhandled, ex);
+            ViewModel.ShowError(StringOverlay.Get("App_Unhandled"), ex);
         }
     }
 
@@ -625,7 +624,7 @@ public sealed class MainWindowPresentationService
     {
         try
         {
-            var dialog = new OpenFileDialog { Filter = Strings.Main_IconFilter, CheckFileExists = true };
+            var dialog = new OpenFileDialog { Filter = StringOverlay.Get("Main_IconFilter"), CheckFileExists = true };
             var currentPath = ViewModel.IconLibraryPath.Trim();
             if (File.Exists(currentPath))
             {
@@ -640,11 +639,11 @@ public sealed class MainWindowPresentationService
             ShowTextEnd(IconPathBox);
             ViewModel.ClearSelectedIcon();
             RefreshSelectedIconPreview();
-            ViewModel.Status = Path.GetFileName(dialog.FileName) + Strings.Main_SelectedSuffix;
+            ViewModel.Status = Path.GetFileName(dialog.FileName) + StringOverlay.Get("Main_SelectedSuffix");
         }
         catch (Exception ex)
         {
-            ViewModel.ShowError(Strings.Main_LibrarySelectFailed, ex);
+            ViewModel.ShowError(StringOverlay.Get("Main_LibrarySelectFailed"), ex);
         }
     }
 
@@ -658,15 +657,15 @@ public sealed class MainWindowPresentationService
             var iconPath = ViewModel.IconLibraryPath.Trim();
             if (!File.Exists(iconPath))
             {
-                MessageBox.Show(Strings.Main_ChooseLibraryFirst, Title);
+                MessageBox.Show(StringOverlay.Get("Main_ChooseLibraryFirst"), Title);
                 return;
             }
 
-            ViewModel.Status = Strings.Main_LoadingIcons;
+            ViewModel.SetStatus("Main_LoadingIcons");
             var groups = IconResourceReader.Read(iconPath);
             if (groups.Count == 0)
             {
-                MessageBox.Show(Strings.Main_NoIconGroups, Title);
+                MessageBox.Show(StringOverlay.Get("Main_NoIconGroups"), Title);
                 return;
             }
 
@@ -674,16 +673,16 @@ public sealed class MainWindowPresentationService
             if (browser.ShowDialog() == true && browser.SelectedGroup != null)
             {
                 ViewModel.ApplySelectedIcon(browser.SelectedGroup.ShellIndex, browser.SelectedGroup.Preview);
-                ViewModel.Status = string.Format(Strings.Main_IconNSelected, browser.SelectedGroup.ShellIndex);
+                ViewModel.SetStatus("Main_IconNSelected", browser.SelectedGroup.ShellIndex);
             }
             else
             {
-                ViewModel.Status = Strings.Main_IconCancelled;
+                ViewModel.SetStatus("Main_IconCancelled");
             }
         }
         catch (Exception ex)
         {
-            ViewModel.ShowError(Strings.Main_IconBrowserFailed, ex);
+            ViewModel.ShowError(StringOverlay.Get("Main_IconBrowserFailed"), ex);
         }
     }
 
@@ -704,7 +703,7 @@ public sealed class MainWindowPresentationService
         catch
         {
             ViewModel.ClearSelectedIcon();
-            ViewModel.SelectedIconLabel = Strings.Main_PreviewUnavailable;
+            ViewModel.SelectedIconLabel = StringOverlay.Get("Main_PreviewUnavailable");
         }
     }
 
@@ -717,7 +716,7 @@ public sealed class MainWindowPresentationService
         var path = MainWindowViewModel.ExistingFolderPath(folder?.Path);
         if (path == null)
         {
-            MessageBox.Show(Strings.Main_LocationMissing, Title);
+            MessageBox.Show(StringOverlay.Get("Main_LocationMissing"), Title);
             return;
         }
 
@@ -741,7 +740,7 @@ public sealed class MainWindowPresentationService
         }
         catch (Exception ex)
         {
-            ViewModel.ShowError(Strings.Main_ExplorerFailed, ex);
+            ViewModel.ShowError(StringOverlay.Get("Main_ExplorerFailed"), ex);
         }
     }
 
@@ -762,12 +761,11 @@ public sealed class MainWindowPresentationService
             var outputPath = Path.Combine(Path.GetTempPath(), "DesktopIniManager-" + AppSlot.Name + "-file-list.txt");
             File.WriteAllText(outputPath, text.ToString(), new UTF8Encoding(true));
             OpenTextInEditor(outputPath);
-            ViewModel.Status =
-                string.Format(StringOverlay.Get("Main_TreeOpened"), "File List", ViewModel.FilePanelPath);
+            ViewModel.SetStatus("Main_TreeOpened", StringOverlay.Get("Main_LabelFileList"), ViewModel.FilePanelPath);
         }
         catch (Exception ex)
         {
-            ViewModel.ShowError(string.Format(StringOverlay.Get("Main_TreeFailed"), "File List"), ex);
+            ViewModel.ShowError(string.Format(StringOverlay.Get("Main_TreeFailed"), StringOverlay.Get("Main_LabelFileList")), ex);
         }
     }
 
@@ -791,7 +789,7 @@ public sealed class MainWindowPresentationService
             WriteContainedTree(text, folder, includeFiles);
             File.WriteAllText(outputPath, text.ToString(), new UTF8Encoding(true));
             OpenTextInEditor(outputPath);
-            ViewModel.Status = string.Format(StringOverlay.Get("Main_TreeOpened"), label, folder.Path);
+            ViewModel.SetStatus("Main_TreeOpened", label, folder.Path);
         }
         catch (Exception ex)
         {
@@ -896,7 +894,7 @@ public sealed class MainWindowPresentationService
         }
         catch (Exception ex)
         {
-            ViewModel.ShowError(Strings.Main_OpenFileFailed, ex);
+            ViewModel.ShowError(StringOverlay.Get("Main_OpenFileFailed"), ex);
         }
     }
 
@@ -951,7 +949,7 @@ public sealed class MainWindowPresentationService
                     () => OpenFileComparison(source, target)));
             }
             if (comparisons.Count > 0)
-                items.Add(new ExplorerContextMenu.CommandItem("SELECT Compare", null, Children: comparisons));
+                items.Add(new ExplorerContextMenu.CommandItem(StringOverlay.Get("Main_SelectCompare"), null, Children: comparisons));
         }
 
         var shellFiles = source == null ? new List<FileListItem>()
@@ -974,7 +972,7 @@ public sealed class MainWindowPresentationService
             }
             catch (Exception ex)
             {
-                ViewModel.ShowError(Strings.Main_OpenFileFailed, ex);
+                ViewModel.ShowError(StringOverlay.Get("Main_OpenFileFailed"), ex);
             }
         }), DispatcherPriority.Input);
     }
@@ -1009,7 +1007,7 @@ public sealed class MainWindowPresentationService
         }
         catch (Exception ex)
         {
-            ViewModel.ShowError(Strings.Main_OpenFileFailed, ex);
+            ViewModel.ShowError(StringOverlay.Get("Main_OpenFileFailed"), ex);
         }
     }
 
@@ -1042,24 +1040,12 @@ public sealed class MainWindowPresentationService
         try
         {
             StartKeepOpenConsole(workDir, command);
-            ViewModel.Status = string.Format(StringOverlay.Get("Main_RunScriptStarted"), file.Name);
+            ViewModel.SetStatus("Main_RunScriptStarted", file.Name);
         }
         catch (Exception ex)
         {
-            ViewModel.ShowError(ScriptText("Main_RunScriptFailed", "Could not run the script."), ex);
+            ViewModel.ShowError(StringOverlay.Get("Main_RunScriptFailed"), ex);
         }
-    }
-
-    /// <summary>
-    ///     スクリプト実行の表示文字列を取得します。翻訳がない場合は既定の文字列を使います。
-    /// </summary>
-    /// <param name="key">リソース キー。</param>
-    /// <param name="fallback">既定の文字列。</param>
-    /// <returns>表示文字列。</returns>
-    private static string ScriptText(string key, string fallback)
-    {
-        var value = StringOverlay.Get(key);
-        return string.IsNullOrEmpty(value) || value == key ? fallback : value;
     }
 
     /// <summary>
@@ -1085,7 +1071,7 @@ public sealed class MainWindowPresentationService
         {
             var dialog = new OpenFileDialog
             {
-                Filter = "Scripts (*.bat;*.cmd;*.ps1;*.vbs)|*.bat;*.cmd;*.ps1;*.vbs|All files (*.*)|*.*",
+                Filter = StringOverlay.Get("Main_ScriptFileFilter"),
                 CheckFileExists = true
             };
             var current = ScriptBox.Text.Trim();
@@ -1105,7 +1091,7 @@ public sealed class MainWindowPresentationService
         }
         catch (Exception ex)
         {
-            ViewModel.ShowError(ScriptText("Main_RunScriptFailed", "Could not run the script."), ex);
+            ViewModel.ShowError(StringOverlay.Get("Main_RunScriptFailed"), ex);
         }
     }
 
@@ -1117,7 +1103,7 @@ public sealed class MainWindowPresentationService
         var template = ScriptBox.Text.Trim();
         if (string.IsNullOrEmpty(template))
         {
-            ViewModel.Status = StringOverlay.Get("Main_ScriptEmpty");
+            ViewModel.SetStatus("Main_ScriptEmpty");
             return;
         }
 
@@ -1167,11 +1153,11 @@ public sealed class MainWindowPresentationService
         {
             StartKeepOpenConsole(workDir, command);
             ScriptBox.CommitHistory();
-            ViewModel.Status = string.Format(StringOverlay.Get("Main_RunScriptStarted"), command);
+            ViewModel.SetStatus("Main_RunScriptStarted", command);
         }
         catch (Exception ex)
         {
-            ViewModel.ShowError(ScriptText("Main_RunScriptFailed", "Could not run the script."), ex);
+            ViewModel.ShowError(StringOverlay.Get("Main_RunScriptFailed"), ex);
         }
     }
 
@@ -1384,10 +1370,10 @@ public sealed class MainWindowPresentationService
         var flags = LanguageIconService.LoadFlagIcons();
         var items = new[]
         {
-            new LanguageChoice("en", flags[0], "English"),
-            new LanguageChoice("ja", flags[1], "Japanese"),
-            new LanguageChoice("zh-Hans", flags[2], "Chinese"),
-            new LanguageChoice("ko", flags[3], "Korean")
+            new LanguageChoice("en", flags[0], StringOverlay.Get("Language_NameEnglish")),
+            new LanguageChoice("ja", flags[1], StringOverlay.Get("Language_NameJapanese")),
+            new LanguageChoice("zh-Hans", flags[2], StringOverlay.Get("Language_NameChinese")),
+            new LanguageChoice("ko", flags[3], StringOverlay.Get("Language_NameKorean"))
         };
         LanguageBox.ItemsSource = items;
         var current = StringOverlay.ResolveCulture().Name;
@@ -1417,7 +1403,8 @@ public sealed class MainWindowPresentationService
         var choice = LanguageBox.SelectedItem as LanguageChoice;
         if (choice == null) return;
         StringOverlay.SetCulture(choice.Code);
-        Title = Strings.App_Title;
+        ViewModel.RefreshLocalizedTexts();
+        Title = StringOverlay.Get("App_Title");
         ScheduleResetCaption();
     }
 
@@ -1435,13 +1422,7 @@ public sealed class MainWindowPresentationService
     private void UpdateResetCaption()
     {
         if (ResetButton == null) return;
-        var language = StringOverlay.ResolveCulture().TwoLetterISOLanguageName;
-        string tip;
-        if (language == "ja") tip = "設定・履歴・フォルダー一覧を初期化します";
-        else if (language == "zh") tip = "清除设置、历史和文件夹列表";
-        else if (language == "ko") tip = "설정, 기록, 폴더 목록을 초기화합니다";
-        else tip = "Clear settings, history, and folder lists";
-        ResetButton.ToolTip = tip;
+        ResetButton.ToolTip = StringOverlay.Get("Main_ResetTip");
     }
 
     /// <summary>
@@ -1449,15 +1430,8 @@ public sealed class MainWindowPresentationService
     /// </summary>
     private void Reset()
     {
-        var language = StringOverlay.ResolveCulture().TwoLetterISOLanguageName;
-        var title = language == "ja" ? "リセット" : language == "zh" ? "重置" : language == "ko" ? "초기화" : "Reset";
-        var message = language == "ja"
-            ? "設定、入力履歴、フォルダー一覧、GREP と差分比較の状態、エディターとアイコンの選択を初期化します。よろしいですか。"
-            : language == "zh"
-                ? "将清除设置、输入历史、文件夹列表、GREP 和差异比较器状态以及编辑器和图标选择。确定吗？"
-                : language == "ko"
-                    ? "설정, 입력 기록, 폴더 목록, GREP 및 차이 비교 상태, 편집기와 아이콘 선택을 초기화합니다. 계속할까요?"
-                    : "This clears settings, input history, folder lists, GREP and differencer state, and editor and icon selections. Continue?";
+        var title = StringOverlay.Get("Main_ResetTitle");
+        var message = StringOverlay.Get("Main_ResetConfirm");
         if (MessageBox.Show(_window, message, title, MessageBoxButton.OKCancel, MessageBoxImage.Warning) !=
             MessageBoxResult.OK)
             return;
@@ -1489,13 +1463,14 @@ public sealed class MainWindowPresentationService
         SelectThemeBox("Light");
         SettingsService.SaveTheme("Light");
         ViewModel.ShowTreeView(0);
-        ViewModel.CountLabel = string.Format(Strings.Main_NFolders, 0);
+        ViewModel.SetCountLabel("Main_NFolders", 0);
         ViewModel.SearchHitLabel = "0/0";
-        ViewModel.Status = Strings.Common_Ready;
+        ViewModel.SetStatus("Common_Ready");
         _languageReady = false;
         StringOverlay.SetCulture("en");
+        ViewModel.RefreshLocalizedTexts();
         InitLanguageBox();
-        Title = Strings.App_Title;
+        Title = StringOverlay.Get("App_Title");
         RefreshSelectedIconPreview();
         ScheduleResetCaption();
     }
@@ -1526,7 +1501,7 @@ public sealed class MainWindowPresentationService
         ViewModel.TreeCompact = compact;
         HighlightTreeDensityButtons();
         SettingsService.SaveTreeCompact(compact);
-        if (announce) ViewModel.Status = compact ? Strings.Main_TreeCompact : Strings.Main_TreeComfortable;
+        if (announce) ViewModel.SetStatus(compact ? "Main_TreeCompact" : "Main_TreeComfortable");
     }
 
     /// <summary>
@@ -1537,7 +1512,7 @@ public sealed class MainWindowPresentationService
         if (TreeDensityToggle == null) return;
         _updatingToggles = true;
         TreeDensityToggle.IsChecked = !ViewModel.TreeCompact;
-        TreeDensityToggle.ToolTip = ViewModel.TreeCompact ? Strings.Main_TreeCompact : Strings.Main_TreeComfortable;
+        TreeDensityToggle.ToolTip = ViewModel.TreeCompact ? StringOverlay.Get("Main_TreeCompact") : StringOverlay.Get("Main_TreeComfortable");
         _updatingToggles = false;
         if (_window.TreeDensityIcon != null)
             _window.TreeDensityIcon.Source = DifferencerStatusIcons.GetCustomIcon(ViewModel.TreeCompact ? 91 : 90);
@@ -1605,7 +1580,7 @@ public sealed class MainWindowPresentationService
             SetTreeExpanded(folder, expanded);
 
         NodeExpandToggle.ToolTip =
-            expanded ? Strings.Common_Collapse : Strings.Common_Expand;
+            expanded ? StringOverlay.Get("Common_Collapse") : StringOverlay.Get("Common_Expand");
 
         UpdateNodeExpandIcon();
     }
@@ -1816,7 +1791,7 @@ public sealed class MainWindowPresentationService
         var normalized = ThemeService.Normalize(theme);
         _themeBoxReady = false;
         foreach (ComboBoxItem item in ThemeBox.Items)
-            if (string.Equals(item.Content as string, normalized, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(item.Tag as string, normalized, StringComparison.OrdinalIgnoreCase))
             {
                 ThemeBox.SelectedItem = item;
                 break;
@@ -1835,7 +1810,7 @@ public sealed class MainWindowPresentationService
         if (!_themeBoxReady) return;
         var item = ThemeBox.SelectedItem as ComboBoxItem;
         if (item == null) return;
-        SetTheme(item.Content as string);
+        SetTheme(item.Tag as string);
     }
 
 
@@ -1971,7 +1946,7 @@ public sealed class MainWindowPresentationService
         }
         catch (Exception ex)
         {
-            ViewModel.ShowError(Strings.App_Unhandled, ex);
+            ViewModel.ShowError(StringOverlay.Get("App_Unhandled"), ex);
         }
         finally
         {
@@ -2261,7 +2236,7 @@ public sealed class MainWindowPresentationService
         if (ViewModel.TreeViewIndex != 1) return;
         if (string.IsNullOrWhiteSpace(solutionFile) || !File.Exists(solutionFile))
         {
-            ViewModel.ShowError(ScriptText("Main_MsBuildMissingSln", "Solution file was not found."),
+            ViewModel.ShowError(StringOverlay.Get("Main_MsBuildMissingSln"),
                 new FileNotFoundException(solutionFile ?? string.Empty));
             return;
         }
@@ -2278,7 +2253,7 @@ public sealed class MainWindowPresentationService
         var msbuild = FindMsBuild();
         if (string.IsNullOrEmpty(msbuild))
         {
-            ViewModel.ShowError(ScriptText("Main_MsBuildNotFound", "MSBuild.exe was not found."),
+            ViewModel.ShowError(StringOverlay.Get("Main_MsBuildNotFound"),
                 new FileNotFoundException("MSBuild.exe"));
             return;
         }
@@ -2289,12 +2264,12 @@ public sealed class MainWindowPresentationService
         try
         {
             StartKeepOpenConsole(workDir, command);
-            ViewModel.Status = string.Format(ScriptText("Main_MsBuildStarted", "Started {0} {1}"), target,
+            ViewModel.SetStatus("Main_MsBuildStarted", target,
                 configurationPair);
         }
         catch (Exception ex)
         {
-            ViewModel.ShowError(ScriptText("Main_MsBuildFailed", "MSBuild could not be started."), ex);
+            ViewModel.ShowError(StringOverlay.Get("Main_MsBuildFailed"), ex);
         }
     }
 
@@ -2321,11 +2296,11 @@ public sealed class MainWindowPresentationService
                           + "\" -p:Platform=\"" + platform + "\""
                           + (rebuild ? " --no-incremental -t:Rebuild" : string.Empty);
             StartKeepOpenConsole(Path.GetDirectoryName(solutionFile), command);
-            ViewModel.Status = "Started .NET SDK " + (rebuild ? "Rebuild " : "Build ") + configurationPair;
+            ViewModel.SetStatus(rebuild ? "Main_SdkRebuildStarted" : "Main_SdkBuildStarted", configurationPair);
         }
         catch (Exception ex)
         {
-            ViewModel.ShowError(".NET SDK build could not be started.", ex);
+            ViewModel.ShowError(StringOverlay.Get("Main_SdkBuildFailed"), ex);
         }
     }
 
@@ -2484,7 +2459,7 @@ public sealed class MainWindowPresentationService
         }
         catch (Exception ex)
         {
-            ViewModel.ShowError(Strings.App_Unhandled, ex);
+            ViewModel.ShowError(StringOverlay.Get("App_Unhandled"), ex);
         }
     }
 
@@ -2505,7 +2480,7 @@ public sealed class MainWindowPresentationService
         }
         catch (Exception ex)
         {
-            ViewModel.ShowError(Strings.App_Unhandled, ex);
+            ViewModel.ShowError(StringOverlay.Get("App_Unhandled"), ex);
         }
     }
 

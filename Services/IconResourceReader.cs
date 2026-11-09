@@ -1,4 +1,5 @@
-﻿using DesktopIniManager.Models;
+﻿using DesktopIniManager.Properties;
+using DesktopIniManager.Models;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -28,7 +29,7 @@ internal static class IconResourceReader
 
         var module = LoadLibraryEx(fileName, IntPtr.Zero, LoadLibraryAsDataFile | LoadLibraryAsImageResource);
         if (module == IntPtr.Zero)
-            throw new Win32Exception(Marshal.GetLastWin32Error(), "Could not open the icon library.");
+            throw new Win32Exception(Marshal.GetLastWin32Error(), StringOverlay.Get("Err_IconLibraryOpen")).Localized();
         var result = new List<IconGroupResource>();
         try
         {
@@ -74,7 +75,7 @@ internal static class IconResourceReader
     {
         var ico = File.ReadAllBytes(fileName);
         if (ico.Length < 6 || BitConverter.ToUInt16(ico, 0) != 0 || BitConverter.ToUInt16(ico, 2) != 1)
-            throw new InvalidDataException("The ICO file is invalid.");
+            throw new InvalidDataException(StringOverlay.Get("Err_IcoInvalid")).Localized();
         return new IconGroupResource
         {
             ResourceName = Path.GetFileNameWithoutExtension(fileName),
@@ -100,7 +101,7 @@ internal static class IconResourceReader
             var offset = 6 + index * 14;
             var id = BitConverter.ToUInt16(group, offset + 12);
             var image = LoadBytes(module, RtIcon, id, language) ?? LoadBytesAnyLanguage(module, RtIcon, id);
-            if (image == null) throw new InvalidDataException("Icon image " + id + " was not found.");
+            if (image == null) throw new InvalidDataException(string.Format(StringOverlay.Get("Err_IconImageMissing"), id)).Localized();
             images.Add(image);
         }
 

@@ -401,10 +401,10 @@
     <value>Solution</value>
   </data>
   <data name="Main_RemoveSettings" xml:space="preserve">
-    <value>Remove settings</value>
+    <value>Reset custom folder icons</value>
   </data>
   <data name="Main_IconRemove" xml:space="preserve">
-    <value>Icon Remove</value>
+    <value>Icon Reset</value>
   </data>
   <data name="Main_DifferencerTooltip" xml:space="preserve">
     <value>Compare and synchronize folders</value>
@@ -1387,6 +1387,1016 @@ Cancel: select a different tab without searching</value>
     <value>Invalid audio format.</value>
   </data>
   <data name="ShellMenu_SelectFilesFromSameFolder" xml:space="preserve">
-    <value>シェルメニューでは同じフォルダー内のファイルを選択してください。</value>
+    <value>Select files from the same folder for the shell menu.</value>
+  </data>
+  <data name="Main_IconReset" xml:space="preserve">
+    <value>Icon Reset</value>
+  </data>
+  <data name="Diff_NextHunk" xml:space="preserve">
+    <value>Next hunk</value>
+  </data>
+  <data name="Diff_PreviousHunk" xml:space="preserve">
+    <value>Previous hunk</value>
+  </data>
+  <data name="Main_BrowseScript" xml:space="preserve">
+    <value>Browse  —  pick .bat / .cmd / .ps1 / .vbsスクリプトを選ぶ</value>
+  </data>
+  <data name="Main_ScriptTooltip" xml:space="preserve">
+    <value>Command. %d = folder, %f = file path, %n = file name. Quote as "%d" to wrap.</value>
+  </data>
+  <data name="Main_RunScriptFailed" xml:space="preserve">
+    <value>Could not run the script.</value>
+  </data>
+  <data name="Main_RunScriptStarted" xml:space="preserve">
+    <value>Started {0}</value>
+  </data>
+  <data name="Main_ScriptConfirmAsk" xml:space="preserve">
+    <value>Run this command?</value>
+  </data>
+  <data name="Main_ScriptEmpty" xml:space="preserve">
+    <value>The command is empty.</value>
+  </data>
+  <data name="Main_ScriptFilter" xml:space="preserve">
+    <value>Scripts|*.bat;*.cmd;*.ps1;*.vbs|All files|*.*</value>
+  </data>
+  <data name="Main_ScriptMissingDir" xml:space="preserve">
+    <value>No folder is selected.</value>
+  </data>
+  <data name="Main_ScriptMissingFile" xml:space="preserve">
+    <value>No file is selected.</value>
+  </data>
+  <data name="Main_MsBuildMissingSln" xml:space="preserve">
+    <value>Solution file was not found.</value>
+  </data>
+  <data name="Main_MsBuildNotFound" xml:space="preserve">
+    <value>MSBuild.exe was not found.</value>
+  </data>
+  <data name="Main_MsBuildStarted" xml:space="preserve">
+    <value>Started {0} {1}</value>
+  </data>
+  <data name="Main_MsBuildFailed" xml:space="preserve">
+    <value>MSBuild could not be started.</value>
+  </data>
+  <data name="Main_NextMatch" xml:space="preserve">
+    <value>Next match</value>
+  </data>
+  <data name="Main_PrevMatch" xml:space="preserve">
+    <value>Previous match</value>
+  </data>
+  <data name="Main_ElevationTooltip" xml:space="preserve">
+    <value>Uses MFT in every window. Turning this on may restart DIM with administrator permission. Turning it off uses the normal scan. The process keeps its current permission.</value>
+  </data>
+  <data name="App_SlotRunning" xml:space="preserve">
+    <value>{0} is already running.</value>
+  </data>
+  <data name="App_AllSlotsRunning" xml:space="preserve">
+    <value>dim-1 through dim-5 are all running.</value>
+  </data>
+  <data name="App_DiffViewTitle" xml:space="preserve">
+    <value>DIM DIFF VIEW</value>
+  </data>
+  <data name="App_DiffUsage" xml:space="preserve">
+    <value>Usage: DesktopIniManager.exe -diff [&lt;Source&gt; &lt;Target&gt;]</value>
+  </data>
+  <data name="Err_ClipboardEmpty" xml:space="preserve">
+    <value>The clipboard is empty.</value>
+  </data>
+  <data name="Err_ClipboardFileCount" xml:space="preserve">
+    <value>Copy one or two files to compare.</value>
+  </data>
+  <data name="Err_ClipboardWave" xml:space="preserve">
+    <value>The WAVE audio on the clipboard could not be read.</value>
+  </data>
+  <data name="Err_ClipboardNoContent" xml:space="preserve">
+    <value>There is no file, WAVE audio, image, or text to paste. If the editor uses its own audio format, export a WAV and copy the file.</value>
+  </data>
+  <data name="Diff_RepeatTip" xml:space="preserve">
+    <value>Repeat: drag on the waveform map to select an A–B range</value>
+  </data>
+  <data name="Diff_RepeatName" xml:space="preserve">
+    <value>A–B repeat</value>
+  </data>
+  <data name="Diff_PlaybackSpeed" xml:space="preserve">
+    <value>Playback speed {0}x</value>
+  </data>
+  <data name="Diff_DelayTip" xml:space="preserve">
+    <value>In 0.1-second steps. Positive values delay; negative values advance.</value>
+  </data>
+  <data name="Main_ResetTip" xml:space="preserve">
+    <value>Clear settings, history, and folder lists</value>
+  </data>
+  <data name="Main_ResetTitle" xml:space="preserve">
+    <value>Reset</value>
+  </data>
+  <data name="Main_ResetConfirm" xml:space="preserve">
+    <value>This clears settings, input history, folder lists, GREP and differencer state, and editor and icon selections. Continue?</value>
+  </data>
+  <data name="Main_About" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="Main_MenuBuild" xml:space="preserve">
+    <value>Build</value>
+  </data>
+  <data name="Main_MenuRebuild" xml:space="preserve">
+    <value>Rebuild</value>
+  </data>
+  <data name="Main_DiffViewTip" xml:space="preserve">
+    <value>DIFF VIEW</value>
+  </data>
+  <data name="Main_BrowseScriptTip" xml:space="preserve">
+    <value>Browse — pick script</value>
+  </data>
+  <data name="Main_RunCommandTip" xml:space="preserve">
+    <value>Run — execute command</value>
+  </data>
+  <data name="Main_CommandTip" xml:space="preserve">
+    <value>Command. %d = folder, %f = file path, %n = file name</value>
+  </data>
+  <data name="Main_ScopedCount" xml:space="preserve">
+    <value>Scoped {0}</value>
+  </data>
+  <data name="Main_LabelFileList" xml:space="preserve">
+    <value>File List</value>
+  </data>
+  <data name="Main_SelectCompare" xml:space="preserve">
+    <value>SELECT Compare</value>
+  </data>
+  <data name="Main_ExplorerMenu" xml:space="preserve">
+    <value>Explorer Menu</value>
+  </data>
+  <data name="Main_ScriptFileFilter" xml:space="preserve">
+    <value>Scripts (*.bat;*.cmd;*.ps1;*.vbs)|*.bat;*.cmd;*.ps1;*.vbs|All files (*.*)|*.*</value>
+  </data>
+  <data name="Main_SdkBuildStarted" xml:space="preserve">
+    <value>Started .NET SDK Build {0}</value>
+  </data>
+  <data name="Main_SdkRebuildStarted" xml:space="preserve">
+    <value>Started .NET SDK Rebuild {0}</value>
+  </data>
+  <data name="Main_SdkBuildFailed" xml:space="preserve">
+    <value>.NET SDK build could not be started.</value>
+  </data>
+  <data name="Language_NameEnglish" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="Language_NameJapanese" xml:space="preserve">
+    <value>Japanese</value>
+  </data>
+  <data name="Language_NameChinese" xml:space="preserve">
+    <value>Chinese</value>
+  </data>
+  <data name="Language_NameKorean" xml:space="preserve">
+    <value>Korean</value>
+  </data>
+  <data name="Theme_NameDark" xml:space="preserve">
+    <value>Dark</value>
+  </data>
+  <data name="Theme_NameLight" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="Reason_Folder" xml:space="preserve">
+    <value>Folder</value>
+  </data>
+  <data name="Reason_EmptyFolder" xml:space="preserve">
+    <value>Empty folder</value>
+  </data>
+  <data name="Reason_SolutionFolder" xml:space="preserve">
+    <value>Solution folder</value>
+  </data>
+  <data name="Reason_SolutionProjects" xml:space="preserve">
+    <value>Solution  {0} projects</value>
+  </data>
+  <data name="Reason_Project" xml:space="preserve">
+    <value>Project  {0}</value>
+  </data>
+  <data name="Reason_Name" xml:space="preserve">
+    <value>Name: {0}</value>
+  </data>
+  <data name="Reason_Contents" xml:space="preserve">
+    <value>Contents: {0}</value>
+  </data>
+  <data name="Reason_Repository" xml:space="preserve">
+    <value>Repository</value>
+  </data>
+  <data name="Reason_ProjectCount" xml:space="preserve">
+    <value>Project ×{0}</value>
+  </data>
+  <data name="Reason_NoExtension" xml:space="preserve">
+    <value>(no extension)</value>
+  </data>
+  <data name="Grep_ProfileFree" xml:space="preserve">
+    <value>Free / Plain text</value>
+  </data>
+  <data name="Grep_ProfileDocument" xml:space="preserve">
+    <value>Document</value>
+  </data>
+  <data name="Grep_DefaultSheet" xml:space="preserve">
+    <value>Sheet</value>
+  </data>
+  <data name="File_StateAttrUnreadable" xml:space="preserve">
+    <value>ATTR unreadable (BOM)</value>
+  </data>
+  <data name="File_StateSame" xml:space="preserve">
+    <value>Same</value>
+  </data>
+  <data name="File_StateTargetOnly" xml:space="preserve">
+    <value>Target only</value>
+  </data>
+  <data name="File_StateSourceOnly" xml:space="preserve">
+    <value>Source only</value>
+  </data>
+  <data name="File_StateAttrDiffers" xml:space="preserve">
+    <value>ATTR differs (BOM)</value>
+  </data>
+  <data name="File_StateContentDiffers" xml:space="preserve">
+    <value>Content differs</value>
+  </data>
+  <data name="File_StateSizeDiffers" xml:space="preserve">
+    <value>Size differs</value>
+  </data>
+  <data name="File_StateTimeSizeDiffers" xml:space="preserve">
+    <value>Time / size differs</value>
+  </data>
+  <data name="File_StateTimeDiffers" xml:space="preserve">
+    <value>Time differs</value>
+  </data>
+  <data name="File_StateMissing" xml:space="preserve">
+    <value>missing</value>
+  </data>
+  <data name="File_StateNew" xml:space="preserve">
+    <value>NEW</value>
+  </data>
+  <data name="File_StateOld" xml:space="preserve">
+    <value>OLD</value>
+  </data>
+  <data name="Err_AudioChannels" xml:space="preserve">
+    <value>Audio Diff supports mono and stereo audio.</value>
+  </data>
+  <data name="Err_IconResourceMissing" xml:space="preserve">
+    <value>The icon resource was not found.</value>
+  </data>
+  <data name="Err_RootInsideGit" xml:space="preserve">
+    <value>Choose a root outside .git.</value>
+  </data>
+  <data name="Err_RootsNested" xml:space="preserve">
+    <value>Roots must not be equal or nested.</value>
+  </data>
+  <data name="Err_RefusedPath" xml:space="preserve">
+    <value>Refused a path outside the root or inside .git.</value>
+  </data>
+  <data name="Err_ProtectedPath" xml:space="preserve">
+    <value>Protected or invalid relative path: {0}</value>
+  </data>
+  <data name="Err_InvalidPath" xml:space="preserve">
+    <value>Invalid path: {0}</value>
+  </data>
+  <data name="Err_ReparsePoint" xml:space="preserve">
+    <value>Reparse points are excluded: {0}</value>
+  </data>
+  <data name="Err_ProtectedFolder" xml:space="preserve">
+    <value>Protected or invalid relative folder: {0}</value>
+  </data>
+  <data name="Err_RefusedFolder" xml:space="preserve">
+    <value>Refused a folder outside the root or inside .git.</value>
+  </data>
+  <data name="Err_OutsideRoot" xml:space="preserve">
+    <value>Path is outside the comparison root: {0}</value>
+  </data>
+  <data name="Err_ChangedAfterCompare" xml:space="preserve">
+    <value>Changed after compare. Compare again.</value>
+  </data>
+  <data name="Err_NoDestinationParent" xml:space="preserve">
+    <value>The destination has no parent directory.</value>
+  </data>
+  <data name="Err_ChangedDuringCopy" xml:space="preserve">
+    <value>Changed during copy. Compare again.</value>
+  </data>
+  <data name="Err_SyncVerifyFailed" xml:space="preserve">
+    <value>Synchronization verification failed: destination timestamp, size or existence differs. Compare again.</value>
+  </data>
+  <data name="Err_FolderChanged" xml:space="preserve">
+    <value>Folder changed after compare. Compare again.</value>
+  </data>
+  <data name="Err_DestinationFolderChanged" xml:space="preserve">
+    <value>Destination folder changed after compare. Compare again.</value>
+  </data>
+  <data name="Err_FolderVerifyFailed" xml:space="preserve">
+    <value>Folder synchronization verification failed. Compare again.</value>
+  </data>
+  <data name="Err_ZipFolderEmpty" xml:space="preserve">
+    <value>ZIP output folder is empty.</value>
+  </data>
+  <data name="Err_ZipNameEmpty" xml:space="preserve">
+    <value>ZIP file name is empty.</value>
+  </data>
+  <data name="Err_ZipNameInvalid" xml:space="preserve">
+    <value>ZIP file name contains invalid characters: {0}</value>
+  </data>
+  <data name="Err_HardLink" xml:space="preserve">
+    <value>Hard links are excluded: {0}</value>
+  </data>
+  <data name="Err_ComparisonPathsFiles" xml:space="preserve">
+    <value>Comparison paths must be files.</value>
+  </data>
+  <data name="Err_ComparisonFilesMissing" xml:space="preserve">
+    <value>Neither comparison file exists.</value>
+  </data>
+  <data name="Err_IconLibraryOpen" xml:space="preserve">
+    <value>Could not open the icon library.</value>
+  </data>
+  <data name="Err_IcoInvalid" xml:space="preserve">
+    <value>The ICO file is invalid.</value>
+  </data>
+  <data name="Err_IconImageMissing" xml:space="preserve">
+    <value>Icon image {0} was not found.</value>
+  </data>
+  <data name="Err_PatchTooLarge" xml:space="preserve">
+    <value>Patches over 32 MB are not supported.</value>
+  </data>
+  <data name="Err_PatchNul" xml:space="preserve">
+    <value>A text patch cannot contain NUL bytes.</value>
+  </data>
+  <data name="Err_PatchTooManyLines" xml:space="preserve">
+    <value>Patch exceeds 200,000 lines.</value>
+  </data>
+  <data name="Err_PatchHunkBody" xml:space="preserve">
+    <value>Invalid hunk body at patch line {0}.</value>
+  </data>
+  <data name="Err_PatchHunkCount" xml:space="preserve">
+    <value>Hunk line count mismatch at patch line {0}.</value>
+  </data>
+  <data name="Err_PatchHunkNoHeader" xml:space="preserve">
+    <value>Hunk body without a header at patch line {0}.</value>
+  </data>
+  <data name="Err_PatchHeader" xml:space="preserve">
+    <value>Invalid unified patch header.</value>
+  </data>
+  <data name="Err_PatchCoordinates" xml:space="preserve">
+    <value>Patch line coordinates exceed 100,000 lines.</value>
+  </data>
+  <data name="Err_PatchTruncated" xml:space="preserve">
+    <value>Truncated patch hunk.</value>
+  </data>
+  <data name="Err_PatchNoEntries" xml:space="preserve">
+    <value>No unified patch entries were found.</value>
+  </data>
+  <data name="Err_NoSelectionSource" xml:space="preserve">
+    <value>No selected files or folders exist on Source.</value>
+  </data>
+  <data name="Err_NoSelectionTarget" xml:space="preserve">
+    <value>No selected files or folders exist on Target.</value>
+  </data>
+  <data name="Err_FileChangedDuringCompare" xml:space="preserve">
+    <value>File changed during comparison. Compare again: {0}</value>
+  </data>
+  <data name="Err_PatchSaveBeforeRepo" xml:space="preserve">
+    <value>Save or discard patch edits before changing the repository.</value>
+  </data>
+  <data name="Err_PatchUnsafePath" xml:space="preserve">
+    <value>Unsafe patch path.</value>
+  </data>
+  <data name="Err_PatchEscapes" xml:space="preserve">
+    <value>Patch path escapes the target repository.</value>
+  </data>
+  <data name="Err_PatchInvalidTarget" xml:space="preserve">
+    <value>Invalid patch target.</value>
+  </data>
+  <data name="Err_PatchLinks" xml:space="preserve">
+    <value>Patch targets through symbolic links or junctions are not supported.</value>
+  </data>
+  <data name="Err_PatchSaveBeforeReload" xml:space="preserve">
+    <value>Save or discard patch edits before reloading.</value>
+  </data>
+  <data name="Err_PatchSaveBeforeReplace" xml:space="preserve">
+    <value>Save or discard this target before replacing it.</value>
+  </data>
+  <data name="Err_PatchNotNew" xml:space="preserve">
+    <value>Not a new patch target.</value>
+  </data>
+  <data name="Err_PatchTargetExists" xml:space="preserve">
+    <value>The new target already exists. Select it as an existing target before applying hunks.</value>
+  </data>
+  <data name="Err_PatchHunkPosition" xml:space="preserve">
+    <value>A selected hunk cannot be applied at its current position.</value>
+  </data>
+  <data name="Err_PatchNoTargetPath" xml:space="preserve">
+    <value>Select a target path before saving.</value>
+  </data>
+  <data name="Err_FileTooLarge" xml:space="preserve">
+    <value>Files over 8 MB should be opened in an external editor.</value>
+  </data>
+  <data name="Err_FileTooManyLines" xml:space="preserve">
+    <value>Files over 100,000 lines should be opened in an external editor.</value>
+  </data>
+  <data name="Err_ControlCharacter" xml:space="preserve">
+    <value>Unsupported control character U+{0} in '{1}' at line {2}.</value>
+  </data>
+  <data name="Err_SourceFileMissing" xml:space="preserve">
+    <value>Source file does not exist.</value>
+  </data>
+  <data name="Err_TargetFileMissing" xml:space="preserve">
+    <value>Target file does not exist.</value>
+  </data>
+  <data name="Err_ExternalDiffEmpty" xml:space="preserve">
+    <value>External diff command is empty.</value>
+  </data>
+  <data name="Err_ExternalDiffQuote" xml:space="preserve">
+    <value>The external diff executable path has an unmatched quote.</value>
+  </data>
+  <data name="Patch_UnsupportedEntry" xml:space="preserve">
+    <value>(unsupported entry)</value>
+  </data>
+  <data name="Patch_UnsupportedBinary" xml:space="preserve">
+    <value>Binary or symbolic-link patch</value>
+  </data>
+  <data name="Patch_UnsupportedNoHunks" xml:space="preserve">
+    <value>No text hunks (metadata-only change)</value>
+  </data>
+  <data name="Patch_UnsupportedPath" xml:space="preserve">
+    <value>Unsafe relative path</value>
+  </data>
+  <data name="Patch_ViewTitle" xml:space="preserve">
+    <value>Patch View</value>
+  </data>
+  <data name="Patch_FileFilter" xml:space="preserve">
+    <value>Patch / Diff|*.patch;*.diff;*.rej|All files|*.*</value>
+  </data>
+  <data name="Patch_StatusTarget" xml:space="preserve">
+    <value>Patch → Target</value>
+  </data>
+  <data name="Patch_StatusNoTarget" xml:space="preserve">
+    <value>Target not found under repository: {0} (preview before → after)</value>
+  </data>
+  <data name="Patch_StatusPreview" xml:space="preserve">
+    <value>Patch preview (before → after)</value>
+  </data>
+  <data name="Patch_StatusApplied" xml:space="preserve">
+    <value>Applied {0}/{1}</value>
+  </data>
+  <data name="Patch_StatusPresent" xml:space="preserve">
+    <value>Already in target: {0}</value>
+  </data>
+  <data name="Patch_StatusMismatch" xml:space="preserve">
+    <value>Context mismatch: {0}</value>
+  </data>
+  <data name="Patch_StatusUndecodable" xml:space="preserve">
+    <value>Undecodable lines: {0} (affected hunks cannot be applied)</value>
+  </data>
+  <data name="Patch_OpenFile" xml:space="preserve">
+    <value>Open patch file</value>
+  </data>
+  <data name="Patch_SelectRepository" xml:space="preserve">
+    <value>Select repository folder</value>
+  </data>
+  <data name="Patch_CommitMessage" xml:space="preserve">
+    <value>Commit message</value>
+  </data>
+  <data name="Patch_NoRepository" xml:space="preserve">
+    <value>No target repository selected</value>
+  </data>
+  <data name="Patch_TargetRepository" xml:space="preserve">
+    <value>Patch target repository</value>
+  </data>
+  <data name="Patch_SelectRepositoryRoot" xml:space="preserve">
+    <value>Select the repository root matching the patch relative path</value>
+  </data>
+  <data name="Patch_MoveHunkUp" xml:space="preserve">
+    <value>Move hunk up one line</value>
+  </data>
+  <data name="Patch_MoveHunkDown" xml:space="preserve">
+    <value>Move hunk down one line</value>
+  </data>
+  <data name="Patch_NewFileFormat" xml:space="preserve">
+    <value>New file format</value>
+  </data>
+  <data name="Differencer_StageSource" xml:space="preserve">
+    <value>Comparing source…</value>
+  </data>
+  <data name="Differencer_StageTarget" xml:space="preserve">
+    <value>Comparing target…</value>
+  </data>
+  <data name="Differencer_StageClassify" xml:space="preserve">
+    <value>Classifying differences…</value>
+  </data>
+  <data name="Differencer_StageSkipped" xml:space="preserve">
+    <value>Skipped changed file: {0}</value>
+  </data>
+  <data name="Log_NoSelectedFiles" xml:space="preserve">
+    <value>no selected files exist on the chosen side</value>
+  </data>
+  <data name="Log_ArchiveIncomplete" xml:space="preserve">
+    <value>archive incomplete; existing archive preserved: {0}</value>
+  </data>
+  <data name="Log_RetryFiles" xml:space="preserve">
+    <value>{0} queued file operation(s)</value>
+  </data>
+  <data name="Log_RetryFolders" xml:space="preserve">
+    <value>{0} queued folder operation(s)</value>
+  </data>
+  <data name="Diff_BinaryNotSupported" xml:space="preserve">
+    <value>Binary and cache files are not supported in Diff View. Only text files, supported images, videos, and MP3/WAV audio can be displayed.</value>
+  </data>
+  <data name="Diff_ViewCaption" xml:space="preserve">
+    <value>Diff View</value>
+  </data>
+  <data name="Diff_SideSource" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="Diff_SideTarget" xml:space="preserve">
+    <value>Target</value>
+  </data>
+  <data name="Diff_FrameStatus" xml:space="preserve">
+    <value>Frame {0}/{1}  Source: {2}  Target: {3}</value>
+  </data>
+  <data name="Diff_FrameStill" xml:space="preserve">
+    <value>still</value>
+  </data>
+  <data name="Diff_FrameMissing" xml:space="preserve">
+    <value>missing ({0} frames)</value>
+  </data>
+  <data name="Diff_FrameDelay" xml:space="preserve">
+    <value>{0} ms ({1} frames)</value>
+  </data>
+  <data name="Diff_DesignerHeader" xml:space="preserve">
+    <value>— VB6 form designer: {0} lines —</value>
+  </data>
+  <data name="Diff_DesignerHeaderChanged" xml:space="preserve">
+    <value>— VB6 form designer: {0} lines / differences —</value>
+  </data>
+  <data name="Diff_IdenticalContent" xml:space="preserve">
+    <value>Identical content</value>
+  </data>
+  <data name="Diff_DecodingWarning" xml:space="preserve">
+    <value>{0}: undecodable Shift-JIS bytes from line {1} (shown as �; saving is refused)</value>
+  </data>
+  <data name="Diff_ExternalRefreshFailed" xml:space="preserve">
+    <value>Unable to refresh external edit: {0}</value>
+  </data>
+  <data name="Diff_AnalyzingAudio" xml:space="preserve">
+    <value>Analyzing audio differences...</value>
+  </data>
+  <data name="Diff_SourceVolumeTip" xml:space="preserve">
+    <value>Source volume</value>
+  </data>
+  <data name="Diff_TargetVolumeTip" xml:space="preserve">
+    <value>Target volume</value>
+  </data>
+  <data name="Diff_MuteTip" xml:space="preserve">
+    <value>Mute (0%)</value>
+  </data>
+  <data name="Diff_MaximumTip" xml:space="preserve">
+    <value>Maximum (100%)</value>
+  </data>
+  <data name="Diff_PlayPause" xml:space="preserve">
+    <value>Play / Pause</value>
+  </data>
+  <data name="Diff_Seek" xml:space="preserve">
+    <value>Seek</value>
+  </data>
+  <data name="Diff_WaveformZoom" xml:space="preserve">
+    <value>Horizontal waveform zoom</value>
+  </data>
+  <data name="Diff_ZoomOut" xml:space="preserve">
+    <value>Zoom out</value>
+  </data>
+  <data name="Diff_ZoomIn" xml:space="preserve">
+    <value>Zoom in</value>
+  </data>
+  <data name="Diff_HighlightAudioTip" xml:space="preserve">
+    <value>Highlight audio differences (decoded samples, before volume adjustment)</value>
+  </data>
+  <data name="Diff_HighlightAudio" xml:space="preserve">
+    <value>Highlight audio differences</value>
+  </data>
+  <data name="Diff_Delay" xml:space="preserve">
+    <value>Delay</value>
+  </data>
+  <data name="Diff_UnitSeconds" xml:space="preserve">
+    <value>s</value>
+  </data>
+  <data name="Diff_DelaySourceName" xml:space="preserve">
+    <value>Source delay in seconds</value>
+  </data>
+  <data name="Diff_DelayTargetName" xml:space="preserve">
+    <value>Target delay in seconds</value>
+  </data>
+  <data name="Diff_WaveformTip" xml:space="preserve">
+    <value>Source / Target — click waveform to seek; output level at right</value>
+  </data>
+  <data name="Diff_NoFile" xml:space="preserve">
+    <value>No file</value>
+  </data>
+  <data name="Diff_SampleRate" xml:space="preserve">
+    <value>Sample Rate:</value>
+  </data>
+  <data name="Diff_BitDepth" xml:space="preserve">
+    <value>Bit Depth:</value>
+  </data>
+  <data name="Diff_BitRate" xml:space="preserve">
+    <value>Bit Rate:</value>
+  </data>
+  <data name="Diff_NotAvailable" xml:space="preserve">
+    <value>N/A</value>
+  </data>
+  <data name="Diff_BitRateTip" xml:space="preserve">
+    <value>PCM bit rate = sample rate × bit depth × channels. MP3 shows average encoded bit rate; bit depth is not applicable.</value>
+  </data>
+  <data name="Diff_WaveDetailTip" xml:space="preserve">
+    <value>Wheel: time zoom / Ctrl+wheel: amplitude / Drag: pan / Click: seek</value>
+  </data>
+  <data name="Diff_SourceDimensions" xml:space="preserve">
+    <value>Source: {0}
+Target: {1}</value>
+  </data>
+  <data name="Diff_NavigatorTip" xml:space="preserve">
+    <value>Source + Target 50% / differences highlighted. Drag the frame to navigate.</value>
+  </data>
+  <data name="Diff_SharedZoomTip" xml:space="preserve">
+    <value>Shared zoom for Source and Target</value>
+  </data>
+  <data name="Diff_OpenExternal" xml:space="preserve">
+    <value>Open Ext Diff</value>
+  </data>
+  <data name="Diff_CompareCase" xml:space="preserve">
+    <value>Compare case</value>
+  </data>
+  <data name="Diff_CompareSpaces" xml:space="preserve">
+    <value>Compare spaces / tabs (off: ignore leading/trailing, body runs = one space)</value>
+  </data>
+  <data name="Diff_CompareNewlines" xml:space="preserve">
+    <value>Compare line endings</value>
+  </data>
+  <data name="Diff_Reload" xml:space="preserve">
+    <value>Reload</value>
+  </data>
+  <data name="Diff_NoBom" xml:space="preserve">
+    <value>No BOM</value>
+  </data>
+  <data name="Diff_NoLineEndings" xml:space="preserve">
+    <value>No line endings / missing file</value>
+  </data>
+  <data name="Diff_LineEndings" xml:space="preserve">
+    <value>Line endings</value>
+  </data>
+  <data name="Diff_NoFileParen" xml:space="preserve">
+    <value>(No file)</value>
+  </data>
+  <data name="Diff_SourceDuration" xml:space="preserve">
+    <value>Source video duration</value>
+  </data>
+  <data name="Diff_TargetDuration" xml:space="preserve">
+    <value>Target video duration</value>
+  </data>
+  <data name="Diff_SizeBytes" xml:space="preserve">
+    <value>{0} bytes</value>
+  </data>
+  <data name="Diff_IconSame" xml:space="preserve">
+    <value>SAME</value>
+  </data>
+  <data name="Diff_IconMissing" xml:space="preserve">
+    <value>MISS</value>
+  </data>
+  <data name="Diff_IconNew" xml:space="preserve">
+    <value>NEW</value>
+  </data>
+  <data name="Diff_IconOld" xml:space="preserve">
+    <value>OLD</value>
+  </data>
+  <data name="Diff_IconOnly" xml:space="preserve">
+    <value>ONLY</value>
+  </data>
+  <data name="Diff_IconSize" xml:space="preserve">
+    <value>SIZE</value>
+  </data>
+  <data name="Diff_IconSmall" xml:space="preserve">
+    <value>SMALL</value>
+  </data>
+  <data name="Diff_IconLarge" xml:space="preserve">
+    <value>LARGE</value>
+  </data>
+  <data name="Diff_IconPatch" xml:space="preserve">
+    <value>PATCH</value>
+  </data>
+  <data name="Diff_PreparingLayout" xml:space="preserve">
+    <value>Preparing layout…  {0} / {1}</value>
+  </data>
+  <data name="Diff_LoadingSide" xml:space="preserve">
+    <value>{0}  {1} / {2}</value>
+  </data>
+  <data name="Diff_ExpandUnchanged" xml:space="preserve">
+    <value>Click to expand unchanged lines</value>
+  </data>
+  <data name="Diff_CollapseUnchanged" xml:space="preserve">
+    <value>Click to collapse unchanged lines</value>
+  </data>
+  <data name="Diff_SourceXor" xml:space="preserve">
+    <value>Source XOR mode</value>
+  </data>
+  <data name="Diff_TargetXor" xml:space="preserve">
+    <value>Target XOR mode</value>
+  </data>
+  <data name="Diff_PreviousFrame" xml:space="preserve">
+    <value>Previous frame</value>
+  </data>
+  <data name="Diff_NextFrame" xml:space="preserve">
+    <value>Next frame</value>
+  </data>
+  <data name="Diff_ToolbarToggle" xml:space="preserve">
+    <value>Show / hide toolbar</value>
+  </data>
+  <data name="Diff_ExternalDiff" xml:space="preserve">
+    <value>External Diff</value>
+  </data>
+  <data name="Diff_ExternalDiffTip" xml:space="preserve">
+    <value>External diff command. Use {source} and {target}.</value>
+  </data>
+  <data name="Diff_ShowSpaces" xml:space="preserve">
+    <value>Show spaces / tabs</value>
+  </data>
+  <data name="Diff_ShowLineEndings" xml:space="preserve">
+    <value>Show line endings</value>
+  </data>
+  <data name="Diff_SyntaxHighlight" xml:space="preserve">
+    <value>Syntax Highlight</value>
+  </data>
+  <data name="Diff_ShrinkFolds" xml:space="preserve">
+    <value>Shrink one-line folds to a line</value>
+  </data>
+  <data name="History_SourceRootShort" xml:space="preserve">
+    <value>Source: …{0}</value>
+  </data>
+  <data name="History_TargetRootShort" xml:space="preserve">
+    <value>Target: …{0}</value>
+  </data>
+  <data name="History_RootsTip" xml:space="preserve">
+    <value>Source: {0}
+Target: {1}</value>
+  </data>
+  <data name="History_Roots" xml:space="preserve">
+    <value>Source: {0}   Target: {1}</value>
+  </data>
+  <data name="Differencer_TextReady" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+  <data name="Differencer_TextPleaseWait" xml:space="preserve">
+    <value>Please wait…</value>
+  </data>
+  <data name="Differencer_TextFiles" xml:space="preserve">
+    <value>Files</value>
+  </data>
+  <data name="Differencer_FilesTitle" xml:space="preserve">
+    <value>Files — {0} ({1})</value>
+  </data>
+  <data name="Differencer_AllLevels" xml:space="preserve">
+    <value>all levels</value>
+  </data>
+  <data name="Differencer_TextNotCompared" xml:space="preserve">
+    <value>(not compared)</value>
+  </data>
+  <data name="Differencer_TextSourceFolder" xml:space="preserve">
+    <value>Source folder</value>
+  </data>
+  <data name="Differencer_TextTargetFolder" xml:space="preserve">
+    <value>Target folder</value>
+  </data>
+  <data name="Differencer_TextSourceToTarget" xml:space="preserve">
+    <value>Source to Target</value>
+  </data>
+  <data name="Differencer_TextTargetToSource" xml:space="preserve">
+    <value>Target to Source</value>
+  </data>
+  <data name="Differencer_TextAllFolders" xml:space="preserve">
+    <value>All folders</value>
+  </data>
+  <data name="Differencer_TextRestored" xml:space="preserve">
+    <value>Source and Target restored. Click Compare to build the difference tree.</value>
+  </data>
+  <data name="Differencer_TextRestoreFailed" xml:space="preserve">
+    <value>Failed to restore tree: {0}</value>
+  </data>
+  <data name="Differencer_TextSaveTreeFailed" xml:space="preserve">
+    <value>Failed to save tree: {0}</value>
+  </data>
+  <data name="Differencer_LogPath" xml:space="preserve">
+    <value>Log: {0}</value>
+  </data>
+  <data name="Differencer_TextSaveLogFailed" xml:space="preserve">
+    <value>Failed to save log: {0}</value>
+  </data>
+  <data name="Differencer_FilterStatus" xml:space="preserve">
+    <value>{0} differences / {1} identical (OBJ/BIN filters applied). Check items to synchronize.</value>
+  </data>
+  <data name="Differencer_SummaryStatus" xml:space="preserve">
+    <value>{0} differences / {1} identical. Check items to synchronize.</value>
+  </data>
+  <data name="Differencer_RefreshingVisible" xml:space="preserve">
+    <value>Refreshing visible files…</value>
+  </data>
+  <data name="Differencer_RefreshingCount" xml:space="preserve">
+    <value>Refreshing {0} visible file(s)…</value>
+  </data>
+  <data name="Differencer_RefreshedVisible" xml:space="preserve">
+    <value>Visible files refreshed: {0} checked, {1} updated. {2} differences / {3} identical.</value>
+  </data>
+  <data name="Differencer_RefreshFailed" xml:space="preserve">
+    <value>Refresh failed: {0}</value>
+  </data>
+  <data name="Differencer_TextCancelling" xml:space="preserve">
+    <value>Cancelling comparison…</value>
+  </data>
+  <data name="Differencer_TextCancelled" xml:space="preserve">
+    <value>Compare cancelled</value>
+  </data>
+  <data name="Differencer_ScanHash" xml:space="preserve">
+    <value>Scanning files and calculating XXH128 hashes…</value>
+  </data>
+  <data name="Differencer_ScanMeta" xml:space="preserve">
+    <value>Scanning files and comparing timestamps and sizes…</value>
+  </data>
+  <data name="Differencer_PreparingIndexes" xml:space="preserve">
+    <value>Preparing source / target indexes…</value>
+  </data>
+  <data name="Differencer_TextUpdatingTree" xml:space="preserve">
+    <value>Updating the difference tree…</value>
+  </data>
+  <data name="Differencer_UpdatingTreeAndList" xml:space="preserve">
+    <value>Updating the difference tree and file list…</value>
+  </data>
+  <data name="Differencer_TextCompareFailed" xml:space="preserve">
+    <value>Compare failed (sync disabled): {0}</value>
+  </data>
+  <data name="Differencer_TreeReadingState" xml:space="preserve">
+    <value>Reading folder state…</value>
+  </data>
+  <data name="Differencer_TreePreparing" xml:space="preserve">
+    <value>Preparing folders…</value>
+  </data>
+  <data name="Differencer_TreeBuilding" xml:space="preserve">
+    <value>Building folders…</value>
+  </data>
+  <data name="Differencer_TreeAssigning" xml:space="preserve">
+    <value>Assigning files to folders…</value>
+  </data>
+  <data name="Differencer_TreeCounting" xml:space="preserve">
+    <value>Updating folder counts…</value>
+  </data>
+  <data name="Differencer_TreeDisplay" xml:space="preserve">
+    <value>Updating folder display…</value>
+  </data>
+  <data name="Differencer_CountLabel" xml:space="preserve">
+    <value>Folder {0} / Files {1}</value>
+  </data>
+  <data name="Differencer_CountLabelHidden" xml:space="preserve">
+    <value>Folder {0} / Files {1} (includes {2} hidden)</value>
+  </data>
+  <data name="Differencer_ExternalRefreshed" xml:space="preserve">
+    <value>{0} differences / {1} identical. External edit refreshed: {2}</value>
+  </data>
+  <data name="Differencer_TextPreviewUnavailable" xml:space="preserve">
+    <value>Preview unavailable: {0}</value>
+  </data>
+  <data name="Differencer_CompareSizesTip" xml:space="preserve">
+    <value>Compare file sizes</value>
+  </data>
+  <data name="Differencer_CompareAttrTip" xml:space="preserve">
+    <value>ATTR: compare BOM presence (first 4 bytes only)</value>
+  </data>
+  <data name="Differencer_CompareHashTip" xml:space="preserve">
+    <value>XXH128 content comparison (precise check)</value>
+  </data>
+  <data name="Differencer_SelectAllFilesTip" xml:space="preserve">
+    <value>Select / clear all files</value>
+  </data>
+  <data name="Differencer_CheckedOnlyTip" xml:space="preserve">
+    <value>Show checked files only</value>
+  </data>
+  <data name="Differencer_OpenPatch" xml:space="preserve">
+    <value>Open patch / diff</value>
+  </data>
+  <data name="Differencer_RefreshFolder" xml:space="preserve">
+    <value>Refresh selected folder</value>
+  </data>
+  <data name="Differencer_ShowObjName" xml:space="preserve">
+    <value>Show OBJ</value>
+  </data>
+  <data name="Differencer_ShowBinName" xml:space="preserve">
+    <value>Show BIN</value>
+  </data>
+  <data name="Clean_ReportTitle" xml:space="preserve">
+    <value>Solution Clean</value>
+  </data>
+  <data name="Clean_ReportPath" xml:space="preserve">
+    <value>Path: {0}</value>
+  </data>
+  <data name="Clean_ReportOk" xml:space="preserve">
+    <value>Result: OK</value>
+  </data>
+  <data name="Clean_ReportFailExit" xml:space="preserve">
+    <value>Result: FAIL (exit {0})</value>
+  </data>
+  <data name="Clean_ReportFail" xml:space="preserve">
+    <value>Result: FAIL</value>
+  </data>
+  <data name="Clean_ReportDate" xml:space="preserve">
+    <value>Date: {0}</value>
+  </data>
+  <data name="Clean_ReportTotal" xml:space="preserve">
+    <value>Total: {0}    OK: {1}    FAIL: {2}</value>
+  </data>
+  <data name="About_WindowTitle" xml:space="preserve">
+    <value>DesktopIniManager — About</value>
+  </data>
+  <data name="About_Version" xml:space="preserve">
+    <value>Version {0}  ·  {1}-bit</value>
+  </data>
+  <data name="About_Libraries" xml:space="preserve">
+    <value>Libraries / APIs</value>
+  </data>
+  <data name="About_WpfDescription" xml:space="preserve">
+    <value>UI rendering, image decoding, GIF / video playback</value>
+  </data>
+  <data name="About_WindowsApiDescription" xml:space="preserve">
+    <value>Shell / User32 / Kernel32 — file, icon, and window operations</value>
+  </data>
+  <data name="About_ExcelDescription" xml:space="preserve">
+    <value>Excel file reading · MIT</value>
+  </data>
+  <data name="About_PdfDescription" xml:space="preserve">
+    <value>PDF text extraction · Apache-2.0</value>
+  </data>
+  <data name="About_NAudioDescription" xml:space="preserve">
+    <value>Audio decoding and playback · MIT</value>
+  </data>
+  <data name="About_HashDescription" xml:space="preserve">
+    <value>Hashing for file comparison</value>
+  </data>
+  <data name="About_NoticesLink" xml:space="preserve">
+    <value>Bundled notices TXT</value>
+  </data>
+  <data name="About_DiffDescription" xml:space="preserve">
+    <value>Text diff algorithm (DIM-modified) · BSD-3-Clause</value>
+  </data>
+  <data name="About_IndexDescription" xml:space="preserve">
+    <value>DIM file indexing and search component</value>
+  </data>
+  <data name="About_ScrollTip" xml:space="preserve">
+    <value>Scroll to view libraries, APIs, and licenses</value>
+  </data>
+  <data name="About_LicenseLink" xml:space="preserve">
+    <value>License TXT</value>
+  </data>
+  <data name="About_LicenseMissing" xml:space="preserve">
+    <value>License document not found: {0}</value>
+  </data>
+  <data name="History_MenuDelete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Sync_Title" xml:space="preserve">
+    <value>Synchronize files</value>
+  </data>
+  <data name="Sync_CancelTip" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Sync_CreateFolder" xml:space="preserve">
+    <value>Create folder</value>
+  </data>
+  <data name="Sync_DeleteFolder" xml:space="preserve">
+    <value>Delete folder</value>
+  </data>
+  <data name="Sync_LogTitle" xml:space="preserve">
+    <value>Synchronization / ZIP</value>
+  </data>
+  <data name="Sync_LogResultTitle" xml:space="preserve">
+    <value>Synchronization / ZIP result</value>
+  </data>
+  <data name="Sync_Processing" xml:space="preserve">
+    <value>{0} — processing…</value>
+  </data>
+  <data name="Sync_LogSource" xml:space="preserve">
+    <value>Source: {0}</value>
+  </data>
+  <data name="Sync_LogTarget" xml:space="preserve">
+    <value>Target: {0}</value>
+  </data>
+  <data name="Sync_LogComplete" xml:space="preserve">
+    <value>Complete  OK {0} / FAIL {1} / LOCKED {2}</value>
+  </data>
+  <data name="Sync_Summary" xml:space="preserve">
+    <value>Complete: {0} succeeded / {1} failed / {2} locked</value>
+  </data>
+  <data name="Icon_ResourceLabel" xml:space="preserve">
+    <value>{0}  (resource {1})</value>
+  </data>
+  <data name="Icon_ImageCount" xml:space="preserve">
+    <value>{0} images</value>
+  </data>
+  <data name="Differencer_StageCount" xml:space="preserve">
+    <value>{0}  {1} files</value>
+  </data>
+  <data name="Sync_FolderSingular" xml:space="preserve">
+    <value>{0} folder</value>
+  </data>
+  <data name="Sync_FolderPlural" xml:space="preserve">
+    <value>{0} folders</value>
   </data>
 </root>

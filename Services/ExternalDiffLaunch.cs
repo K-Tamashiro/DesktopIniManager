@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DesktopIniManager.Properties;
+using System;
 using System.IO;
 using System.Linq;
 
@@ -6,7 +7,7 @@ namespace DesktopIniManager.Services;
 
 internal sealed class ExternalDiffLaunch
 {
-    internal const string Usage = "Usage: DesktopIniManager.exe -diff [<Source> <Target>]";
+    internal static string Usage => StringOverlay.Get("App_DiffUsage");
     internal string SourcePath { get; private set; }
     internal string TargetPath { get; private set; }
 
@@ -41,9 +42,9 @@ internal sealed class ExternalDiffLaunch
         };
         foreach (var path in new[] { launch.SourcePath, launch.TargetPath })
             if (Directory.Exists(path))
-                throw new ArgumentException("Comparison paths must be files.");
+                throw new ArgumentException(StringOverlay.Get("Err_ComparisonPathsFiles")).Localized();
         if (!File.Exists(launch.SourcePath) && !File.Exists(launch.TargetPath))
-            throw new FileNotFoundException("Neither comparison file exists.");
+            throw new FileNotFoundException(StringOverlay.Get("Err_ComparisonFilesMissing")).Localized();
         return launch;
     }
 

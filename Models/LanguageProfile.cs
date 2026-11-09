@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DesktopIniManager.Properties;
+using System;
 using System.Collections.Generic;
 
 namespace DesktopIniManager.Models;
@@ -40,11 +41,12 @@ internal sealed class LanguageProfile
     };
 
     /// <summary>
-    ///     プロファイル名を返します。
+    ///     画面に表示するプロファイル名を返します。Name は保存と判定に使うため変更しません。
     /// </summary>
-    /// <returns>プロファイル名。</returns>
+    /// <returns>表示用のプロファイル名。</returns>
     public override string ToString()
     {
-        return Name;
+        if (IsFree) return StringOverlay.Get("Grep_ProfileFree");
+        return IsDocument ? StringOverlay.Get("Grep_ProfileDocument") : Name;
     }
 }

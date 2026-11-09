@@ -31,7 +31,7 @@ internal static class ExplorerContextMenu
         if (paths.Length == 0 && (customItems == null || customItems.Count == 0)) return;
         if (paths.Select(Path.GetDirectoryName).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
             throw new ArgumentException(
-                Strings.ShellMenu_SelectFilesFromSameFolder,
+                StringOverlay.Get("ShellMenu_SelectFilesFromSameFolder"),
                 nameof(paths));
         var pidls = new IntPtr[paths.Length];
         var customCommands = new Dictionary<uint, Action>();
@@ -126,7 +126,7 @@ internal static class ExplorerContextMenu
             {
                 if (customItems is { Count: > 0 } && !AppendMenu(menu, 0x800, UIntPtr.Zero, null))
                     throw new Win32Exception();
-                shellMenu = AddSubmenu(menu, "Explorer Menu", shell != null);
+                shellMenu = AddSubmenu(menu, StringOverlay.Get("Main_ExplorerMenu"), shell != null);
             }
             if (shell != null)
             {

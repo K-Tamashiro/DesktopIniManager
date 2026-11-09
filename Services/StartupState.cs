@@ -22,7 +22,7 @@ internal sealed class StartupState
     /// <returns>読み込んだ起動状態。</returns>
     internal static StartupState Load(Action<string, int> report)
     {
-        report(Strings.Splash_LoadingSettings, 0);
+        report(StringOverlay.Get("Splash_LoadingSettings"), 0);
         var state = new StartupState
         {
             Theme = SettingsService.LoadTheme(),
@@ -33,7 +33,7 @@ internal sealed class StartupState
         };
         if (string.IsNullOrWhiteSpace(state.IconLibrary))
             state.IconLibrary = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "folder_set.icl");
-        report(Strings.Splash_RestoringTrees, 1);
+        report(StringOverlay.Get("Splash_RestoringTrees"), 1);
         try
         {
             state.Tree = FolderTreeStateService.Load();
@@ -50,7 +50,7 @@ internal sealed class StartupState
             state.TreeError = ex.Message;
         }
 
-        report(Strings.Splash_PreparingIcons, 2);
+        report(StringOverlay.Get("Splash_PreparingIcons"), 2);
         FolderIconService.GetDefaultFolderIcon();
         try
         {

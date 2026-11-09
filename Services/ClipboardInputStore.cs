@@ -1,3 +1,4 @@
+using DesktopIniManager.Properties;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -44,12 +45,12 @@ internal sealed class ClipboardInputStore : IDisposable
     internal string[] Capture(IDataObject data)
     {
         if (_disposed) throw new ObjectDisposedException(nameof(ClipboardInputStore));
-        if (data == null) throw new InvalidOperationException("クリップボードは空です。");
+        if (data == null) throw new InvalidOperationException(StringOverlay.Get("Err_ClipboardEmpty")).Localized();
         if (data.GetDataPresent(DataFormats.FileDrop))
         {
             var paths = data.GetData(DataFormats.FileDrop) as string[];
             if (paths == null || paths.Length < 1 || paths.Length > 2 || paths.Any(path => !File.Exists(path)))
-                throw new InvalidOperationException("比較するファイルを1つまたは2つコピーしてください。");
+                throw new InvalidOperationException(StringOverlay.Get("Err_ClipboardFileCount")).Localized();
             return paths.Select(path => Write(Path.GetExtension(path), output =>
             {
                 using var input = File.OpenRead(path);
@@ -83,7 +84,7 @@ internal sealed class ClipboardInputStore : IDisposable
                     }
                     else
                     {
-                        throw new InvalidOperationException("クリップボードのWAVE音声を読み込めません。");
+                        throw new InvalidOperationException(StringOverlay.Get("Err_ClipboardWave")).Localized();
                     }
                 })
             };
@@ -110,7 +111,7 @@ internal sealed class ClipboardInputStore : IDisposable
                 })
             };
         throw new InvalidOperationException(
-            "貼り付け可能なファイル・WAVE音声・画像・テキストがありません。編集ソフト独自の音声形式の場合は、WAVを書き出してファイルをコピーしてください。");
+            StringOverlay.Get("Err_ClipboardNoContent")).Localized();
     }
 
     /// <summary>

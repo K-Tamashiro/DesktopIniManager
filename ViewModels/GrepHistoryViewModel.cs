@@ -238,7 +238,7 @@ internal sealed partial class GrepWindowViewModel
         if (tab.Matches != null)
             foreach (var match in tab.Matches)
                 Matches.Add(match);
-        Status = string.IsNullOrWhiteSpace(tab.Status) ? Strings.Common_Ready : tab.Status;
+        Status = string.IsNullOrWhiteSpace(tab.Status) ? StringOverlay.Get("Common_Ready") : tab.Status;
         NotifyListCommands();
     }
 

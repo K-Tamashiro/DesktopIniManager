@@ -141,7 +141,7 @@
             </MenuItem>
             <Separator Tag="dim-msbuild" Visibility="Collapsed" />
             <MenuItem
-                Header="Build"
+                Header="{loc:L Main_MenuBuild}"
                 Tag="dim-build"
                 Visibility="Collapsed">
                 <MenuItem.Icon>
@@ -160,7 +160,7 @@
                             Text="&#xE943;" />
                     </MenuItem.Icon>
                     <MenuItem
-                        Header="Build"
+                        Header="{loc:L Main_MenuBuild}"
                         Tag="dim-msbuild-build">
                         <MenuItem.Icon>
                             <TextBlock
@@ -171,7 +171,7 @@
                         </MenuItem.Icon>
                     </MenuItem>
                     <MenuItem
-                        Header="Rebuild"
+                        Header="{loc:L Main_MenuRebuild}"
                         Tag="dim-msbuild-rebuild">
                         <MenuItem.Icon>
                             <TextBlock
@@ -191,7 +191,7 @@
                             Text="&#xE756;" />
                     </MenuItem.Icon>
                     <MenuItem
-                        Header="Build"
+                        Header="{loc:L Main_MenuBuild}"
                         Tag="dim-sdk-build">
                         <MenuItem.Icon>
                             <TextBlock
@@ -202,7 +202,7 @@
                         </MenuItem.Icon>
                     </MenuItem>
                     <MenuItem
-                        Header="Rebuild"
+                        Header="{loc:L Main_MenuRebuild}"
                         Tag="dim-sdk-rebuild">
                         <MenuItem.Icon>
                             <TextBlock
@@ -508,8 +508,8 @@
                     Background="Transparent"
                     BorderThickness="0"
                     Cursor="Hand"
-                    ToolTip="バージョン情報"
-                    AutomationProperties.Name="バージョン情報"
+                    ToolTip="{loc:L Main_About}"
+                    AutomationProperties.Name="{loc:L Main_About}"
                     Click="AboutTitle_Click">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
@@ -575,13 +575,13 @@
                     MinWidth="64"
                     Margin="0,0,12,0"
                     Style="{StaticResource LanguageComboStyle}">
-                    <ComboBoxItem Content="Dark" />
-                    <ComboBoxItem Content="Light" />
-                    <ComboBoxItem Content="DIM1" />
-                    <ComboBoxItem Content="DIM2" />
-                    <ComboBoxItem Content="DIM3" />
-                    <ComboBoxItem Content="DIM4" />
-                    <ComboBoxItem Content="DIM5" />
+                    <ComboBoxItem Content="{loc:L Theme_NameDark}" Tag="Dark" />
+                    <ComboBoxItem Content="{loc:L Theme_NameLight}" Tag="Light" />
+                    <ComboBoxItem Content="DIM1" Tag="DIM1" />
+                    <ComboBoxItem Content="DIM2" Tag="DIM2" />
+                    <ComboBoxItem Content="DIM3" Tag="DIM3" />
+                    <ComboBoxItem Content="DIM4" Tag="DIM4" />
+                    <ComboBoxItem Content="DIM5" Tag="DIM5" />
                 </ComboBox>
                 <Button
                     x:Name="CloseWindowButton"
@@ -1172,9 +1172,9 @@
                                                 </TextBlock>
                                                 <TextBlock
                                                     Foreground="{DynamicResource Accent}"
-                                                    Text="{Binding Reason}"
+                                                    Text="{Binding DisplayReason}"
                                                     TextTrimming="CharacterEllipsis"
-                                                    ToolTip="{Binding Reason}">
+                                                    ToolTip="{Binding DisplayReason}">
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
                                                             <Setter Property="FontSize" Value="11" />
@@ -1599,7 +1599,7 @@
                     x:Name="ResetButton"
                     Command="{Binding ResetCommand}"
                     Style="{StaticResource IconButton}"
-                    ToolTip="Clear settings, history, and folder lists">
+                    ToolTip="{loc:L Main_ResetTip}">
                     <Image
                         x:Name="ResetButtonIcon"
                         RenderOptions.BitmapScalingMode="HighQuality"
@@ -1666,7 +1666,7 @@
                         x:Name="DiffViewButton"
                         Margin="8,0,0,0"
                         Style="{StaticResource IconButton}"
-                        ToolTip="DIFF VIEW">
+                        ToolTip="{loc:L Main_DiffViewTip}">
                         <Image
                             x:Name="DiffViewButtonIcon"
                             RenderOptions.BitmapScalingMode="HighQuality"
@@ -1705,7 +1705,7 @@
                         Margin="8,0,0,0"
                         DockPanel.Dock="Right"
                         Style="{StaticResource IconButton}"
-                        ToolTip="Browse — pick script">
+                        ToolTip="{loc:L Main_BrowseScriptTip}">
                         <Image
                             x:Name="BrowseScriptIcon"
                             RenderOptions.BitmapScalingMode="HighQuality"
@@ -1716,7 +1716,7 @@
                         Margin="8,0,0,0"
                         DockPanel.Dock="Right"
                         Style="{StaticResource IconButton}"
-                        ToolTip="Run — execute command">
+                        ToolTip="{loc:L Main_RunCommandTip}">
                         <Image
                             x:Name="RunScriptIcon"
                             RenderOptions.BitmapScalingMode="HighQuality"
@@ -1727,7 +1727,7 @@
                         Height="36"
                         VerticalAlignment="Center"
                         HistoryKey="Main-Script"
-                        ToolTip="Command. %d = folder, %f = file path, %n = file name" />
+                        ToolTip="{loc:L Main_CommandTip}" />
                 </DockPanel>
             </DockPanel>
         </Grid>

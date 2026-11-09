@@ -207,6 +207,7 @@ internal sealed partial class DiffViewWindow
         BuildToolbar();
         Loaded += async (_, _) => await LoadContent();
         AllowDrop = true;
+        DropZoneHighlight.Attach(this, () => !_renderingContent && ViewModel.CanChangeComparison, Body, DropAreas);
         PreviewDragEnter += FileDragOver;
         PreviewDragOver += FileDragOver;
         PreviewDrop += FileDrop;
@@ -610,6 +611,22 @@ internal sealed partial class DiffViewWindow
     }
 
     /// <summary>
+    ///     ドラッグ中に点線枠を表示する範囲を取得します。ドロップ先の判定と同じく、音声は上下、それ以外は左右に分けます。
+    /// </summary>
+    /// <returns>Body を基準にした Source 側と Target 側の範囲。</returns>
+    private IEnumerable<Rect> DropAreas()
+    {
+        var width = Body.ActualWidth;
+        var height = Body.ActualHeight;
+        if (ViewModel.IsAudio)
+            return [new Rect(0, 0, width, height / 2), new Rect(0, height / 2, width, height / 2)];
+
+        // FileDrop と同じく中央で左右に分け、中央のマップ列には枠を掛けない。
+        var side = Math.Max(0, (width - MapColumn.ActualWidth) / 2);
+        return [new Rect(0, 0, side, height), new Rect(width - side, 0, side, height)];
+    }
+
+    /// <summary>
     ///     比較対象を変更できる場合に、ファイルのドラッグでコピーのカーソルを表示します。
     /// </summary>
     /// <param name="sender">イベントの送信元。</param>
@@ -727,7 +744,7 @@ internal sealed partial class DiffViewWindow
             ViewModel.OpenSourceCommand);
         AddButton(ActionsPanel, DifferencerStatusIcons.GetCustomIcon(54), StringOverlay.Get("Diff_OpenTarget"),
             ViewModel.OpenTargetCommand);
-        var openExtDiffButton = AddButton(ActionsPanel, DifferencerStatusIcons.GetCustomIcon(52), "Open Ext Diff",
+        var openExtDiffButton = AddButton(ActionsPanel, DifferencerStatusIcons.GetCustomIcon(52), StringOverlay.Get("Diff_OpenExternal"),
             ViewModel.OpenExternalDiffCommand);
         openExtDiffButton.Background = Brushes.Transparent;
         if (!ViewModel.IsImage && !ViewModel.IsVideo && !ViewModel.IsAudio)
@@ -736,17 +753,17 @@ internal sealed partial class DiffViewWindow
                 ToggleDisplayCommand);
         if (!ViewModel.IsImage && !ViewModel.IsVideo && !ViewModel.IsAudio)
         {
-            AddComparisonButton(ViewModel.CompareCase ? 116 : 119, "Compare case",
+            AddComparisonButton(ViewModel.CompareCase ? 116 : 119, StringOverlay.Get("Diff_CompareCase"),
                 () => ViewModel.CompareCase = !ViewModel.CompareCase);
-            AddComparisonButton(ViewModel.CompareSpaces ? 117 : 120, "Compare spaces / tabs (off: ignore leading/trailing, body runs = one space)",
+            AddComparisonButton(ViewModel.CompareSpaces ? 117 : 120, StringOverlay.Get("Diff_CompareSpaces"),
                 () => ViewModel.CompareSpaces = !ViewModel.CompareSpaces);
-            AddComparisonButton(ViewModel.CompareNewlines ? 118 : 121, "Compare line endings",
+            AddComparisonButton(ViewModel.CompareNewlines ? 118 : 121, StringOverlay.Get("Diff_CompareNewlines"),
                 () => ViewModel.CompareNewlines = !ViewModel.CompareNewlines);
         }
 
         AddButton(ActionsPanel, DifferencerStatusIcons.GetCustomIcon(140), StringOverlay.Get("Diff_ClearInputs"),
             ClearInputsCommand);
-        AddButton(ActionsPanel, DifferencerStatusIcons.GetCustomIcon(69), "Reload", ReloadCommand);
+        AddButton(ActionsPanel, DifferencerStatusIcons.GetCustomIcon(69), StringOverlay.Get("Diff_Reload"), ReloadCommand);
         AddButton(FileNavigationPanel, DifferencerStatusIcons.GetCustomIcon(40), StringOverlay.Get("Diff_PreviousFile"),
             ViewModel.PreviousFileCommand);
         AddButton(FileNavigationPanel, DifferencerStatusIcons.GetCustomIcon(41), StringOverlay.Get("Diff_NextFile"),
@@ -853,7 +870,7 @@ internal sealed partial class DiffViewWindow
         {
             var bom = StatusIcon(115);
             bom.Opacity = document.HasBom ? 1 : 0.25;
-            bom.ToolTip = document.HasBom ? "BOM" : "No BOM";
+            bom.ToolTip = document.HasBom ? "BOM" : StringOverlay.Get("Diff_NoBom");
             panel.Children.Add(bom);
             var endings = document.Newlines;
             if (endings == "LF" || endings == "CRLF" || endings.Contains('/'))
@@ -865,7 +882,7 @@ internal sealed partial class DiffViewWindow
             else if (endings.Length == 0)
             {
                 var marker = StatusIcon(123);
-                marker.ToolTip = "No line endings / missing file";
+                marker.ToolTip = StringOverlay.Get("Diff_NoLineEndings");
                 panel.Children.Add(marker);
             }
             else
@@ -874,7 +891,7 @@ internal sealed partial class DiffViewWindow
                 {
                     Text = endings,
                     VerticalAlignment = VerticalAlignment.Center,
-                    ToolTip = "Line endings",
+                    ToolTip = StringOverlay.Get("Diff_LineEndings"),
                     Margin = new Thickness(4, 0, 0, 0)
                 });
             }
@@ -909,7 +926,7 @@ internal sealed partial class DiffViewWindow
 
         void Update(TextBlock label, string path)
         {
-            label.Text = string.IsNullOrEmpty(path) ? "(No file)" : System.IO.Path.GetFileName(path);
+            label.Text = string.IsNullOrEmpty(path) ? StringOverlay.Get("Diff_NoFileParen") : System.IO.Path.GetFileName(path);
             label.ToolTip = path;
         }
 
@@ -988,7 +1005,7 @@ internal sealed partial class DiffViewWindow
                     Margin = new Thickness(10, 0, 0, 0),
                     VerticalAlignment = VerticalAlignment.Center,
                     FontWeight = FontWeights.SemiBold,
-                    ToolTip = source ? "Source video duration" : "Target video duration"
+                    ToolTip = StringOverlay.Get(source ? "Diff_SourceDuration" : "Diff_TargetDuration")
                 };
                 duration.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
                 _videoDurationLabels[source ? 0 : 1] = duration;
@@ -1002,7 +1019,7 @@ internal sealed partial class DiffViewWindow
                         Text = FormatVideoFileSize(bytes),
                         Margin = new Thickness(10, 0, 0, 0),
                         VerticalAlignment = VerticalAlignment.Center,
-                        ToolTip = $"{bytes:N0} bytes"
+                        ToolTip = string.Format(StringOverlay.Get("Diff_SizeBytes"), bytes.ToString("N0"))
                     };
                     sizeLabel.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
                     header.Inlines.Add(
@@ -1078,17 +1095,17 @@ internal sealed partial class DiffViewWindow
     {
         switch (index)
         {
-            case 11: return "SAME";
-            case 12: return "MISS";
-            case 13: return "NEW";
-            case 14: return "OLD";
-            case 15: return "ONLY";
-            case 16: return "SIZE";
-            case 124: return "SMALL";
-            case 125: return "LARGE";
-            case 111: return "Source";
-            case 112: return "Target";
-            case 160: return "PATCH";
+            case 11: return StringOverlay.Get("Diff_IconSame");
+            case 12: return StringOverlay.Get("Diff_IconMissing");
+            case 13: return StringOverlay.Get("Diff_IconNew");
+            case 14: return StringOverlay.Get("Diff_IconOld");
+            case 15: return StringOverlay.Get("Diff_IconOnly");
+            case 16: return StringOverlay.Get("Diff_IconSize");
+            case 124: return StringOverlay.Get("Diff_IconSmall");
+            case 125: return StringOverlay.Get("Diff_IconLarge");
+            case 111: return StringOverlay.Get("Diff_SideSource");
+            case 112: return StringOverlay.Get("Diff_SideTarget");
+            case 160: return StringOverlay.Get("Diff_IconPatch");
             default: return string.Empty;
         }
     }
@@ -1186,7 +1203,7 @@ internal sealed partial class DiffViewWindow
                 {
                     var hint = new TextBlock
                     {
-                        Text = (column == 0 ? "Source" : "Target") + "\n" + StringOverlay.Get("Diff_DropHere"),
+                        Text = StringOverlay.Get(column == 0 ? "Diff_SideSource" : "Diff_SideTarget") + "\n" + StringOverlay.Get("Diff_DropHere"),
                         HorizontalAlignment = HorizontalAlignment.Center,
                         VerticalAlignment = VerticalAlignment.Center,
                         TextAlignment = TextAlignment.Center,
@@ -1204,7 +1221,7 @@ internal sealed partial class DiffViewWindow
             _leftList.PreviewMouseLeftButtonDown += DiffPane_PreviewMouseLeftButtonDown;
             _rightList.PreviewMouseLeftButtonDown += DiffPane_PreviewMouseLeftButtonDown;
             var finalCount = Math.Max(0L, 2L * Lines.Count - 1);
-            ShowLoadProgress("Preparing layout\u2026  " + finalCount + " / " + finalCount, 100);
+            ShowLoadProgress(string.Format(StringOverlay.Get("Diff_PreparingLayout"), finalCount, finalCount), 100);
             await Dispatcher.Yield(DispatcherPriority.ContextIdle);
             CheckWindowOpen();
             if (jumpToFirst && Hunks.Count > 0)
@@ -1441,7 +1458,7 @@ internal sealed partial class DiffViewWindow
                 CheckWindowOpen();
                 var completed = (sourceSide ? 0L : Lines.Count) + blockList.Count;
                 var total = Math.Max(0L, 2L * Lines.Count - 1);
-                ShowLoadProgress((sourceSide ? "Source" : "Target") + "  " + completed + " / " + total,
+                ShowLoadProgress(string.Format(StringOverlay.Get("Diff_LoadingSide"), StringOverlay.Get(sourceSide ? "Diff_SideSource" : "Diff_SideTarget"), completed, total),
                     100.0 * completed / Math.Max(1L, total));
                 if (blockList.Count == 0 || slice.ElapsedMilliseconds >= 16)
                 {
@@ -1467,7 +1484,7 @@ internal sealed partial class DiffViewWindow
             if (line.FilteredLineCount > 0)
             {
                 paragraph.Cursor = Cursors.Hand;
-                paragraph.ToolTip = "Click to expand unchanged lines";
+                paragraph.ToolTip = StringOverlay.Get("Diff_ExpandUnchanged");
                 // 隠れた行も字句解析だけ行い、複数行コメントなどの状態を次の行へ引き継ぐ。
                 if (HasLexState(language))
                     for (var i = 0; i < line.FilteredLineCount; i++)
@@ -1501,7 +1518,7 @@ internal sealed partial class DiffViewWindow
                 if (ViewModel.DifferencesOnly && line.Kind == DiffLineKind.Unchanged)
                 {
                     paragraph.Cursor = Cursors.Hand;
-                    paragraph.ToolTip = "Click to collapse unchanged lines";
+                    paragraph.ToolTip = StringOverlay.Get("Diff_CollapseUnchanged");
                 }
 
                 // Syntax highlighting uses text without display-only markers.
@@ -2382,7 +2399,7 @@ internal sealed partial class DiffViewWindow
             Maximum = 16,
             Value = 1,
             Width = 120,
-            ToolTip = "Shared zoom for Source and Target",
+            ToolTip = StringOverlay.Get("Diff_SharedZoomTip"),
             VerticalAlignment = VerticalAlignment.Center,
             Style = TryFindResource("ZoomSlider") as Style
         };
@@ -2497,13 +2514,13 @@ internal sealed partial class DiffViewWindow
             };
             zoomTitle.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
             chromeRow.Children.Add(zoomTitle);
-            chromeRow.Children.Add(ImageZoomStepButton("\uE738", "Zoom out", () =>
+            chromeRow.Children.Add(ImageZoomStepButton("\uE738", StringOverlay.Get("Diff_ZoomOut"), () =>
             {
                 fitToWindow = false;
                 zoom.Value = Math.Max(zoom.Minimum, zoom.Value / 1.25);
             }));
             chromeRow.Children.Add(zoom);
-            chromeRow.Children.Add(ImageZoomStepButton("\uE710", "Zoom in", () =>
+            chromeRow.Children.Add(ImageZoomStepButton("\uE710", StringOverlay.Get("Diff_ZoomIn"), () =>
             {
                 fitToWindow = false;
                 zoom.Value = Math.Min(zoom.Maximum, zoom.Value * 1.25);
@@ -2563,8 +2580,8 @@ internal sealed partial class DiffViewWindow
                 ApplyXorMode();
             }
 
-            AddXorButton(true, 137, "Source XOR mode");
-            AddXorButton(false, 138, "Target XOR mode");
+            AddXorButton(true, 137, StringOverlay.Get("Diff_SourceXor"));
+            AddXorButton(false, 138, StringOverlay.Get("Diff_TargetXor"));
             foreach (FrameworkElement button in buttons.Children)
                 button.Margin = new Thickness(0, 0, 2, 8);
             wrapper.Visibility = Visibility.Visible;
@@ -2658,9 +2675,9 @@ internal sealed partial class DiffViewWindow
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            frameRow.Children.Add(FrameStepButton("−", "Previous frame", -1));
+            frameRow.Children.Add(FrameStepButton("−", StringOverlay.Get("Diff_PreviousFrame"), -1));
             frameRow.Children.Add(frames);
-            frameRow.Children.Add(FrameStepButton("+", "Next frame", 1));
+            frameRow.Children.Add(FrameStepButton("+", StringOverlay.Get("Diff_NextFrame"), 1));
             framePanel.Children.Add(frameRow);
 
             // ウィンドウ内のどこにフォーカスがあっても左右キーでフレーム移動する。

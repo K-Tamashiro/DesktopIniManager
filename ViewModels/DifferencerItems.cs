@@ -1,4 +1,5 @@
-﻿using DesktopIniManager.Services;
+﻿using DesktopIniManager.Properties;
+using DesktopIniManager.Services;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -499,7 +500,7 @@ internal sealed class DiffSide : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            result.Dimensions = "Preview unavailable: " + ErrorMessages.English(ex);
+            result.Dimensions = string.Format(StringOverlay.Get("Differencer_TextPreviewUnavailable"), ErrorMessages.English(ex));
         }
 
         return result;

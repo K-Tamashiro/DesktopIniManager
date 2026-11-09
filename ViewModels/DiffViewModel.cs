@@ -132,7 +132,7 @@ internal sealed partial class DiffViewModel : ObservableObject
     internal int ImageFrameIndex { get; private set; }
 
     internal string ImageFrameDetails =>
-        $"Frame {ImageFrameIndex + 1}/{ImageFrameCount}  Source: {FrameDetails(_sourceGif)}  Target: {FrameDetails(_targetGif)}";
+        string.Format(StringOverlay.Get("Diff_FrameStatus"), ImageFrameIndex + 1, ImageFrameCount, FrameDetails(_sourceGif), FrameDetails(_targetGif));
 
     internal string SourceImageFormat { get; private set; }
     internal string TargetImageFormat { get; private set; }
@@ -196,10 +196,10 @@ internal sealed partial class DiffViewModel : ObservableObject
     private string FrameDetails(GifFrames gif)
     {
         return gif == null
-            ? "still"
+            ? StringOverlay.Get("Diff_FrameStill")
             : ImageFrameIndex >= gif.Count
-                ? $"missing ({gif.Count} frames)"
-                : $"{gif.DelayMilliseconds(ImageFrameIndex)} ms ({gif.Count} frames)";
+                ? string.Format(StringOverlay.Get("Diff_FrameMissing"), gif.Count)
+                : string.Format(StringOverlay.Get("Diff_FrameDelay"), gif.DelayMilliseconds(ImageFrameIndex), gif.Count);
     }
 
     /// <summary>
@@ -297,7 +297,7 @@ internal sealed partial class DiffViewModel : ObservableObject
             else
             {
                 var changed = _allLines.Take(designerCount).Any(row => row.Kind != DiffLineKind.Unchanged);
-                var label = $"— VB6 form designer: {designerCount} lines{(changed ? " / differences" : "")} —";
+                var label = string.Format(StringOverlay.Get(changed ? "Diff_DesignerHeaderChanged" : "Diff_DesignerHeader"), designerCount);
                 visible.Add(new DiffLine { Left = label, Right = label, FilteredLineCount = designerCount,
                     IsDesignerHeader = true, FilteredAnchor = _allLines[0] });
             }
@@ -440,7 +440,7 @@ internal sealed partial class DiffViewModel : ObservableObject
             {
                 await LoadTextAsync();
                 Status = IsEmpty ? StringOverlay.Get("Diff_DropHint")
-                    : Hunks.Count == 0 ? "Identical content"
+                    : Hunks.Count == 0 ? StringOverlay.Get("Diff_IdenticalContent")
                     : string.Format(StringOverlay.Get("Diff_HunkStatus"), Hunks.Count);
             }
 
@@ -471,7 +471,7 @@ internal sealed partial class DiffViewModel : ObservableObject
     /// </summary>
     private void ReportUnsupportedContent()
     {
-        _dialogs.Show(DiffMedia.BinaryMessage, "Diff View", MessageBoxButton.OK, MessageBoxImage.Information);
+        _dialogs.Show(DiffMedia.BinaryMessage, StringOverlay.Get("Diff_ViewCaption"), MessageBoxButton.OK, MessageBoxImage.Information);
         CloseRequested?.Invoke();
     }
 
@@ -624,7 +624,7 @@ internal sealed partial class DiffViewModel : ObservableObject
         Status = (IsEmpty ? StringOverlay.Get("Diff_DropHint")
                      : Hunks.Count == 0 ? StringOverlay.Get("Diff_Identical")
                      : string.Format(StringOverlay.Get("Diff_HunkStatus"), Hunks.Count)) +
-                 DecodingWarning(SourceText, "Source") + DecodingWarning(TargetText, "Target");
+                 DecodingWarning(SourceText, StringOverlay.Get("Diff_SideSource")) + DecodingWarning(TargetText, StringOverlay.Get("Diff_SideTarget"));
     }
 
     /// <summary>
@@ -635,7 +635,7 @@ internal sealed partial class DiffViewModel : ObservableObject
     /// <returns>警告文。問題がない場合は空文字列。</returns>
     private static string DecodingWarning(TextDocument document, string side) =>
         document?.DecodingErrorLine > 0
-            ? $" | {side}: undecodable Shift-JIS bytes from line {document.DecodingErrorLine} (shown as \uFFFD; saving is refused)"
+            ? " | " + string.Format(StringOverlay.Get("Diff_DecodingWarning"), side, document.DecodingErrorLine)
             : string.Empty;
 
     /// <summary>
@@ -757,7 +757,7 @@ internal sealed partial class DiffViewModel : ObservableObject
             return new TextDocument();
 
         if (stamp.Size > 8 * 1024 * 1024)
-            throw new IOException("Files over 8 MB should be opened in an external editor.");
+            throw new IOException(StringOverlay.Get("Err_FileTooLarge")).Localized();
 
         byte[] bytes;
 
@@ -771,7 +771,7 @@ internal sealed partial class DiffViewModel : ObservableObject
         {
             // Check the opened file too: it may have grown since the metadata read.
             if (stream.Length > 8 * 1024 * 1024)
-                throw new IOException("Files over 8 MB should be opened in an external editor.");
+                throw new IOException(StringOverlay.Get("Err_FileTooLarge")).Localized();
             bytes = new byte[stream.Length];
             stream.ReadExactly(bytes);
         }
@@ -892,7 +892,7 @@ internal sealed partial class DiffViewModel : ObservableObject
 
                 if (lines.Count > 100000)
                     throw new IOException(
-                        "Files over 100,000 lines should be opened in an external editor.");
+                        StringOverlay.Get("Err_FileTooManyLines")).Localized();
 
                 if (c == '\r' &&
                     i + 1 < text.Length &&
@@ -911,14 +911,14 @@ internal sealed partial class DiffViewModel : ObservableObject
                 c != '\b' &&
                 c != '\u001b' &&
                 c != '\u001a')
-                throw new IOException($"Unsupported control character U+{(int)c:X4} in '{path}' at line {lines.Count + 1}.");
+                throw new IOException(string.Format(StringOverlay.Get("Err_ControlCharacter"), ((int)c).ToString("X4"), path, lines.Count + 1)).Localized();
         }
 
         lines.Add(text[start..]);
 
         if (lines.Count > 100000)
             throw new IOException(
-                "Files over 100,000 lines should be opened in an external editor.");
+                StringOverlay.Get("Err_FileTooManyLines")).Localized();
 
         endings.Add(string.Empty);
         document.Lines = lines.ToArray();
@@ -1018,7 +1018,7 @@ internal sealed partial class DiffViewModel : ObservableObject
             if (IsPatch)
             {
                 if (PatchFiles.Any(file => file.HasUserEdits))
-                    throw new InvalidOperationException("Save or discard patch edits before reloading.");
+                    throw new InvalidOperationException(StringOverlay.Get("Err_PatchSaveBeforeReload")).Localized();
                 var root = PatchRoot;
                 _loadedPatchPath = null;
                 await LoadPatchAsync(GetPath(true));
@@ -1069,7 +1069,7 @@ internal sealed partial class DiffViewModel : ObservableObject
         {
             var path = GetPath(source);
             if (!System.IO.File.Exists(path))
-                throw new FileNotFoundException((source ? "Source" : "Target") + " file does not exist.");
+                throw new FileNotFoundException(StringOverlay.Get(source ? "Err_SourceFileMissing" : "Err_TargetFileMissing")).Localized();
 
             Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
         }
@@ -1088,11 +1088,11 @@ internal sealed partial class DiffViewModel : ObservableObject
         {
             var sourcePath = GetPath(true);
             var targetPath = GetPath(false);
-            if (!System.IO.File.Exists(sourcePath)) throw new FileNotFoundException("Source file does not exist.");
-            if (!System.IO.File.Exists(targetPath)) throw new FileNotFoundException("Target file does not exist.");
+            if (!System.IO.File.Exists(sourcePath)) throw new FileNotFoundException(StringOverlay.Get("Err_SourceFileMissing")).Localized();
+            if (!System.IO.File.Exists(targetPath)) throw new FileNotFoundException(StringOverlay.Get("Err_TargetFileMissing")).Localized();
 
             var command = (ExternalDiff ?? string.Empty).Trim();
-            if (command.Length == 0) throw new InvalidOperationException("External diff command is empty.");
+            if (command.Length == 0) throw new InvalidOperationException(StringOverlay.Get("Err_ExternalDiffEmpty")).Localized();
 
             ExternalDiffHistoryRequested?.Invoke();
 
@@ -1156,7 +1156,7 @@ internal sealed partial class DiffViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Status = "Unable to refresh external edit: " + ErrorMessages.English(ex);
+            Status = string.Format(StringOverlay.Get("Diff_ExternalRefreshFailed"), ErrorMessages.English(ex));
         }
         finally
         {
@@ -1190,7 +1190,7 @@ internal sealed partial class DiffViewModel : ObservableObject
         {
             var closingQuote = command.IndexOf('"', 1);
             if (closingQuote < 0)
-                throw new FormatException("The external diff executable path has an unmatched quote.");
+                throw new FormatException(StringOverlay.Get("Err_ExternalDiffQuote")).Localized();
             executable = command.Substring(1, closingQuote - 1);
             arguments = command.Substring(closingQuote + 1).TrimStart();
             return;

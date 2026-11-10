@@ -10,6 +10,7 @@
   <SolidColorBrush x:Key="Ink" Color="#2E2030" />
   <SolidColorBrush x:Key="Muted" Color="#756773" />
   <SolidColorBrush x:Key="Line" Color="#F5F5F5" />
+  <SolidColorBrush x:Key="DropZoneFrame" Color="#3C6FD7" />
   <SolidColorBrush x:Key="InputLine" Color="#C8B5C0" />
   <SolidColorBrush x:Key="Secondary" Color="#756773" />
   <SolidColorBrush x:Key="Danger" Color="#C62828" />

@@ -9,15 +9,16 @@ using System.Windows.Threading;
 namespace DesktopIniManager.Views;
 
 /// <summary>
-///     ファイルやフォルダーのドラッグ中に、ドロップできる場所へ点線枠を重ねて表示します。
+///     ファイルやフォルダーのドラッグ中に、ドロップされる場所へ点線枠を重ねて表示します。
 ///     枠は表示だけで、ドロップの受け付けや判定は変えません。
 /// </summary>
 internal sealed class DropZoneHighlight
 {
     private readonly Func<bool> _canShow;
     private readonly Dispatcher _dispatcher;
-    private readonly List<(AdornerLayer Layer, Adorner Adorner)> _shown = [];
-    private readonly (UIElement Element, Func<IEnumerable<Rect>> Areas)[] _zones;
+    private readonly Func<DragEventArgs, (UIElement Element, Rect[] Areas)> _resolve;
+    private AdornerLayer _layer;
+    private FrameAdorner _shown;
     private bool _leavePending;
 
     /// <summary>
@@ -25,38 +26,48 @@ internal sealed class DropZoneHighlight
     /// </summary>
     /// <param name="window">ドラッグを監視するウィンドウ。</param>
     /// <param name="canShow">現在ドロップを受け付けられるかどうかを返す処理。</param>
-    /// <param name="zones">枠を重ねる要素と、その中の枠の範囲。</param>
+    /// <param name="resolve">ドラッグ位置から、枠を重ねる要素とその中の枠の範囲を返す処理。範囲が null の場合は要素の全体。</param>
     private DropZoneHighlight(Window window, Func<bool> canShow,
-        (UIElement Element, Func<IEnumerable<Rect>> Areas)[] zones)
+        Func<DragEventArgs, (UIElement Element, Rect[] Areas)> resolve)
     {
         _canShow = canShow;
         _dispatcher = window.Dispatcher;
-        _zones = zones;
+        _resolve = resolve;
     }
 
     /// <summary>
-    ///     指定した要素の全体に枠を表示するよう、ウィンドウのドラッグ イベントに接続します。
-    /// </summary>
-    /// <param name="window">ドラッグを監視するウィンドウ。</param>
-    /// <param name="canShow">現在ドロップを受け付けられるかどうかを返す処理。</param>
-    /// <param name="elements">枠を重ねる要素。</param>
-    internal static void Attach(Window window, Func<bool> canShow, params UIElement[] elements)
-    {
-        Connect(window, new DropZoneHighlight(window, canShow,
-            elements.Select(element => (element, (Func<IEnumerable<Rect>>)(() => [new Rect(element.RenderSize)])))
-                .ToArray()));
-    }
-
-    /// <summary>
-    ///     1 つの要素の中の複数の範囲に枠を表示するよう、ウィンドウのドラッグ イベントに接続します。
+    ///     ドロップ先が 1 つの画面で、指定した要素の全体に枠を表示するよう、ウィンドウのドラッグ イベントに接続します。
     /// </summary>
     /// <param name="window">ドラッグを監視するウィンドウ。</param>
     /// <param name="canShow">現在ドロップを受け付けられるかどうかを返す処理。</param>
     /// <param name="element">枠を重ねる要素。</param>
-    /// <param name="areas">要素を基準にした枠の範囲を返す処理。</param>
-    internal static void Attach(Window window, Func<bool> canShow, UIElement element, Func<IEnumerable<Rect>> areas)
+    internal static void Attach(Window window, Func<bool> canShow, UIElement element)
     {
-        Connect(window, new DropZoneHighlight(window, canShow, [(element, areas)]));
+        Connect(window, new DropZoneHighlight(window, canShow, _ => (element, null)));
+    }
+
+    /// <summary>
+    ///     ドラッグ位置に応じて選んだ要素の全体に枠を表示するよう、ウィンドウのドラッグ イベントに接続します。
+    /// </summary>
+    /// <param name="window">ドラッグを監視するウィンドウ。</param>
+    /// <param name="canShow">現在ドロップを受け付けられるかどうかを返す処理。</param>
+    /// <param name="target">ドラッグ位置からドロップ先の要素を返す処理。</param>
+    internal static void Attach(Window window, Func<bool> canShow, Func<DragEventArgs, UIElement> target)
+    {
+        Connect(window, new DropZoneHighlight(window, canShow, e => (target(e), null)));
+    }
+
+    /// <summary>
+    ///     1 つの要素の中で、ドラッグ位置に応じた範囲に枠を表示するよう、ウィンドウのドラッグ イベントに接続します。
+    /// </summary>
+    /// <param name="window">ドラッグを監視するウィンドウ。</param>
+    /// <param name="canShow">現在ドロップを受け付けられるかどうかを返す処理。</param>
+    /// <param name="element">枠を重ねる要素。</param>
+    /// <param name="areas">ドラッグ位置から、要素を基準にした枠の範囲を返す処理。</param>
+    internal static void Attach(Window window, Func<bool> canShow, UIElement element,
+        Func<DragEventArgs, IEnumerable<Rect>> areas)
+    {
+        Connect(window, new DropZoneHighlight(window, canShow, e => (element, areas(e).ToArray())));
     }
 
     /// <summary>
@@ -73,7 +84,7 @@ internal sealed class DropZoneHighlight
     }
 
     /// <summary>
-    ///     ドラッグがウィンドウの上にある間、受け付けられるなら枠を表示し、受け付けられないなら消します。
+    ///     ドラッグがウィンドウの上にある間、受け付けられるならドロップ先に枠を表示し、受け付けられないなら消します。
     /// </summary>
     /// <param name="sender">イベントの送信元。</param>
     /// <param name="e">ドラッグ イベントのデータ。</param>
@@ -81,9 +92,14 @@ internal sealed class DropZoneHighlight
     {
         _leavePending = false;
         if (e.Data != null && e.Data.GetDataPresent(DataFormats.FileDrop) && _canShow())
-            Show();
+        {
+            var (element, areas) = _resolve(e);
+            Show(element, areas);
+        }
         else
+        {
             Hide();
+        }
     }
 
     /// <summary>
@@ -114,30 +130,36 @@ internal sealed class DropZoneHighlight
     }
 
     /// <summary>
-    ///     表示されている要素に枠を追加します。すでに表示中なら何もしません。
+    ///     指定した要素に枠を表示します。同じ要素と範囲ですでに表示中なら何もしません。
     /// </summary>
-    private void Show()
+    /// <param name="element">枠を重ねる要素。null の場合は枠を消します。</param>
+    /// <param name="areas">要素を基準にした枠の範囲。null の場合は要素の全体。</param>
+    private void Show(UIElement element, Rect[] areas)
     {
-        if (_shown.Count > 0) return;
-        foreach (var (element, areas) in _zones)
+        if (element == null || !element.IsVisible || areas is { Length: 0 })
         {
-            if (!element.IsVisible) continue;
-            var layer = AdornerLayer.GetAdornerLayer(element);
-            if (layer == null) continue;
-            var adorner = new FrameAdorner(element, areas);
-            layer.Add(adorner);
-            _shown.Add((layer, adorner));
+            Hide();
+            return;
         }
+
+        if (_shown != null && _shown.AdornedElement == element && _shown.HasAreas(areas)) return;
+        Hide();
+        var layer = AdornerLayer.GetAdornerLayer(element);
+        if (layer == null) return;
+        _shown = new FrameAdorner(element, areas);
+        _layer = layer;
+        layer.Add(_shown);
     }
 
     /// <summary>
-    ///     表示中の枠をすべて取り除きます。
+    ///     表示中の枠を取り除きます。
     /// </summary>
     private void Hide()
     {
-        foreach (var (layer, adorner) in _shown)
-            layer.Remove(adorner);
-        _shown.Clear();
+        if (_shown == null) return;
+        _layer.Remove(_shown);
+        _shown = null;
+        _layer = null;
     }
 
     /// <summary>
@@ -145,49 +167,73 @@ internal sealed class DropZoneHighlight
     /// </summary>
     private sealed class FrameAdorner : Adorner
     {
-        private const double Thickness = 1.5;
-        private const double Radius = 4;
-        private static readonly Pen UnderPen = CreatePen(Color.FromRgb(0x40, 0x40, 0x40), null);
-        private static readonly Pen DashPen = CreatePen(Colors.White, new DashStyle([3.0, 2.0], 0));
-        private readonly Func<IEnumerable<Rect>> _areas;
+        private const double Thickness = 2;
+        private const double Radius = 8;
+        private const double Inset = 2;
+        private static readonly DashStyle Dash = CreateDash();
+        private static readonly Brush FallbackBrush = CreateFallbackBrush();
+        private readonly Rect[] _areas;
 
         /// <summary>
         ///     アドーナーを作成します。
         /// </summary>
         /// <param name="element">枠を重ねる要素。</param>
-        /// <param name="areas">枠の範囲を返す処理。</param>
-        internal FrameAdorner(UIElement element, Func<IEnumerable<Rect>> areas) : base(element)
+        /// <param name="areas">要素を基準にした枠の範囲。null の場合は要素の全体。</param>
+        internal FrameAdorner(UIElement element, Rect[] areas) : base(element)
         {
             _areas = areas;
             IsHitTestVisible = false;
         }
 
         /// <summary>
-        ///     枠の線を作ります。
+        ///     表示中の範囲が指定した範囲と同じかどうかを判定します。
         /// </summary>
-        /// <param name="color">線の色。</param>
-        /// <param name="dashStyle">破線の形式。実線の場合は null。</param>
-        /// <returns>凍結した線。</returns>
-        private static Pen CreatePen(Color color, DashStyle dashStyle)
+        /// <param name="areas">比べる範囲。null の場合は要素の全体。</param>
+        /// <returns>同じ場合は true。</returns>
+        internal bool HasAreas(Rect[] areas)
         {
-            var pen = new Pen(new SolidColorBrush(color), Thickness);
-            if (dashStyle != null) pen.DashStyle = dashStyle;
-            pen.Freeze();
-            return pen;
+            if (_areas == null || areas == null) return _areas == null && areas == null;
+            return _areas.SequenceEqual(areas);
         }
 
         /// <summary>
-        ///     Light テーマでも見えるよう、濃い色の実線の上に白い点線を重ねて描きます。
+        ///     枠の破線の形式を作ります。長さは線の太さの倍数で、5 描いて 3 空けます (ResourceHackerReplacer と同じ)。
+        /// </summary>
+        /// <returns>凍結した破線の形式。</returns>
+        private static DashStyle CreateDash()
+        {
+            var dash = new DashStyle([5.0, 3.0], 0);
+            dash.Freeze();
+            return dash;
+        }
+
+        /// <summary>
+        ///     テーマに枠の色がない場合に使う色を作ります。
+        /// </summary>
+        /// <returns>凍結したブラシ。</returns>
+        private static Brush CreateFallbackBrush()
+        {
+            var brush = new SolidColorBrush(Color.FromRgb(0x5B, 0x86, 0xE5));
+            brush.Freeze();
+            return brush;
+        }
+
+        /// <summary>
+        ///     テーマの枠の色で、範囲の内側に角丸の点線を描きます。範囲が小さい場合は角丸を小さくします。
         /// </summary>
         /// <param name="drawingContext">描画先。</param>
         protected override void OnRender(DrawingContext drawingContext)
         {
-            foreach (var area in _areas())
+            var brush = TryFindResource("DropZoneFrame") as Brush ?? FallbackBrush;
+            var pen = new Pen(brush, Thickness) { DashStyle = Dash };
+            pen.Freeze();
+            foreach (var area in _areas ?? [new Rect(AdornedElement.RenderSize)])
             {
-                if (area.Width <= 2 || area.Height <= 2) continue;
-                var frame = new Rect(area.X + 1, area.Y + 1, area.Width - 2, area.Height - 2);
-                drawingContext.DrawRoundedRectangle(null, UnderPen, frame, Radius, Radius);
-                drawingContext.DrawRoundedRectangle(null, DashPen, frame, Radius, Radius);
+                if (area.Width <= Inset * 2 || area.Height <= Inset * 2) continue;
+                var frame = new Rect(area.X + Inset, area.Y + Inset, area.Width - Inset * 2,
+                    area.Height - Inset * 2);
+                var radius = Math.Min(Radius, Math.Min(frame.Width, frame.Height) / 4);
+                drawingContext.DrawRoundedRectangle(null, pen, frame, radius, radius);
             }
         }
     }

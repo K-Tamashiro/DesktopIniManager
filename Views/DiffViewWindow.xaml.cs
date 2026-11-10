@@ -611,19 +611,53 @@ internal sealed partial class DiffViewWindow
     }
 
     /// <summary>
-    ///     ドラッグ中に点線枠を表示する範囲を取得します。ドロップ先の判定と同じく、音声は上下、それ以外は左右に分けます。
+    ///     ドロップ先の点線枠を、ペインの端から内側へ寄せる幅です。点線自体の余白 2px と合わせて、端から 8px の位置に描きます。
     /// </summary>
-    /// <returns>Body を基準にした Source 側と Target 側の範囲。</returns>
-    private IEnumerable<Rect> DropAreas()
+    private const double DropFrameInset = 6;
+
+    /// <summary>
+    ///     ドラッグ中に点線枠を表示する範囲を取得します。ドロップ先の判定と同じく、音声は上下、それ以外は左右に分け、
+    ///     ドロップされる側だけを返します。2 ファイルは両側、3 ファイル以上は受け付けないため枠なしです。
+    /// </summary>
+    /// <param name="e">ドラッグ イベントのデータ。</param>
+    /// <returns>Body を基準にした、ドロップされる側の範囲。</returns>
+    private IEnumerable<Rect> DropAreas(DragEventArgs e)
     {
+        var count = (e.Data.GetData(DataFormats.FileDrop) as string[])?.Length ?? 0;
+        if (count is 0 or > 2) return [];
         var width = Body.ActualWidth;
         var height = Body.ActualHeight;
+        Rect source, target;
         if (ViewModel.IsAudio)
-            return [new Rect(0, 0, width, height / 2), new Rect(0, height / 2, width, height / 2)];
+        {
+            source = new Rect(0, 0, width, height / 2);
+            target = new Rect(0, height / 2, width, height / 2);
+        }
+        else
+        {
+            // FileDrop と同じく中央で左右に分け、中央のマップ列には枠を掛けない。
+            var side = Math.Max(0, (width - MapColumn.ActualWidth) / 2);
+            source = new Rect(0, 0, side, height);
+            target = new Rect(width - side, 0, side, height);
+        }
 
-        // FileDrop と同じく中央で左右に分け、中央のマップ列には枠を掛けない。
-        var side = Math.Max(0, (width - MapColumn.ActualWidth) / 2);
-        return [new Rect(0, 0, side, height), new Rect(width - side, 0, side, height)];
+        // ペインの色付きの外枠 (テキストと画像は 5px、音声は 3px) と重ならないよう、その内側に描く。
+        source.Inflate(-DropFrameInset, -DropFrameInset);
+        target.Inflate(-DropFrameInset, -DropFrameInset);
+        if (count == 2) return [source, target];
+        return [IsSourceDrop(e) ? source : target];
+    }
+
+    /// <summary>
+    ///     ドラッグ位置が比較元へのドロップになるかどうかを判定します。音声は上半分、それ以外は左半分です。
+    /// </summary>
+    /// <param name="e">ドラッグ イベントのデータ。</param>
+    /// <returns>比較元へのドロップの場合は true。</returns>
+    private bool IsSourceDrop(DragEventArgs e)
+    {
+        return ViewModel.IsAudio
+            ? e.GetPosition(Body).Y < Body.ActualHeight / 2
+            : e.GetPosition(Body).X < Body.ActualWidth / 2;
     }
 
     /// <summary>
@@ -657,9 +691,7 @@ internal sealed partial class DiffViewWindow
         }
 
         if (!await ConfirmTextChangesAsync()) return;
-        var sourceSide = ViewModel.IsAudio
-            ? e.GetPosition(Body).Y < Body.ActualHeight / 2
-            : e.GetPosition(Body).X < Body.ActualWidth / 2;
+        var sourceSide = IsSourceDrop(e);
         var accepted = false;
         SetRendering(true);
         try

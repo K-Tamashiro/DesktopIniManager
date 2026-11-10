@@ -123,7 +123,7 @@ public partial class DeveloperDifferencerWindow
             ViewModel.Close();
         };
         AllowDrop = true;
-        DropZoneHighlight.Attach(this, () => !_zipDragging, SourceBox, TargetBox);
+        DropZoneHighlight.Attach(this, () => !_zipDragging, e => IsTargetDrop(e) ? TargetBox : SourceBox);
         PreviewDragEnter += FolderDropPreview;
         PreviewDragOver += FolderDropPreview;
         PreviewDrop += Differencer_Drop;
@@ -218,9 +218,7 @@ public partial class DeveloperDifferencerWindow
         List<string> folders = FoldersFromDrop(e.Data);
         if (folders.Count == 0) return;
 
-        Point point = e.GetPosition(this);
-        bool toTarget = IsOver(TargetBox, point) || (!IsOver(SourceBox, point) && point.X >= ActualWidth / 2.0);
-        if (toTarget)
+        if (IsTargetDrop(e))
         {
             ViewModel.ApplyRootPath(false, folders[0]);
             ViewModel.CancelTargetHistoryMatch();
@@ -233,6 +231,17 @@ public partial class DeveloperDifferencerWindow
             SourceBox.CommitHistory();
         }
         e.Handled = true;
+    }
+
+    /// <summary>
+    ///     ドラッグ位置が比較先へのドロップになるかどうかを判定します。比較先の欄の上、または比較元の欄の外でウィンドウの右半分にある場合です。
+    /// </summary>
+    /// <param name="e">ドラッグ イベントのデータ。</param>
+    /// <returns>比較先へのドロップの場合は true。</returns>
+    private bool IsTargetDrop(DragEventArgs e)
+    {
+        Point point = e.GetPosition(this);
+        return IsOver(TargetBox, point) || (!IsOver(SourceBox, point) && point.X >= ActualWidth / 2.0);
     }
 
     /// <summary>
